@@ -1,0 +1,12 @@
+-- Corrective fix (same session as the RPC's own creation, before any other
+-- work proceeds): the initial migration's `revoke all ... from public` did
+-- NOT remove `anon`'s own EXECUTE grant, because this project's public
+-- schema has a default-privileges rule that grants EXECUTE on newly
+-- created functions directly to `anon` (a separate, explicit grant, not
+-- inherited via PUBLIC) -- confirmed live via pg_proc.proacl showing
+-- `anon=X/postgres` even after the PUBLIC revoke, and confirmed this is
+-- NOT how the sibling RPCs materialize_repair_orders_from_session /
+-- approve_wdd_matcher_session ended up (their own proacl has no anon
+-- entry at all). Explicitly revoking from anon here matches those two
+-- RPCs' real live grant shape exactly.
+revoke all on function public.attach_repair_order_line_movement(uuid, uuid, uuid, numeric, text) from anon;

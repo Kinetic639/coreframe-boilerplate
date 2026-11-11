@@ -2,7 +2,7 @@
 
 import React, { useCallback, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -26,11 +26,12 @@ import {
 import { DataViewDetail } from "./data-view-detail";
 import { DataViewFilters } from "./data-view-filters";
 import { DataViewSearchControl } from "./data-view-search-control";
+import { invalidateDataViewEntity } from "./data-view-query-keys";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 function DataViewMobileToolbar() {
-  const { renderToolbarControls, queryKey } = useDataViewStatic();
+  const { renderToolbarControls, entity, scope } = useDataViewStatic();
   const { listIsTransitioning } = useDataViewList();
   const {
     selectedRowCount,
@@ -43,8 +44,8 @@ function DataViewMobileToolbar() {
   const t = useTranslations("dataView");
 
   const handleRefresh = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey });
-  }, [queryClient, queryKey]);
+    void invalidateDataViewEntity(queryClient, entity, scope);
+  }, [queryClient, entity, scope]);
 
   return (
     <div className="shrink-0 border-b bg-background">
@@ -105,17 +106,18 @@ function DataViewMobilePagination() {
   const t = useTranslations("dataView");
 
   const totalPages = keepOnlySelected ? 1 : Math.max(1, Math.ceil(totalCount / pageSize));
-  const pageDisplay = keepOnlySelected ? 1 : page;
+  const validPage = keepOnlySelected ? 1 : Math.min(Math.max(page, 1), totalPages);
+  const pageDisplay = validPage;
   const from = keepOnlySelected
     ? selectedRowCount === 0
       ? 0
       : 1
     : totalCount === 0
       ? 0
-      : (page - 1) * pageSize + 1;
-  const to = keepOnlySelected ? selectedRowCount : Math.min(page * pageSize, totalCount);
-  const canPrev = !keepOnlySelected && page > 1;
-  const canNext = !keepOnlySelected && page < totalPages;
+      : (validPage - 1) * pageSize + 1;
+  const to = keepOnlySelected ? selectedRowCount : Math.min(validPage * pageSize, totalCount);
+  const canPrev = !keepOnlySelected && validPage > 1;
+  const canNext = !keepOnlySelected && validPage < totalPages;
 
   const handleMeaningfulInteraction = () => {
     if (returnHighlightId) clearReturnHighlight();
@@ -161,7 +163,7 @@ function DataViewMobilePagination() {
             className="h-9 w-9"
             onClick={() => {
               handleMeaningfulInteraction();
-              urlState.setPage(page - 1);
+              urlState.setPage(validPage - 1);
             }}
             disabled={!canPrev}
             aria-label={t("pagination.previousPageAria")}
@@ -177,7 +179,7 @@ function DataViewMobilePagination() {
             className="h-9 w-9"
             onClick={() => {
               handleMeaningfulInteraction();
-              urlState.setPage(page + 1);
+              urlState.setPage(validPage + 1);
             }}
             disabled={!canNext}
             aria-label={t("pagination.nextPageAria")}
@@ -269,7 +271,7 @@ function DataViewMobileCard<TRow>({ row }: { row: TRow }) {
 function DataViewMobileList() {
   const { getRowId } = useDataViewStatic();
   const { urlState } = useDataViewUrl();
-  const { listData, listIsLoading, listIsTransitioning } = useDataViewList();
+  const { listData, listIsLoading, listIsTransitioning, listError } = useDataViewList();
   const { keepOnlySelected, isRowSelected } = useDataViewSelection();
   const { returnHighlightId, clearReturnHighlight } = useDataViewDetail();
   const t = useTranslations("dataView");
@@ -294,7 +296,14 @@ function DataViewMobileList() {
       onKeyDownCapture={handleMeaningfulInteraction}
       data-testid="data-view-mobile-list"
     >
-      {listIsTransitioning || listIsLoading ? (
+      {listIsTransitioning ? (
+        <div
+          className="absolute inset-x-0 top-0 z-20 h-0.5 animate-pulse bg-primary/60"
+          role="status"
+          aria-label={t("table.updating")}
+        />
+      ) : null}
+      {listIsLoading ? (
         <div className="space-y-2" aria-label={t("mobile.loadingAria")}>
           {Array.from({ length: Math.min(Math.max(listData.pageSize, 1), 8) }).map((_, index) => (
             <div key={index} className="rounded-md border bg-card p-3">
@@ -303,6 +312,13 @@ function DataViewMobileList() {
               <Skeleton className="mt-2 h-3 w-1/2" />
             </div>
           ))}
+        </div>
+      ) : listError ? (
+        <div
+          className="flex min-h-40 items-center justify-center rounded-md border bg-card p-6 text-center text-sm text-destructive"
+          role="alert"
+        >
+          {t("table.error")}
         </div>
       ) : visibleRows.length === 0 ? (
         <div className="flex min-h-40 items-center justify-center rounded-md border bg-card p-6 text-center text-sm text-muted-foreground">

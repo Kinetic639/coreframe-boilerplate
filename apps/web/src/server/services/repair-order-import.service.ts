@@ -1,0 +1,560 @@
+import "server-only";
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { BranchWarehousesService } from "./branch-warehouses.service";
+import {
+  normalizeRepairOrderNumber,
+  parseRepairOrderNumber,
+  repairOrderNumberKey,
+} from "@/lib/workshop/repair-order-number";
+import { svwmsWddMatcherRepairOrderImportAdapter } from "./repair-order-import-adapters/svwms-wdd-matcher.adapter";
+import type {
+  CanonicalRepairOrderImportOrder,
+  RepairOrderImportSourceAdapter,
+  RepairOrderImportSourceField,
+  ServiceResult,
+} from "./repair-order-import-adapters/types";
+
+export type { RepairOrderImportSourceField } from "./repair-order-import-adapters/types";
+
+/**
+ * Generic repair-order import (Workshop). A source adapter turns its data
+ * into canonical orders; `preview` verifies them against what exists
+ * (existing / new / conflict, per part); `apply` creates the selected
+ * ones through `repair_orders_import`. The PZ import reuses the same
+ * preview/apply for the Matcher session it receives.
+ */
+
+const adapters: RepairOrderImportSourceAdapter[] = [svwmsWddMatcherRepairOrderImportAdapter];
+
+/**
+ * Jednostka of an order: from its ZW (ZW/806/26/3252), else from the ZL number's 4th part.
+ * The ZL part is not always a jednostka, so ZW wins (docs/WAREHOUSE_UNITS_PLAN.md).
+ */
+function orderUnitCode(
+  parts: Array<Pick<CanonicalRepairOrderImportOrder, "unitCode" | "zlNumber">>
+): string | null {
+  return (
+    parts.find((p) => p.unitCode)?.unitCode ??
+    parseRepairOrderNumber(parts[0]?.zlNumber ?? null)?.warehouseCode ??
+    null
+  );
+}
+
+/** Jednostki of the branch, and the branch of every jednostka in the organization. */
+async function unitScope(supabase: SupabaseClient, orgId: string, branchId: string) {
+  const [units, branches] = await Promise.all([
+    BranchWarehousesService.list(supabase, orgId, null),
+    supabase
+      .from("branches")
+      .select("id, name")
+      .eq("organization_id", orgId)
+      .is("deleted_at", null),
+  ]);
+  const all = units.success ? units.data : [];
+  const branchName = new Map(
+    ((branches.data ?? []) as Array<{ id: string; name: string }>).map((b) => [b.id, b.name])
+  );
+  const own = new Set(all.filter((u) => u.branchId === branchId).map((u) => u.code));
+  const owner = new Map(all.map((u) => [u.code, branchName.get(u.branchId) ?? null]));
+  /** null = fine; otherwise why the jednostka cannot be imported here */
+  const check = (code: string | null) => {
+    if (own.size === 0 || code === null || own.has(code)) return null;
+    return owner.has(code)
+      ? {
+          reason: "unit_in_other_branch" as const,
+          unitCode: code,
+          branchName: owner.get(code) ?? null,
+        }
+      : { reason: "unit_unknown" as const, unitCode: code, branchName: null };
+  };
+  return { check };
+}
+
+export type RepairOrderImportSource = {
+  sourceType: string;
+  label: string;
+  description: string;
+  fields: RepairOrderImportSourceField[];
+};
+
+export type RepairOrderImportLineState =
+  /** Not on the order yet: will be added. */
+  | "new"
+  /** On the order already; this import adds its quantity (new source line). */
+  | "adds_quantity"
+  /** On the order already; nothing changes. */
+  | "on_order"
+  /** This exact source line was imported before. */
+  | "already_imported";
+
+export type RepairOrderImportPreviewOrder = {
+  zlNumber: string | null;
+  status: "new" | "existing" | "conflict";
+  conflictReason:
+    | "missing_zl"
+    | "repair_order_closed"
+    | "repair_order_archived"
+    | "unit_in_other_branch"
+    | "unit_unknown"
+    | null;
+  /** Jednostka of the order (from ZW, else from the ZL number), e.g. 3252. */
+  warehouseCode: string | null;
+  /** For a jednostka conflict: the jednostka and the branch it belongs to, if any. */
+  conflictDetail: { unitCode: string; branchName: string | null } | null;
+  repairOrderId: string | null;
+  /**
+   * The same document (ZL, ZW and the same lines) was already imported in
+   * another Matcher session: its name. Nothing is added again.
+   */
+  alreadyImportedIn: string | null;
+  orderNumber: string | null;
+  vin: string | null;
+  vehicleBrand: string | null;
+  clientName: string | null;
+  /** True when importing this order changes anything. */
+  willChange: boolean;
+  lines: Array<{
+    productCode: string | null;
+    productName: string | null;
+    quantity: number | null;
+    unit: string | null;
+    state: RepairOrderImportLineState;
+  }>;
+};
+
+export type RepairOrderImportPreview = {
+  sourceType: string;
+  orders: RepairOrderImportPreviewOrder[];
+  counts: { new: number; existing: number; conflict: number; unchanged: number };
+};
+
+export type RepairOrderImportResult = {
+  created: number;
+  updated: number;
+  unchanged: number;
+  conflicts: number;
+};
+
+export function normalizeProductCode(code: string | null | undefined): string | null {
+  const value = (code ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  return value || null;
+}
+
+function serviceError(result: { success: boolean }) {
+  return (result as { success: false; error: string }).error;
+}
+
+/** Orders of one ZL can span several source blocks; verify them as one. */
+function groupByZl(orders: CanonicalRepairOrderImportOrder[]) {
+  const groups = new Map<string, CanonicalRepairOrderImportOrder[]>();
+  const missing: CanonicalRepairOrderImportOrder[] = [];
+  for (const order of orders) {
+    if (!order.zlNumber) {
+      missing.push(order);
+      continue;
+    }
+    const zl = normalizeRepairOrderNumber(order.zlNumber);
+    const list = groups.get(zl) ?? [];
+    list.push({ ...order, zlNumber: zl });
+    groups.set(zl, list);
+  }
+  return { groups, missing };
+}
+
+export class RepairOrderImportService {
+  static getAdapter(sourceType: string) {
+    return adapters.find((adapter) => adapter.sourceType === sourceType) ?? null;
+  }
+
+  static async listSources(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string
+  ): Promise<ServiceResult<RepairOrderImportSource[]>> {
+    const sources: RepairOrderImportSource[] = [];
+    for (const adapter of adapters) {
+      const fields = await adapter.loadSourceFields(supabase, orgId, branchId);
+      if (!fields.success) return { success: false, error: serviceError(fields) };
+      sources.push({
+        sourceType: adapter.sourceType,
+        label: adapter.label,
+        description: adapter.description,
+        fields: fields.data,
+      });
+    }
+    return { success: true, data: sources };
+  }
+
+  static async loadOrders(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
+    sourceType: string,
+    sourceInput: Record<string, unknown>
+  ): Promise<ServiceResult<CanonicalRepairOrderImportOrder[]>> {
+    const adapter = this.getAdapter(sourceType);
+    if (!adapter) return { success: false, error: "Nieobsługiwane źródło importu" };
+    return adapter.loadOrders(supabase, orgId, branchId, sourceInput);
+  }
+
+  static async preview(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
+    sourceType: string,
+    sourceInput: Record<string, unknown>
+  ): Promise<ServiceResult<RepairOrderImportPreview>> {
+    const loaded = await this.loadOrders(supabase, orgId, branchId, sourceType, sourceInput);
+    if (!loaded.success) return { success: false, error: serviceError(loaded) };
+    const { groups, missing } = groupByZl(loaded.data);
+    const zlNumbers = [...groups.keys()];
+
+    const orderNos = [
+      ...new Set(
+        zlNumbers.map((zl) => parseRepairOrderNumber(zl)?.orderNo).filter((n): n is string => !!n)
+      ),
+    ];
+    const [byNumber, byParts, units] = await Promise.all([
+      zlNumbers.length
+        ? supabase
+            .from("repair_orders")
+            .select("id, zl_number, status")
+            .eq("organization_id", orgId)
+            .eq("branch_id", branchId)
+            .in("zl_number", zlNumbers)
+            .is("deleted_at", null)
+        : Promise.resolve({ data: [], error: null }),
+      // Same warehouse + number + year written differently (e.g. case, spacing).
+      orderNos.length
+        ? supabase
+            .from("repair_orders")
+            .select("id, zl_number, status")
+            .eq("organization_id", orgId)
+            .eq("branch_id", branchId)
+            .in("order_no", orderNos)
+            .is("deleted_at", null)
+        : Promise.resolve({ data: [], error: null }),
+      unitScope(supabase, orgId, branchId),
+    ]);
+    if (byNumber.error || byParts.error) {
+      return { success: false, error: "Nie udało się sprawdzić istniejących zleceń" };
+    }
+    type RoRow = { id: string; zl_number: string; status: string };
+    const roByKey = new Map<string, RoRow>();
+    for (const r of [...((byParts.data ?? []) as RoRow[]), ...((byNumber.data ?? []) as RoRow[])]) {
+      roByKey.set(repairOrderNumberKey(r.zl_number) ?? r.zl_number, r);
+    }
+    const roByZl = new Map<string, RoRow>();
+    for (const zl of zlNumbers) {
+      const r = roByKey.get(repairOrderNumberKey(zl) ?? zl);
+      if (r) roByZl.set(zl, r);
+    }
+
+    const roIds = [...roByZl.values()].map((r) => r.id);
+    const { data: lineRows } = roIds.length
+      ? await supabase
+          .from("repair_order_lines")
+          .select("repair_order_id, product_code")
+          .in("repair_order_id", roIds)
+          .is("deleted_at", null)
+      : { data: [] };
+    const codesByRo = new Map<string, Set<string>>();
+    for (const row of (lineRows ?? []) as Array<{
+      repair_order_id: string;
+      product_code: string | null;
+    }>) {
+      const code = normalizeProductCode(row.product_code);
+      if (!code) continue;
+      const set = codesByRo.get(row.repair_order_id) ?? new Set<string>();
+      set.add(code);
+      codesByRo.set(row.repair_order_id, set);
+    }
+
+    const matcherLineIds = loaded.data.flatMap((o) =>
+      o.lines.map((l) => l.matcherLineId).filter((id): id is string => !!id)
+    );
+    const { data: importedRows } = matcherLineIds.length
+      ? await supabase
+          .from("workshop_source_document_lines")
+          .select("wdd_matcher_line_id")
+          .in("wdd_matcher_line_id", matcherLineIds)
+      : { data: [] };
+    const imported = new Set(
+      ((importedRows ?? []) as Array<{ wdd_matcher_line_id: string | null }>)
+        .map((r) => r.wdd_matcher_line_id)
+        .filter((id): id is string => !!id)
+    );
+
+    // The same document already imported in another session (same ZL, same
+    // ZW number of its Matcher block, same lines) -- the import skips it.
+    const duplicateOf = await findImportedDocuments(supabase, orgId, branchId, loaded.data);
+
+    const orders: RepairOrderImportPreviewOrder[] = [];
+    for (const [zl, parts] of groups) {
+      const ro = roByZl.get(zl) ?? null;
+      const first = parts[0];
+      const existingCodes = new Set(ro ? (codesByRo.get(ro.id) ?? []) : []);
+      const warehouseCode = orderUnitCode(parts);
+      // With jednostki configured for the branch, an order of another jednostka (of another
+      // branch, or unknown) is never imported here.
+      const unitProblem = units.check(warehouseCode);
+      const wrongBranch = unitProblem !== null;
+      const conflict = wrongBranch || (ro && ro.status !== "open");
+      const alreadyImportedIn =
+        parts.map((part) => duplicateOf.get(part.key)).find((name) => name !== undefined) ?? null;
+      const lines = parts.flatMap((part) =>
+        part.lines.map((line) => {
+          const code = normalizeProductCode(line.productCode);
+          let state: RepairOrderImportLineState;
+          if (duplicateOf.has(part.key)) state = "already_imported";
+          else if (line.matcherLineId && imported.has(line.matcherLineId))
+            state = "already_imported";
+          else if (code && existingCodes.has(code))
+            state = line.matcherLineId ? "adds_quantity" : "on_order";
+          else state = "new";
+          if (code && state === "new") existingCodes.add(code);
+          return {
+            productCode: line.productCode,
+            productName: line.productName,
+            quantity: line.quantity,
+            unit: line.unit,
+            state,
+          };
+        })
+      );
+      const changesLines = lines.some(
+        (l) => (l.state === "new" || l.state === "adds_quantity") && (l.quantity ?? 0) > 0
+      );
+      orders.push({
+        zlNumber: zl,
+        status: conflict ? "conflict" : ro ? "existing" : "new",
+        conflictReason: unitProblem
+          ? unitProblem.reason
+          : conflict && ro
+            ? ro.status === "archived"
+              ? "repair_order_archived"
+              : "repair_order_closed"
+            : null,
+        warehouseCode,
+        conflictDetail: unitProblem
+          ? { unitCode: unitProblem.unitCode, branchName: unitProblem.branchName }
+          : null,
+        repairOrderId: ro?.id ?? null,
+        alreadyImportedIn,
+        orderNumber: first.orderNumber,
+        vin: first.vin,
+        vehicleBrand: first.vehicleBrand,
+        clientName: first.clientName,
+        willChange: !conflict && (!ro || changesLines),
+        lines,
+      });
+    }
+    for (const order of missing) {
+      orders.push({
+        zlNumber: null,
+        status: "conflict",
+        conflictReason: "missing_zl",
+        warehouseCode: null,
+        conflictDetail: null,
+        repairOrderId: null,
+        alreadyImportedIn: null,
+        orderNumber: order.orderNumber,
+        vin: order.vin,
+        vehicleBrand: order.vehicleBrand,
+        clientName: order.clientName,
+        willChange: false,
+        lines: order.lines.map((line) => ({
+          productCode: line.productCode,
+          productName: line.productName,
+          quantity: line.quantity,
+          unit: line.unit,
+          state: "new" as const,
+        })),
+      });
+    }
+
+    orders.sort((a, b) =>
+      (a.zlNumber ?? "￿").localeCompare(b.zlNumber ?? "￿", "pl", { numeric: true })
+    );
+    return {
+      success: true,
+      data: {
+        sourceType,
+        orders,
+        counts: {
+          new: orders.filter((o) => o.status === "new").length,
+          existing: orders.filter((o) => o.status === "existing").length,
+          conflict: orders.filter((o) => o.status === "conflict").length,
+          unchanged: orders.filter((o) => o.status === "existing" && !o.willChange).length,
+        },
+      },
+    };
+  }
+
+  /**
+   * Create/update the selected ZLs. The orders are re-read from the source
+   * on the server -- the client only says which ZLs.
+   */
+  static async apply(
+    supabase: SupabaseClient,
+    input: {
+      actorUserId: string;
+      organizationId: string;
+      branchId: string;
+      sourceType: string;
+      sourceInput: Record<string, unknown>;
+      zlNumbers: string[];
+    }
+  ): Promise<ServiceResult<RepairOrderImportResult>> {
+    const loaded = await this.loadOrders(
+      supabase,
+      input.organizationId,
+      input.branchId,
+      input.sourceType,
+      input.sourceInput
+    );
+    if (!loaded.success) return { success: false, error: serviceError(loaded) };
+    const wanted = new Set(input.zlNumbers.map(normalizeRepairOrderNumber));
+    const orders = loaded.data
+      .filter((o) => o.zlNumber && wanted.has(normalizeRepairOrderNumber(o.zlNumber)))
+      .map((o) => ({ ...o, zlNumber: normalizeRepairOrderNumber(o.zlNumber!) }));
+    if (orders.length === 0) return { success: false, error: "Nie wybrano żadnego zlecenia" };
+    const units = await unitScope(supabase, input.organizationId, input.branchId);
+    if (orders.some((o) => units.check(orderUnitCode([o])) !== null)) {
+      return { success: false, error: "unit_not_in_branch" };
+    }
+
+    const { data, error } = await supabase.rpc("repair_orders_import", {
+      p_actor_user_id: input.actorUserId,
+      p_organization_id: input.organizationId,
+      p_branch_id: input.branchId,
+      p_orders: orders.map((o) => ({
+        zl_number: o.zlNumber,
+        order_number: o.orderNumber,
+        vin: o.vin,
+        vehicle_brand: o.vehicleBrand,
+        client_name: o.clientName,
+        dealer_name: o.dealerName,
+        source: o.source ? { session_id: o.source.sessionId, block_id: o.source.blockId } : null,
+        lines: o.lines.map((l) => ({
+          product_code: l.productCode,
+          product_name: l.productName,
+          quantity: l.quantity,
+          unit: l.unit,
+          raw_text: l.rawText,
+          matcher_line_id: l.matcherLineId,
+        })),
+      })),
+    });
+    if (error) {
+      if (error.code === "28000" || error.code === "42501") {
+        return { success: false, error: "unauthorized" };
+      }
+      console.error("[RepairOrderImportService.apply] repair_orders_import failed:", error);
+      return { success: false, error: "unexpected" };
+    }
+    const r = (data ?? {}) as Record<string, unknown>;
+    return {
+      success: true,
+      data: {
+        created: Number(r.created ?? 0),
+        updated: Number(r.updated ?? 0),
+        unchanged: Number(r.unchanged ?? 0),
+        conflicts: Number(r.conflicts ?? 0),
+      },
+    };
+  }
+}
+
+/** Code:quantity list of a document, order-independent (same as the import RPC). */
+function documentFingerprint(
+  lines: Array<{ productCode: string | null; quantity: number | null }>
+) {
+  return lines
+    .filter((l) => (l.quantity ?? 0) > 0)
+    .map((l) => `${normalizeProductCode(l.productCode) ?? ""}:${Number(l.quantity)}`)
+    .sort()
+    .join("|");
+}
+
+/**
+ * Orders (by key) whose document -- same ZL, same ZW number of its Matcher
+ * block, same lines -- was already imported in another session, with that
+ * session's name. Mirrors the guard in repair_orders_import.
+ */
+async function findImportedDocuments(
+  supabase: SupabaseClient,
+  orgId: string,
+  branchId: string,
+  orders: CanonicalRepairOrderImportOrder[]
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  const withBlock = orders.filter((o) => o.zlNumber && o.source?.blockId);
+  if (withBlock.length === 0) return result;
+
+  const { data: blocks } = await supabase
+    .from("wdd_matcher_blocks")
+    .select("id, metadata")
+    .in(
+      "id",
+      withBlock.map((o) => o.source!.blockId!)
+    );
+  const zwByBlock = new Map<string, string>();
+  for (const b of (blocks ?? []) as Array<{
+    id: string;
+    metadata: { zw_number?: string } | null;
+  }>) {
+    const zw = b.metadata?.zw_number?.trim();
+    if (zw) zwByBlock.set(b.id, zw);
+  }
+  if (zwByBlock.size === 0) return result;
+
+  const { data: docs } = await supabase
+    .from("workshop_source_documents")
+    .select(
+      "external_document_number, source_document_number, source_session_id, wdd_matcher_sessions(name), workshop_source_document_lines(product_code, quantity)"
+    )
+    .eq("organization_id", orgId)
+    .eq("branch_id", branchId)
+    .eq("document_type", "zl")
+    .in(
+      "external_document_number",
+      withBlock.map((o) => o.zlNumber!)
+    )
+    .in("source_document_number", [...new Set(zwByBlock.values())]);
+
+  type DocRow = {
+    external_document_number: string;
+    source_document_number: string;
+    source_session_id: string | null;
+    wdd_matcher_sessions: { name: string | null } | Array<{ name: string | null }> | null;
+    workshop_source_document_lines: Array<{ product_code: string | null; quantity: number | null }>;
+  };
+  const rows = (docs ?? []) as unknown as DocRow[];
+  for (const order of withBlock) {
+    const zw = zwByBlock.get(order.source!.blockId!);
+    if (!zw) continue;
+    const fingerprint = documentFingerprint(order.lines);
+    if (!fingerprint) continue;
+    const earlier = rows.find(
+      (d) =>
+        d.external_document_number === order.zlNumber &&
+        d.source_document_number === zw &&
+        d.source_session_id !== order.source!.sessionId &&
+        documentFingerprint(
+          (d.workshop_source_document_lines ?? []).map((l) => ({
+            productCode: l.product_code,
+            quantity: l.quantity,
+          }))
+        ) === fingerprint
+    );
+    if (earlier) {
+      const session = Array.isArray(earlier.wdd_matcher_sessions)
+        ? earlier.wdd_matcher_sessions[0]
+        : earlier.wdd_matcher_sessions;
+      result.set(order.key, session?.name ?? "");
+    }
+  }
+  return result;
+}

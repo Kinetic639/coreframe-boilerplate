@@ -202,6 +202,14 @@ const movementLineSchema = z.object({
     .nullable()
     .optional(),
   note: z.string().max(500).nullable().optional(),
+  // Import provenance (Zone 5): which source line this movement line came
+  // from, e.g. a Matcher line -- used to attribute a posted PZ to RepairOrders.
+  source_type: z.string().max(60).nullable().optional(),
+  source_line_id: nullableUuidSchema,
+  // The repair order (ZL) and part code the line was delivered for; the
+  // posted PZ is attributed to repair orders by these two.
+  source_order_number: z.string().max(120).nullable().optional(),
+  source_product_code: z.string().max(120).nullable().optional(),
 });
 
 const partyDetailsSchema = z
@@ -255,6 +263,10 @@ const partyDetailsSchema = z
 
 export const createDraftMovementSchema = z.object({
   movement_type_code: z.string().min(1).max(20),
+  // The document's AutoStacja magazyn and, for an MM, the target magazyn of
+  // the same jednostka (U3). Matcher lines take theirs from the session.
+  warehouse_id: nullableUuidSchema,
+  destination_warehouse_id: nullableUuidSchema,
   lines: z.array(movementLineSchema).min(1),
   operation_date: z.string().nullable().optional(),
   document_date: z.string().nullable().optional(),
@@ -316,14 +328,29 @@ export const createBranchTransferSchema = z.object({
   notes: z.string().max(1000).nullable().optional(),
 });
 
+export const sendBranchTransferSchema = z.object({
+  id: uuidSchema,
+});
+
+const lineAcceptanceSchema = z.object({
+  transfer_line_id: uuidSchema,
+  accepted_quantity: z.number().min(0),
+});
+
 export const acceptBranchTransferSchema = z.object({
   id: uuidSchema,
   destination_location_id: uuidSchema,
+  line_acceptances: z.array(lineAcceptanceSchema).min(1).nullable().optional(),
 });
 
 export const declineBranchTransferSchema = z.object({
   id: uuidSchema,
   decline_reason: z.string().max(1000).nullable().optional(),
+});
+
+export const cancelBranchTransferSchema = z.object({
+  id: uuidSchema,
+  reason: z.string().max(1000).nullable().optional(),
 });
 
 export const adjustStockSchema = z.object({

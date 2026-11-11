@@ -3,6 +3,7 @@
 import {
   ActivitySquare,
   BadgeCheck,
+  Bug,
   ChevronsUpDown,
   Home,
   LayoutDashboard,
@@ -29,6 +30,7 @@ import {
 import { useTranslations } from "next-intl";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import { signOutAction } from "@/app/[locale]/actions";
+import { useReportFeedbackStore } from "@/lib/platform-feedback/report-store";
 import { getMarketingSiteUrl } from "@/lib/urls";
 
 export function NavUser({
@@ -68,6 +70,8 @@ export function NavUser({
   const handleGoToDashboard = () => {
     router.push("/dashboard/start");
   };
+
+  const openReportFeedback = useReportFeedbackStore((state) => state.setOpen);
 
   const handleGoToDiagnostics = () => {
     router.push("/dashboard/diagnostics");
@@ -142,6 +146,19 @@ export function NavUser({
                 </DropdownMenuItem>
               )}
             </DropdownMenuGroup>
+            {/* The dialog lives in the dashboard header, not in the admin panel */}
+            {!isInAdminPanel && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => openReportFeedback(true)}
+                  data-testid="user-menu-report-feedback"
+                >
+                  <Bug />
+                  {t("reportFeedback")}
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <form action={signOutAction} className="w-full">

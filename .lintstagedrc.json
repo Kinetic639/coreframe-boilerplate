@@ -11,6 +11,10 @@
     "pnpm --filter docs exec eslint --fix",
     "pnpm exec prettier --write"
   ],
+  "apps/requests-portal/**/*.{js,jsx,ts,tsx}": [
+    "pnpm --filter requests-portal exec eslint --fix",
+    "pnpm exec prettier --write"
+  ],
   "packages/**/*.{js,jsx,ts,tsx,mjs,cjs}": ["pnpm exec prettier --write"],
   "*.{json,md,yml,yaml}": ["pnpm exec prettier --write"]
 }

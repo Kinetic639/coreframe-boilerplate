@@ -19,6 +19,7 @@ import type {
 import { productHref, type ProductState } from "./inventory-products-state";
 import { ProductStatus, ProductThumbnail } from "./inventory-products-table";
 import { InventoryRichTextDisplay } from "./inventory-rich-text";
+import { ItemStockPanel } from "@/components/warehouse/item-stock-panel";
 
 export function ProductRecordPanel({
   detail,
@@ -28,6 +29,7 @@ export function ProductRecordPanel({
   labels,
   customFields,
   canManageProducts,
+  canReadStock,
   fullPath,
   editPath,
 }: {
@@ -38,6 +40,7 @@ export function ProductRecordPanel({
   labels: Record<string, string>;
   customFields: InventoryCustomFieldDefinition[];
   canManageProducts: boolean;
+  canReadStock: boolean;
   fullPath: string;
   editPath: string;
 }) {
@@ -97,7 +100,7 @@ export function ProductRecordPanel({
           </div>
           <VisitPanelTabs
             key={detail.id + state.tab}
-            initial={state.tab}
+            initial={state.tab === "stock" && !canReadStock ? "info" : state.tab}
             label={labels.sections}
             tabs={[
               { key: "info", label: labels.info, href: productHref(path, state, { tab: "info" }) },
@@ -106,11 +109,15 @@ export function ProductRecordPanel({
                 label: `${labels.variants} (${detail.variants.length})`,
                 href: productHref(path, state, { tab: "variants" }),
               },
-              {
-                key: "stock",
-                label: labels.stock,
-                href: productHref(path, state, { tab: "stock" }),
-              },
+              ...(canReadStock
+                ? [
+                    {
+                      key: "stock",
+                      label: labels.stock,
+                      href: productHref(path, state, { tab: "stock" }),
+                    },
+                  ]
+                : []),
             ]}
             panes={{
               info: (
@@ -226,7 +233,7 @@ export function ProductRecordPanel({
                   ))}
                 </>
               ),
-              stock: (
+              stock: canReadStock ? (
                 <>
                   <DetailSection title={labels.stock}>
                     <DetailProps>
@@ -236,8 +243,15 @@ export function ProductRecordPanel({
                       <DetailProp label={labels.available}>
                         {detail.available_quantity} {detail.unit_code}
                       </DetailProp>
+                      <DetailProp label={labels.reserved}>
+                        {detail.reserved_total_quantity || "—"}
+                      </DetailProp>
+                      <DetailProp label={labels.blocked}>
+                        {detail.blocked_quantity || "—"}
+                      </DetailProp>
                     </DetailProps>
                   </DetailSection>
+                  <ItemStockPanel productId={detail.id} showSku={detail.variant_count > 1} />
                   {detail.variants.map((v) => (
                     <DetailSection key={v.id} title={v.name} note={v.sku}>
                       <DetailProps>
@@ -254,7 +268,7 @@ export function ProductRecordPanel({
                     </DetailSection>
                   ))}
                 </>
-              ),
+              ) : null,
             }}
           />
         </>

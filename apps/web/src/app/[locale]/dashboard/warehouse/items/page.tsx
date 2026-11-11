@@ -8,6 +8,7 @@ import {
   WAREHOUSE_PRODUCTS_MANAGE,
   WAREHOUSE_PRODUCTS_READ,
   WAREHOUSE_IMPORTS_MANAGE,
+  WAREHOUSE_INVENTORY_READ,
   WAREHOUSE_READ,
 } from "@/lib/constants/permissions";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
@@ -36,12 +37,13 @@ function cookieValue(value: string | undefined) {
 }
 
 export default async function WarehouseItemsPage({ searchParams }: PageProps = {}) {
-  const [locale, context, t, tc, td] = await Promise.all([
+  const [locale, context, t, tc, td, tCommit] = await Promise.all([
     getLocale(),
     loadDashboardContextV2(),
     getTranslations("warehouseInventory.list"),
     getTranslations("warehouseInventory.common"),
     getTranslations("warehouseInventory.detail"),
+    getTranslations("modules.warehouse.stockCommitments"),
   ]);
   if (!context?.app.activeOrgId) return redirect({ href: "/sign-in", locale });
   if (
@@ -89,6 +91,8 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
     productColumn: t("productColumn"),
     onHand: t("onHand"),
     available: t("available"),
+    reserved: tCommit("states.reserved"),
+    blocked: tCommit("states.blocked"),
     updated: t("updated"),
     isVariant: t("isVariant"),
     groupVariants: t("groupVariants"),
@@ -228,6 +232,10 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
             labels={labels}
             customFields={customFields}
             canManageProducts={canManageProducts}
+            canReadStock={checkPermission(
+              context.user.permissionSnapshot,
+              WAREHOUSE_INVENTORY_READ
+            )}
             fullPath={productPath(state.selected.split("::")[0])}
             editPath={productPath(state.selected.split("::")[0], true)}
           />

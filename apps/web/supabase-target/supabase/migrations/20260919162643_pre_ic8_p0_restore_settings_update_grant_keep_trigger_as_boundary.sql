@@ -1,0 +1,34 @@
+-- PRE-IC8 P0 -- forward correction, self-caught during live testing of
+-- this same pass's own new pgTAP file. `inventory_settings`, unlike
+-- `inventory_balances`, has a genuinely DESIGNED (if not yet built) two-
+-- writer model: a real settings manager may write directly (gated by
+-- RLS + the trigger's own has_permission check), and the engine writes
+-- its own numbering counters. The blanket REVOKE applied earlier this
+-- pass (in the companion migration) closed BOTH paths structurally,
+-- which correctly closes the engine-bypass exploit but ALSO makes the
+-- intended settings-manager direct-write path permanently impossible --
+-- live-confirmed via the task's own required "real settings manager can
+-- still edit an allowed setting" scenario, which failed with a bare
+-- `permission denied for table inventory_settings` (the grant layer),
+-- never even reaching the trigger's own (correct) permission check.
+--
+-- `inventory_balances` has NO such legitimate direct-writer model at
+-- all -- physical stock must never be hand-edited by any client outside
+-- the engine, confirmed live (zero direct TypeScript writers found in
+-- apps/web, and the one found in apps/public-web is exactly the class
+-- of bug this pass exists to close, per the user's own explicit
+-- decision). Its REVOKE remains fully in place, unchanged.
+--
+-- For `inventory_settings`, the REAL security boundary that closes the
+-- described exploit is the trigger's own substance-validated logic
+-- (already applied earlier this pass): a non-settings-manager caller,
+-- even with the GUC set, can only ever touch the 6 known numbering-
+-- counter columns, never a user-managed field. Restoring UPDATE lets
+-- the intended settings-manager pathway work as designed, while the
+-- trigger continues to fully close the original bypass. INSERT and
+-- DELETE remain revoked from authenticated/anon: no legitimate direct-
+-- client INSERT scenario exists (the org-wide settings row is only ever
+-- created via the engine's own idempotent warm-up), and the trigger
+-- already unconditionally denies DELETE regardless of grants.
+
+GRANT UPDATE ON public.inventory_settings TO authenticated;

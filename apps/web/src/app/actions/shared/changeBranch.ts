@@ -3,7 +3,8 @@
 import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
-import { BRANCHES_VIEW_UPDATE_ANY, BRANCHES_VIEW_REMOVE_ANY } from "@/lib/constants/permissions";
+import { BRANCHES_VIEW_REMOVE_ANY } from "@/lib/constants/permissions";
+import { isBranchAccessible } from "@/lib/utils/branch-access";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -58,10 +59,7 @@ export async function changeBranch(branchId: string): Promise<ActionResult> {
   }
 
   // 2. Authorization check
-  const canSwitchToAny = checkPermission(permissionSnapshot, BRANCHES_VIEW_UPDATE_ANY);
-  const isAccessible = accessibleBranches.some((b) => b.id === branchId);
-
-  if (!canSwitchToAny && !isAccessible) {
+  if (!isBranchAccessible(branchId, accessibleBranches, permissionSnapshot)) {
     return { success: false, error: "You do not have access to this branch" };
   }
 

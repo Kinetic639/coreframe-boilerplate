@@ -20,6 +20,7 @@ type BalanceRow = {
   on_hand_quantity: number;
   reserved_quantity: number;
   allocated_quantity: number;
+  blocked: number;
   available_quantity: number | null;
   last_movement_id: string | null;
   last_movement_at: string | null;
@@ -51,7 +52,7 @@ type UnitRow = {
 
 type MovementRow = {
   id: string;
-  movement_number: string;
+  document_number: string | null;
 };
 
 type CostRow = {
@@ -61,7 +62,7 @@ type CostRow = {
 };
 
 const BALANCE_COLUMNS =
-  "id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity, available_quantity, last_movement_id, last_movement_at, updated_at" as const;
+  "id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity, blocked, available_quantity, last_movement_id, last_movement_at, updated_at" as const;
 
 function toNumber(value: number | string | null | undefined): number {
   if (value == null) return 0;
@@ -123,6 +124,45 @@ export class InventoryBalancesService {
         pageSize: params.pageSize,
       },
     };
+  }
+
+  /**
+   * Where one item lies in a branch: a row per variant and location that holds
+   * (or held) stock, largest quantity first. Shown on the item's page.
+   */
+  static async listForProduct(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
+    productId: string
+  ): Promise<ServiceResult<InventoryBalanceListRow[]>> {
+    const { data: variants, error: variantsError } = await supabase
+      .from("inventory_variants")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("product_id", productId)
+      .is("deleted_at", null);
+    if (variantsError) return { success: false, error: variantsError.message };
+    const variantIds = ((variants ?? []) as { id: string }[]).map((variant) => variant.id);
+    if (variantIds.length === 0) return { success: true, data: [] };
+
+    const { data, error } = await supabase
+      .from("inventory_balances")
+      .select(BALANCE_COLUMNS)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
+      .in("variant_id", variantIds)
+      .neq("on_hand_quantity", 0)
+      .order("on_hand_quantity", { ascending: false })
+      .limit(200);
+    if (error) return { success: false, error: error.message };
+
+    return InventoryBalancesService.enrichBalances(
+      supabase,
+      orgId,
+      branchId,
+      (data ?? []) as BalanceRow[]
+    );
   }
 
   static async getBalanceDetail(
@@ -212,7 +252,7 @@ export class InventoryBalancesService {
     const { data: movementsData, error: movementsError } = movementIds.length
       ? await supabase
           .from("inventory_movement_headers")
-          .select("id, movement_number")
+          .select("id, document_number")
           .eq("organization_id", orgId)
           .eq("branch_id", branchId)
           .in("id", movementIds)
@@ -254,16 +294,20 @@ export class InventoryBalancesService {
           variant_id: balance.variant_id,
           sku: variant?.sku ?? "",
           product_name: product?.name ?? "",
+          location_id: balance.location_id,
           location_name: location?.name ?? "",
           location_code: location?.code ?? null,
           on_hand_quantity: onHand,
           available_quantity: toNumber(balance.available_quantity),
+          reserved_total_quantity:
+            toNumber(balance.reserved_quantity) + toNumber(balance.allocated_quantity),
+          blocked_quantity: toNumber(balance.blocked),
           unit_code: product ? (unitsById.get(product.base_unit_id)?.code ?? "") : "",
           average_unit_cost: averageUnitCost,
           total_value: averageUnitCost * onHand,
           currency: cost?.currency ?? "PLN",
           last_movement_id: balance.last_movement_id,
-          last_movement_number: movement?.movement_number ?? null,
+          last_movement_number: movement?.document_number ?? null,
           last_movement_at: balance.last_movement_at,
           updated_at: balance.updated_at,
         };

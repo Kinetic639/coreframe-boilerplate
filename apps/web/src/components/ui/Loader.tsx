@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
+import { BrandLoader } from "@/components/branding";
 import { cn } from "@/lib/utils";
-import FancySpinner from "./FancySpinner";
 
 type LoaderProps = {
   logoUrl?: string | null;
@@ -14,18 +15,25 @@ type LoaderProps = {
   className?: string;
 };
 
+/**
+ * Full-area (or full-screen) loading screen with the animated Ambra logo —
+ * the same branded loader as the route `loading.tsx` screens (PageLoader).
+ */
 export default function Loader({
   logoUrl,
   orgName,
   orgName2,
-  message = "Loading...",
+  message,
   fullScreen = false,
   className,
 }: LoaderProps) {
+  const t = useTranslations("common");
   const hasBranding = Boolean(logoUrl || orgName || orgName2);
 
   return (
     <div
+      role="status"
+      aria-live="polite"
       className={cn(
         fullScreen ? "fixed inset-0 z-50" : "h-full w-full",
         "flex flex-col items-center justify-center gap-6 bg-muted/10 text-center",
@@ -57,16 +65,18 @@ export default function Loader({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.5 }}
           >
-            <span>{orgName || "Loading..."}</span>
+            {orgName ? <span>{orgName}</span> : null}
             {orgName2 ? <span>{orgName2}</span> : null}
           </motion.div>
         </motion.div>
       ) : null}
 
-      <div className="flex flex-col items-center gap-4">
-        <FancySpinner className="h-16 w-16" />
-        <p className="text-sm text-muted-foreground">{message}</p>
-      </div>
+      <BrandLoader
+        variant="beacon_swap"
+        label={message ?? t("loading")}
+        showWordmark={false}
+        logoClassName="h-[7.68rem] w-[7.68rem]"
+      />
     </div>
   );
 }

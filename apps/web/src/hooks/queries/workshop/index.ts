@@ -9,10 +9,12 @@ import {
   assignRepairOrderAdvisorAction,
   changeRepairOrderStatusAction,
   listAdvisorCandidatesAction,
+  createRepairOrderContainerAction,
 } from "@/app/actions/workshop/repair-orders";
 import type {
   RepairOrderHeader,
   RepairOrderAdvisorCandidate,
+  RepairOrderContainerResult,
 } from "@/server/services/repair-orders.service";
 
 // ---------------------------------------------------------------------------
@@ -93,6 +95,22 @@ export function useChangeRepairOrderStatusMutation() {
     mutationFn: (input: unknown) => changeRepairOrderStatusAction(input).then(unwrap),
     onSuccess: () => toast.success(t("toasts.statusChangedSuccess")),
     onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+/** Phase 10D: create a container owned by a RepairOrder. */
+export function useCreateRepairOrderContainerMutation(
+  onCreated?: (container: RepairOrderContainerResult) => void
+) {
+  const t = useTranslations("modules.workshop.repairOrders.containers");
+
+  return useMutation<RepairOrderContainerResult, Error, unknown>({
+    mutationFn: (input: unknown) => createRepairOrderContainerAction(input).then(unwrap),
+    onSuccess: (container) => {
+      toast.success(t("created", { code: container.code }));
+      onCreated?.(container);
+    },
+    onError: () => toast.error(t("createError")),
   });
 }
 

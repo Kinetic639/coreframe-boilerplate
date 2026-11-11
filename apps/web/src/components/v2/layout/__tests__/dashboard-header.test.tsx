@@ -5,12 +5,28 @@ import { DashboardHeaderV2 } from "../dashboard-header";
 // ActivityDrawer is no longer in the header — it was moved to the status bar.
 // This mock is intentionally absent to verify the removal.
 
-vi.mock("../header-search", () => ({
-  HeaderSearch: () => <div data-testid="header-search">Search</div>,
+vi.mock("@/components/v2/global-search/global-search-trigger", () => ({
+  GlobalSearchTrigger: () => <div data-testid="header-search">Search</div>,
+  GlobalScanTrigger: () => <div data-testid="header-scan">Scan</div>,
+}));
+
+vi.mock("@/components/v2/global-search/global-search-dialog", () => ({
+  GlobalSearchDialog: () => <div data-testid="global-search-dialog" />,
 }));
 
 vi.mock("../header-notifications", () => ({
   HeaderNotifications: () => <div data-testid="header-notifications">Notifications</div>,
+}));
+
+vi.mock("@/components/v2/messages/header-messages-link", () => ({
+  HeaderMessagesLink: () => <div data-testid="header-messages-link">Messages</div>,
+}));
+
+vi.mock("@/components/platform-feedback/report-feedback-dialog", () => ({
+  ReportFeedbackHost: () => null,
+}));
+vi.mock("../header-contacts", () => ({
+  HeaderContacts: () => <div data-testid="header-contacts">Contacts</div>,
 }));
 
 vi.mock("../header-quick-add", () => ({

@@ -61,6 +61,10 @@ export const routing = defineRouting({
       en: "/admin/app-management/config",
       pl: "/admin/zarzadzanie-aplikacja/konfiguracja",
     },
+    "/admin/feedback": {
+      en: "/admin/feedback",
+      pl: "/admin/zgloszenia",
+    },
     "/admin/logs": {
       en: "/admin/logs",
       pl: "/admin/logi",
@@ -103,6 +107,10 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/inventory/movements",
       pl: "/dashboard/magazyn/inwentarz/ruchy",
     },
+    "/dashboard/warehouse/inventory/warehouse-stock": {
+      en: "/dashboard/warehouse/inventory/warehouse-stock",
+      pl: "/dashboard/magazyn/inwentarz/stany-magazynow",
+    },
     "/dashboard/warehouse/inventory/movements/[movementId]": {
       en: "/dashboard/warehouse/inventory/movements/[movementId]",
       pl: "/dashboard/magazyn/inwentarz/ruchy/[movementId]",
@@ -143,6 +151,26 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/locations",
       pl: "/dashboard/magazyn/lokalizacje",
     },
+    "/dashboard/warehouse/containers/[id]": {
+      en: "/dashboard/warehouse/containers/[id]",
+      pl: "/dashboard/magazyn/kontenery/[id]",
+    },
+    "/dashboard/warehouse/putaway": {
+      en: "/dashboard/warehouse/putaway",
+      pl: "/dashboard/magazyn/rozlokowanie",
+    },
+    "/dashboard/warehouse/putaway/changes": {
+      en: "/dashboard/warehouse/putaway/changes",
+      pl: "/dashboard/magazyn/rozlokowanie/zmiany",
+    },
+    "/dashboard/warehouse/reservations": {
+      en: "/dashboard/warehouse/reservations",
+      pl: "/dashboard/magazyn/rezerwacje",
+    },
+    "/dashboard/warehouse/blocks": {
+      en: "/dashboard/warehouse/blocks",
+      pl: "/dashboard/magazyn/blokady",
+    },
     "/dashboard/warehouse/map": {
       en: "/dashboard/warehouse/map",
       pl: "/dashboard/magazyn/mapa",
@@ -182,6 +210,14 @@ export const routing = defineRouting({
     "/dashboard/warehouse/sales": {
       en: "/dashboard/warehouse/sales",
       pl: "/dashboard/magazyn/sprzedaz",
+    },
+    "/dashboard/warehouse/internal-orders": {
+      en: "/dashboard/warehouse/internal-orders",
+      pl: "/dashboard/magazyn/zamowienia-wewnetrzne",
+    },
+    "/dashboard/warehouse/internal-orders/[id]": {
+      en: "/dashboard/warehouse/internal-orders/[id]",
+      pl: "/dashboard/magazyn/zamowienia-wewnetrzne/[id]",
     },
     "/dashboard/warehouse/sales-orders": {
       en: "/dashboard/warehouse/sales-orders",
@@ -301,6 +337,10 @@ export const routing = defineRouting({
       en: "/dashboard/workshop/new",
       pl: "/dashboard/warsztat/nowe",
     },
+    "/dashboard/workshop/import": {
+      en: "/dashboard/workshop/import",
+      pl: "/dashboard/warsztat/import",
+    },
     "/dashboard/workshop/[id]": {
       en: "/dashboard/workshop/[id]",
       pl: "/dashboard/warsztat/[id]",
@@ -340,6 +380,14 @@ export const routing = defineRouting({
     "/dashboard/planning": {
       en: "/dashboard/planning",
       pl: "/dashboard/planowanie",
+    },
+    "/dashboard/messages": {
+      en: "/dashboard/messages",
+      pl: "/dashboard/wiadomosci",
+    },
+    "/dashboard/notifications": {
+      en: "/dashboard/notifications",
+      pl: "/dashboard/powiadomienia",
     },
     "/dashboard/planning/tasks": {
       en: "/dashboard/planning/tasks",
@@ -436,6 +484,10 @@ export const routing = defineRouting({
     "/dashboard/account/notifications": {
       en: "/dashboard/account/notifications",
       pl: "/dashboard/konto/powiadomienia",
+    },
+    "/dashboard/account/feedback": {
+      en: "/dashboard/account/feedback",
+      pl: "/dashboard/konto/zgloszenia",
     },
 
     // === Auth ===

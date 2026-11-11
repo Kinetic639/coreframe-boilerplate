@@ -228,6 +228,22 @@ function InventoryLinesTable({
                 <p className="mt-0.5 font-mono text-foreground">
                   {line.availableQuantity} {line.unitCode}
                 </p>
+                {line.reservedQuantity + line.allocatedQuantity > 0 || line.blockedQuantity > 0 ? (
+                  <p
+                    className="mt-0.5 font-mono text-[11px] text-muted-foreground"
+                    data-testid="location-line-rb"
+                  >
+                    {line.reservedQuantity + line.allocatedQuantity > 0
+                      ? `R ${line.reservedQuantity + line.allocatedQuantity}`
+                      : null}
+                    {line.reservedQuantity + line.allocatedQuantity > 0 && line.blockedQuantity > 0
+                      ? " · "
+                      : null}
+                    {line.blockedQuantity > 0 ? (
+                      <span className="text-destructive">B {line.blockedQuantity}</span>
+                    ) : null}
+                  </p>
+                ) : null}
               </div>
             </div>
           ))}
@@ -401,7 +417,11 @@ function MovementHistoryList({ movements, t }: { movements: LocationMovementLine
           >
             <div>
               <p className="font-semibold text-foreground">
-                {isRelocation ? t("history.internalRelocation") : movement.movementKind}
+                {isRelocation
+                  ? t("history.internalRelocation")
+                  : t.has(`history.kind.${movement.movementKind}`)
+                    ? t(`history.kind.${movement.movementKind}`)
+                    : movement.movementKind}
               </p>
               <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
                 {movement.movementNumber}
@@ -421,6 +441,7 @@ function MovementHistoryList({ movements, t }: { movements: LocationMovementLine
               </p>
               <p className="mt-0.5 text-muted-foreground">
                 {new Date(movement.postedAt ?? movement.createdAt).toLocaleString()}
+                {movement.actorName ? ` · ${movement.actorName}` : ""}
               </p>
             </div>
             <p className="font-mono text-foreground">

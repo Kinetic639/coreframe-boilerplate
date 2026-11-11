@@ -29,6 +29,16 @@ export const ADMIN_MAIN_NAV_ITEMS: SidebarItem[] = [
     },
   },
   {
+    id: "admin.feedback",
+    title: "Błędy i propozycje",
+    iconKey: "bug",
+    href: "/admin/feedback",
+    match: { startsWith: "/admin/feedback" },
+    visibility: {
+      requiresPermissions: [SUPERADMIN_ADMIN_READ],
+    },
+  },
+  {
     id: "admin.plans",
     title: "Plans",
     iconKey: "analytics",

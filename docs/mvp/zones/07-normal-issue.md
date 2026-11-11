@@ -1,5 +1,17 @@
 ### 7. Zwykłe wydanie części
 
+# CURRENT STATUS — 2026-09-23
+
+**CONFIRMED PRESENTATION BLOCKER — Phase 10F of Zone 3, PITCH REQUIRED** (2026-09-10 product-owner scope-expansion directive, `docs/mvp/zones/03-repair-orders-progress.md`). This document's own verdict is unchanged and independently re-confirmed via fresh code inspection: `issueStockAction` is still a hardcoded stub, movement type 201/WZ is not seeded in the authoritative migration tree, and nothing from the accepted design's own implementation plan (sibling design document) has been built, despite two weeks of intervening engineering effort on adjacent work. The accepted design explicitly rejects a 402-adjustment workaround as a normal issue path — do not build one.
+
+# CURRENT REMAINING WORK
+
+1. Seed movement type `201`/WZ in the authoritative `apps/web/supabase-target/supabase/migrations` tree, with a recipient field (per the accepted design).
+2. Wire `movement_kind='issue'` to a real UI entry point (replace the `issueStockAction` stub).
+3. No Inventory Core architecture change required — this is additive (new movement type + field policy), matching the accepted design's own scope.
+
+# HISTORICAL AUDIT / DESIGN RECORD
+
 **Priorytet:** P0
 
 **Stan obecny:** 🟠 EARLY / DISCONNECTED

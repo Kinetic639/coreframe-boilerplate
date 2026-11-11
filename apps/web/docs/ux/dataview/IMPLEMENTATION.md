@@ -25,7 +25,7 @@ Lista jest renderowana na serwerze jak w Kolor Sensu, bez dodatkowego klientoweg
 ## Weryfikacja
 
 - Testy kontraktu URL: migracja, wielokrotne filtry, nieprawidłowe parametry, znak `%`, zamknięcie wybranego wariantu bez utraty listy.
-- Testy serwisu: wielokrotny status/typ w obu trybach grupowania, zakres organizacji, wyszukiwanie SKU i literalne `%`/`_`.
+- Testy serwisu: wielokrotny status/typ w obu trybach grupowania i zakres organizacji. Po scaleniu `origin/main` zachowano jego wyszukiwanie po SKU, kodzie kreskowym i nazwie wariantu oraz neutralizację znaków specjalnych w zapytaniach.
 - **20/20 testów** w trzech plikach: kontrakt URL, nowe filtry serwisu oraz istniejące testy produktów. TypeScript, ESLint i formatowanie sprawdzone.
 - Test przeglądarkowy na 79 produktach organizacji demo potwierdził: filtry wielokrotne i usuwanie etykiet, wyszukiwanie po rzeczywistym SKU, ukrywanie kolumn, przeciąganie klawiaturą i myszą oraz szerokości. Układ i szerokości odtworzono po pełnym reload. Sprawdzono URL szczegółów, zakładki, reload i Wstecz/Dalej.
 - Sprawdzono kolory portali filtrów w **15 paletach × jasny/ciemny**. Obejrzano zrzut ciemnego motywu Amethyst. To kontrola integracji kolorów, nie pełny audyt kontrastu WCAG.
@@ -34,3 +34,7 @@ Lista jest renderowana na serwerze jak w Kolor Sensu, bez dodatkowego klientoweg
 - W testowanych przepływach nie było błędów JavaScript. Konto: właściciel organizacji demo. Nie zmieniano uprawnień ani danych produktów.
 
 Checkboxy końcowego odbioru pozostają otwarte do oceny użytkownika oraz przejścia całej definicji odbioru widoku.
+
+## Integracja z aktualnym main
+
+Scalono `origin/main` na commicie `08428e6d`. Nowy widok zachowuje również kolumny zarezerwowanych i zablokowanych ilości oraz `ItemStockPanel` z rozbiciem według lokalizacji. Panel lokalizacji i operacje magazynowe respektują uprawnienie `warehouse.inventory.read` i uprawnienia operacyjne źródłowego komponentu. Pozostałe widoki otrzymały najnowszą implementację DataView z main. Po scaleniu przeszły 104 testy w dziesięciu plikach obejmujących produkty, DataView, wyszukiwanie i nawodnienie szczegółów wariantów.

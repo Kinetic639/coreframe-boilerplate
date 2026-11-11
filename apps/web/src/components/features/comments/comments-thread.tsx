@@ -5,6 +5,15 @@ import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { CommentEditor, CommentRenderer } from "@/components/primitives/comments";
+import { TypingIndicator, useTypingIndicator } from "@repo/rich-text/comments";
+import { isRichTextEmpty } from "@repo/rich-text/rich-text-utils";
+import { createClient } from "@/utils/supabase/client";
+import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
+import type { MentionItem } from "@repo/rich-text/mention-utils";
+import { useMentionAccess } from "@/hooks/queries/mentions";
+import { MentionChip } from "@/components/v2/mentions/mention-chip";
+import { ENTITY_MENTIONS } from "@/components/v2/mentions/mention-suggestion-list";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
 import {
   createEmptyRichText,
@@ -27,6 +36,17 @@ interface CommentsThreadProps extends Partial<CommentsProviderValue> {
   contentClassName?: string;
   showTitle?: boolean;
   onCommentAdded?: (comment: AppComment) => void | Promise<void>;
+  /**
+   * Opt-in internal notes (Help Desk handlers): adds a second submit button that posts with
+   * visibility "internal" and highlights internal comments. Off by default, so other
+   * targets (planning) are unchanged. Who may post or read them is enforced server-side.
+   */
+  internal?: { noteLabel: string; badge: string };
+  /**
+   * Realtime channel for "is typing" (e.g. helpdeskTicketTypingTopic(id)); needs an RLS
+   * policy on realtime.messages for the topic. Omit to keep the indicator off.
+   */
+  typingTopic?: string | null;
 }
 
 function formatCommentDate(iso: string): string {
@@ -103,6 +123,18 @@ export function CommentsThread(props: CommentsThreadProps) {
     [config.targetType, config.targetId, config.pageSize]
   );
 
+  // Mentioned objects link only when the reader may open them (one batched check)
+  const orgId = useAppStoreV2((s) => s.activeOrgId);
+  const meId = useUserStoreV2((s) => s.user?.id ?? null);
+  const richBodies = useMemo(() => rows.map((row) => row.body_rich).filter(Boolean), [rows]);
+  const mentionAccess = useMentionAccess(orgId, richBodies);
+  const renderMention = useCallback(
+    (mention: MentionItem) => (
+      <MentionChip mention={mention} access={mentionAccess(mention)} meId={meId} />
+    ),
+    [meId, mentionAccess]
+  );
+
   const commentsQuery = useCommentsQuery(queryInput, props.initialData);
   const addCommentMutation = useAddCommentMutation(config.targetType, config.targetId);
   const loadingInitialComments = !props.initialData && commentsQuery.isPending && rows.length === 0;
@@ -114,10 +146,29 @@ export function CommentsThread(props: CommentsThreadProps) {
     setTotalCount(commentsQuery.data.totalCount);
   }, [commentsQuery.data]);
 
+  const [supabase] = useState(createClient);
+  const user = useUserStoreV2((state) => state.user);
+  const typingMe = useMemo(
+    () =>
+      user
+        ? {
+            id: user.id,
+            name: [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email,
+          }
+        : null,
+    [user]
+  );
+  const { typing, notifyTyping, notifyStopped } = useTypingIndicator({
+    client: supabase,
+    topic: props.typingTopic ?? null,
+    me: typingMe,
+  });
+
   const handleSubmit = useCallback(
-    (value: RichTextValue) => {
+    (value: RichTextValue, visibility: "default" | "internal" = "default") => {
       const bodyPlain = extractPlainText(value);
       if (!bodyPlain.trim()) return;
+      notifyStopped();
 
       addCommentMutation.mutate(
         {
@@ -125,7 +176,7 @@ export function CommentsThread(props: CommentsThreadProps) {
           targetId: config.targetId,
           bodyPlain: bodyPlain.trim(),
           bodyRich: value,
-          visibility: "default",
+          visibility,
         },
         {
           onSuccess: (comment) => {
@@ -139,7 +190,7 @@ export function CommentsThread(props: CommentsThreadProps) {
         }
       );
     },
-    [addCommentMutation, config.targetId, config.targetType, onCommentAdded, rows]
+    [addCommentMutation, config.targetId, config.targetType, notifyStopped, onCommentAdded, rows]
   );
 
   const handleLoadMore = useCallback(async () => {
@@ -191,13 +242,30 @@ export function CommentsThread(props: CommentsThreadProps) {
           {rows.map((comment) => (
             <CommentRenderer
               key={comment.id}
+              className={
+                comment.visibility === "internal"
+                  ? "rounded-lg bg-amber-50 p-2 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:ring-amber-900"
+                  : undefined
+              }
               value={normalizeRichText(comment.body_rich) ?? undefined}
               author={commentAuthor(comment, labels.formerMember)}
-              createdAt={formatCommentDate(comment.created_at)}
+              createdAt={
+                comment.visibility === "internal" && props.internal ? (
+                  <span className="inline-flex items-center gap-2">
+                    {formatCommentDate(comment.created_at)}
+                    <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:bg-amber-900 dark:text-amber-100">
+                      {props.internal.badge}
+                    </span>
+                  </span>
+                ) : (
+                  formatCommentDate(comment.created_at)
+                )
+              }
               editedLabel={comment.updated_at !== comment.created_at ? labels.edited : undefined}
               emptyText={comment.body_plain}
               density={config.density}
               isOwn={comment.is_own}
+              renderMention={renderMention}
             />
           ))}
         </div>
@@ -216,17 +284,38 @@ export function CommentsThread(props: CommentsThreadProps) {
         </Button>
       )}
 
+      <TypingIndicator people={typing} />
+
       {config.canComment && (
         <div className="pt-1">
           <CommentEditor
+            mention={ENTITY_MENTIONS}
             value={draft}
-            onChange={setDraft}
+            onChange={(next) => {
+              setDraft(next);
+              if (isRichTextEmpty(next)) notifyStopped();
+              else notifyTyping();
+            }}
             onSubmit={handleSubmit}
             placeholder={labels.placeholder}
             submitLabel={labels.submit}
             submittingLabel={labels.submitting}
             submitting={addCommentMutation.isPending}
             density={config.density}
+            actions={
+              props.internal ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size={compact ? "sm" : "default"}
+                  className="border-amber-300 text-amber-900 hover:bg-amber-50 dark:text-amber-200"
+                  onClick={() => handleSubmit(draft, "internal")}
+                  disabled={addCommentMutation.isPending || !extractPlainText(draft).trim()}
+                >
+                  {props.internal.noteLabel}
+                </Button>
+              ) : undefined
+            }
           />
         </div>
       )}

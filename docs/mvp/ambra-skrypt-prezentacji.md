@@ -2,9 +2,21 @@
 
 ### Wersja do wydrukowania i prowadzenia prezentacji
 
+> **AKTUALIZACJA (2026-09-23)** — ten skrypt opisuje zamierzony stan NA TEN TYDZIEŃ (cel prezentacji), nie stan z 7 września. Każda sekcja jest oznaczona:
+> **[LIVE DEMO]** — ma być rzeczywiście pokazane na żywo na aktualnym build, wymaga zaimplementowanej funkcji i świeżej ręcznej próby.
+> **[NARRATIVE]** — wypowiedź/opowieść, nie wymaga dowodu na ekranie.
+> **[ROADMAP]** — świadomie przyszły kierunek, nie pokazywać jako gotową funkcję.
+> Poprawiono trzy konkretne, zweryfikowane niezgodności ze stanem kodu: (1) QR dotyczy lokalizacji i **kontenerów** (fizycznych zestawów), nie pojedynczych części — trwała identyfikacja QR na poziomie pojedynczej części nie jest budowana; (2) wydanie części nie jest obejściem korektą inwentaryzacyjną (typ 402); (3) usunięto obietnicę cyfrowego powiązania ticket↔zlecenie/część. Pełne uzasadnienie było w `docs/mvp/reviews/` (usunięte 2026-10-14, dostępne w historii gita: `git show ddc19a82:docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/pitch-script-truth-matrix.md`).
+>
+> **AKTUALIZACJA (2026-10-14)** — trzy miejsca dopasowane do stanu aplikacji:
+>
+> - **§10:** wydanie na zlecenie to dokument **RW (rozchód wewnętrzny, typ 261)** — odpowiednik WU z AutoStacji — a nie 201/WZ.
+> - **§12:** zlecenie ma zakładkę **„Powiązania”**: zgłoszenia założone do tego zlecenia (portal zapisuje jego numer) oraz wzmianki `@` o zleceniu w zgłoszeniach, zadaniach, komentarzach i na czacie. Bezpośredniego przypisania części ani kontenera do ticketu nadal nie ma.
+> - **§14:** **powiadomienia** (dzwonek na żywo, w tym wzmianki `@`) i **wiadomości między pracownikami** działają i można je pokazać. Zadania cykliczne, kalendarz i Kanban zostają kierunkiem; e-maile z powiadomień są jeszcze wyłączone — nie obiecywać ich na scenie.
+
 ---
 
-## 1. WSTĘP — SKĄD WZIĘŁA SIĘ AMBRA
+## 1. WSTĘP — SKĄD WZIĘŁA SIĘ AMBRA [NARRATIVE]
 
 **Powiedzieć:**
 
@@ -22,7 +34,7 @@ I znalazłem pierwszy bardzo konkretny przykład.
 
 ---
 
-## 2. PROBLEM — RĘCZNE DOPASOWYWANIE DOKUMENTÓW
+## 2. PROBLEM — RĘCZNE DOPASOWYWANIE DOKUMENTÓW [NARRATIVE]
 
 ### POKAŻ FIZYCZNE WYDRUKI.
 
@@ -48,7 +60,7 @@ Wystarczy małe narzędzie.
 
 ---
 
-## 3. PUBLICZNY SVWMS MATCHER
+## 3. PUBLICZNY SVWMS MATCHER [LIVE DEMO]
 
 ### OTWÓRZ PUBLICZNEGO MATCHERA.
 
@@ -76,7 +88,7 @@ I to był pierwszy problem rozwiązany w ramach tego projektu.
 
 ---
 
-## 4. POMYSŁ NA DALSZE WYKORZYSTANIE DANYCH
+## 4. POMYSŁ NA DALSZE WYKORZYSTANIE DANYCH [NARRATIVE]
 
 **Powiedzieć:**
 
@@ -106,7 +118,7 @@ Dlatego połączyłem Matchera z aplikacją, nad którą wcześniej pracowałem 
 
 ---
 
-## 5. CO DZIAŁA POD SPODEM AMBRY
+## 5. CO DZIAŁA POD SPODEM AMBRY [NARRATIVE]
 
 ### KRÓTKO — OKOŁO 2 MINUT. NIE DEMONSTROWAĆ WSZYSTKIEGO.
 
@@ -122,7 +134,7 @@ Kontrola dostępu nie kończy się na ukrywaniu przycisku w interfejsie. Uprawni
 
 Jest system **lokalizacji magazynowych**, dzięki któremu każdy oddział może odwzorować własną fizyczną strukturę magazynu.
 
-Ambra potrafi **generować kody QR oraz gotowe etykiety do wydrukowania** dla lokalizacji, części i innych obiektów. Można je później skanować bezpośrednio telefonem.
+Ambra potrafi **generować kody QR oraz gotowe etykiety do wydrukowania** dla lokalizacji oraz dla kontenerów — fizycznych zestawów części zgrupowanych razem. Nie budujemy trwałej cyfrowej identyfikacji pojedynczej części — jednostką fizycznej identyfikacji jest lokalizacja albo kontener. Kody QR można później skanować bezpośrednio telefonem.
 
 Mamy **katalogi produktów i części, części wolne, proste zlecenia zawierające ich numery i listy należących do nich części oraz możliwość łączenia tych informacji z lokalizacjami i historią operacji**.
 
@@ -136,7 +148,7 @@ Chciałem tylko pokazać, że to, co za chwilę zobaczycie, nie działa jako poj
 
 ---
 
-## 6. MATCHER DLA ZALOGOWANYCH UŻYTKOWNIKÓW
+## 6. MATCHER DLA ZALOGOWANYCH UŻYTKOWNIKÓW [LIVE DEMO]
 
 ### ZALOGUJ SIĘ.
 
@@ -156,7 +168,7 @@ Dane, które Matcher i tak już pozyskał podczas analizy dokumentów, stają si
 
 ---
 
-## 7. PRZYJĘCIE I ROZKŁADANIE DOSTAWY
+## 7. PRZYJĘCIE I ROZKŁADANIE DOSTAWY [LIVE DEMO]
 
 ### OD TEGO MOMENTU POKAZAĆ CAŁY PROCES BEZ DYGRESJI.
 
@@ -181,11 +193,11 @@ Zamiast co chwilę wracać do komputera, pracownik może wykonywać ten proces b
 
 ### DEMO:
 
-**SKAN CZĘŚCI/ZESTAWU → SKAN LOKALIZACJI → POTWIERDZENIE**
+**WYBÓR POZYCJI Z LISTY DOSTAWY → SKAN LOKALIZACJI → POTWIERDZENIE**
 
 **Powiedzieć:**
 
-Skanuję część albo zestaw.
+Wybieram pozycję z listy dostawy — nie skanuję samej części, bo pojedyncza część nie ma trwałej cyfrowej etykiety.
 
 Następnie skanuję etykietę lokalizacji, na której ją odkładam.
 
@@ -209,7 +221,7 @@ Matcher je przeanalizował, dane zostały zachowane, przeprowadziliśmy fizyczne
 
 ---
 
-## 8. POCZĄTKOWY STAN MAGAZYNU
+## 8. POCZĄTKOWY STAN MAGAZYNU [NARRATIVE]
 
 **Powiedzieć:**
 
@@ -231,17 +243,17 @@ Nie musimy więc pierwszego dnia wykonywać ogromnej migracji wszystkich history
 
 ---
 
-## 9. CODZIENNA PRACA Z CZĘŚCIAMI
+## 9. CODZIENNA PRACA Z CZĘŚCIAMI [LIVE DEMO]
 
 ### POKAŻ:
 
 - wyszukiwanie zlecenia,
 - wyszukiwanie części,
 - lokalizację,
-- skan QR,
+- skan QR (lokalizacji i kontenera),
 - część wolną,
 - zmianę lokalizacji,
-- przeniesienie zestawu,
+- przeniesienie kontenera (kod QR kontenera),
 - historię.
 
 **Powiedzieć:**
@@ -262,7 +274,7 @@ Mogę zeskanować część.
 
 Mogę zeskanować lokalizację i zobaczyć, co powinno się na niej znajdować.
 
-A jeżeli chcę coś przenieść:
+A jeżeli chcę przenieść pojedynczą część:
 
 ### POKAŻ „ZMIEŃ LOKALIZACJĘ”.
 
@@ -270,11 +282,21 @@ A jeżeli chcę coś przenieść:
 
 wybieram zmianę lokalizacji, skanuję nową etykietę i system aktualizuje informację.
 
+Jeżeli natomiast części zostały wcześniej zgrupowane w kontener — fizyczny zestaw z własnym kodem QR — mogę przenieść cały kontener naraz:
+
+### POKAŻ „PRZENIEŚ KONTENER”.
+
+### ZESKANUJ KOD QR KONTENERA.
+
+### ZESKANUJ NOWĄ LOKALIZACJĘ.
+
+Skanuję kod QR kontenera, skanuję nową lokalizację i cała zawartość zestawu przenosi się razem, bez ręcznego przepisywania każdej pozycji osobno.
+
 Dzięki temu reorganizacja magazynu może być znacznie prostsza, szczególnie przy zleceniach znajdujących się na kilku lokalizacjach.
 
 ---
 
-## 10. ODNALEZIENIE I WYDANIE CZĘŚCI
+## 10. ODNALEZIENIE I WYDANIE CZĘŚCI [LIVE DEMO]
 
 ### WYSZUKAJ ZLECENIE/CZĘŚĆ.
 
@@ -288,7 +310,7 @@ Dzięki temu reorganizacja magazynu może być znacznie prostsza, szczególnie p
 
 Ten sam system prowadzi nas później do drugiego końca procesu.
 
-Mogę wyszukać część albo zlecenie, zobaczyć dokładnie, gdzie się znajduje, pobrać ją i zarejestrować wydanie.
+Mogę wyszukać część albo zlecenie, zobaczyć dokładnie, gdzie się znajduje, pobrać ją i zarejestrować wydanie na zlecenie właściwym dokumentem magazynowym — **RW, rozchodem wewnętrznym**, z polem odbiorcy. To odpowiednik WU, które znamy z AutoStacji. Na jednym dokumencie wydaję części z kontenera zlecenia i odhaczam materiały. To nie jest korekta stanu ani obejście — to osobny, właściwy dokument wydania na naprawę.
 
 I tutaj od razu zaznaczę jedną rzecz.
 
@@ -324,7 +346,7 @@ Jeżeli okaże się zbyt uciążliwe, będziemy wiedzieli, że właśnie tutaj p
 
 ---
 
-## 11. PODSUMOWANIE WORKFLOW CZĘŚCI
+## 11. PODSUMOWANIE WORKFLOW CZĘŚCI [NARRATIVE]
 
 **Powiedzieć:**
 
@@ -352,7 +374,7 @@ I wszystko zaczęło się od tych dokumentów, które pokazałem na początku.
 
 ---
 
-## 12. TICKETY — KOMUNIKACJA I ORGANIZACJA PRACY
+## 12. TICKETY — KOMUNIKACJA I ORGANIZACJA PRACY [LIVE DEMO — wąski, krótki pokaz]
 
 **Powiedzieć:**
 
@@ -376,15 +398,19 @@ Dlatego w Ambrze powstał system ticketów.
 
 Ticket może mieć określony typ, status, osobę odpowiedzialną, komentarze i historię.
 
-Może być również bezpośrednio powiązany ze zleceniem, częścią albo zestawem.
-
 Przy procesach takich jak zwrot można określić odpowiednią ścieżkę i wymaganą akceptację.
+
+### OPCJONALNIE: POKAŻ ZAKŁADKĘ „POWIĄZANIA” NA ZLECENIU.
+
+Jeżeli zgłoszenie dotyczy konkretnego zlecenia, widać to również od strony zlecenia. Na zleceniu jest zakładka „Powiązania”: zgłoszenia założone do tego zlecenia oraz wszystkie miejsca, w których ktoś wspomniał o nim przez `@` — w zgłoszeniu, w zadaniu, w komentarzu albo na czacie. Każdy widzi tam tylko to, do czego sam ma dostęp.
+
+_(Uczciwie: zgłoszenie łączy się ze zleceniem przez numer zlecenia i przez wzmianki `@`. Bezpośredniego przypisania części ani kontenera do ticketu jeszcze nie ma — nie sugerować tego na scenie.)_
 
 Ale tickety nie muszą służyć wyłącznie do komunikacji z doradcami.
 
 ---
 
-## 13. TICKETY WEWNĄTRZ DZIAŁU CZĘŚCI
+## 13. TICKETY WEWNĄTRZ DZIAŁU CZĘŚCI [NARRATIVE — ilustracyjny przykład, część QR-na-tickecie jest LIVE DEMO jeśli pokazywana]
 
 **Powiedzieć:**
 
@@ -400,9 +426,9 @@ Opisujemy problem.
 
 Przypisujemy część do ticketu.
 
-Przyklejamy do niej wygenerowany kod QR.
+Przyklejamy do niej wygenerowany kod QR ticketu — to etykieta ticketu przyklejona fizycznie do części, nie trwała cyfrowa identyfikacja samej części.
 
-Od tego momentu każdy pracownik może zeskanować część i zobaczyć:
+Od tego momentu każdy pracownik może zeskanować ten kod i zobaczyć:
 
 - dlaczego tutaj leży,
 - czego dotyczy sprawa,
@@ -422,15 +448,22 @@ Ten sam mechanizm można wykorzystać przy reklamacjach, zwrotach i wielu innych
 
 ---
 
-## 14. ORGANIZACJA PRACY — CO DALEJ
+## 14. ORGANIZACJA PRACY — CO DALEJ [ROADMAP]
 
 **Powiedzieć:**
 
 I tutaj zaczynam widzieć jeszcze szersze zastosowanie.
 
-Pracuję również nad systemem **zadań, zadań cyklicznych, kalendarza, powiadomień i tablic Kanban**.
+Pracuję również nad systemem **zadań, zadań cyklicznych, kalendarza i tablic Kanban**.
 
 Część tych mechanizmów już istnieje albo jest rozpoczęta, ale nie chcę dzisiaj robić z nich kolejnego dużego demo.
+
+Dwie rzeczy już działają na co dzień i mogę je krótko pokazać, jeśli będzie czas:
+
+- **powiadomienia** — dzwonek na górze ekranu: przypisanie zgłoszenia lub zadania, komentarz w mojej sprawie, wzmianka `@` o mnie — pojawiają się na żywo, bez odświeżania;
+- **wiadomości między pracownikami** — czat jeden na jeden i w grupach, w którym przez `@` mogę wskazać osobę albo konkretne zlecenie czy część.
+
+_(E-maile z powiadomień są przygotowane, ale jeszcze wyłączone — nie obiecywać na scenie, że już przychodzą.)_
 
 Mogłyby one pozwolić nam organizować nie tylko problemy, ale również normalną pracę.
 
@@ -448,7 +481,7 @@ A w przyszłości potencjalnie również dla innych pracowników.
 
 ---
 
-## 15. INNE KIERUNKI
+## 15. INNE KIERUNKI [ROADMAP]
 
 **Powiedzieć:**
 
@@ -473,7 +506,7 @@ Właśnie tutaj dochodzę do głównego powodu, dla którego chciałem zorganizo
 
 ---
 
-## 16. PROPOZYCJA PILOTAŻU
+## 16. PROPOZYCJA PILOTAŻU [NARRATIVE]
 
 **Powiedzieć:**
 
@@ -491,7 +524,7 @@ Dlatego chciałbym zaproponować **trzymiesięczny, ograniczony pilotaż Ambry n
 
 ---
 
-## 17. CEL PILOTAŻU
+## 17. CEL PILOTAŻU [NARRATIVE]
 
 **Powiedzieć:**
 
@@ -522,7 +555,7 @@ Ma odpowiedzieć na pytanie:
 
 ---
 
-## 18. TRZY MIESIĄCE
+## 18. TRZY MIESIĄCE [NARRATIVE]
 
 ### MIESIĄC 1 — PRZYGOTOWANIE
 
@@ -566,7 +599,7 @@ Na końcu chcę móc powiedzieć:
 
 ---
 
-## 19. CO UZNAJEMY ZA SUKCES
+## 19. CO UZNAJEMY ZA SUKCES [NARRATIVE]
 
 **Powiedzieć:**
 
@@ -586,7 +619,7 @@ Sukcesem byłoby potwierdzenie, że:
 
 ---
 
-## 20. BUDŻET PILOTAŻU
+## 20. BUDŻET PILOTAŻU [NARRATIVE]
 
 ### SLAJD: **3 MIESIĄCE — 25 000 ZŁ**
 
@@ -608,7 +641,7 @@ To jest budżet potrzebny do przejścia z projektu rozwijanego przeze mnie samod
 
 ---
 
-## 21. CO JEŚLI PILOT NIE POTWIERDZI ZAŁOŻEŃ?
+## 21. CO JEŚLI PILOT NIE POTWIERDZI ZAŁOŻEŃ? [NARRATIVE]
 
 **Powiedzieć:**
 
@@ -630,7 +663,7 @@ Po trzech miesiącach mamy wtedy odpowiedź opartą na rzeczywistym użytkowaniu
 
 ---
 
-## 22. CO JEŚLI PILOT SIĘ UDA?
+## 22. CO JEŚLI PILOT SIĘ UDA? [NARRATIVE]
 
 **Powiedzieć:**
 
@@ -651,7 +684,7 @@ Nie chciałbym podejmować tych decyzji dzisiaj.
 
 ---
 
-## 23. ZAMKNIĘCIE
+## 23. ZAMKNIĘCIE [NARRATIVE]
 
 **Powiedzieć:**
 

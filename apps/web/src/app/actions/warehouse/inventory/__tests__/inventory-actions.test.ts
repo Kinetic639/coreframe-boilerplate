@@ -525,8 +525,8 @@ describe("inventory product and reversal actions", () => {
     expect(InventoryProductsService.createEnhancedProduct).not.toHaveBeenCalled();
   });
 
-  it("reverseMovementAction returns not-available stub", async () => {
-    const result = await reverseMovementAction({ id: MOVEMENT_ID, note: "Correction" });
+  it("reverseMovementAction refuses without permission or reason", async () => {
+    const result = await reverseMovementAction({ id: MOVEMENT_ID, reason: "  " });
 
     expect(result.success).toBe(false);
   });

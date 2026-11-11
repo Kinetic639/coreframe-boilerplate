@@ -17,7 +17,12 @@ import { Building2, Plus, Pencil, Trash2, Map } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePermissions } from "@/hooks/v2/use-permissions";
-import { BRANCHES_CREATE, BRANCHES_UPDATE, BRANCHES_DELETE } from "@/lib/constants/permissions";
+import {
+  BRANCHES_CREATE,
+  BRANCHES_UPDATE,
+  BRANCHES_DELETE,
+  WAREHOUSE_STRUCTURE_MANAGE,
+} from "@/lib/constants/permissions";
 import {
   useCreateBranchMutation,
   useUpdateBranchMutation,
@@ -25,6 +30,7 @@ import {
 } from "@/hooks/queries/organization";
 import type { OrgBranch } from "@/server/services/organization.service";
 import { DataView } from "@/components/data-view/data-view";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
@@ -32,11 +38,13 @@ import type {
   PaginatedResult,
 } from "@/components/data-view/data-view.types";
 import { listBranchesAction } from "@/app/actions/organization/branches";
+import { BranchWarehousesPanel } from "./branch-warehouses-panel";
 import { filterSortBranches, paginateBranches } from "../_utils/branches-data-view";
 
 const BRANCHES_DV_QUERY_KEY = ["org-branches-dataview"];
 
 interface BranchesClientProps {
+  orgId: string;
   initialData: PaginatedResult<OrgBranch>;
   allBranches: OrgBranch[];
 }
@@ -44,6 +52,7 @@ interface BranchesClientProps {
 type DialogMode = "create" | "edit" | null;
 
 export function BranchesClient({
+  orgId,
   initialData,
   allBranches: initialAllBranches,
 }: BranchesClientProps) {
@@ -83,6 +92,8 @@ export function BranchesClient({
 
   const canCreate = can(BRANCHES_CREATE);
   const canUpdate = can(BRANCHES_UPDATE);
+  // Jednostki and magazyny: also kierownik magazynu / admin (warehouse.structure.manage)
+  const canManageStructure = canUpdate || can(WAREHOUSE_STRUCTURE_MANAGE);
   const canDelete = can(BRANCHES_DELETE);
 
   const refreshAfterMutation = async () => {
@@ -294,6 +305,8 @@ export function BranchesClient({
         </div>
       </div>
 
+      <BranchWarehousesPanel key={branch.id} branchId={branch.id} canManage={canManageStructure} />
+
       {(canUpdate || canDelete) && (
         <div className="flex gap-2 border-t pt-3">
           {canUpdate && (
@@ -342,6 +355,7 @@ export function BranchesClient({
       <div className="flex-1 overflow-hidden">
         <DataView<OrgBranch, OrgBranch>
           entity="org-branches"
+          scope={dataViewScope.organization(orgId)}
           columns={columns}
           filters={filters}
           initialData={initialData}

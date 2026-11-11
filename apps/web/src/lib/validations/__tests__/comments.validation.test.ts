@@ -91,4 +91,36 @@ describe("normalizeCommentRichText", () => {
 
     expect(normalizeCommentRichText(value)).toBeNull();
   });
+
+  it("accepts a mention with a uuid and an internal link", () => {
+    const mention = (attrs: Record<string, unknown>) => ({
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "mention", attrs }] }],
+    });
+    const id = "832858c3-0a9f-4f9f-a230-fc7e47855e78";
+    expect(normalizeCommentRichText(mention({ type: "person", id, label: "Anna" }))).not.toBeNull();
+    expect(
+      normalizeCommentRichText(
+        mention({
+          type: "repairOrder",
+          id,
+          label: "Golf",
+          code: "174232",
+          href: "/dashboard/workshop/x",
+        })
+      )
+    ).not.toBeNull();
+    // Not a uuid, an external or script link, an oversized label
+    expect(normalizeCommentRichText(mention({ type: "person", id: "1", label: "A" }))).toBeNull();
+    for (const href of [
+      "https://evil.example",
+      "javascript:alert(1)",
+      "/dashboard//evil.example",
+    ]) {
+      expect(normalizeCommentRichText(mention({ type: "item", id, label: "A", href }))).toBeNull();
+    }
+    expect(
+      normalizeCommentRichText(mention({ type: "person", id, label: "A".repeat(201) }))
+    ).toBeNull();
+  });
 });

@@ -3,6 +3,7 @@ import type { PermissionSnapshot } from "@/lib/types/permissions";
 import {
   MODULE_WAREHOUSE_ACCESS,
   WAREHOUSE_LOCATIONS_READ,
+  WAREHOUSE_INVENTORY_READ,
   MODULE_HELPDESK_ACCESS,
   HELPDESK_TICKETS_READ,
   MODULE_PLANNING_ACCESS,
@@ -32,7 +33,7 @@ export interface HomePlanningSummary {
   } | null;
 }
 
-export type HomeAction = "tools" | "locations" | "tickets" | "tasks";
+export type HomeAction = "tools" | "locations" | "putaway" | "tickets" | "tasks";
 export type WidgetResult<T> = { state: "ready"; data: T } | { state: "unavailable" };
 
 /** Same module + leaf permission gates as destination routes. Denies win. */
@@ -51,6 +52,13 @@ export function getHomeActions(
     allowed(MODULE_WAREHOUSE_ACCESS, WAREHOUSE_LOCATIONS_READ)
   )
     actions.push("locations");
+  // Zone 5: what waits in the receiving zone, not yet available stock.
+  if (
+    hasBranch &&
+    modules.includes(MODULE_WAREHOUSE) &&
+    allowed(MODULE_WAREHOUSE_ACCESS, WAREHOUSE_INVENTORY_READ)
+  )
+    actions.push("putaway");
   if (
     hasBranch &&
     modules.includes(MODULE_HELPDESK) &&

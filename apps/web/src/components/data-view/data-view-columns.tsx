@@ -8,6 +8,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { useDataViewColumns, useDataViewStatic } from "./use-data-view";
 
+type ColumnVisibilityDefault = { key: string; defaultVisible?: boolean };
+
+export function getInitialColumnVisibility(
+  columns: ColumnVisibilityDefault[],
+  stored: Record<string, boolean>
+): Record<string, boolean> {
+  return Object.fromEntries(
+    columns.map((column) => [column.key, stored[column.key] ?? column.defaultVisible ?? true])
+  );
+}
+
 function getStorageKey(entity: string) {
   return `data-view:${entity}:columns`;
 }
@@ -19,7 +30,7 @@ function getStorageKey(entity: string) {
  */
 export function useColumnVisibility(
   entity: string,
-  columnKeys: string[]
+  columns: ColumnVisibilityDefault[]
 ): {
   columnVisibility: Record<string, boolean>;
   setColumnVisibility: (key: string, visible: boolean) => void;
@@ -71,14 +82,10 @@ export function useColumnVisibility(
     }
   }, [entity]);
 
-  // Merge with defaults (all visible unless explicitly hidden)
+  // Stored user preferences override the declarative column defaults.
   const merged = useMemo(() => {
-    const next = { ...columnVisibility };
-    for (const key of columnKeys) {
-      if (!(key in next)) next[key] = true;
-    }
-    return next;
-  }, [columnVisibility, columnKeys]);
+    return getInitialColumnVisibility(columns, columnVisibility);
+  }, [columnVisibility, columns]);
 
   return { columnVisibility: merged, setColumnVisibility, resetColumnVisibility };
 }

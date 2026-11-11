@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import { User, Settings, Bell } from "lucide-react";
+import { User, Settings, Bell, Bug } from "lucide-react";
 
 interface AccountLayoutClientProps {
   children: React.ReactNode;
@@ -14,6 +14,7 @@ const tabs = [
   { id: "preferences", href: "/dashboard/account/preferences" as const, icon: Settings },
   { id: "notifications", href: "/dashboard/account/notifications" as const, icon: Bell },
   { id: "profile", href: "/dashboard/account/profile" as const, icon: User },
+  { id: "feedback", href: "/dashboard/account/feedback" as const, icon: Bug },
 ] as const;
 
 export function AccountLayoutClient({ children }: AccountLayoutClientProps) {

@@ -1,9 +1,83 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getQrCodeByTokenAction } from "@/app/actions/qr/assign";
+
+type SharedCamera = {
+  acquire: () => Promise<MediaStream>;
+  /** Stop the shared stream now (e.g. idle sleep); the next acquire reopens it. */
+  release: () => void;
+};
+
+const SharedCameraContext = createContext<SharedCamera | null>(null);
+
+function requestCamera() {
+  return navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+}
+
+/**
+ * Keeps ONE camera stream for every QrCameraScanner rendered inside it
+ * (e.g. a scan-after-scan putaway sheet). Each start of a camera makes the
+ * browser announce "camera access granted" -- with a shared stream that
+ * happens once per session instead of on every scan. The stream stops when
+ * the provider unmounts.
+ */
+export function SharedCameraProvider({ children }: { children: ReactNode }) {
+  const pendingRef = useRef<Promise<MediaStream> | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  useEffect(
+    () => () => {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      pendingRef.current = null;
+    },
+    []
+  );
+
+  const value = useMemo<SharedCamera>(
+    () => ({
+      acquire() {
+        // Re-open only if the stream ended (e.g. the phone locked).
+        const live = streamRef.current?.getVideoTracks().some((t) => t.readyState === "live");
+        if (!live) pendingRef.current = null;
+        if (!pendingRef.current) {
+          pendingRef.current = requestCamera().then(
+            (stream) => {
+              streamRef.current = stream;
+              return stream;
+            },
+            (error) => {
+              pendingRef.current = null;
+              throw error;
+            }
+          );
+        }
+        return pendingRef.current;
+      },
+      release() {
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        pendingRef.current = null;
+      },
+    }),
+    []
+  );
+
+  return <SharedCameraContext.Provider value={value}>{children}</SharedCameraContext.Provider>;
+}
 
 export interface QrScanLookup {
   id: string;
@@ -24,9 +98,40 @@ interface QrCameraScannerProps {
   onBack: () => void;
   backLabel?: string;
   hintLabel?: string;
+  /**
+   * Finds a scanned token. Defaults to the server lookup; a screen that
+   * already holds its codes passes a local one (no round trip).
+   */
+  lookupToken?: (token: string) => Promise<TokenLookupResult>;
+  /** "Try again" after a failed scan; defaults to onBack. */
+  onRetry?: () => void;
 }
 
-function extractToken(scannedText: string): string | null {
+/** The shared camera of the nearest SharedCameraProvider, or null. */
+export function useSharedCamera() {
+  return useContext(SharedCameraContext);
+}
+
+export type TokenLookupResult =
+  | { success: true; data: Omit<QrScanLookup, "token"> | null }
+  | { success: false; error: string };
+
+export type ResolvedScan =
+  | { ok: true; lookup: QrScanLookup }
+  | { ok: false; reason: "invalidToken" | "notFound" | "revoked" };
+
+/** Scanned text (a /qr/<token> URL or a bare token) -> the active QR code. */
+export async function resolveScannedQr(scannedText: string): Promise<ResolvedScan> {
+  const token = extractToken(scannedText);
+  if (!token) return { ok: false, reason: "invalidToken" };
+  const lookup = await getQrCodeByTokenAction(token);
+  if (!lookup.success || !lookup.data) return { ok: false, reason: "notFound" };
+  const { id, label, status, assignment } = lookup.data;
+  if (status !== "active") return { ok: false, reason: "revoked" };
+  return { ok: true, lookup: { id, token, label, status, assignment } };
+}
+
+export function extractToken(scannedText: string): string | null {
   try {
     const url = new URL(scannedText);
     const parts = url.pathname.split("/qr/");
@@ -39,7 +144,16 @@ function extractToken(scannedText: string): string | null {
   }
 }
 
-export function QrCameraScanner({ onScanned, onBack, backLabel, hintLabel }: QrCameraScannerProps) {
+export function QrCameraScanner({
+  onScanned,
+  onBack,
+  backLabel,
+  hintLabel,
+  onRetry,
+  lookupToken,
+}: QrCameraScannerProps) {
+  const t = useTranslations("qrScanner");
+  const shared = useContext(SharedCameraContext);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -66,16 +180,16 @@ export function QrCameraScanner({ onScanned, onBack, backLabel, hintLabel }: QrC
 
       const token = extractToken(scannedText);
       if (!token) {
-        setScanStatus("Could not read a valid QR token. Try again.");
+        setScanStatus(t("invalidToken"));
         processingRef.current = false;
         return;
       }
 
-      setScanStatus("Looking up QR code…");
-      const lookup = await getQrCodeByTokenAction(token);
+      setScanStatus(t("lookingUp"));
+      const lookup = await (lookupToken ?? getQrCodeByTokenAction)(token);
 
       if (!lookup.success || !lookup.data) {
-        setScanStatus("QR code not found in this organisation.");
+        setScanStatus(t("notFound"));
         processingRef.current = false;
         return;
       }
@@ -83,7 +197,7 @@ export function QrCameraScanner({ onScanned, onBack, backLabel, hintLabel }: QrC
       const { id, label, status, assignment } = lookup.data;
 
       if (status !== "active") {
-        setScanStatus("This QR code has been revoked.");
+        setScanStatus(t("revoked"));
         processingRef.current = false;
         return;
       }
@@ -97,7 +211,7 @@ export function QrCameraScanner({ onScanned, onBack, backLabel, hintLabel }: QrC
         processingRef.current = false;
       }
     },
-    [onScanned, stopCamera]
+    [onScanned, stopCamera, t, lookupToken]
   );
 
   useEffect(() => {
@@ -105,21 +219,20 @@ export function QrCameraScanner({ onScanned, onBack, backLabel, hintLabel }: QrC
 
     async function startCamera() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-        });
+        const stream = shared ? await shared.acquire() : await requestCamera();
         if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
+          if (!shared) stream.getTracks().forEach((t) => t.stop());
           return;
         }
-        streamRef.current = stream;
+        // A shared stream is owned by the provider: never stopped here.
+        if (!shared) streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
         }
         startScanLoop();
       } catch {
-        if (!cancelled) setCameraError("Camera access denied or unavailable.");
+        if (!cancelled) setCameraError(t("cameraError"));
       }
     }
 
@@ -160,13 +273,13 @@ export function QrCameraScanner({ onScanned, onBack, backLabel, hintLabel }: QrC
       cancelled = true;
       stopCamera();
     };
-  }, [handleScanned, stopCamera]);
+  }, [handleScanned, shared, stopCamera, t]);
 
   return (
     <div className="flex flex-col gap-3">
       <Button variant="ghost" size="sm" className="self-start -ml-1" onClick={onBack}>
         <ArrowLeft className="mr-1.5 h-4 w-4" />
-        {backLabel ?? "Back"}
+        {backLabel ?? t("back")}
       </Button>
 
       {cameraError ? (
@@ -193,15 +306,13 @@ export function QrCameraScanner({ onScanned, onBack, backLabel, hintLabel }: QrC
       )}
 
       {scanStatus && !busy && (
-        <Button variant="outline" size="sm" onClick={onBack}>
-          Try again
+        <Button variant="outline" size="sm" onClick={onRetry ?? onBack}>
+          {t("tryAgain")}
         </Button>
       )}
 
       {!scanStatus && !cameraError && (
-        <p className="text-center text-xs text-muted-foreground">
-          {hintLabel ?? "Point the camera at a QR label to scan it automatically."}
-        </p>
+        <p className="text-center text-xs text-muted-foreground">{hintLabel ?? t("hint")}</p>
       )}
     </div>
   );

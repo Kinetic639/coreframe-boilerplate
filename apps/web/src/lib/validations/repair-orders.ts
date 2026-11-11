@@ -75,3 +75,14 @@ export const changeRepairOrderStatusSchema = z.object({
   toStatus: repairOrderStatusSchema,
 });
 export type ChangeRepairOrderStatusInput = z.infer<typeof changeRepairOrderStatusSchema>;
+
+/**
+ * Phase 10C -- create a physical container owned by a RepairOrder.
+ */
+export const createRepairOrderContainerSchema = z.object({
+  repairOrderId: z.string().uuid(),
+  code: z.string().trim().min(1, "Code is required").max(80),
+  currentLocationId: z.string().uuid(),
+  type: z.string().trim().max(40).optional(),
+});
+export type CreateRepairOrderContainerInput = z.infer<typeof createRepairOrderContainerSchema>;

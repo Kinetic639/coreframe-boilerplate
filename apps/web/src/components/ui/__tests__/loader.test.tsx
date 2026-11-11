@@ -13,8 +13,8 @@ vi.mock("framer-motion", () => ({
   },
 }));
 
-vi.mock("../FancySpinner", () => ({
-  default: ({ className }: { className?: string }) => <div className={className}>spinner</div>,
+vi.mock("@/components/branding", () => ({
+  BrandLoader: ({ label }: { label?: string }) => <div data-testid="brand-loader">{label}</div>,
 }));
 
 import Loader from "../Loader";
@@ -35,7 +35,7 @@ describe("Loader", () => {
     expect(screen.getByText("Acme")).toBeInTheDocument();
     expect(screen.getByText("Warehouse")).toBeInTheDocument();
     expect(screen.getByText("Preparing")).toBeInTheDocument();
-    expect(screen.getByText("spinner")).toBeInTheDocument();
+    expect(screen.getByTestId("brand-loader")).toBeInTheDocument();
   });
 
   it("renders fallback content without branding", () => {
@@ -43,5 +43,12 @@ describe("Loader", () => {
 
     expect(screen.queryByAltText(/logo/i)).not.toBeInTheDocument();
     expect(screen.getByText("Loading data")).toBeInTheDocument();
+  });
+
+  it("shows the animated brand logo with the common loading label by default", () => {
+    render(<Loader />);
+
+    expect(screen.getByTestId("brand-loader")).toHaveTextContent("loading");
+    expect(screen.getByRole("status")).toBeInTheDocument();
   });
 });

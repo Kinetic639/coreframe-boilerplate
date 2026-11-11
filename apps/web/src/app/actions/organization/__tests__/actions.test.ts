@@ -62,6 +62,10 @@ vi.mock("@/server/services/organization.service", () => ({
     acceptInvitation: vi.fn(),
   },
   OrgRolesService: {
+    unassignableSlugs: vi.fn(async (_s: unknown, slugs: string[]) => ({
+      success: true,
+      data: slugs.filter((x) => x.startsWith("superadmin.")),
+    })),
     listRoles: vi.fn(),
     createRole: vi.fn(),
     updateRole: vi.fn(),
@@ -421,6 +425,17 @@ describe("createRoleAction", () => {
   it("Unauthorized — no members.manage", async () => {
     const result = await createRoleAction({ name: "Test Role" });
     expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgRolesService.createRole).not.toHaveBeenCalled();
+  });
+
+  it("refuses platform permissions in an organization's role", async () => {
+    setCtx(CTX_ORG_ADMIN);
+    const result = await createRoleAction({
+      name: "Sneaky",
+      scope_type: "org",
+      permission_slugs: ["warehouse.structure.manage", "superadmin.*"],
+    });
+    expect(result).toEqual({ success: false, error: "Permissions not allowed: superadmin.*" });
     expect(OrgRolesService.createRole).not.toHaveBeenCalled();
   });
 

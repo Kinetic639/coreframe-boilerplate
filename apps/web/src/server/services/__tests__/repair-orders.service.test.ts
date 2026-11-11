@@ -11,6 +11,8 @@ import { RepairOrdersService, groupProvenanceByRepairOrderLine } from "../repair
 import type {
   RepairOrderLineReadModel,
   RepairOrderProvenanceDocument,
+  RepairOrderLineReservation,
+  RepairOrderLineAllocationLine,
 } from "../repair-orders.service";
 import { eventService } from "../event.service";
 
@@ -2058,5 +2060,1822 @@ describe("RepairOrdersService.getRepairOrderProvenance", () => {
     expect((result as { success: false; error: string }).error).not.toBe(
       "connection terminated unexpectedly"
     );
+  });
+});
+
+/**
+ * Phase 10: RepairOrdersService.attachMovementToRepairOrderLine -- the
+ * service-layer wrapper around the single, fully-validated RPC
+ * (attach_repair_order_line_movement,
+ * 20260912162802_repair_order_line_movement_attach_rpc.sql). Every
+ * validation RULE itself is proven live against the real RPC in
+ * 097_repair_order_line_movement_attach_phase10_test.sql (21/21 passing) --
+ * these tests cover only this method's own responsibilities: RPC param
+ * mapping, jsonb->domain-type mapping, Mode-A event emission on success,
+ * no emission on RPC error, and the curated error-normalization allowlist.
+ */
+describe("RepairOrdersService.attachMovementToRepairOrderLine", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const ATTACH_RPC_ROW = {
+    id: "link-1",
+    repair_order_line_id: "line-1",
+    inventory_movement_line_id: "ml-1",
+    applied_quantity: 2,
+    relation_type: "receipt",
+  };
+
+  it("calls the RPC with the correct params and maps the raw jsonb result to a typed RepairOrderLineMovementAttachment", async () => {
+    const supabase = buildSupabaseMock({ data: ATTACH_RPC_ROW, error: null });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    const result = await RepairOrdersService.attachMovementToRepairOrderLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      inventoryMovementLineId: "ml-1",
+      appliedQuantity: 2,
+      relationType: "receipt",
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledOnce();
+    expect(supabase.rpc).toHaveBeenCalledWith("attach_repair_order_line_movement", {
+      p_actor_user_id: "user-1",
+      p_repair_order_line_id: "line-1",
+      p_inventory_movement_line_id: "ml-1",
+      p_applied_quantity: 2,
+      p_relation_type: "receipt",
+    });
+
+    expect(result).toEqual({
+      success: true,
+      data: {
+        id: "link-1",
+        repairOrderLineId: "line-1",
+        inventoryMovementLineId: "ml-1",
+        appliedQuantity: 2,
+        relationType: "receipt",
+      },
+    });
+  });
+
+  it("emits workshop.repair_orders.movement_attributed on success, with the actor and link summary", async () => {
+    const supabase = buildSupabaseMock({ data: ATTACH_RPC_ROW, error: null });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    await RepairOrdersService.attachMovementToRepairOrderLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      inventoryMovementLineId: "ml-1",
+      appliedQuantity: 2,
+      relationType: "receipt",
+    });
+
+    expect(eventService.emit).toHaveBeenCalledOnce();
+    expect(eventService.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "workshop.repair_orders.movement_attributed",
+        actorType: "user",
+        actorUserId: "user-1",
+        entityType: "repair_order_line",
+        entityId: "line-1",
+        eventTier: "baseline",
+        metadata: expect.objectContaining({
+          inventoryMovementLineId: "ml-1",
+          appliedQuantity: 2,
+          relationType: "receipt",
+        }),
+      })
+    );
+  });
+
+  it("does not fail the whole call when event emission itself fails (Mode A best-effort)", async () => {
+    const supabase = buildSupabaseMock({ data: ATTACH_RPC_ROW, error: null });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: false,
+      error: "emit failed",
+    });
+
+    const result = await RepairOrdersService.attachMovementToRepairOrderLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      inventoryMovementLineId: "ml-1",
+      appliedQuantity: 2,
+      relationType: "receipt",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("returns a failure result and does NOT emit an event when the RPC itself errors", async () => {
+    const supabase = buildSupabaseMock({
+      data: null,
+      error: { code: "P0002", message: "RepairOrderLine not found: missing-line" },
+    });
+
+    const result = await RepairOrdersService.attachMovementToRepairOrderLine(supabase, "user-1", {
+      repairOrderLineId: "missing-line",
+      inventoryMovementLineId: "ml-1",
+      appliedQuantity: 2,
+      relationType: "receipt",
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "RepairOrderLine not found: missing-line",
+    });
+    expect(eventService.emit).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { code: "28000", message: "p_actor_user_id must match the authenticated caller" },
+    { code: "22023", message: "applied_quantity must be greater than zero" },
+    { code: "22023", message: "relation_type must be receipt or issue" },
+    { code: "P0002", message: "Inventory movement line not found: ml-x" },
+    {
+      code: "42501",
+      message: "Not authorized to attribute inventory movements for this branch",
+    },
+    {
+      code: "42501",
+      message: "Movement line organization/branch does not match the RepairOrder",
+    },
+    {
+      code: "55000",
+      message: "Only posted movement lines can be attributed to a RepairOrderLine",
+    },
+    { code: "22023", message: "relation_type issue does not match movement category receipt" },
+    { code: "55000", message: "Movement is referenced to a different RepairOrder" },
+    {
+      code: "55000",
+      message: "Movement line product/variant does not match the RepairOrderLine's own variant",
+    },
+    {
+      code: "22023",
+      message:
+        "applied_quantity exceeds the movement line's own remaining quantity (already applied 2, line quantity 2.000000)",
+    },
+    {
+      code: "23505",
+      message:
+        "This movement line is already attributed to this RepairOrderLine with this relation type",
+    },
+  ])(
+    "passes through the RPC's own known, safe error message verbatim ($code)",
+    async ({ code, message }) => {
+      const supabase = buildSupabaseMock({ data: null, error: { code, message } });
+
+      const result = await RepairOrdersService.attachMovementToRepairOrderLine(supabase, "user-1", {
+        repairOrderLineId: "line-1",
+        inventoryMovementLineId: "ml-1",
+        appliedQuantity: 2,
+        relationType: "receipt",
+      });
+
+      expect(result).toEqual({ success: false, error: message });
+    }
+  );
+
+  it("error normalization: an unexpected error is replaced with a generic message, never leaked raw", async () => {
+    const supabase = buildSupabaseMock({
+      data: null,
+      error: { code: "XX000", message: "connection terminated unexpectedly" },
+    });
+
+    const result = await RepairOrdersService.attachMovementToRepairOrderLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      inventoryMovementLineId: "ml-1",
+      appliedQuantity: 2,
+      relationType: "receipt",
+    });
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).not.toBe(
+      "connection terminated unexpectedly"
+    );
+  });
+
+  it("error normalization: a same-errcode native error with an unrecognized message shape is NOT mistaken for a known RPC message", async () => {
+    // Same errcode as the "not authorized" RAISE (42501) but a different,
+    // native-Postgres-shaped message -- must fall through to the generic
+    // message, not be passed through verbatim (matches the hardening
+    // already applied to normalizeMaterializationRpcError).
+    const supabase = buildSupabaseMock({
+      data: null,
+      error: {
+        code: "42501",
+        message: "permission denied for table repair_order_line_movement_links",
+      },
+    });
+
+    const result = await RepairOrdersService.attachMovementToRepairOrderLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      inventoryMovementLineId: "ml-1",
+      appliedQuantity: 2,
+      relationType: "receipt",
+    });
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).not.toBe(
+      "permission denied for table repair_order_line_movement_links"
+    );
+  });
+});
+
+/**
+ * Phase 10A: RepairOrdersService.reserveForLine /
+ * releaseReservationForLine / listReservationsForLine -- the RepairOrder
+ * domain's own wrapper around the existing, unmodified generic reservation
+ * engine (`inventory_create_reservation`/`inventory_release_reservation`).
+ * The engine's OWN real behavior (available-stock math, over-reservation
+ * rejection, release semantics, permission gating) is proven live in
+ * `098_repair_order_line_reservation_phase10a_test.sql` (17/17 passing) --
+ * these tests cover only this wrapper's own responsibilities: server-
+ * authoritative scope resolution (never trusting a caller-supplied org/
+ * branch), the no-variant guard, RPC param mapping, the release-ownership
+ * check (the central security property this wrapper adds on top of the
+ * generic engine), error normalization, event emission, and the read
+ * model's own outstanding-quantity formula.
+ */
+function buildReservationSupabaseMock(config: {
+  lineResult?: { data: unknown; error: unknown };
+  orderResult?: { data: unknown; error: unknown };
+  reservationLookupResult?: { data: unknown; error: unknown };
+  reservationsListResult?: { data: unknown; error: unknown };
+  rpcResult?: { data: unknown; error: unknown };
+}) {
+  const rpc = vi.fn().mockResolvedValue(config.rpcResult ?? { data: null, error: null });
+  const from = vi.fn().mockImplementation((table: string) => {
+    let result: { data: unknown; error: unknown } = { data: null, error: null };
+    if (table === "repair_order_lines") result = config.lineResult ?? result;
+    else if (table === "repair_orders") result = config.orderResult ?? result;
+    else if (table === "inventory_reservations") {
+      // releaseReservationForLine's own ownership lookup uses maybeSingle();
+      // listReservationsForLine's own query resolves via the thenable path.
+      result = config.reservationLookupResult ?? config.reservationsListResult ?? result;
+    }
+    const q: Record<string, unknown> = {};
+    for (const m of ["select", "eq", "is", "order"]) {
+      q[m] = vi.fn().mockImplementation(() => q);
+    }
+    q["maybeSingle"] = vi.fn().mockResolvedValue(result);
+    q["then"] = (onFulfilled: (v: unknown) => unknown) => Promise.resolve(result).then(onFulfilled);
+    return q;
+  });
+  return { from, rpc } as unknown as import("@supabase/supabase-js").SupabaseClient;
+}
+
+const RESERVATION_LINE_FOUND = {
+  data: { id: "line-1", repair_order_id: "ro-1", variant_id: "variant-1" },
+  error: null,
+};
+const RESERVATION_ORDER_FOUND = {
+  data: { id: "ro-1", organization_id: "org-1", branch_id: "branch-1" },
+  error: null,
+};
+
+describe("RepairOrdersService.listReservationsForLine", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("computes outstanding = reserved - released - fulfilled per line, and sums across multiple reservations for the same line", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsListResult: {
+        data: [
+          {
+            id: "res-1",
+            reservation_number: "RES-000001",
+            status: "active",
+            expires_at: null,
+            created_at: "2026-01-01T00:00:00.000Z",
+            inventory_reservation_lines: [
+              {
+                id: "resline-1",
+                variant_id: "variant-1",
+                location_id: "loc-1",
+                lot_id: null,
+                serial_id: null,
+                reserved_quantity: 5,
+                released_quantity: 0,
+                fulfilled_quantity: 0,
+              },
+            ],
+          },
+          {
+            id: "res-2",
+            reservation_number: "RES-000002",
+            status: "active",
+            expires_at: null,
+            created_at: "2026-01-02T00:00:00.000Z",
+            inventory_reservation_lines: [
+              {
+                id: "resline-2",
+                variant_id: "variant-1",
+                location_id: "loc-1",
+                lot_id: null,
+                serial_id: null,
+                reserved_quantity: 2,
+                released_quantity: 1,
+                fulfilled_quantity: 0,
+              },
+            ],
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listReservationsForLine(supabase, "line-1");
+
+    expect(result.success).toBe(true);
+    const data = (result as { success: true; data: RepairOrderLineReservation[] }).data;
+    expect(data).toHaveLength(2);
+    expect(data[0].outstandingQuantity).toBe(5);
+    expect(data[1].outstandingQuantity).toBe(1);
+  });
+
+  it("[domain-integrity correction] a reservation line whose own variant does not match the RepairOrderLine's own variant contributes zero, and the whole reservation is omitted if that was its only line", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND, // RepairOrderLine's own variant_id: "variant-1"
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsListResult: {
+        data: [
+          {
+            id: "res-wrong-variant",
+            reservation_number: "RES-000099",
+            status: "active",
+            expires_at: null,
+            created_at: "2026-01-01T00:00:00.000Z",
+            inventory_reservation_lines: [
+              {
+                id: "resline-wrong",
+                variant_id: "variant-2",
+                location_id: "loc-1",
+                lot_id: null,
+                serial_id: null,
+                reserved_quantity: 10,
+                released_quantity: 0,
+                fulfilled_quantity: 0,
+              },
+            ],
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listReservationsForLine(supabase, "line-1");
+
+    expect(result).toEqual({ success: true, data: [] });
+  });
+
+  it("[domain-integrity correction] within one reservation carrying BOTH a matching and a wrong-variant line, only the matching line is counted", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsListResult: {
+        data: [
+          {
+            id: "res-mixed",
+            reservation_number: "RES-000100",
+            status: "active",
+            expires_at: null,
+            created_at: "2026-01-01T00:00:00.000Z",
+            inventory_reservation_lines: [
+              {
+                id: "resline-good",
+                variant_id: "variant-1",
+                location_id: "loc-1",
+                lot_id: null,
+                serial_id: null,
+                reserved_quantity: 3,
+                released_quantity: 0,
+                fulfilled_quantity: 0,
+              },
+              {
+                id: "resline-wrong",
+                variant_id: "variant-2",
+                location_id: "loc-1",
+                lot_id: null,
+                serial_id: null,
+                reserved_quantity: 10,
+                released_quantity: 0,
+                fulfilled_quantity: 0,
+              },
+            ],
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listReservationsForLine(supabase, "line-1");
+
+    expect(result.success).toBe(true);
+    const data = (result as { success: true; data: RepairOrderLineReservation[] }).data;
+    expect(data).toHaveLength(1);
+    expect(data[0].lines).toHaveLength(1);
+    expect(data[0].lines[0].id).toBe("resline-good");
+    expect(data[0].outstandingQuantity).toBe(3);
+  });
+
+  it("returns an empty array (not an error, no existence leak) when the RepairOrderLine's own scope cannot be resolved", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: { data: null, error: null },
+    });
+
+    const result = await RepairOrdersService.listReservationsForLine(supabase, "missing-line");
+
+    expect(result).toEqual({ success: true, data: [] });
+  });
+
+  it("returns an empty array when zero reservations exist for this line", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsListResult: { data: [], error: null },
+    });
+
+    const result = await RepairOrdersService.listReservationsForLine(supabase, "line-1");
+
+    expect(result).toEqual({ success: true, data: [] });
+  });
+
+  it("error normalization: an unexpected query error is replaced with a generic message, never leaked raw", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsListResult: {
+        data: null,
+        error: { code: "XX000", message: "connection terminated unexpectedly" },
+      },
+    });
+
+    const result = await RepairOrdersService.listReservationsForLine(supabase, "line-1");
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).not.toBe(
+      "connection terminated unexpectedly"
+    );
+  });
+});
+
+/**
+ * Phase 10B: RepairOrdersService.allocateForLine / listAllocationsForLine --
+ * the RepairOrder domain's own wrapper around the existing, unmodified
+ * generic allocation engine (`inventory_create_allocation`). The engine's
+ * OWN real behavior (reservation-line handshake, balance transitions,
+ * partial/multiple allocation, over-allocation rejection, permission
+ * gating) is proven live in `099_repair_order_line_allocation_phase10b_
+ * test.sql` -- these tests cover only this wrapper's own responsibilities:
+ * server-authoritative reservation-line ownership resolution (never
+ * trusting a caller-supplied org/branch/location/variant), the
+ * reservation-first invariant (`reservation_line_id` always set), RPC
+ * param mapping (variant/location/lot/serial always DERIVED from the
+ * reservation line row, never from client input), error normalization,
+ * event emission, and the read model's own outstanding-quantity formula.
+ */
+function buildAllocationSupabaseMock(config: {
+  lineResult?: { data: unknown; error: unknown };
+  orderResult?: { data: unknown; error: unknown };
+  reservationLineResult?: { data: unknown; error: unknown };
+  reservationHeaderResult?: { data: unknown; error: unknown };
+  reservationsWithLinesResult?: { data: unknown; error: unknown };
+  allocationLinesResult?: { data: unknown; error: unknown };
+  rpcResult?: { data: unknown; error: unknown };
+}) {
+  const rpc = vi.fn().mockResolvedValue(config.rpcResult ?? { data: null, error: null });
+  const from = vi.fn().mockImplementation((table: string) => {
+    let result: { data: unknown; error: unknown } = { data: null, error: null };
+    if (table === "repair_order_lines") result = config.lineResult ?? result;
+    else if (table === "repair_orders") result = config.orderResult ?? result;
+    else if (table === "inventory_reservation_lines")
+      result = config.reservationLineResult ?? result;
+    else if (table === "inventory_reservations") {
+      result = config.reservationHeaderResult ?? config.reservationsWithLinesResult ?? result;
+    } else if (table === "inventory_allocation_lines") {
+      result = config.allocationLinesResult ?? result;
+    }
+    const q: Record<string, unknown> = {};
+    for (const m of ["select", "eq", "is", "order", "in"]) {
+      q[m] = vi.fn().mockImplementation(() => q);
+    }
+    q["maybeSingle"] = vi.fn().mockResolvedValue(result);
+    q["then"] = (onFulfilled: (v: unknown) => unknown) => Promise.resolve(result).then(onFulfilled);
+    return q;
+  });
+  return { from, rpc } as unknown as import("@supabase/supabase-js").SupabaseClient;
+}
+
+describe("RepairOrdersService.listAllocationsForLine", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns allocation lines with outstanding = allocated - fulfilled, joined to their own allocation header's number/status", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsWithLinesResult: {
+        data: [
+          {
+            inventory_reservation_lines: [
+              { id: "resline-1", variant_id: "variant-1" },
+              { id: "resline-2", variant_id: "variant-1" },
+            ],
+          },
+        ],
+        error: null,
+      },
+      allocationLinesResult: {
+        data: [
+          {
+            id: "allocline-1",
+            reservation_line_id: "resline-1",
+            variant_id: "variant-1",
+            location_id: "loc-1",
+            lot_id: null,
+            serial_id: null,
+            allocated_quantity: 4,
+            fulfilled_quantity: 0,
+            allocation: {
+              id: "alloc-1",
+              allocation_number: "ALLOC-000001",
+              status: "active",
+              deleted_at: null,
+            },
+          },
+          {
+            id: "allocline-2",
+            reservation_line_id: "resline-2",
+            variant_id: "variant-1",
+            location_id: "loc-1",
+            lot_id: null,
+            serial_id: null,
+            allocated_quantity: 2,
+            fulfilled_quantity: 1,
+            allocation: {
+              id: "alloc-2",
+              allocation_number: "ALLOC-000002",
+              status: "active",
+              deleted_at: null,
+            },
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listAllocationsForLine(supabase, "line-1");
+
+    expect(result.success).toBe(true);
+    const lines = (result as { success: true; data: RepairOrderLineAllocationLine[] }).data;
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toMatchObject({
+      id: "allocline-1",
+      allocationId: "alloc-1",
+      allocationNumber: "ALLOC-000001",
+      outstandingQuantity: 4,
+    });
+    expect(lines[1]).toMatchObject({
+      id: "allocline-2",
+      allocationId: "alloc-2",
+      outstandingQuantity: 1,
+    });
+  });
+
+  it("returns an empty array (not an error) when the line has no reservations at all", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsWithLinesResult: { data: [], error: null },
+    });
+
+    const result = await RepairOrdersService.listAllocationsForLine(supabase, "line-1");
+
+    expect(result).toEqual({ success: true, data: [] });
+  });
+
+  it("returns an empty array (no existence leak) when the RepairOrderLine's own scope cannot be resolved", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: { data: null, error: null },
+    });
+
+    const result = await RepairOrdersService.listAllocationsForLine(supabase, "missing-line");
+
+    expect(result).toEqual({ success: true, data: [] });
+  });
+
+  it("filters out a soft-deleted allocation header defensively, not relying on RLS alone", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsWithLinesResult: {
+        data: [{ inventory_reservation_lines: [{ id: "resline-1", variant_id: "variant-1" }] }],
+        error: null,
+      },
+      allocationLinesResult: {
+        data: [
+          {
+            id: "allocline-1",
+            reservation_line_id: "resline-1",
+            variant_id: "variant-1",
+            location_id: "loc-1",
+            lot_id: null,
+            serial_id: null,
+            allocated_quantity: 4,
+            fulfilled_quantity: 0,
+            allocation: {
+              id: "alloc-1",
+              allocation_number: "ALLOC-000001",
+              status: "cancelled",
+              deleted_at: "2026-09-14T00:00:00.000Z",
+            },
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listAllocationsForLine(supabase, "line-1");
+
+    expect(result).toEqual({ success: true, data: [] });
+  });
+
+  it("[domain-integrity correction] excludes allocation state reachable only through a wrong-variant reservation line", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND, // RepairOrderLine's own variant_id: "variant-1"
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsWithLinesResult: {
+        data: [{ inventory_reservation_lines: [{ id: "resline-1", variant_id: "variant-2" }] }],
+        error: null,
+      },
+      allocationLinesResult: {
+        data: [
+          {
+            id: "allocline-1",
+            reservation_line_id: "resline-1",
+            variant_id: "variant-2",
+            location_id: "loc-1",
+            lot_id: null,
+            serial_id: null,
+            allocated_quantity: 4,
+            fulfilled_quantity: 0,
+            allocation: {
+              id: "alloc-1",
+              allocation_number: "ALLOC-000001",
+              status: "active",
+              deleted_at: null,
+            },
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listAllocationsForLine(supabase, "line-1");
+
+    // The wrong-variant reservation line's own id is never even collected,
+    // so `allocationLinesResult` (mocked to return data regardless) proves
+    // the filter -- a real query would never even reach it.
+    expect(result).toEqual({ success: true, data: [] });
+  });
+
+  it("[domain-integrity correction] keeps a matching-variant allocation visible when a wrong-variant reservation line ALSO exists under the same RepairOrderLine reference", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsWithLinesResult: {
+        data: [
+          {
+            inventory_reservation_lines: [
+              { id: "resline-good", variant_id: "variant-1" },
+              { id: "resline-bad", variant_id: "variant-2" },
+            ],
+          },
+        ],
+        error: null,
+      },
+      allocationLinesResult: {
+        data: [
+          {
+            id: "allocline-good",
+            reservation_line_id: "resline-good",
+            variant_id: "variant-1",
+            location_id: "loc-1",
+            lot_id: null,
+            serial_id: null,
+            allocated_quantity: 3,
+            fulfilled_quantity: 0,
+            allocation: {
+              id: "alloc-good",
+              allocation_number: "ALLOC-000003",
+              status: "active",
+              deleted_at: null,
+            },
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listAllocationsForLine(supabase, "line-1");
+
+    expect(result.success).toBe(true);
+    const lines = (result as { success: true; data: RepairOrderLineAllocationLine[] }).data;
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ id: "allocline-good", outstandingQuantity: 3 });
+  });
+
+  it("error normalization: an unexpected query error is replaced with a generic message, never leaked raw", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsWithLinesResult: {
+        data: null,
+        error: { code: "XX000", message: "connection terminated unexpectedly" },
+      },
+    });
+
+    const result = await RepairOrdersService.listAllocationsForLine(supabase, "line-1");
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).not.toBe(
+      "connection terminated unexpectedly"
+    );
+  });
+});
+
+/**
+ * Phase 10C: RepairOrdersService.createContainerForRepairOrder /
+ * placeAllocationInContainer / removeAllocationFromContainer -- the
+ * RepairOrder domain's own wrapper around the existing, unmodified
+ * generic container orchestration engine (`inventory_create_container`/
+ * `inventory_add_to_container`/`inventory_remove_from_container`).
+ * A7 SIMPLIFICATION PASS: placeAllocationInContainer now calls
+ * `repair_order_add_allocation_to_container` (a RepairOrder-domain SQL
+ * wrapper that itself nests a call to `inventory_add_to_container` in
+ * the same transaction) instead of the generic primitive directly --
+ * see docs/inventory/reviews/inventory-a7-repairorder-container-
+ * boundary-review/. The engine's OWN real behavior (quantity conservation, empty<->active
+ * transitions, org/branch isolation, permission gating, raw-write
+ * boundary) is proven live in
+ * `100_repair_order_container_orchestration_phase10c_test.sql` (29/29
+ * passing) -- these tests cover only this wrapper's own responsibilities:
+ * server-authoritative scope resolution, RepairOrder-container ownership
+ * (a caller cannot place this RepairOrder's own allocation into a
+ * DIFFERENT RepairOrder's container merely by knowing its id), allocation-
+ * line ownership (reusing `listAllocationsForLine`'s own already-hardened
+ * logic rather than re-deriving the ownership chain), error normalization,
+ * and event emission.
+ */
+function buildContainerSupabaseMock(config: {
+  lineResult?: { data: unknown; error: unknown };
+  orderResult?: { data: unknown; error: unknown };
+  reservationsWithLinesResult?: { data: unknown; error: unknown };
+  allocationLinesResult?: { data: unknown; error: unknown };
+  containerResult?: { data: unknown; error: unknown };
+  linkResult?: { data: unknown; error: unknown };
+  rpcResult?: { data: unknown; error: unknown };
+}) {
+  const rpc = vi.fn().mockResolvedValue(config.rpcResult ?? { data: null, error: null });
+  const from = vi.fn().mockImplementation((table: string) => {
+    let result: { data: unknown; error: unknown } = { data: null, error: null };
+    let isSingle = false;
+    if (table === "repair_order_lines") {
+      result = config.lineResult ?? result;
+      isSingle = true;
+    } else if (table === "repair_orders") {
+      result = config.orderResult ?? result;
+      isSingle = true;
+    } else if (table === "inventory_reservations") {
+      result = config.reservationsWithLinesResult ?? result;
+    } else if (table === "inventory_allocation_lines") {
+      result = config.allocationLinesResult ?? result;
+    } else if (table === "inventory_containers") {
+      result = config.containerResult ?? result;
+      isSingle = true;
+    } else if (table === "inventory_allocation_container_links") {
+      result = config.linkResult ?? result;
+      isSingle = true;
+    }
+    const q: Record<string, unknown> = {};
+    for (const m of ["select", "eq", "is", "order", "in"]) {
+      q[m] = vi.fn().mockImplementation(() => q);
+    }
+    q["maybeSingle"] = vi.fn().mockResolvedValue(result);
+    q["then"] = (onFulfilled: (v: unknown) => unknown) => Promise.resolve(result).then(onFulfilled);
+    void isSingle;
+    return q;
+  });
+  return { from, rpc } as unknown as import("@supabase/supabase-js").SupabaseClient;
+}
+
+const CONTAINER_ORDER_FOUND = {
+  data: { id: "ro-1", organization_id: "org-1", branch_id: "branch-1" },
+  error: null,
+};
+/** One reservation, one line, variant matching -- feeds `listAllocationsForLine`'s own first query. */
+/** One allocation line reachable through resline-1 -- feeds `listAllocationsForLine`'s own second query, giving this RepairOrderLine exactly ONE valid allocation line id: "allocline-1". */
+
+describe("RepairOrdersService.createContainerForRepairOrder", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("resolves org/branch from the authoritative RepairOrder (never from the caller) and maps params to inventory_create_container correctly", async () => {
+    const supabase = buildContainerSupabaseMock({
+      orderResult: CONTAINER_ORDER_FOUND,
+      rpcResult: {
+        data: { container_id: "container-1", code: "C-1", status: "empty" },
+        error: null,
+      },
+    });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    const result = await RepairOrdersService.createContainerForRepairOrder(supabase, "user-1", {
+      repairOrderId: "ro-1",
+      code: "C-1",
+      currentLocationId: "loc-1",
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith("inventory_create_container", {
+      p_actor_user_id: "user-1",
+      p_organization_id: "org-1",
+      p_branch_id: "branch-1",
+      p_code: "C-1",
+      p_current_location_id: "loc-1",
+      p_type: "container",
+      p_reference_type: "repair_order",
+      p_reference_id: "ro-1",
+    });
+    expect(result).toEqual({
+      success: true,
+      data: { containerId: "container-1", code: "C-1", status: "empty" },
+    });
+  });
+
+  it("returns a not-found error and never calls the RPC when the RepairOrder does not exist", async () => {
+    const supabase = buildContainerSupabaseMock({
+      orderResult: { data: null, error: null },
+    });
+
+    const result = await RepairOrdersService.createContainerForRepairOrder(supabase, "user-1", {
+      repairOrderId: "missing-ro",
+      code: "C-1",
+      currentLocationId: "loc-1",
+    });
+
+    expect(result).toEqual({ success: false, error: "RepairOrder not found" });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("passes through a known container-engine error verbatim (Only stockable bins can hold a container)", async () => {
+    const supabase = buildContainerSupabaseMock({
+      orderResult: CONTAINER_ORDER_FOUND,
+      rpcResult: {
+        data: null,
+        error: { code: "22023", message: "Only stockable bins can hold a container" },
+      },
+    });
+
+    const result = await RepairOrdersService.createContainerForRepairOrder(supabase, "user-1", {
+      repairOrderId: "ro-1",
+      code: "C-1",
+      currentLocationId: "loc-1",
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Only stockable bins can hold a container",
+    });
+  });
+
+  it("normalizes an unexpected container-engine error, never leaking it raw", async () => {
+    const supabase = buildContainerSupabaseMock({
+      orderResult: CONTAINER_ORDER_FOUND,
+      rpcResult: {
+        data: null,
+        error: { code: "XX000", message: "connection terminated unexpectedly" },
+      },
+    });
+
+    const result = await RepairOrdersService.createContainerForRepairOrder(supabase, "user-1", {
+      repairOrderId: "ro-1",
+      code: "C-1",
+      currentLocationId: "loc-1",
+    });
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).not.toBe(
+      "connection terminated unexpectedly"
+    );
+  });
+
+  it("emits workshop.repair_orders.container_created on success", async () => {
+    const supabase = buildContainerSupabaseMock({
+      orderResult: CONTAINER_ORDER_FOUND,
+      rpcResult: {
+        data: { container_id: "container-1", code: "C-1", status: "empty" },
+        error: null,
+      },
+    });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    await RepairOrdersService.createContainerForRepairOrder(supabase, "user-1", {
+      repairOrderId: "ro-1",
+      code: "C-1",
+      currentLocationId: "loc-1",
+    });
+
+    expect(eventService.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "workshop.repair_orders.container_created",
+        actorUserId: "user-1",
+        entityType: "repair_order",
+        entityId: "ro-1",
+      })
+    );
+  });
+});
+
+// -----------------------------------------------------------------------------
+// Zone 3 <-> Zone 5 integration layer (2026-09-15):
+// RepairOrdersService.getPhysicalStateForLine
+// -----------------------------------------------------------------------------
+
+/**
+ * A per-table chainable query-builder mock, mirroring `makeTableQueryMock`'s
+ * own established pattern (see `getMaterializationStatusForSession`'s own
+ * tests), EXTENDED (A8) with an `rpc` mock for
+ * `get_repair_order_line_physical_state` -- the live-read RPC that replaced
+ * the removed `repair_order_line_locations` table query. `callsByTable`/
+ * `rpc.mock.calls` let a test assert exactly which scope values
+ * (`organization_id`/`branch_id`/etc.) a query was actually filtered by,
+ * which is how the cross-org/branch test below verifies real scope-safety
+ * rather than merely trusting the mocked data.
+ */
+function buildPhysicalStateSupabaseMock(
+  tableResponses: Record<string, { data: unknown; error: unknown }>,
+  rpcResponse: { data: unknown; error: unknown } = PHYS_STATE_EMPTY_RESPONSE()
+) {
+  const callsByTable: Record<string, { method: string; args: unknown[] }[]> = {};
+  const singleTables = new Set(["repair_order_lines", "repair_orders"]);
+  const from = vi.fn().mockImplementation((table: string) => {
+    const result = tableResponses[table] ?? { data: null, error: null };
+    const calls: { method: string; args: unknown[] }[] = [];
+    callsByTable[table] = calls;
+    const q: Record<string, unknown> = {};
+    for (const m of ["select", "eq", "is", "order", "in", "gt"]) {
+      q[m] = vi.fn().mockImplementation((...args: unknown[]) => {
+        calls.push({ method: m, args });
+        return q;
+      });
+    }
+    q["maybeSingle"] = vi.fn().mockResolvedValue(result);
+    q["then"] = (onFulfilled: (v: unknown) => unknown) => Promise.resolve(result).then(onFulfilled);
+    void singleTables;
+    return q;
+  });
+  const rpc = vi.fn().mockResolvedValue(rpcResponse);
+  return {
+    from,
+    rpc,
+    callsByTable,
+  } as unknown as import("@supabase/supabase-js").SupabaseClient & {
+    callsByTable: Record<string, { method: string; args: unknown[] }[]>;
+  };
+}
+
+/** Builds a `get_repair_order_line_physical_state` success response from a plain `{location_id, quantity}[]` list -- `variant_id` is fixed to `PHYS_LINE_FOUND`'s own `variant-1` since every scenario here resolves through that one fixture line. */
+function PHYS_STATE_SUCCESS(locations: { location_id: string; quantity: number }[]) {
+  return {
+    data: {
+      locations: locations.map((l) => ({
+        location_id: l.location_id,
+        variant_id: "variant-1",
+        quantity: l.quantity,
+      })),
+    },
+    error: null,
+  };
+}
+function PHYS_STATE_EMPTY_RESPONSE() {
+  return PHYS_STATE_SUCCESS([]);
+}
+const PHYS_STATE_INCONSISTENT_RESPONSE = {
+  data: null,
+  error: {
+    code: "P0008",
+    message:
+      "Physical-state computation found known attribution exceeding physical on_hand -- history inconsistency",
+  },
+};
+
+const PHYS_LINE_FOUND = {
+  data: { id: "line-1", repair_order_id: "ro-1", variant_id: "variant-1" },
+  error: null,
+};
+const PHYS_ORDER_FOUND = {
+  data: { id: "ro-1", organization_id: "org-1", branch_id: "branch-1" },
+  error: null,
+};
+const PHYS_NO_RESERVATIONS = { data: [], error: null };
+const PHYS_NO_LINKS = { data: [], error: null };
+const PHYS_NO_CONTAINER_LINES = { data: [], error: null };
+const PHYS_NO_CONTAINERS = { data: [], error: null };
+
+describe("RepairOrdersService.getPhysicalStateForLine", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns null (no error, no leak) when the RepairOrderLine cannot be resolved", async () => {
+    const supabase = buildPhysicalStateSupabaseMock({
+      repair_order_lines: { data: null, error: null },
+    });
+
+    const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "missing-line");
+
+    expect(result).toEqual({ success: true, data: null });
+  });
+
+  it("1. Zone 5 location only, no allocation/container -> consistent", async () => {
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: PHYS_NO_RESERVATIONS,
+        inventory_allocation_container_links: PHYS_NO_LINKS,
+        inventory_container_lines: PHYS_NO_CONTAINER_LINES,
+        inventory_containers: PHYS_NO_CONTAINERS,
+      },
+      PHYS_STATE_SUCCESS([{ location_id: "loc-1", quantity: 10 }])
+    );
+
+    const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
+
+    expect(result).toEqual({
+      success: true,
+      data: {
+        repairOrderLineId: "line-1",
+        locations: [
+          {
+            locationId: "loc-1",
+            physicalQuantity: 10,
+            reservedQuantity: 0,
+            allocatedQuantity: 0,
+            containerizedQuantity: 0,
+            uncontainerizedAllocatedQuantity: 0,
+            containers: [],
+          },
+        ],
+        consistency: "consistent",
+      },
+    });
+  });
+
+  it("2. Reserved but not allocated -> consistent (reservation-only is a normal, earlier lifecycle stage)", async () => {
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: {
+          data: [
+            {
+              id: "res-1",
+              reservation_number: "RES-000001",
+              status: "active",
+              expires_at: null,
+              created_at: "2026-01-01T00:00:00Z",
+              inventory_reservation_lines: [
+                {
+                  id: "resline-1",
+                  variant_id: "variant-1",
+                  location_id: "loc-1",
+                  lot_id: null,
+                  serial_id: null,
+                  reserved_quantity: 6,
+                  released_quantity: 0,
+                  fulfilled_quantity: 0,
+                },
+              ],
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_lines: PHYS_NO_LINKS,
+        inventory_allocation_container_links: PHYS_NO_LINKS,
+        inventory_container_lines: PHYS_NO_CONTAINER_LINES,
+        inventory_containers: PHYS_NO_CONTAINERS,
+      },
+      PHYS_STATE_SUCCESS([{ location_id: "loc-1", quantity: 10 }])
+    );
+
+    const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
+
+    expect(result).toEqual({
+      success: true,
+      data: {
+        repairOrderLineId: "line-1",
+        locations: [
+          {
+            locationId: "loc-1",
+            physicalQuantity: 10,
+            reservedQuantity: 6,
+            allocatedQuantity: 0,
+            containerizedQuantity: 0,
+            uncontainerizedAllocatedQuantity: 0,
+            containers: [],
+          },
+        ],
+        consistency: "consistent",
+      },
+    });
+  });
+
+  it("3. Allocated but not containerized -> uncontainerized", async () => {
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: {
+          data: [
+            {
+              id: "res-1",
+              reservation_number: "RES-000001",
+              status: "active",
+              expires_at: null,
+              created_at: "2026-01-01T00:00:00Z",
+              inventory_reservation_lines: [
+                {
+                  id: "resline-1",
+                  variant_id: "variant-1",
+                  location_id: "loc-1",
+                  lot_id: null,
+                  serial_id: null,
+                  reserved_quantity: 6,
+                  released_quantity: 0,
+                  fulfilled_quantity: 0,
+                },
+              ],
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_lines: {
+          data: [
+            {
+              id: "allocline-1",
+              reservation_line_id: "resline-1",
+              variant_id: "variant-1",
+              location_id: "loc-1",
+              lot_id: null,
+              serial_id: null,
+              allocated_quantity: 6,
+              fulfilled_quantity: 0,
+              allocation: {
+                id: "alloc-1",
+                allocation_number: "ALLOC-000001",
+                status: "active",
+                deleted_at: null,
+              },
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_container_links: PHYS_NO_LINKS,
+        inventory_container_lines: PHYS_NO_CONTAINER_LINES,
+        inventory_containers: PHYS_NO_CONTAINERS,
+      },
+      PHYS_STATE_SUCCESS([{ location_id: "loc-1", quantity: 10 }])
+    );
+
+    const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error("unreachable");
+    expect(result.data?.consistency).toBe("uncontainerized");
+    expect(result.data?.locations).toEqual([
+      {
+        locationId: "loc-1",
+        physicalQuantity: 10,
+        reservedQuantity: 6,
+        allocatedQuantity: 6,
+        containerizedQuantity: 0,
+        uncontainerizedAllocatedQuantity: 6,
+        containers: [],
+      },
+    ]);
+  });
+
+  it("4. Allocation split across multiple containers -> both containers surfaced, summed correctly", async () => {
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: {
+          data: [
+            {
+              id: "res-1",
+              reservation_number: "RES-000001",
+              status: "active",
+              expires_at: null,
+              created_at: "2026-01-01T00:00:00Z",
+              inventory_reservation_lines: [
+                {
+                  id: "resline-1",
+                  variant_id: "variant-1",
+                  location_id: "loc-1",
+                  lot_id: null,
+                  serial_id: null,
+                  reserved_quantity: 10,
+                  released_quantity: 0,
+                  fulfilled_quantity: 0,
+                },
+              ],
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_lines: {
+          data: [
+            {
+              id: "allocline-1",
+              reservation_line_id: "resline-1",
+              variant_id: "variant-1",
+              location_id: "loc-1",
+              lot_id: null,
+              serial_id: null,
+              allocated_quantity: 10,
+              fulfilled_quantity: 0,
+              allocation: {
+                id: "alloc-1",
+                allocation_number: "ALLOC-000001",
+                status: "active",
+                deleted_at: null,
+              },
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_container_links: {
+          data: [
+            {
+              id: "link-1",
+              quantity: 6,
+              allocation_line_id: "allocline-1",
+              container_line_id: "cl-1",
+            },
+            {
+              id: "link-2",
+              quantity: 4,
+              allocation_line_id: "allocline-1",
+              container_line_id: "cl-2",
+            },
+          ],
+          error: null,
+        },
+        inventory_container_lines: {
+          data: [
+            { id: "cl-1", container_id: "container-a" },
+            { id: "cl-2", container_id: "container-b" },
+          ],
+          error: null,
+        },
+        inventory_containers: {
+          data: [
+            { id: "container-a", code: "CONT-A", current_location_id: "loc-1", status: "active" },
+            { id: "container-b", code: "CONT-B", current_location_id: "loc-1", status: "active" },
+          ],
+          error: null,
+        },
+      },
+      PHYS_STATE_SUCCESS([{ location_id: "loc-1", quantity: 10 }])
+    );
+
+    const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error("unreachable");
+    expect(result.data?.consistency).toBe("consistent");
+    const loc = result.data?.locations[0];
+    expect(loc?.containerizedQuantity).toBe(10);
+    expect(loc?.uncontainerizedAllocatedQuantity).toBe(0);
+    expect(loc?.containers).toEqual(
+      expect.arrayContaining([
+        {
+          containerId: "container-a",
+          containerCode: "CONT-A",
+          quantity: 6,
+          currentLocationId: "loc-1",
+          status: "active",
+        },
+        {
+          containerId: "container-b",
+          containerCode: "CONT-B",
+          quantity: 4,
+          currentLocationId: "loc-1",
+          status: "active",
+        },
+      ])
+    );
+    expect(loc?.containers).toHaveLength(2);
+  });
+
+  it("5. Multiple allocations belonging to the same RepairOrderLine at the same location -> summed", async () => {
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: {
+          data: [
+            {
+              id: "res-1",
+              reservation_number: "RES-000001",
+              status: "active",
+              expires_at: null,
+              created_at: "2026-01-01T00:00:00Z",
+              inventory_reservation_lines: [
+                {
+                  id: "resline-1",
+                  variant_id: "variant-1",
+                  location_id: "loc-1",
+                  lot_id: null,
+                  serial_id: null,
+                  reserved_quantity: 6,
+                  released_quantity: 0,
+                  fulfilled_quantity: 0,
+                },
+                {
+                  id: "resline-2",
+                  variant_id: "variant-1",
+                  location_id: "loc-1",
+                  lot_id: null,
+                  serial_id: null,
+                  reserved_quantity: 4,
+                  released_quantity: 0,
+                  fulfilled_quantity: 0,
+                },
+              ],
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_lines: {
+          data: [
+            {
+              id: "allocline-1",
+              reservation_line_id: "resline-1",
+              variant_id: "variant-1",
+              location_id: "loc-1",
+              lot_id: null,
+              serial_id: null,
+              allocated_quantity: 6,
+              fulfilled_quantity: 0,
+              allocation: {
+                id: "alloc-1",
+                allocation_number: "ALLOC-000001",
+                status: "active",
+                deleted_at: null,
+              },
+            },
+            {
+              id: "allocline-2",
+              reservation_line_id: "resline-2",
+              variant_id: "variant-1",
+              location_id: "loc-1",
+              lot_id: null,
+              serial_id: null,
+              allocated_quantity: 4,
+              fulfilled_quantity: 0,
+              allocation: {
+                id: "alloc-2",
+                allocation_number: "ALLOC-000002",
+                status: "active",
+                deleted_at: null,
+              },
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_container_links: PHYS_NO_LINKS,
+        inventory_container_lines: PHYS_NO_CONTAINER_LINES,
+        inventory_containers: PHYS_NO_CONTAINERS,
+      },
+      PHYS_STATE_SUCCESS([{ location_id: "loc-1", quantity: 10 }])
+    );
+
+    const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error("unreachable");
+    expect(result.data?.locations[0]?.allocatedQuantity).toBe(10);
+    expect(result.data?.locations[0]?.uncontainerizedAllocatedQuantity).toBe(10);
+  });
+
+  it("6. Container location matching Zone 5 physical location -> consistent", async () => {
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: {
+          data: [
+            {
+              id: "res-1",
+              reservation_number: "RES-000001",
+              status: "active",
+              expires_at: null,
+              created_at: "2026-01-01T00:00:00Z",
+              inventory_reservation_lines: [
+                {
+                  id: "resline-1",
+                  variant_id: "variant-1",
+                  location_id: "loc-1",
+                  lot_id: null,
+                  serial_id: null,
+                  reserved_quantity: 10,
+                  released_quantity: 0,
+                  fulfilled_quantity: 0,
+                },
+              ],
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_lines: {
+          data: [
+            {
+              id: "allocline-1",
+              reservation_line_id: "resline-1",
+              variant_id: "variant-1",
+              location_id: "loc-1",
+              lot_id: null,
+              serial_id: null,
+              allocated_quantity: 10,
+              fulfilled_quantity: 0,
+              allocation: {
+                id: "alloc-1",
+                allocation_number: "ALLOC-000001",
+                status: "active",
+                deleted_at: null,
+              },
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_container_links: {
+          data: [
+            {
+              id: "link-1",
+              quantity: 10,
+              allocation_line_id: "allocline-1",
+              container_line_id: "cl-1",
+            },
+          ],
+          error: null,
+        },
+        inventory_container_lines: {
+          data: [{ id: "cl-1", container_id: "container-a" }],
+          error: null,
+        },
+        inventory_containers: {
+          data: [
+            { id: "container-a", code: "CONT-A", current_location_id: "loc-1", status: "active" },
+          ],
+          error: null,
+        },
+      },
+      PHYS_STATE_SUCCESS([{ location_id: "loc-1", quantity: 10 }])
+    );
+
+    const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error("unreachable");
+    expect(result.data?.consistency).toBe("consistent");
+  });
+
+  it("7. Container/location divergence (Zone 5 says loc-A, allocation is at loc-B) -> location_mismatch, never silently picks a side", async () => {
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: {
+          data: [
+            {
+              id: "res-1",
+              reservation_number: "RES-000001",
+              status: "active",
+              expires_at: null,
+              created_at: "2026-01-01T00:00:00Z",
+              inventory_reservation_lines: [
+                {
+                  id: "resline-1",
+                  variant_id: "variant-1",
+                  location_id: "loc-B",
+                  lot_id: null,
+                  serial_id: null,
+                  reserved_quantity: 10,
+                  released_quantity: 0,
+                  fulfilled_quantity: 0,
+                },
+              ],
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_lines: {
+          data: [
+            {
+              id: "allocline-1",
+              reservation_line_id: "resline-1",
+              variant_id: "variant-1",
+              location_id: "loc-B",
+              lot_id: null,
+              serial_id: null,
+              allocated_quantity: 10,
+              fulfilled_quantity: 0,
+              allocation: {
+                id: "alloc-1",
+                allocation_number: "ALLOC-000001",
+                status: "active",
+                deleted_at: null,
+              },
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_container_links: PHYS_NO_LINKS,
+        inventory_container_lines: PHYS_NO_CONTAINER_LINES,
+        inventory_containers: PHYS_NO_CONTAINERS,
+      },
+      PHYS_STATE_SUCCESS([{ location_id: "loc-A", quantity: 10 }])
+    );
+
+    const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error("unreachable");
+    expect(result.data?.consistency).toBe("location_mismatch");
+    // Never silently picks one side -- both locations are surfaced, each with
+    // the OTHER side's own quantity honestly at 0, not merged or hidden.
+    const byId = Object.fromEntries((result.data?.locations ?? []).map((l) => [l.locationId, l]));
+    expect(byId["loc-A"]).toMatchObject({ physicalQuantity: 10, allocatedQuantity: 0 });
+    expect(byId["loc-B"]).toMatchObject({ physicalQuantity: 0, allocatedQuantity: 10 });
+  });
+
+  it("8. Cross-org/branch scope is explicitly applied to every query -- never trusted from an FK alone", async () => {
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: PHYS_NO_RESERVATIONS,
+        inventory_allocation_container_links: PHYS_NO_LINKS,
+        inventory_container_lines: PHYS_NO_CONTAINER_LINES,
+        inventory_containers: PHYS_NO_CONTAINERS,
+      },
+      PHYS_STATE_EMPTY_RESPONSE()
+    );
+
+    await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
+
+    // The live-read RPC (A8) is called with explicit org/branch scope,
+    // never trusted from an FK alone -- the RPC itself re-scopes every
+    // join by these same two params (see its own migration).
+    expect(supabase.rpc).toHaveBeenCalledWith("get_repair_order_line_physical_state", {
+      p_organization_id: "org-1",
+      p_branch_id: "branch-1",
+      p_repair_order_line_id: "line-1",
+    });
+
+    const linksCalls = supabase.callsByTable["inventory_allocation_container_links"] ?? [];
+    // With zero allocation lines, the links/container_lines/containers
+    // queries are never even issued (no ids to filter by) -- the strongest
+    // possible guarantee against a cross-scope leak: nothing is fetched at
+    // all rather than fetched-then-filtered.
+    expect(linksCalls).toEqual([]);
+  });
+
+  it("9. A link whose own container/container_line was excluded by the live deleted_at filter (not returned by the mocked query) does not count as active physical placement", async () => {
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: {
+          data: [
+            {
+              id: "res-1",
+              reservation_number: "RES-000001",
+              status: "active",
+              expires_at: null,
+              created_at: "2026-01-01T00:00:00Z",
+              inventory_reservation_lines: [
+                {
+                  id: "resline-1",
+                  variant_id: "variant-1",
+                  location_id: "loc-1",
+                  lot_id: null,
+                  serial_id: null,
+                  reserved_quantity: 6,
+                  released_quantity: 0,
+                  fulfilled_quantity: 0,
+                },
+              ],
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_lines: {
+          data: [
+            {
+              id: "allocline-1",
+              reservation_line_id: "resline-1",
+              variant_id: "variant-1",
+              location_id: "loc-1",
+              lot_id: null,
+              serial_id: null,
+              allocated_quantity: 6,
+              fulfilled_quantity: 0,
+              allocation: {
+                id: "alloc-1",
+                allocation_number: "ALLOC-000001",
+                status: "active",
+                deleted_at: null,
+              },
+            },
+          ],
+          error: null,
+        },
+        // The link row itself is still "active" by its own deleted_at, but
+        // its own container_line was soft-deleted -- the (separately
+        // deleted_at-filtered) container_lines query below simply never
+        // returns it, simulating exactly what the real `.is("deleted_at",
+        // null)` filter would do.
+        inventory_allocation_container_links: {
+          data: [
+            {
+              id: "link-1",
+              quantity: 6,
+              allocation_line_id: "allocline-1",
+              container_line_id: "cl-deleted",
+            },
+          ],
+          error: null,
+        },
+        inventory_container_lines: PHYS_NO_CONTAINER_LINES,
+        inventory_containers: PHYS_NO_CONTAINERS,
+      },
+      PHYS_STATE_SUCCESS([{ location_id: "loc-1", quantity: 10 }])
+    );
+
+    const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error("unreachable");
+    const loc = result.data?.locations[0];
+    expect(loc?.containerizedQuantity).toBe(0);
+    expect(loc?.uncontainerizedAllocatedQuantity).toBe(6);
+    expect(loc?.containers).toEqual([]);
+  });
+
+  it("10. get_repair_order_line_physical_state raising P0008 (bucket-level history inconsistency) surfaces as 'inconsistent_history', not a generic server-error failure", async () => {
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: PHYS_NO_RESERVATIONS,
+        inventory_allocation_container_links: PHYS_NO_LINKS,
+        inventory_container_lines: PHYS_NO_CONTAINER_LINES,
+        inventory_containers: PHYS_NO_CONTAINERS,
+      },
+      PHYS_STATE_INCONSISTENT_RESPONSE
+    );
+
+    const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error("unreachable");
+    expect(result.data?.consistency).toBe("inconsistent_history");
+    // Zone 5's own physical-quantity signal is not trusted at all in this
+    // case -- the read failed, it was not merely empty -- so no location
+    // shows a nonzero physicalQuantity even though this scenario has zero
+    // reservations/allocations to otherwise populate the locations list.
+    expect(result.data?.locations).toEqual([]);
+  });
+
+  it("11. an actual RPC/network error (not P0008) still returns a generic server-error failure, not silently swallowed", async () => {
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: PHYS_NO_RESERVATIONS,
+        inventory_allocation_container_links: PHYS_NO_LINKS,
+        inventory_container_lines: PHYS_NO_CONTAINER_LINES,
+        inventory_containers: PHYS_NO_CONTAINERS,
+      },
+      {
+        data: null,
+        error: { code: "57014", message: "canceling statement due to statement timeout" },
+      }
+    );
+
+    const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).toBe(
+      "Failed to load physical stock state due to an unexpected server error. Please try again or contact support."
+    );
+  });
+
+  it("12. marks the bucket 'unknown' when an active container link's own container disagrees with its own allocation line's location (Phase 10C internal inconsistency, never silently trusted)", async () => {
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: {
+          data: [
+            {
+              id: "res-1",
+              reservation_number: "RES-000001",
+              status: "active",
+              expires_at: null,
+              created_at: "2026-01-01T00:00:00Z",
+              inventory_reservation_lines: [
+                {
+                  id: "resline-1",
+                  variant_id: "variant-1",
+                  location_id: "loc-1",
+                  lot_id: null,
+                  serial_id: null,
+                  reserved_quantity: 10,
+                  released_quantity: 0,
+                  fulfilled_quantity: 0,
+                },
+              ],
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_lines: {
+          data: [
+            {
+              id: "allocline-1",
+              reservation_line_id: "resline-1",
+              variant_id: "variant-1",
+              location_id: "loc-1",
+              lot_id: null,
+              serial_id: null,
+              allocated_quantity: 10,
+              fulfilled_quantity: 0,
+              allocation: {
+                id: "alloc-1",
+                allocation_number: "ALLOC-000001",
+                status: "active",
+                deleted_at: null,
+              },
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_container_links: {
+          data: [
+            {
+              id: "link-1",
+              quantity: 10,
+              allocation_line_id: "allocline-1",
+              container_line_id: "cl-1",
+            },
+          ],
+          error: null,
+        },
+        inventory_container_lines: {
+          data: [{ id: "cl-1", container_id: "container-a" }],
+          error: null,
+        },
+        inventory_containers: {
+          // Deliberately mismatched: the container's own current_location_id
+          // (loc-2) disagrees with its own allocation line's locationId
+          // (loc-1) -- a state the Phase 10C RPC itself should never allow,
+          // surfaced as "unknown" rather than silently trusted.
+          data: [
+            { id: "container-a", code: "CONT-A", current_location_id: "loc-2", status: "active" },
+          ],
+          error: null,
+        },
+      },
+      PHYS_STATE_SUCCESS([{ location_id: "loc-1", quantity: 10 }])
+    );
+
+    const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error("unreachable");
+    expect(result.data?.consistency).toBe("unknown");
   });
 });

@@ -26,21 +26,14 @@ import { Shield, Plus, Pencil, Trash2, Lock, Building2, GitBranch } from "lucide
 import { useRouter } from "@/i18n/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePermissions } from "@/hooks/v2/use-permissions";
+import { MEMBERS_MANAGE } from "@/lib/constants/permissions";
 import {
-  MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
-  ORG_READ,
-  ORG_UPDATE,
-  MEMBERS_READ,
-  MEMBERS_MANAGE,
-  INVITES_READ,
-  INVITES_CREATE,
-  INVITES_CANCEL,
-  BRANCHES_READ,
-  BRANCHES_CREATE,
-  BRANCHES_UPDATE,
-  BRANCHES_DELETE,
-  BRANCH_ROLES_MANAGE,
-} from "@/lib/constants/permissions";
+  allowedInScope,
+  groupCatalog,
+  isWildcard,
+  permissionLabelKey,
+  type CatalogPermission,
+} from "@/lib/permissions/permission-catalog";
 import {
   useRolesQuery,
   useCreateRoleMutation,
@@ -49,6 +42,7 @@ import {
 } from "@/hooks/queries/organization";
 import type { OrgRole } from "@/server/services/organization.service";
 import { DataView } from "@/components/data-view/data-view";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
@@ -60,8 +54,11 @@ import { filterSortRoles, paginateRoles } from "../_utils/data-view";
 const ROLES_DV_KEY = ["org-roles-dataview"];
 
 interface RolesClientProps {
+  orgId: string;
   initialData: PaginatedResult<OrgRole>;
   allRoles: OrgRole[];
+  /** Every permission the organization may put in a role, from the database */
+  permissionCatalog: CatalogPermission[];
 }
 
 type DialogMode = "create" | "edit" | null;
@@ -86,7 +83,12 @@ function ScopeBadge({ scopeType, tBadge }: { scopeType: string; tBadge: (k: stri
   return null;
 }
 
-export function RolesClient({ initialData, allRoles: initialAllRoles }: RolesClientProps) {
+export function RolesClient({
+  orgId,
+  initialData,
+  allRoles: initialAllRoles,
+  permissionCatalog,
+}: RolesClientProps) {
   const t = useTranslations("modules.organizationManagement.roles");
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -125,106 +127,29 @@ export function RolesClient({ initialData, allRoles: initialAllRoles }: RolesCli
   const [selectedPerms, setSelectedPerms] = useState<string[]>([]);
   const [scopeType, setScopeType] = useState<"org" | "branch">("org");
 
-  // Permission groups with translated labels — defined inside component so t() is available
-  const permissionGroups = useMemo(
-    () => [
-      {
-        label: t("permissionGroups.organization"),
-        permissions: [
-          {
-            slug: ORG_READ,
-            label: t("permissionGroups.permissions.orgRead"),
-            allowedScopes: ["org"] as ("org" | "branch")[],
-          },
-          {
-            slug: ORG_UPDATE,
-            label: t("permissionGroups.permissions.orgUpdate"),
-            allowedScopes: ["org"] as ("org" | "branch")[],
-          },
-        ],
-      },
-      {
-        label: t("permissionGroups.members"),
-        permissions: [
-          {
-            slug: MEMBERS_READ,
-            label: t("permissionGroups.permissions.membersRead"),
-            allowedScopes: ["org"] as ("org" | "branch")[],
-          },
-          {
-            slug: MEMBERS_MANAGE,
-            label: t("permissionGroups.permissions.membersManage"),
-            allowedScopes: ["org"] as ("org" | "branch")[],
-          },
-        ],
-      },
-      {
-        label: t("permissionGroups.invitations"),
-        permissions: [
-          {
-            slug: INVITES_READ,
-            label: t("permissionGroups.permissions.invitesRead"),
-            allowedScopes: ["org"] as ("org" | "branch")[],
-          },
-          {
-            slug: INVITES_CREATE,
-            label: t("permissionGroups.permissions.invitesCreate"),
-            allowedScopes: ["org"] as ("org" | "branch")[],
-          },
-          {
-            slug: INVITES_CANCEL,
-            label: t("permissionGroups.permissions.invitesCancel"),
-            allowedScopes: ["org"] as ("org" | "branch")[],
-          },
-        ],
-      },
-      {
-        label: t("permissionGroups.branchManagement"),
-        permissions: [
-          {
-            slug: BRANCH_ROLES_MANAGE,
-            label: t("permissionGroups.permissions.branchRolesManage"),
-            allowedScopes: ["branch"] as ("org" | "branch")[],
-          },
-        ],
-      },
-      {
-        label: t("permissionGroups.branches"),
-        permissions: [
-          {
-            slug: BRANCHES_READ,
-            label: t("permissionGroups.permissions.branchesRead"),
-            allowedScopes: ["org", "branch"] as ("org" | "branch")[],
-          },
-          {
-            slug: BRANCHES_CREATE,
-            label: t("permissionGroups.permissions.branchesCreate"),
-            allowedScopes: ["org"] as ("org" | "branch")[],
-          },
-          {
-            slug: BRANCHES_UPDATE,
-            label: t("permissionGroups.permissions.branchesUpdate"),
-            allowedScopes: ["org"] as ("org" | "branch")[],
-          },
-          {
-            slug: BRANCHES_DELETE,
-            label: t("permissionGroups.permissions.branchesDelete"),
-            allowedScopes: ["org"] as ("org" | "branch")[],
-          },
-        ],
-      },
-      {
-        label: t("permissionGroups.moduleAccess"),
-        permissions: [
-          {
-            slug: MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
-            label: t("permissionGroups.permissions.moduleOrgManagementAccess"),
-            allowedScopes: ["org"] as ("org" | "branch")[],
-          },
-        ],
-      },
-    ],
+  const [permSearch, setPermSearch] = useState("");
+
+  const labelOf = useCallback(
+    (perm: Pick<CatalogPermission, "slug" | "name">): string => {
+      const key = `catalog.perms.${permissionLabelKey(perm.slug)}`;
+      if (t.has(key as Parameters<typeof t>[0])) return t(key as Parameters<typeof t>[0]);
+      if (isWildcard(perm.slug)) return t("catalog.all");
+      return perm.name ?? perm.slug;
+    },
     [t]
+  );
+
+  const groupLabel = useCallback(
+    (category: string): string => {
+      const key = `catalog.groups.${category}`;
+      return t.has(key as Parameters<typeof t>[0]) ? t(key as Parameters<typeof t>[0]) : category;
+    },
+    [t]
+  );
+
+  const catalogBySlug = useMemo(
+    () => new Map(permissionCatalog.map((p) => [p.slug, p])),
+    [permissionCatalog]
   );
 
   const refreshAfterMutation = async () => {
@@ -238,6 +163,7 @@ export function RolesClient({ initialData, allRoles: initialAllRoles }: RolesCli
     setRoleDesc("");
     setSelectedPerms([]);
     setScopeType("org");
+    setPermSearch("");
     setDialogMode("create");
   };
 
@@ -245,20 +171,10 @@ export function RolesClient({ initialData, allRoles: initialAllRoles }: RolesCli
     setEditingRole(role);
     setRoleName(role.name);
     setRoleDesc(role.description ?? "");
-    const scopeFilter: "org" | "branch" | null =
-      role.scope_type === "org" || role.scope_type === "branch" ? role.scope_type : null;
-    const validSlugs = scopeFilter
-      ? new Set<string>(
-          permissionGroups.flatMap((g) =>
-            g.permissions.filter((p) => p.allowedScopes.includes(scopeFilter)).map((p) => p.slug)
-          )
-        )
-      : null;
-    setSelectedPerms(
-      validSlugs
-        ? (role.permission_slugs ?? []).filter((s) => validSlugs.has(s))
-        : (role.permission_slugs ?? [])
-    );
+    // Keep every permission the role has, also the ones this editor does not list,
+    // so saving the role never drops them.
+    setSelectedPerms(role.permission_slugs ?? []);
+    setPermSearch("");
     setDialogMode("edit");
   };
 
@@ -271,12 +187,7 @@ export function RolesClient({ initialData, allRoles: initialAllRoles }: RolesCli
   const handleScopeChange = (v: "org" | "branch") => {
     setScopeType(v);
     if (v === "branch") {
-      const branchAllowed = new Set<string>(
-        permissionGroups.flatMap((g) =>
-          g.permissions.filter((p) => p.allowedScopes.includes("branch")).map((p) => p.slug)
-        )
-      );
-      setSelectedPerms((prev) => prev.filter((s) => branchAllowed.has(s)));
+      setSelectedPerms((prev) => prev.filter((s) => allowedInScope(s, "branch")));
     }
   };
 
@@ -490,8 +401,8 @@ export function RolesClient({ initialData, allRoles: initialAllRoles }: RolesCli
           ) : (
             <div className="flex flex-wrap gap-1">
               {role.permission_slugs.map((slug) => (
-                <Badge key={slug} variant="outline" className="text-xs py-0 font-mono">
-                  {slug}
+                <Badge key={slug} variant="outline" className="text-xs py-0" title={slug}>
+                  {labelOf({ slug, name: catalogBySlug.get(slug)?.name ?? null })}
                 </Badge>
               ))}
             </div>
@@ -518,7 +429,7 @@ export function RolesClient({ initialData, allRoles: initialAllRoles }: RolesCli
         )}
       </div>
     ),
-    [t, canManage, isPending, permissionGroups]
+    [t, canManage, isPending, labelOf, catalogBySlug]
   );
 
   return (
@@ -539,6 +450,7 @@ export function RolesClient({ initialData, allRoles: initialAllRoles }: RolesCli
         <div className="flex-1 overflow-hidden">
           <DataView<OrgRole, OrgRole>
             entity="org-roles"
+            scope={dataViewScope.organization(orgId)}
             columns={columns}
             filters={filters}
             initialData={initialData}
@@ -627,47 +539,89 @@ export function RolesClient({ initialData, allRoles: initialAllRoles }: RolesCli
             <div className="space-y-3">
               <Label>{t("dialog.permissions")}</Label>
               {(() => {
-                const effectiveScopeFilter: "org" | "branch" | null =
+                const scope: "org" | "branch" | null =
                   dialogMode === "edit" && editingRole
                     ? editingRole.scope_type === "org" || editingRole.scope_type === "branch"
-                      ? (editingRole.scope_type as "org" | "branch")
+                      ? editingRole.scope_type
                       : null
                     : scopeType;
-                const visibleGroups = permissionGroups
+                const groups = groupCatalog(permissionCatalog, scope);
+                const listed = new Set(groups.flatMap((g) => g.permissions.map((p) => p.slug)));
+                const hiddenKept = selectedPerms.filter((slug) => !listed.has(slug)).length;
+                const q = permSearch.trim().toLowerCase();
+                const visibleGroups = groups
                   .map((g) => ({
                     ...g,
-                    permissions: effectiveScopeFilter
-                      ? g.permissions.filter((p) => p.allowedScopes.includes(effectiveScopeFilter))
+                    permissions: q
+                      ? g.permissions.filter(
+                          (p) =>
+                            labelOf(p).toLowerCase().includes(q) ||
+                            p.slug.toLowerCase().includes(q) ||
+                            groupLabel(g.category).toLowerCase().includes(q)
+                        )
                       : g.permissions,
                   }))
                   .filter((g) => g.permissions.length > 0);
-                return visibleGroups.map((group) => (
-                  <div key={group.label} className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      {group.label}
-                    </p>
-                    {group.permissions.map((perm) => (
-                      <div
-                        key={perm.slug}
-                        className="flex items-start gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50"
-                      >
-                        <Checkbox
-                          id={`perm-${perm.slug}`}
-                          checked={selectedPerms.includes(perm.slug)}
-                          onCheckedChange={() => togglePerm(perm.slug)}
-                          disabled={isPending}
-                          className="mt-0.5"
-                        />
-                        <Label
-                          htmlFor={`perm-${perm.slug}`}
-                          className="flex-1 cursor-pointer font-normal text-sm"
+                return (
+                  <>
+                    <Input
+                      value={permSearch}
+                      onChange={(e) => setPermSearch(e.target.value)}
+                      placeholder={t("catalog.search")}
+                      aria-label={t("catalog.search")}
+                      className="h-8"
+                    />
+                    {visibleGroups.length === 0 && (
+                      <p className="text-xs text-muted-foreground">{t("catalog.noMatch")}</p>
+                    )}
+                    {visibleGroups.map((group) => {
+                      const wildcard = group.permissions.find((p) => isWildcard(p.slug));
+                      const coveredByWildcard = !!wildcard && selectedPerms.includes(wildcard.slug);
+                      return (
+                        <div
+                          key={group.category}
+                          className="space-y-1"
+                          data-testid={`perm-group-${group.category}`}
                         >
-                          {perm.label}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                ));
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            {groupLabel(group.category)}
+                          </p>
+                          {group.permissions.map((perm) => {
+                            const covered = coveredByWildcard && !isWildcard(perm.slug);
+                            return (
+                              <div
+                                key={perm.slug}
+                                className="flex items-start gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50"
+                              >
+                                <Checkbox
+                                  id={`perm-${perm.slug}`}
+                                  checked={covered || selectedPerms.includes(perm.slug)}
+                                  onCheckedChange={() => togglePerm(perm.slug)}
+                                  disabled={isPending || covered}
+                                  className="mt-0.5"
+                                />
+                                <Label
+                                  htmlFor={`perm-${perm.slug}`}
+                                  className="flex-1 cursor-pointer font-normal text-sm"
+                                >
+                                  {labelOf(perm)}
+                                  <span className="ml-2 font-mono text-[10px] text-muted-foreground">
+                                    {perm.slug}
+                                  </span>
+                                </Label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                    {hiddenKept > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {t("catalog.hiddenKept", { count: hiddenKept })}
+                      </p>
+                    )}
+                  </>
+                );
               })()}
               {selectedPerms.length > 0 && (
                 <p className="text-xs text-muted-foreground">

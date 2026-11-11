@@ -36,5 +36,11 @@ export default async function BranchesPage({ searchParams }: PageProps) {
   });
   const initialData = paginateBranches(filtered, urlState.page, urlState.pageSize);
 
-  return <BranchesClient initialData={initialData} allBranches={allBranches} />;
+  return (
+    <BranchesClient
+      orgId={context.app.activeOrgId}
+      initialData={initialData}
+      allBranches={allBranches}
+    />
+  );
 }

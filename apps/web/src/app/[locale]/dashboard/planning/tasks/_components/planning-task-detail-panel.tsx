@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-renderer";
+import { RichTextWithMentions } from "@/components/v2/mentions/rich-text-with-mentions";
 import {
   PlanningTaskStatusBadge,
   type PlanningStatusBadgeConfig,
@@ -270,7 +270,7 @@ export function PlanningTaskDetailPanel({
                   {t("tasks.description")}
                 </p>
                 <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
-                  <RichTextRenderer value={currentDetail.description_rich as any} />
+                  <RichTextWithMentions value={currentDetail.description_rich as any} />
                 </div>
               </div>
             ) : currentDetail.description_plain ? (

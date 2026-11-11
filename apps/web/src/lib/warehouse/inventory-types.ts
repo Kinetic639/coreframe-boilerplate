@@ -8,7 +8,12 @@ export type InventoryProductListRow = {
   thumbnail_url: string | null;
   variant_count: number;
   on_hand_quantity: number;
+  /** D: on hand minus R and B. */
   available_quantity: number;
+  /** R: reserved for repair orders (incl. parts in their containers). */
+  reserved_total_quantity: number;
+  /** B: blocked (quality check, complaint, damage...). */
+  blocked_quantity: number;
   unit_code: string;
   updated_at: string;
   sales_account_code: string | null;
@@ -63,6 +68,8 @@ export type InventoryProductVariantListRow = {
   thumbnail_url: string | null;
   on_hand_quantity: number;
   available_quantity: number;
+  reserved_total_quantity: number;
+  blocked_quantity: number;
   reorder_point: number | null;
   /** Source of truth for audit-by-supplier scoping — see
    * apps/web/docs/stock-audit-implementation-plan.md §10. */
@@ -327,10 +334,16 @@ export type InventoryBalanceListRow = {
   variant_id: string;
   sku: string;
   product_name: string;
+  location_id: string;
   location_name: string;
   location_code: string | null;
   on_hand_quantity: number;
+  /** D: on hand minus R and B. */
   available_quantity: number;
+  /** R: reserved for repair orders (incl. parts in their containers). */
+  reserved_total_quantity: number;
+  /** B: blocked. */
+  blocked_quantity: number;
   unit_code: string;
   average_unit_cost: number;
   total_value: number;
@@ -348,6 +361,10 @@ export type InventoryBalanceDetail = InventoryBalanceListRow & {
 
 export type InventoryMovementLineInput = {
   variant_id: string;
+  /** AutoStacja magazyn (unit_warehouses) the line books to; null = without magazyn */
+  warehouse_id?: string | null;
+  /** MM (801): target magazyn of the same jednostka */
+  destination_warehouse_id?: string | null;
   source_location_id?: string | null;
   destination_location_id?: string | null;
   lot_id?: string | null;
@@ -468,6 +485,11 @@ export type MovementImportSourceField = {
     label: string;
     description?: string | null;
     disabled?: boolean;
+    /**
+     * The document this option was already imported into (e.g. a session that
+     * already became "PZ/2026/000001"); the dialog warns before importing twice.
+     */
+    imported_document?: string | null;
   }>;
 };
 
@@ -550,6 +572,10 @@ export type InventoryMovementListRow = {
   created_by: string | null;
   created_at: string;
   posted_at: string | null;
+  /** AutoStacja magazyn and jednostka of the document (U3) */
+  warehouse_code?: string | null;
+  warehouse_name?: string | null;
+  unit_code?: string | null;
 };
 
 export type InventoryPickerItem = {
@@ -606,9 +632,32 @@ export type InventoryMovementDetail = InventoryMovementListRow & {
     source_location_name: string | null;
     destination_location_id: string | null;
     destination_location_name: string | null;
+    /** AutoStacja magazyn of the line (U2); null = without magazyn */
+    warehouse_code?: string | null;
+    warehouse_name?: string | null;
+    /** MM between magazyny: the target magazyn */
+    destination_warehouse_code?: string | null;
     note: string | null;
   }>;
   audit_log: InventoryMovementAuditEntry[];
+  /** Storno (900) and KPZ links, both directions. */
+  related_movements: InventoryRelatedMovement[];
+};
+
+export type InventoryRelatedMovementRelation =
+  | "reversed_by"
+  | "reversal_of"
+  | "corrected_by"
+  | "correction_of";
+
+export type InventoryRelatedMovement = {
+  id: string;
+  relation: InventoryRelatedMovementRelation;
+  document_number: string | null;
+  route_key: string | null;
+  movement_type_code: string | null;
+  status: string;
+  posted_at: string | null;
 };
 
 export type CreateOptionGroupInput = {

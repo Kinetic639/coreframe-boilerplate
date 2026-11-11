@@ -10,6 +10,13 @@ describe("Sidebar Registry", () => {
     expect(registry.main.length).toBeGreaterThan(0);
   });
 
+  it("starts with an ungated link to the start dashboard", () => {
+    const [first] = getSidebarRegistry().main;
+
+    expect(first).toMatchObject({ id: "home", href: "/dashboard/start", iconKey: "home" });
+    expect(first?.visibility).toBeUndefined();
+  });
+
   it("should have unique IDs for all items", () => {
     const registry = getSidebarRegistry();
     const allItems = [...registry.main, ...registry.footer];

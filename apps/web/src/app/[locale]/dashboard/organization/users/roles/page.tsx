@@ -29,8 +29,12 @@ export default async function RolesPage({ searchParams }: PageProps) {
   const urlState = parseDataViewSearchParams(params);
 
   const supabase = await createClient();
-  const rolesResult = await OrgRolesService.listRoles(supabase, context.app.activeOrgId);
+  const [rolesResult, catalogResult] = await Promise.all([
+    OrgRolesService.listRoles(supabase, context.app.activeOrgId),
+    OrgRolesService.listPermissionCatalog(supabase),
+  ]);
   const allRoles = rolesResult.success ? rolesResult.data : [];
+  const permissionCatalog = catalogResult.success ? catalogResult.data : [];
 
   const filtered = filterSortRoles(allRoles, {
     search: urlState.search,
@@ -39,5 +43,12 @@ export default async function RolesPage({ searchParams }: PageProps) {
   });
   const initialData = paginateRoles(filtered, urlState.page, urlState.pageSize);
 
-  return <RolesClient initialData={initialData} allRoles={allRoles} />;
+  return (
+    <RolesClient
+      orgId={context.app.activeOrgId}
+      initialData={initialData}
+      allRoles={allRoles}
+      permissionCatalog={permissionCatalog}
+    />
+  );
 }

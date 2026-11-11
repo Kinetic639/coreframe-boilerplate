@@ -19,7 +19,10 @@ import {
   updateRepairOrderHeaderSchema,
   assignRepairOrderAdvisorSchema,
   changeRepairOrderStatusSchema,
+  createRepairOrderContainerSchema,
 } from "@/lib/validations/repair-orders";
+import { WAREHOUSE_INVENTORY_OPERATE } from "@repo/contracts/permissions";
+import type { RepairOrderContainerResult } from "@/server/services/repair-orders.service";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -245,6 +248,43 @@ export async function listAdvisorCandidatesAction(): Promise<
     if (!canManage) return { success: false, error: "Unauthorized" };
 
     return RepairOrdersService.listAdvisorCandidates(supabase, orgId);
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 10C -- container orchestration
+// ---------------------------------------------------------------------------
+
+/**
+ * Phase 10C -- create a real physical container owned by a RepairOrder.
+ * Gated on `warehouse.inventory.operate`, deliberately
+ * NOT gated on any `workshop.repair_orders.*` permission (same rationale as
+ * every other Phase 10A-10C write action). Org/branch are never taken from
+ * this action's own input -- resolved entirely server-side by
+ * `RepairOrdersService.createContainerForRepairOrder` from the RepairOrder's
+ * own authoritative row.
+ */
+export async function createRepairOrderContainerAction(
+  rawInput: unknown
+): Promise<ActionResult<RepairOrderContainerResult>> {
+  try {
+    const { supabase, user, context } = await getAuthedContext();
+    if (!user) return { success: false, error: "Unauthenticated" };
+    if (!checkPermission(context?.user.permissionSnapshot, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = createRepairOrderContainerSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    return RepairOrdersService.createContainerForRepairOrder(supabase, user.id, {
+      repairOrderId: parsed.data.repairOrderId,
+      code: parsed.data.code,
+      currentLocationId: parsed.data.currentLocationId,
+      type: parsed.data.type,
+    });
   } catch {
     return { success: false, error: "Unexpected error" };
   }

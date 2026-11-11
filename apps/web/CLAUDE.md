@@ -16,7 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Supabase Commands
 
-**IMPORTANT: NEVER run local Supabase. Always use remote project ID: zlcnlalwfmmtusigeuyk**
+**IMPORTANT: NEVER run local Supabase. Always use remote project ID: rjeraydumwechpjjzrus. The authoritative migration tree is `apps/web/supabase-target/supabase/migrations`.**
 
 - `pnpm supabase:link:dev` - Link to development Supabase project
 - `pnpm supabase:link:prod` - Link to production Supabase project

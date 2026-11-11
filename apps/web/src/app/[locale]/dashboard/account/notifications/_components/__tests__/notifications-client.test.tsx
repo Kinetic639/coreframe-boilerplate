@@ -17,6 +17,10 @@ vi.mock("@/app/[locale]/dashboard/account/preferences/_components/notifications-
   ),
 }));
 
+vi.mock("../notification-events-section", () => ({
+  NotificationEventsSection: () => <div data-testid="notification-events-section" />,
+}));
+
 import { NotificationsClient } from "../notifications-client";
 import { usePreferencesQuery } from "@/hooks/queries/user-preferences";
 

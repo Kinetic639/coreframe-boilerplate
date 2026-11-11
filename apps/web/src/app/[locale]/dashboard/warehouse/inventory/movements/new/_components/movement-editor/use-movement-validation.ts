@@ -10,7 +10,14 @@ export function useMovementValidation(
   recipientName: string,
   srcLoc: string,
   dstLoc: string,
-  lines: LineDraft[]
+  lines: LineDraft[],
+  /** An MM to another magazyn may keep the shelf (U3) */
+  changesWarehouse = false,
+  /** The document's magazyn and an MMJ's target are obligatory (U3/U4) */
+  warehouse: { warehouseMissing: boolean; transferTargetMissing: boolean } = {
+    warehouseMissing: false,
+    transferTargetMissing: false,
+  }
 ): ValidationResult {
   const t = useTranslations("warehouseInventory.movementEditor");
   return useMemo(() => {
@@ -18,12 +25,20 @@ export function useMovementValidation(
     const positionErrors: string[] = [];
 
     if (!typeCode) documentErrors.push(t("movementTypeRequired"));
-    if (senderName.length > 200) documentErrors.push("Sender name is too long");
-    if (recipientName.length > 200) documentErrors.push("Recipient name is too long");
+    if (warehouse.warehouseMissing) documentErrors.push(t("warehouseRequired"));
+    if (warehouse.transferTargetMissing) documentErrors.push(t("transferTargetRequired"));
+    if (senderName.length > 200) documentErrors.push(t("senderNameTooLong"));
+    if (recipientName.length > 200) documentErrors.push(t("recipientNameTooLong"));
 
     if (requiresSourceLocation && !srcLoc) positionErrors.push(t("srcLocationRequired"));
     if (requiresDestinationLocation && !dstLoc) positionErrors.push(t("destLocationRequired"));
-    if (requiresSourceLocation && requiresDestinationLocation && srcLoc && srcLoc === dstLoc) {
+    if (
+      requiresSourceLocation &&
+      requiresDestinationLocation &&
+      srcLoc &&
+      srcLoc === dstLoc &&
+      !changesWarehouse
+    ) {
       positionErrors.push(t("srcDestSame"));
     }
     if (lines.length === 0) positionErrors.push(t("addAtLeastOneItem"));
@@ -48,6 +63,9 @@ export function useMovementValidation(
     srcLoc,
     dstLoc,
     lines,
+    changesWarehouse,
+    warehouse.warehouseMissing,
+    warehouse.transferTargetMissing,
     t,
   ]);
 }

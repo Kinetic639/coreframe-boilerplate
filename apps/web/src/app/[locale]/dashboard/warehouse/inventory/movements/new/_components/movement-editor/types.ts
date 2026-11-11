@@ -20,6 +20,7 @@ export type LineDraft = {
   source_label?: string | null;
   source_line_id?: string | null;
   source_order_number?: string | null;
+  source_product_code?: string | null;
   variant_id: string;
   unit_id: string;
   sku: string;
@@ -81,6 +82,7 @@ export type ImportedMovementDocumentDraft = {
     source_label?: string | null;
     source_line_id?: string | null;
     source_order_number?: string | null;
+    source_product_code?: string | null;
   }>;
 };
 
@@ -102,6 +104,17 @@ export type MovementFormProps = {
   units: InventoryUnitRow[];
   canManageProducts: boolean;
   initialValues?: MovementFormInitialValues;
+  /** Zone 5: a PZ always lands here (the branch's receiving zone). */
+  receivingLocationId?: string | null;
+  /** Type a new movement starts with (e.g. 101 from the Matcher's "Utwórz PZ") */
+  initialTypeCode?: string;
+  /** Source the import dialog opens with and quick-imports by itself */
+  autoImport?: MovementAutoImport | null;
+};
+
+export type MovementAutoImport = {
+  sourceType: string;
+  sourceInput: Record<string, string>;
 };
 
 export type ValidationResult = {

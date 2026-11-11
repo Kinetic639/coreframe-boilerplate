@@ -56,6 +56,7 @@ function lineToCanonicalLine(line: WddMovementImportCandidateLine): CanonicalMov
       movement_order_number: movementOrderNumber(line),
       client_name: line.clientName,
       group_name: line.groupName,
+      destination_note: line.destinationNote,
       warehouse_code: line.warehouseCode,
       warehouse_label: line.warehouseLabel,
       document_brand: line.documentBrand,
@@ -134,6 +135,37 @@ export const svwmsWddMatcherMovementImportAdapter: MovementImportSourceAdapter =
     );
     if (!sessions.success) return { success: false, error: serviceError(sessions) };
 
+    // A session already received on a PZ (draft or posted) carries that PZ's
+    // number: importing it again would receive the same delivery twice.
+    const references = sessions.data.map((session) => compactSessionReference(session));
+    const importedByReference = new Map<string, string>();
+    if (references.length > 0) {
+      const { data: movements, error: movementsError } = await supabase
+        .from("inventory_movement_headers")
+        .select("external_reference, document_number, draft_number, status, created_at")
+        .eq("organization_id", orgId)
+        .eq("branch_id", branchId)
+        .in("external_reference", references)
+        .in("status", ["draft", "posted"])
+        .order("created_at", { ascending: true });
+      // Without this read every session would look not yet received.
+      if (movementsError) {
+        return { success: false, error: "Could not check which sessions are already received" };
+      }
+      for (const movement of (movements ?? []) as Array<{
+        external_reference: string | null;
+        document_number: string | null;
+        draft_number: string | null;
+      }>) {
+        if (!movement.external_reference || importedByReference.has(movement.external_reference))
+          continue;
+        importedByReference.set(
+          movement.external_reference,
+          movement.document_number ?? movement.draft_number ?? movement.external_reference
+        );
+      }
+    }
+
     return {
       success: true,
       data: [
@@ -147,6 +179,7 @@ export const svwmsWddMatcherMovementImportAdapter: MovementImportSourceAdapter =
             value: session.id,
             label: session.name || new Date(session.created_at).toLocaleString("pl-PL"),
             description: session.created_at,
+            imported_document: importedByReference.get(compactSessionReference(session)) ?? null,
           })),
         },
       ],

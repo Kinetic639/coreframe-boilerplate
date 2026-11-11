@@ -355,16 +355,22 @@ export class AttachmentsService {
     const targetResult = await validateTarget(descriptor, supabase, orgId, row.target_id);
     if (!targetResult.success) return targetResult as { success: false; error: string };
 
-    const { error } = await supabase
-      .from("app_attachments")
-      .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
-      .eq("org_id", orgId)
-      .eq("id", attachmentId)
-      .is("deleted_at", null);
+    // A plain UPDATE of deleted_at fails RLS (the SELECT policy hides deleted rows), so the
+    // soft delete goes through soft_delete_app_attachment (migration 20261007063558), which
+    // checks author-or-moderator itself and returns the storage path. Not in the generated
+    // types yet, hence the narrowed rpc signature. (deleted_by is set from auth.uid() there.)
+    void userId;
+    const rpc = supabase.rpc as unknown as (
+      fn: "soft_delete_app_attachment",
+      args: { p_attachment_id: string }
+    ) => Promise<{ data: string | null; error: { message: string } | null }>;
+    const { data: path, error } = await rpc.call(supabase, "soft_delete_app_attachment", {
+      p_attachment_id: attachmentId,
+    });
 
     if (error) return { success: false, error: error.message };
 
-    await supabase.storage.from(ATTACHMENTS_BUCKET).remove([row.storage_path]);
+    await supabase.storage.from(ATTACHMENTS_BUCKET).remove([path ?? row.storage_path]);
     return { success: true, data: { id: attachmentId } };
   }
 }

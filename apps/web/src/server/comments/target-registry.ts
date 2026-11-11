@@ -1,7 +1,15 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { HELPDESK_TICKETS_MANAGE, HELPDESK_TICKETS_READ } from "@/lib/constants/permissions";
+import {
+  HELPDESK_TICKETS_MANAGE,
+  HELPDESK_TICKETS_READ,
+  MESSAGES_USE,
+} from "@/lib/constants/permissions";
+import {
+  WORKSHOP_REPAIR_ORDERS_MANAGE_ALL,
+  WORKSHOP_REPAIR_ORDERS_READ,
+} from "@/lib/constants/permissions";
 import {
   PLANNING_BOARDS_READ,
   PLANNING_BOARDS_UPDATE,
@@ -75,12 +83,14 @@ export const COMMENT_TARGET_REGISTRY: Readonly<Record<string, CommentTargetDescr
     },
 
     async afterCommentCreated({ supabase, orgId, targetId, actorId, visibility }) {
+      // A private note leaves no trace in the ticket's history (others see the history)
+      if (visibility === "internal") return;
       await supabase.from("helpdesk_ticket_activity").insert({
         ticket_id: targetId,
         org_id: orgId,
         actor_id: actorId,
         event_type: "comment_added",
-        payload: { is_internal: visibility === "internal" },
+        payload: { is_internal: false },
       });
     },
 
@@ -92,6 +102,62 @@ export const COMMENT_TARGET_REGISTRY: Readonly<Record<string, CommentTargetDescr
         event_type: "attachment_added",
         payload: { attachment_id: attachmentId, file_name: fileName },
       });
+    },
+  },
+  // Zone 3 / Phase 12: photos of signed delivery documents etc. on a RepairOrder.
+  // Database access: can_access_comment_target branch "workshop.repair_order".
+  "workshop.repair_order": {
+    type: "workshop.repair_order",
+    requiredReadPermission: WORKSHOP_REPAIR_ORDERS_READ,
+    requiredCommentPermission: WORKSHOP_REPAIR_ORDERS_READ,
+    requiredAttachmentPermission: WORKSHOP_REPAIR_ORDERS_READ,
+    requiredModeratePermission: WORKSHOP_REPAIR_ORDERS_MANAGE_ALL,
+
+    async validate({ supabase, targetId, orgId }) {
+      const { data, error } = await supabase
+        .from("repair_orders")
+        .select("id, organization_id, deleted_at")
+        .eq("id", targetId)
+        .maybeSingle();
+
+      if (error || !data) {
+        return { valid: false, organizationId: null, error: "NOT_FOUND" };
+      }
+      if ((data as { deleted_at: string | null }).deleted_at !== null) {
+        return { valid: false, organizationId: null, error: "SOFT_DELETED" };
+      }
+      if ((data as { organization_id: string }).organization_id !== orgId) {
+        return { valid: false, organizationId: null, error: "WRONG_ORG" };
+      }
+
+      return { valid: true, organizationId: orgId };
+    },
+  },
+  // Messages: attachments of a conversation (no comments). Members only (RLS).
+  "chat.conversation": {
+    type: "chat.conversation",
+    requiredReadPermission: MESSAGES_USE,
+    requiredCommentPermission: MESSAGES_USE,
+    requiredAttachmentPermission: MESSAGES_USE,
+
+    async validate({ supabase, targetId, orgId }) {
+      const { data, error } = await supabase
+        .from("chat_conversations")
+        .select("id, organization_id, deleted_at")
+        .eq("id", targetId)
+        .maybeSingle();
+
+      if (error || !data) {
+        return { valid: false, organizationId: null, error: "NOT_FOUND" };
+      }
+      if ((data as { deleted_at: string | null }).deleted_at !== null) {
+        return { valid: false, organizationId: null, error: "SOFT_DELETED" };
+      }
+      if ((data as { organization_id: string }).organization_id !== orgId) {
+        return { valid: false, organizationId: null, error: "WRONG_ORG" };
+      }
+
+      return { valid: true, organizationId: orgId };
     },
   },
   "planning.task": {

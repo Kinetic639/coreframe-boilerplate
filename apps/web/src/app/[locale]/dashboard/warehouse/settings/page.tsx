@@ -6,6 +6,7 @@ import {
   WAREHOUSE_PRODUCTS_READ,
   WAREHOUSE_READ,
   WAREHOUSE_LOCATIONS_MANAGE,
+  WAREHOUSE_SETTINGS_MANAGE,
 } from "@/lib/constants/permissions";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { createClient } from "@/utils/supabase/server";
@@ -13,6 +14,8 @@ import { InventoryProductsService } from "@/server/services/inventory-products.s
 import { WarehouseLocationLabelSettingsService } from "@/server/services/warehouse-location-label-settings.service";
 import { WarehouseInventorySettingsClient } from "./warehouse-inventory-settings-client";
 import { LocationLabelDefaultsSettings } from "./_components/location-label-defaults-settings";
+import { BranchCodesSettings } from "./_components/branch-codes-settings";
+import { InternalOrderOperationsService } from "@/server/services/internal-orders.service";
 
 export default async function WarehouseSettingsPage() {
   const locale = await getLocale();
@@ -37,6 +40,7 @@ export default async function WarehouseSettingsPage() {
     taxRatesResult,
     tagsResult,
     labelSettingsResult,
+    branchesResult,
   ] = await Promise.all([
     InventoryProductsService.listUnits(supabase, context.app.activeOrgId),
     InventoryProductsService.listUnitConversions(supabase, context.app.activeOrgId),
@@ -44,6 +48,7 @@ export default async function WarehouseSettingsPage() {
     InventoryProductsService.listTaxRates(supabase, context.app.activeOrgId),
     InventoryProductsService.listTags(supabase, context.app.activeOrgId),
     WarehouseLocationLabelSettingsService.get(supabase, context.app.activeOrgId),
+    InternalOrderOperationsService.listBranches(supabase, context.app.activeOrgId),
   ]);
 
   return (
@@ -61,6 +66,10 @@ export default async function WarehouseSettingsPage() {
           labelSettingsResult.success ? (labelSettingsResult.data?.label_config ?? null) : null
         }
         canManage={checkPermission(context.user.permissionSnapshot, WAREHOUSE_LOCATIONS_MANAGE)}
+      />
+      <BranchCodesSettings
+        branches={branchesResult.success ? branchesResult.data : []}
+        canManage={checkPermission(context.user.permissionSnapshot, WAREHOUSE_SETTINGS_MANAGE)}
       />
     </div>
   );

@@ -70,6 +70,20 @@ import {
  * Main navigation sections
  */
 export const MAIN_NAV_ITEMS: SidebarItem[] = [
+  // ── Group: home ─────────────────────────────────────────────────────────
+
+  // Start dashboard: every signed-in member of the organization, no gates
+  // (the same branch-neutral page the branch switcher lands on)
+  {
+    id: "home",
+    group: "home",
+    title: "Start",
+    titleKey: "modules.home.title",
+    iconKey: "home",
+    href: "/dashboard/start",
+    match: { exact: "/dashboard/start" },
+  },
+
   // ── Group: workspace (Warehouse + Tools) ────────────────────────────────
 
   // Warehouse (plan-gated: MODULE_WAREHOUSE must be in enabled_modules,
@@ -85,67 +99,75 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
       requiresPermissions: [MODULE_WAREHOUSE_ACCESS],
     },
     children: [
+      // Flat list (no Inventory / Purchases sub-groups): movements, putaway and
+      // items sit directly under Warehouse. Stock per location is on the item's page.
       {
-        id: "warehouse.inventory",
-        title: "Inventory",
-        titleKey: "modules.warehouse.items.inventory.title",
-        iconKey: "clipboard",
-        href: "/dashboard/warehouse/inventory",
-        match: { startsWith: "/dashboard/warehouse/inventory" },
+        id: "warehouse.inventory.movements",
+        title: "Stock Movements",
+        titleKey: "modules.warehouse.items.inventory.movements",
+        iconKey: "transfers",
+        href: "/dashboard/warehouse/inventory/movements",
+        match: { startsWith: "/dashboard/warehouse/inventory/movements" },
         visibility: {
           requiresPermissions: [WAREHOUSE_INVENTORY_READ],
         },
-        children: [
-          {
-            id: "warehouse.inventory.movements",
-            title: "Stock Movements",
-            titleKey: "modules.warehouse.items.inventory.movements",
-            iconKey: "transfers",
-            href: "/dashboard/warehouse/inventory/movements",
-            match: { startsWith: "/dashboard/warehouse/inventory/movements" },
-            visibility: {
-              requiresPermissions: [WAREHOUSE_INVENTORY_READ],
-            },
-          },
-          {
-            id: "warehouse.items",
-            title: "Items",
-            titleKey: "modules.warehouse.items.products.title",
-            iconKey: "products",
-            href: "/dashboard/warehouse/items",
-            match: { startsWith: "/dashboard/warehouse/items" },
-            visibility: {
-              requiresPermissions: [WAREHOUSE_PRODUCTS_READ],
-            },
-          },
-        ],
       },
-
       {
-        id: "warehouse.purchases",
-        title: "Purchases",
-        titleKey: "modules.warehouse.items.purchases.title",
+        id: "warehouse.inventory.warehouse-stock",
+        title: "AutoStacja warehouses",
+        titleKey: "modules.warehouse.items.inventory.warehouseStock",
+        iconKey: "warehouse",
+        href: "/dashboard/warehouse/inventory/warehouse-stock",
+        match: { startsWith: "/dashboard/warehouse/inventory/warehouse-stock" },
+        visibility: {
+          requiresPermissions: [WAREHOUSE_INVENTORY_READ],
+        },
+      },
+      {
+        id: "warehouse.putaway",
+        title: "Putaway",
+        titleKey: "modules.warehouse.items.putaway",
         iconKey: "truck",
-        href: "/dashboard/warehouse/purchases",
-        match: { startsWith: "/dashboard/warehouse/purchases" },
-        children: [
-          {
-            id: "warehouse.deliveries",
-            title: "Deliveries",
-            titleKey: "modules.warehouse.items.deliveries.title",
-            iconKey: "truck",
-            href: "/dashboard/warehouse/deliveries",
-            match: { startsWith: "/dashboard/warehouse/deliveries" },
-          },
-          {
-            id: "warehouse.suppliers",
-            title: "Suppliers",
-            titleKey: "modules.warehouse.items.suppliers.title",
-            iconKey: "building",
-            href: "/dashboard/warehouse/suppliers",
-            match: { startsWith: "/dashboard/warehouse/suppliers" },
-          },
-        ],
+        href: "/dashboard/warehouse/putaway",
+        match: { startsWith: "/dashboard/warehouse/putaway" },
+        visibility: {
+          requiresPermissions: [WAREHOUSE_INVENTORY_READ],
+        },
+      },
+      {
+        // Reservations (R) and blocks (B): one screen, a tab each.
+        id: "warehouse.reservations",
+        title: "Reservations and blocks",
+        titleKey: "modules.warehouse.items.reservationsAndBlocks",
+        iconKey: "bookmark",
+        href: "/dashboard/warehouse/reservations",
+        match: { startsWith: "/dashboard/warehouse/reservations" },
+        visibility: {
+          requiresPermissions: [WAREHOUSE_INVENTORY_READ],
+        },
+      },
+      {
+        // Internal orders (ZW): under repair orders or for another branch.
+        id: "warehouse.internal-orders",
+        title: "Internal orders",
+        titleKey: "modules.warehouse.items.internalOrders",
+        iconKey: "clipboard",
+        href: "/dashboard/warehouse/internal-orders",
+        match: { startsWith: "/dashboard/warehouse/internal-orders" },
+        visibility: {
+          requiresPermissions: [WAREHOUSE_INVENTORY_READ],
+        },
+      },
+      {
+        id: "warehouse.items",
+        title: "Items",
+        titleKey: "modules.warehouse.items.products.title",
+        iconKey: "products",
+        href: "/dashboard/warehouse/items",
+        match: { startsWith: "/dashboard/warehouse/items" },
+        visibility: {
+          requiresPermissions: [WAREHOUSE_PRODUCTS_READ],
+        },
       },
       {
         id: "warehouse.audits",

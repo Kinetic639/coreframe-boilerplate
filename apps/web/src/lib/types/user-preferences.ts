@@ -119,6 +119,8 @@ export interface NotificationChannelSettings {
   enabled: boolean;
   /** Notification types to receive */
   types?: string[];
+  /** Notification types switched off (in-app: read by the database when notifying) */
+  disabledTypes?: string[];
 }
 
 /**

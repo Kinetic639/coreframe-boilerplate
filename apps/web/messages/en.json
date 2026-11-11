@@ -203,7 +203,9 @@
       "loadMore": "Load more",
       "edited": "edited",
       "formerMember": "Former member",
-      "addFailed": "Failed to add comment"
+      "addFailed": "Failed to add comment",
+      "typing": "{name} is typing…",
+      "typingMany": "{count} people are typing…"
     },
     "attachments": {
       "title": "Attachments",
@@ -258,7 +260,12 @@
     "detail": {
       "closeAria": "Close detail",
       "loadingAria": "Loading details",
-      "empty": "No item selected"
+      "refreshing": "Refreshing details",
+      "empty": "No item selected",
+      "error": "Unable to load details.",
+      "refreshError": "The latest details could not be loaded. Showing the previous version.",
+      "notFound": "This item no longer exists.",
+      "selectedOutsideResults": "Selected item is outside current results."
     },
     "toolbar": {
       "searchPlaceholder": "Search...",
@@ -315,7 +322,9 @@
       "loadingMoreAria": "Loading more items"
     },
     "table": {
-      "noResults": "No results"
+      "noResults": "No results",
+      "error": "Unable to load results.",
+      "updating": "Updating results"
     },
     "mobile": {
       "loadingAria": "Loading rows"
@@ -455,13 +464,15 @@
     "no": "No",
     "save": "Save Changes",
     "saving": "Saving...",
-    "profileUpdated": "Profile updated successfully"
+    "profileUpdated": "Profile updated successfully",
+    "phoneHint": "Visible to colleagues in your organization (Contacts)."
   },
   "AccountPage": {
     "title": "Account",
     "profile": "Profile",
     "preferences": "Preferences",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "feedback": "Bugs & ideas"
   },
   "NotificationsPage": {
     "description": "Manage how you receive notifications and alerts."
@@ -641,6 +652,8 @@
   },
   "common": {
     "loading": "Loading...",
+    "loadingApp": "Loading…",
+    "loadingPage": "Loading the page…",
     "retry": "Retry",
     "cancel": "Cancel",
     "searching": "Searching...",
@@ -1070,6 +1083,14 @@
     "listView": {
       "treeView": "Tree View",
       "listView": "List View",
+      "crossBranchDialog": {
+        "title": "Switch branch to view this location?",
+        "description": "This location belongs to a different branch. Switch to that branch to view it?",
+        "confirm": "Switch branch",
+        "cancel": "Cancel",
+        "switching": "Switching...",
+        "switchFailed": "Could not switch branch. Please try again."
+      },
       "code": "Code",
       "name": "Name",
       "path": "Path",
@@ -2343,7 +2364,8 @@
           "adjustments": {
             "title": "Stock Adjustments",
             "single": "Single Adjustment"
-          }
+          },
+          "warehouseStock": "AS warehouse stock"
         },
         "locations": "Locations",
         "audits": "Stock Audits",
@@ -2726,7 +2748,12 @@
         "purchases": {
           "title": "Purchases",
           "orders": "Purchase Orders"
-        }
+        },
+        "putaway": "Putaway",
+        "reservations": "Reservations",
+        "blocks": "Blocked stock",
+        "reservationsAndBlocks": "Reservations and blocks",
+        "internalOrders": "Internal orders"
       },
       "partnerTypes": {
         "vendor": "Supplier",
@@ -2742,6 +2769,659 @@
       "placeholder": {
         "comingSoon": "This section is coming soon.",
         "moduleShell": "This placeholder is intentionally part of the Warehouse V2 module shell."
+      },
+      "containers": {
+        "back": "Back to repair order",
+        "backToWarehouse": "Back to locations",
+        "title": "Container",
+        "status": {
+          "empty": "Empty",
+          "active": "In use",
+          "sealed": "Sealed",
+          "in_transit": "In transit",
+          "archived": "Archived"
+        },
+        "repairOrder": "Repair order",
+        "noRepairOrder": "This container is not linked to a repair order.",
+        "client": "Client",
+        "vehicle": "Vehicle",
+        "vin": "VIN",
+        "location": "Location",
+        "noLocation": "No location",
+        "contents": "Contents",
+        "contentsEmpty": "The container is empty.",
+        "columns": {
+          "sku": "Part number",
+          "name": "Name",
+          "quantity": "Quantity"
+        },
+        "qr": {
+          "title": "Container QR code",
+          "none": "This container has no QR code yet.",
+          "assigned": "QR code assigned",
+          "generate": "Generate QR code",
+          "generating": "Generating…",
+          "print": "Print label",
+          "printing": "Preparing label…",
+          "generated": "QR code generated and assigned.",
+          "error": "Could not generate the QR code.",
+          "printError": "Could not prepare the label.",
+          "noPermission": "You don't have permission to assign QR codes.",
+          "scan": "Scan QR sticker",
+          "scanTitle": "Assign a QR sticker to the container",
+          "scanHint": "Scan a printed, unassigned QR sticker to assign it to this container.",
+          "scanBack": "Cancel",
+          "orGenerate": "or generate a new code",
+          "assignedToast": "QR sticker assigned to the container.",
+          "alreadyThis": "This sticker is already assigned to this container.",
+          "alreadyOther": "This sticker is already assigned to something else.",
+          "assignError": "Could not assign the sticker."
+        },
+        "crossBranch": {
+          "title": "Container in another branch",
+          "description": "This container belongs to branch {branch}. Switch your active branch to open it?",
+          "confirm": "Switch branch",
+          "cancel": "Cancel",
+          "switching": "Switching…",
+          "error": "Could not switch branch."
+        },
+        "relocate": {
+          "open": "Move container",
+          "title": "Move container {code}",
+          "description": "The whole container and its contents move to the chosen location. The container's QR code stays the same.",
+          "scan": "Scan location sticker",
+          "scanHint": "Scan the QR sticker of the destination location.",
+          "scanBack": "Back",
+          "scanNotLocation": "This is not a location sticker. Scan the destination location's sticker.",
+          "scanNotAvailable": "This location can't be used here — it belongs to another branch or does not hold stock.",
+          "orPick": "or pick from the list",
+          "placeholder": "Choose the destination location",
+          "loading": "Loading locations…",
+          "confirm": "Move",
+          "moving": "Moving…",
+          "cancel": "Cancel",
+          "movedToast": "Container {code} moved to {location}.",
+          "errors": {
+            "unauthorized": "You are not allowed to move containers in this branch.",
+            "not_found": "Container not found in the active branch.",
+            "not_movable": "This container can't be moved in its current state.",
+            "same_location": "The container is already at this location.",
+            "invalid_destination": "The chosen location can't hold stock.",
+            "inconsistent": "The container's contents don't match their part allocations — the move was blocked. Contact an administrator.",
+            "invalid_input": "Invalid move request.",
+            "unexpected": "Could not move the container. Please try again."
+          }
+        }
+      },
+      "putaway": {
+        "title": "Putaway",
+        "subtitle": "Stock in the receiving zone is not available until it is put away to a location or into a container.",
+        "noBranch": "Select an active branch.",
+        "loadError": "Could not load the receiving zone.",
+        "noReceivingLocation": "This branch has no receiving zone configured. An admin can designate one on the Locations page.",
+        "empty": "The receiving zone is empty — everything has been put away.",
+        "summary": "{count, plural, one {# item waits to be put away} other {# items wait to be put away}}",
+        "freeGroup": "Free stock (no repair order)",
+        "bulkBadge": "Bulk material",
+        "putaway": "Put away",
+        "suggest": {
+          "container": "Into container {code} ({location})",
+          "newContainer": "New repair-order container at the location you scan",
+          "bulkFixed": "Fixed location: {location}",
+          "bulkNoFixed": "Bulk material — no fixed location, scan a place",
+          "freeFixed": "Fixed location: {location}",
+          "free": "Any location"
+        },
+        "dialog": {
+          "scan": "Scan location",
+          "scanHint": "Scan the QR sticker of the location you put the part on.",
+          "scanBack": "Back",
+          "scanNotLocation": "This is not a location sticker. Scan a location sticker.",
+          "scanNotAvailable": "This location can't be used — it belongs to another branch or does not hold stock.",
+          "scanIsReceiving": "That is the receiving zone — scan the destination location.",
+          "orPick": "or pick from the list",
+          "placeholder": "Choose a location",
+          "loading": "Loading locations…",
+          "quantity": "Quantity (max {max} {unit})",
+          "outcome": {
+            "pickFirst": "Scan or choose a location.",
+            "intoContainer": "Goes into this repair order's container {code}.",
+            "newContainer": "A new container for this repair order is created at this location.",
+            "bulkReserved": "Bulk material: stored without a container and reserved for the repair order.",
+            "loose": "Stored loose on the location."
+          },
+          "confirm": "Confirm",
+          "confirming": "Saving…",
+          "cancel": "Cancel",
+          "doneContainer": "Placed into container {code} ({location}).",
+          "doneNewContainer": "Created container {code} at {location} and placed the part.",
+          "doneLocation": "Put away to {location}.",
+          "position": "{index} of {total}",
+          "skip": "Skip",
+          "confirmNext": "Put away, next"
+        },
+        "errors": {
+          "unauthorized": "You are not allowed to put away stock in this branch.",
+          "not_found": "Item not found — refresh the list.",
+          "invalid_destination": "This location can't be used as a putaway destination.",
+          "not_enough": "The receiving zone no longer holds that quantity — refresh the list.",
+          "wrong_item": "This part does not match the repair-order line.",
+          "no_receiving_location": "This branch has no receiving zone configured.",
+          "invalid_input": "Invalid input.",
+          "unexpected": "Could not put away. Please try again.",
+          "use_container": "A repair-order part goes into a container of its order — scan a container or start a new one with a sticker."
+        },
+        "tabs": {
+          "pending": "To put away ({count})",
+          "changes": "To copy"
+        },
+        "scanCta": "Scan",
+        "scan": {
+          "title": "Scan a code",
+          "description": "Scan a container, a blank sticker or a location.",
+          "close": "Close",
+          "back": "Back",
+          "scanHint": "Container, blank sticker or location",
+          "scanExplain": "Aim at a code: a container — add its order's parts; a blank sticker — new container; a location — see what is there. Scanning pauses after each code; tap the bar on top to scan again.",
+          "newWithoutScan": "New container without scanning",
+          "containerNotHere": "This container does not belong to a repair order in this branch.",
+          "locationNotHere": "This location is not in the active branch.",
+          "scanIsReceiving": "That is the receiving zone — scan the destination.",
+          "unknownCode": "This code is not a container, a location or a blank sticker.",
+          "scanNotLocation": "That is not a location sticker.",
+          "stickerTaken": "This sticker is already assigned. Use a blank one.",
+          "scanLocationTitle": "Scan location",
+          "scanLocationHint": "Rack, shelf or bin sticker",
+          "scanStickerTitle": "Scan container sticker",
+          "scanStickerHint": "A blank, unassigned sticker",
+          "noLocation": "No location",
+          "orderDone": "Nothing left to put away for this order.",
+          "scanNext": "Scan next",
+          "putIntoContainer": "Put into container ({count})",
+          "newTitle": "New container",
+          "stickerScanned": "Sticker scanned",
+          "noSticker": "No sticker",
+          "scanSticker": "Scan a sticker",
+          "stepOrder": "1. Repair order",
+          "stepParts": "2. What is inside",
+          "stepLocation": "3. Where it stands",
+          "change": "Change",
+          "orderSearch": "ZL number or client",
+          "partsCount": "{count} items",
+          "noOrders": "No repair orders with parts to put away.",
+          "scanLocation": "Scan location",
+          "pickLocation": "or pick from the list",
+          "createContainer": "Create container ({count})",
+          "newHere": "New container here",
+          "putLoose": "Put away loose",
+          "containersHere": "Containers here ({count})",
+          "noContainersHere": "No repair-order containers at this location.",
+          "inside": "Inside: {count} items",
+          "waiting": "{count} waiting",
+          "addTo": "Add",
+          "looseHere": "Loose here ({count})",
+          "nothingLoose": "Nothing loose here.",
+          "reservedQty": "reserved {qty}",
+          "looseTitle": "Put away loose",
+          "fixedHere": "Fixed location — here",
+          "fixedElsewhere": "Fixed location: {location}",
+          "putLooseConfirm": "Put here ({count})",
+          "doneNew": "Created {code}, {count} items inside",
+          "doneContainer": "Added {count} items to {code}",
+          "doneLoose": "Put away {count} items",
+          "stickerNotBound": "Container created, but the sticker could not be assigned — assign it on the container page.",
+          "checkAll": "Select all ({count})",
+          "uncheckAll": "Clear all",
+          "noParts": "Nothing to put away.",
+          "less": "Less",
+          "more": "More",
+          "errors": {
+            "unauthorized": "You cannot put away in this branch.",
+            "not_found": "Container or repair order not found.",
+            "mixed_orders": "A container holds parts of one repair order only.",
+            "invalid_destination": "This location cannot be used.",
+            "not_enough": "The quantity exceeds what waits in the receiving zone — refresh the list.",
+            "order_not_open": "The repair order is not open.",
+            "invalid_input": "Check the selected items.",
+            "unexpected": "Putaway failed. Try again."
+          },
+          "orderNeedsContainer": "A repair-order part goes into a container of its order — add it to an existing one or start a new one with a sticker.",
+          "orderContainers": "Order containers ({count})",
+          "orderNoContainers": "This order has no containers yet.",
+          "newWithSticker": "New container — scan a sticker",
+          "newOversize": "No sticker (oversize part)",
+          "strip": {
+            "checking": "Checking the code…",
+            "paused": "Tap to scan",
+            "sleeping": "Camera asleep — tap to resume",
+            "cameraError": "No camera access — tap to try again"
+          },
+          "offline": "No connection — scan again.",
+          "looseLoading": "Loose here",
+          "looseLoadingHint": "Checking what lies here…",
+          "locationInBranch": "This label belongs to branch {branch} — another branch is active. Scan a label of this branch or switch branch."
+        },
+        "changes": {
+          "range": {
+            "today": "Today",
+            "yesterday": "Since yesterday",
+            "week": "7 days"
+          },
+          "hint": "Repair orders whose locations changed. Bold with a “new” badge — add in AutoStacja; struck through — remove.",
+          "loading": "Loading…",
+          "error": "Could not load changes.",
+          "empty": "Nothing changed location in this period.",
+          "nowhere": "The order has no parts on locations now.",
+          "new": "new",
+          "released": "released"
+        },
+        "views": {
+          "documents": "By document",
+          "parts": "All parts"
+        },
+        "documents": {
+          "summary": "{count, plural, one {# document} other {# documents}} with stock to put away",
+          "unknown": "No document",
+          "unknownHint": "Stock in the receiving zone no document accounts for (e.g. older movements).",
+          "lines": "{count, plural, one {# line} other {# lines}}",
+          "orders": "Repair orders: {list}",
+          "free": "free stock",
+          "back": "All documents",
+          "open": "Open document",
+          "reference": "Ref.: {reference}",
+          "fromDocument": "To put away from {document}"
+        },
+        "board": {
+          "history": "Change history",
+          "historyTitle": "Putaway history",
+          "historyHint": "Repair orders whose locations changed (putaway, move, issue) — to copy into AutoStacja.",
+          "back": "Putaway",
+          "allDeliveries": "All deliveries",
+          "from": "from {document}",
+          "fixedTitle": "1. Fixed locations first",
+          "fixedHint": "Parts with their own location — do not put them into repair-order containers.",
+          "putOne": "Put away",
+          "placedTitle": "3. Orders that already lie somewhere",
+          "placedHint": "Add the parts to the container the order already has.",
+          "newTitle": "4. New orders",
+          "newHint": "Nothing put away yet — start a new container (sticker, then location).",
+          "freeTitle": "2. Free parts and other goods",
+          "freeHint": "No repair order — put away on any location.",
+          "waiting": "{count, plural, one {# part waiting} other {# parts waiting}}",
+          "addTo": "Add to {code} ({location})",
+          "newContainer": "New container",
+          "oversize": "No sticker",
+          "walkFree": "Put away one by one ({count})",
+          "walkFixed": "Put away one by one ({count})",
+          "internalTitle": "Internal orders",
+          "internalHint": "Reserved under a ZW without a repair order, e.g. for another branch. Do not put them on a shelf.",
+          "internalFor": "for: {branch}",
+          "internalExternal": "AutoStacja ZW: {number}",
+          "internalShip": "Ship",
+          "internalInTransit": "in transit ({number}) — waiting for the receiver",
+          "internalHeld": "held ({number}) — MMJ- draft, not sent"
+        },
+        "transfers": {
+          "incomingTitle": "Arriving from other units (MMJ+ in transit)",
+          "incomingHint": "Accept: the parts leave the sender's stock (MMJ-) and enter your receiving zone (MMJ+). Both documents get their numbers then.",
+          "toSendTitle": "Held (MMJ- drafts)",
+          "toSendHint": "Parts reserved, nothing sent, no number. Send it on its way or withdraw it.",
+          "accept": "Accept",
+          "send": "Send on its way",
+          "from": "from: {branch}",
+          "to": "to: {branch}",
+          "accepted": "Received: {mmIn} (from {mmOut})",
+          "sent": "Sent on its way",
+          "loadError": "Could not load transfers between branches — arriving ones may be missing here. Refresh the page.",
+          "outgoingTitle": "Sent — in transit (MMJ-)",
+          "outgoingHint": "Waiting for the receiver to accept. Until then they are on your stock, reserved, and can be withdrawn.",
+          "withdraw": "Withdraw",
+          "statusDraft": "held",
+          "statusInTransit": "in transit",
+          "withdrawn": "Withdrawn — reservation restored"
+        }
+      },
+      "stockCommitments": {
+        "states": {
+          "onHand": "On hand",
+          "available": "D · available",
+          "reserved": "R · reserved",
+          "blocked": "B · blocked"
+        },
+        "reservations": {
+          "title": "Reserved (R)",
+          "empty": "Nothing is reserved.",
+          "number": "Reservation",
+          "part": "Part",
+          "order": "Repair order",
+          "location": "Location",
+          "quantity": "Qty",
+          "since": "Since",
+          "inContainer": "{quantity} in a container",
+          "parts": "{count, plural, one {# part} other {# parts}}",
+          "openOrder": "Open the repair order"
+        },
+        "blocks": {
+          "title": "Blocked (B)",
+          "empty": "Nothing is blocked.",
+          "number": "Block",
+          "part": "Part",
+          "reason": "Reason",
+          "reference": "Reference",
+          "location": "Location",
+          "quantity": "Qty",
+          "since": "Since"
+        },
+        "reasons": {
+          "quality_check": "Quality check",
+          "supplier_complaint": "Supplier complaint",
+          "damaged": "Damaged in warehouse or workshop",
+          "delivery_mismatch": "Delivery mismatch",
+          "other": "Other"
+        },
+        "actions": {
+          "release": "Release",
+          "transfer": "Transfer to another order",
+          "block": "Block",
+          "unblock": "Unblock",
+          "move": "Move",
+          "returnToSupplier": "Return to supplier",
+          "scrap": "Scrap",
+          "reserveForOrder": "Reserve for an order",
+          "more": "More actions"
+        },
+        "dialogs": {
+          "release": {
+            "title": "Release the reservation",
+            "description": "The part goes back to available (D). The reason is kept in the history.",
+            "confirm": "Release reservation"
+          },
+          "transfer": {
+            "title": "Transfer the reservation to another order",
+            "description": "The reservation moves to the chosen order in one operation — the part is never available to anyone else in between.",
+            "confirm": "Transfer"
+          },
+          "block": {
+            "title": "Block the part",
+            "description": "Nobody can take a blocked part until it is unblocked, returned to the supplier or scrapped.",
+            "reservedNote": "The part is reserved — blocking takes it off the reservation and the order needs it again.",
+            "confirm": "Block"
+          },
+          "unblock": {
+            "title": "Unblock the part",
+            "description": "The part goes back to available (D), not to the order.",
+            "confirm": "Unblock"
+          },
+          "move": {
+            "title": "Move the blocked part",
+            "description": "An MM movement; the part stays blocked at the new location.",
+            "confirm": "Move"
+          },
+          "returnToSupplier": {
+            "title": "Return to supplier",
+            "description": "A ZWD document (movement 122) takes the blocked part out of stock.",
+            "confirm": "Return to supplier"
+          },
+          "scrap": {
+            "title": "Scrap",
+            "description": "A LIK document (movement 551) takes the blocked part out of stock.",
+            "confirm": "Scrap"
+          },
+          "reserve": {
+            "title": "Reserve for an order",
+            "description": "A reservation from available stock (D) for an order line that still needs this part.",
+            "confirm": "Reserve"
+          }
+        },
+        "fields": {
+          "quantity": "Quantity",
+          "max": "max {max}",
+          "reason": "Reason",
+          "reasonPlaceholder": "e.g. the customer cancelled, quality check OK…",
+          "reasonCode": "Block reason",
+          "description": "Description",
+          "descriptionRequired": "Description (required for “Other”)",
+          "reference": "Ticket / complaint number (optional)",
+          "location": "Location",
+          "destination": "Destination",
+          "supplier": "Supplier (optional)",
+          "target": "Order and line",
+          "searchZl": "Search by ZL number",
+          "needs": "still needs {count}",
+          "noTargets": "No open orders need this part.",
+          "noAvailable": "No location has available pieces (D).",
+          "available": "{count} available",
+          "cancel": "Cancel",
+          "loading": "Loading…",
+          "targetOrder": "Target repair order",
+          "toLine": "→ {part}, still needs {count}",
+          "noNeedInOrder": "This order does not need this part (or needs fewer)."
+        },
+        "toasts": {
+          "released": "Reservation released",
+          "transferred": "Reservation transferred ({number})",
+          "blocked": "Blocked ({number})",
+          "unblocked": "Unblocked",
+          "moved": "Moved ({document})",
+          "returned": "Returned to supplier: {document}",
+          "scrapped": "Scrapped: {document}",
+          "reserved": "Reserved ({number})"
+        },
+        "errors": {
+          "unauthorized": "You are not allowed to do this.",
+          "not_found": "Not found — refresh the page.",
+          "insufficient_stock": "Not enough available (D) at this location.",
+          "exceeds_need": "The order needs less of this part.",
+          "reason_required": "Give a reason.",
+          "not_open": "The repair order is not open.",
+          "wrong_part": "This order needs a different part.",
+          "in_container": "The part is in the order's container — take it out of the container first.",
+          "invalid_request": "This operation is not possible.",
+          "invalid_input": "Check the entered data.",
+          "failed": "The operation failed. Try again."
+        },
+        "pages": {
+          "reservationsTitle": "Reservations",
+          "reservationsSubtitle": "Parts reserved for repair orders (state R). Releasing returns them to available.",
+          "blocksTitle": "Blocked stock",
+          "blocksSubtitle": "Blocked parts (state B): nobody can take them until they are unblocked, returned to the supplier or scrapped.",
+          "filter": "Search: part, ZL, location, number",
+          "noBranch": "Choose an active branch.",
+          "loadError": "Could not load the data.",
+          "count": "{count, plural, one {# line} other {# lines}}",
+          "title": "Reservations and blocks",
+          "subtitle": "Each row is one document (REZ or BLK). Open it, tick parts and run one operation on them.",
+          "tabs": {
+            "reservations": "Reservations (R)",
+            "blocks": "Blocked (B)"
+          },
+          "documents": "{count, plural, one {# document} other {# documents}}"
+        },
+        "age": {
+          "today": "today",
+          "days": "{count, plural, one {# day} other {# days}}"
+        },
+        "breakdown": {
+          "hint": "Open a location to see every reservation and block on its own: for which order, with which document and since when.",
+          "summary": "On hand {onHand}: available (D) {available} · reserved (R) {reserved} · blocked (B) {blocked}"
+        },
+        "selection": {
+          "selected": "{count, plural, one {# part selected} other {# parts selected}}",
+          "clear": "Clear",
+          "selectAll": "Select all"
+        }
+      },
+      "internalOrders": {
+        "title": "Internal orders (ZW)",
+        "subtitle": "The branch's ZW: for repair orders and without one (e.g. ordered by another branch). The Ambra number and the AutoStacja number are separate fields.",
+        "noBranch": "Pick a branch to see internal orders.",
+        "loadError": "Could not load internal orders.",
+        "empty": "No internal orders.",
+        "searchPlaceholder": "ZW number, AutoStacja number, client, branch code…",
+        "search": "Search",
+        "kinds": {
+          "all": "All",
+          "repair_order": "For repair orders",
+          "standalone": "Without a repair order"
+        },
+        "columns": {
+          "order": "Order",
+          "external": "AutoStacja ZW",
+          "for": "For",
+          "created": "Issued",
+          "lines": "Lines",
+          "reserved": "Qty R",
+          "issued": "Qty W",
+          "lp": "No.",
+          "code": "Catalogue no.",
+          "name": "Part name",
+          "quantity": "Qty",
+          "receipts": "Receipts"
+        },
+        "repairOrder": "Repair order",
+        "forBranch": "for: {branch}",
+        "back": "Internal orders",
+        "externalNumber": "AutoStacja ZW: {number}",
+        "noExternalNumber": "No AutoStacja number",
+        "sources": {
+          "matcher": "from delivery documents",
+          "manual": "created in Ambra"
+        },
+        "statuses": {
+          "open": "Open",
+          "completed": "Completed",
+          "cancelled": "Cancelled"
+        },
+        "client": "Client",
+        "linesTitle": "Lines",
+        "receiptsTitle": "Deliveries for this ZW",
+        "noReceipts": "Nothing has arrived for this ZW yet.",
+        "deliveryOnlyHint": "ZW created from delivery documents: Ambra only knows the lines that arrived, so Z (ordered) is not marked.",
+        "lineCount": "{count, plural, one {# line} other {# lines}}",
+        "cancelledBecause": "Cancelled: {reason}",
+        "forOrder": {
+          "title": "Orders (ZW) of the repair order",
+          "subtitle": "Each ZW with its lines: Z ordered, R reserved, W issued, A cancelled.",
+          "empty": "The repair order has no internal orders yet."
+        },
+        "squares": {
+          "z": {
+            "letter": "Z",
+            "name": "Ordered"
+          },
+          "r": {
+            "letter": "R",
+            "name": "Reserved"
+          },
+          "w": {
+            "letter": "W",
+            "name": "Issued"
+          },
+          "a": {
+            "letter": "A",
+            "name": "Cancelled"
+          },
+          "fill": {
+            "full": "fully",
+            "half": "partly",
+            "none": "no"
+          }
+        },
+        "form": {
+          "newButton": "New ZW",
+          "newStandaloneButton": "New ZW without repair order",
+          "title": "New internal order (ZW) for the repair order",
+          "titleStandalone": "New internal order (ZW) without a repair order",
+          "description": "Positions of the repair order or new parts (they become positions). What is in stock can be reserved for this ZW at once.",
+          "descriptionStandalone": "E.g. parts ordered by another branch: enter its code (WYSOG) or the client. What is in stock can be reserved at once.",
+          "externalNumber": "AutoStacja ZW (optional)",
+          "destinationCode": "Branch code",
+          "client": "Client / branch",
+          "addPosition": "Add a repair-order position",
+          "addFromCatalog": "Part from catalogue",
+          "addOutsideCatalog": "Part outside catalogue",
+          "noLines": "Add at least one part.",
+          "part": "Part",
+          "quantity": "Qty",
+          "reserveFrom": "Reserve from",
+          "reserveQuantity": "How many",
+          "code": "Catalogue no.",
+          "name": "Name",
+          "noStock": "not in stock",
+          "notInCatalog": "outside catalogue — reserve after receipt",
+          "dontReserve": "don't reserve",
+          "remove": "Remove",
+          "cancel": "Cancel",
+          "submit": "Create ZW",
+          "created": "Created {number}",
+          "createdReserved": "Created {number}, reserved ({reservation})",
+          "warehouse": "Unit (warehouse)"
+        },
+        "actions": {
+          "setNumber": "AutoStacja number",
+          "setNumberHint": "The AutoStacja ZW number: a delivery with it joins this ZW. It can be set once.",
+          "save": "Save",
+          "numberSet": "AutoStacja number saved",
+          "reserve": "Reserve from stock",
+          "reserveHint": "Free parts (D) of this branch for lines that miss some. One REZ document.",
+          "reserveConfirm": "Reserve",
+          "reserved": "Reserved ({number})",
+          "reserveElsewhere": "Reserve at another branch",
+          "reserveElsewhereHint": "The parts are reserved at the chosen branch (prepared transfer). It ships them, you accept them in the receiving zone — under this ZW.",
+          "requestConfirm": "Reserve there",
+          "requested": "Reserved at another branch ({number})",
+          "branch": "Branch",
+          "pickBranch": "Pick a branch",
+          "noStockElsewhere": "Other branches have none of these parts.",
+          "needed": "missing: {count}",
+          "noStock": "not in stock",
+          "from": "From",
+          "quantity": "Qty",
+          "cancelLine": "Cancel line",
+          "cancelHint": "The line stays on the ZW as A with its reason; its reservation is released.",
+          "pickLine": "Pick a line",
+          "reason": "Reason",
+          "cancelConfirm": "Cancel line",
+          "cancelled": "Line cancelled",
+          "ship": "Ship to branch",
+          "shipTitle": "Ship {number} to a branch",
+          "shipFound": "Branch with this ZW's code: {branch}.",
+          "shipPick": "No branch has this ZW's code — pick one (codes are set in warehouse settings).",
+          "noBranches": "The organization has no other branches.",
+          "shipConfirm": "Yes — send on its way",
+          "shipped": "Sent on its way to {branch} (MMJ- in transit)",
+          "shipHold": "No — hold",
+          "held": "Held: MMJ- draft to {branch}, parts reserved",
+          "shipNotice": "The goods will be moved to another organizational unit. A pending MMJ+ document will be created in the receiving warehouse. Until the receiver accepts, the parts stay on your stock, reserved — you can withdraw them until then."
+        },
+        "errors": {
+          "unauthorized": "Not allowed.",
+          "not_found": "Not found.",
+          "duplicate_number": "A ZW with this AutoStacja number already exists.",
+          "number_already_set": "The AutoStacja number is already set.",
+          "not_enough": "Too many — the line does not need that much.",
+          "insufficient_stock": "Not that many free parts at this location.",
+          "no_warehouse_code": "The branch has no warehouse code to number ZW.",
+          "no_destination": "No destination branch found.",
+          "nothing_to_ship": "Nothing of this ZW is here to ship.",
+          "in_container": "Part of the line is in a repair-order container — take it out first.",
+          "not_open": "The ZW or line is not open.",
+          "reason_required": "Give a reason.",
+          "code_taken": "Another branch already has this code.",
+          "invalid": "Invalid data (e.g. a unit outside the branch).",
+          "invalid_input": "Invalid data.",
+          "unexpected": "Something went wrong. Try again.",
+          "same_unit": "Within one unit parts move by MM, not MMJ.",
+          "warehouse_short": "The source warehouse does not hold enough of this part."
+        },
+        "branchCodes": {
+          "title": "Branch codes (SVWMS / AutoStacja)",
+          "description": "Codes a branch goes by in documents: the note code (e.g. WYSOG) and the unit number (e.g. 3642). A ZW ordered by another branch is shipped to the branch with that code.",
+          "placeholder": "WYSOG, 3642",
+          "codesFor": "Codes of branch {branch}",
+          "save": "Save",
+          "saved": "Branch codes saved"
+        }
       }
     },
     "teams": {
@@ -2866,6 +3546,49 @@
           "saving": "Saving…",
           "create": "Create",
           "save": "Save"
+        },
+        "warehouses": {
+          "title": "Units and warehouses",
+          "subtitle": "Units are AutoStacja's branches (e.g. 3112 Volkswagen), warehouses are their warehouses (e.g. 115 body parts). Enter codes exactly as in AutoStacja. Repair-order number prefix: ZL or ZLEC.",
+          "add": "Add unit",
+          "edit": "Edit",
+          "remove": "Remove",
+          "cancel": "Cancel",
+          "empty": "No units.",
+          "code": "Code",
+          "codePlaceholder": "3112",
+          "name": "Name",
+          "namePlaceholder": "e.g. Volkswagen",
+          "prefix": "Number prefix",
+          "confirmRemove": "Remove unit {code} together with its warehouses?",
+          "errors": {
+            "duplicate_code": "This code is already used in the organization.",
+            "invalid_code": "A unit code has 3–5 digits.",
+            "forbidden": "You may not change units and warehouses.",
+            "generic": "Could not save.",
+            "invalid_warehouse_code": "A warehouse code has 2–5 digits.",
+            "branch_unavailable": "This branch is deleted or belongs to another organization. Refresh the page."
+          },
+          "noWarehouses": "No warehouses.",
+          "addWarehouse": "Add warehouse",
+          "warehouseCode": "Warehouse code",
+          "warehouseCodePlaceholder": "115",
+          "warehouseName": "Warehouse name",
+          "warehouseNamePlaceholder": "e.g. body parts",
+          "default": "default",
+          "setDefault": "Set as default warehouse (receipts naming none)",
+          "unsetDefault": "Unset default",
+          "confirmRemoveWarehouse": "Remove warehouse {code}?",
+          "suggestions": {
+            "title": "The Matcher saw these in this branch's documents and they are missing here:",
+            "unit": "Unit",
+            "warehouse": "Warehouse",
+            "withUnit": "with unit {code}",
+            "seen": "{count, plural, one {# time} other {# times}}",
+            "add": "Add",
+            "needsUnit": "Add unit {code} first",
+            "hint": "Nothing is added automatically. Check the codes against AutoStacja before adding."
+          }
         }
       },
       "roles": {
@@ -2943,6 +3666,37 @@
             "branchesDelete": "Delete branches",
             "moduleOrgManagementAccess": "Access Organization Management module"
           }
+        },
+        "catalog": {
+          "groups": {
+            "module": "Module access",
+            "warehouse": "Warehouse",
+            "wdd_matcher": "SVWMS Matcher",
+            "workshop": "Workshop",
+            "planning": "Planning",
+            "helpdesk": "Help Desk",
+            "crm": "CRM",
+            "qr": "QR codes",
+            "analytics": "Analytics & reports",
+            "tools": "Tools",
+            "messages": "Messages",
+            "org": "Organization",
+            "branches": "Branches",
+            "branch": "Branch management",
+            "members": "Members",
+            "invites": "Invitations",
+            "events": "Activity",
+            "audit": "Audit log",
+            "account": "Account",
+            "self": "Own profile",
+            "other": "Other"
+          },
+          "all": "Everything in this module (including future permissions)",
+          "allNote": "Covers every permission in this group.",
+          "hiddenKept": "{count, plural, one {# permission outside this list stays unchanged} other {# permissions outside this list stay unchanged}}",
+          "search": "Search permissions…",
+          "noMatch": "No permissions match the search.",
+          "perms": {}
         }
       },
       "members": {
@@ -3109,7 +3863,8 @@
           "vin": "VIN",
           "status": "Status",
           "advisor": "Advisor",
-          "created": "Created"
+          "created": "Created",
+          "warehouse": "Warehouse"
         },
         "status": {
           "open": "Open",
@@ -3168,7 +3923,43 @@
             "loadFailed": "Failed to load parts lines"
           },
           "sourcesButton": "Sources ({count})",
-          "sourcesPopoverTitle": "Source lines for this part"
+          "sourcesPopoverTitle": "Source lines for this part",
+          "reservation": {
+            "badgeReserved": "Reserved {quantity}",
+            "badgeNone": "No reservation",
+            "badgeUnknown": "Reservation",
+            "popoverTitle": "Stock reservation for this part",
+            "loading": "Loading reservations…",
+            "errorState": "Couldn't load reservation status. Try again.",
+            "emptyState": "No active reservation for this part.",
+            "outstandingLabel": "Outstanding: {quantity}",
+            "reserve": "Reserve stock",
+            "release": "Release",
+            "confirmReserve": "Confirm",
+            "cancel": "Cancel",
+            "quantityPlaceholder": "Quantity",
+            "locationPlaceholder": "Location"
+          },
+          "container": {
+            "trigger": "Container",
+            "popoverTitle": "Allocation and container for this line",
+            "loading": "Loading…",
+            "errorState": "Could not load data. Please try again.",
+            "reservedToAllocate": "Reserved: {quantity}",
+            "allocate": "Allocate",
+            "allocated": "Allocated: {quantity}",
+            "noReservation": "Reserve stock for this line first.",
+            "addToContainer": "Add to container",
+            "containerPlaceholder": "Choose a container",
+            "noContainers": "Create a container for this order first.",
+            "quantityPlaceholder": "Quantity",
+            "confirmAdd": "Add",
+            "cancel": "Cancel",
+            "allocateError": "Could not allocate stock.",
+            "addError": "Could not add to the container.",
+            "added": "Added to the container.",
+            "allocatedToast": "Stock allocated."
+          }
         },
         "provenance": {
           "title": "Source documents",
@@ -3187,13 +3978,249 @@
           "zlNumberPlaceholder": "Leave empty if not yet known",
           "zlNumberHint": "Optional. Without a ZL number the order starts as \"Unresolved\" and can be resolved later.",
           "assignToSelf": "Assign this order to me",
-          "submit": "Create repair order"
+          "submit": "Create repair order",
+          "orderNo": "Order number, warehouse and year",
+          "year": "Year",
+          "orderNoHint": "Enter the DMS number, e.g. 178024, and pick the warehouse.",
+          "composedNumber": "Full number: {number}"
         },
         "toasts": {
           "createSuccess": "Repair order created",
           "updateSuccess": "Repair order updated",
           "advisorAssignedSuccess": "Advisor updated",
-          "statusChangedSuccess": "Status updated"
+          "statusChangedSuccess": "Status updated",
+          "reservationCreatedSuccess": "Stock reserved",
+          "reservationReleasedSuccess": "Reservation released"
+        },
+        "containers": {
+          "title": "Repair order containers",
+          "subtitle": "The order's parts are stored in containers. Each container has its own QR code.",
+          "empty": "This repair order has no containers yet.",
+          "loadError": "Could not load containers.",
+          "columns": {
+            "code": "Code",
+            "location": "Location",
+            "contents": "Contents",
+            "status": "Status"
+          },
+          "contentsSummary": "{lines} lines",
+          "create": "Create container",
+          "createTitle": "New container",
+          "codeLabel": "Container code",
+          "locationLabel": "Location",
+          "locationPlaceholder": "Choose a location",
+          "confirmCreate": "Create",
+          "creating": "Creating…",
+          "cancel": "Cancel",
+          "created": "Container {code} created.",
+          "createError": "Could not create the container.",
+          "open": "Open"
+        },
+        "issue": {
+          "open": "Issue parts (RW)",
+          "title": "Issue parts to repair order {zl}",
+          "description": "Internal issue (RW) — parts handed to the body/paint technician for the repair. Stock goes down and the lines stay linked to the order.",
+          "loading": "Loading parts to issue…",
+          "loadError": "Could not load parts to issue.",
+          "empty": "No parts ready to issue. Put the delivery away or reserve parts first.",
+          "groupPrepare": "To prepare (from containers)",
+          "groupTickOff": "To tick off (reserved at a location)",
+          "groupTickOffHint": "E.g. clips and bulk material from bins — issued on the same RW, mechanics take them themselves.",
+          "fromContainers": "{containers} · {location}",
+          "fromLocation": "{location}",
+          "quantity": "Quantity",
+          "recipient": "Recipient (issued to)",
+          "recipientPlaceholder": "e.g. John Smith — body technician",
+          "note": "Note (optional)",
+          "cancel": "Cancel",
+          "confirm": "{count, plural, one {Issue # line} other {Issue # lines}}",
+          "issuing": "Issuing…",
+          "issued": "Issued — document {number}.",
+          "errors": {
+            "unauthorized": "You are not allowed to issue parts in this branch.",
+            "not_found": "Item not found — refresh the page.",
+            "not_enough": "Already issued or the quantity changed — refresh the list.",
+            "recipient_required": "Enter a recipient.",
+            "insufficient_stock": "Not enough stock at the location — check the warehouse.",
+            "invalid_input": "Invalid issue request.",
+            "unexpected": "Could not issue the parts. Please try again.",
+            "one_warehouse": "One WU issues parts of one warehouse. Select parts of one warehouse and issue the other separately, or move the parts by MM first."
+          }
+        },
+        "import": {
+          "cta": "Import repair orders",
+          "title": "Import repair orders",
+          "subtitle": "Pick a source, see which orders already exist, and create the missing ones.",
+          "back": "Back to repair orders",
+          "noBranch": "Select an active branch.",
+          "source": "Source",
+          "choose": "Choose…",
+          "pickSource": "Pick a source and document to see its repair orders.",
+          "loading": "Checking repair orders…",
+          "empty": "This source has no orders with a ZL number.",
+          "allPresent": "All orders already exist.",
+          "counts": {
+            "existing": "Existing: {count}",
+            "new": "New: {count}",
+            "conflict": "Conflicts: {count}"
+          },
+          "columns": {
+            "zl": "ZL",
+            "client": "Client / vehicle",
+            "status": "State",
+            "parts": "Parts"
+          },
+          "status": {
+            "new": "To create",
+            "existing": "Exists",
+            "existingChanges": "Exists · new parts"
+          },
+          "conflict": {
+            "missing_zl": "No ZL number",
+            "repair_order_closed": "Order closed",
+            "repair_order_archived": "Order archived",
+            "unit_in_other_branch": "Unit {unit} belongs to branch {branch}",
+            "unit_unknown": "Unit {unit} is not in this branch (Organization → Branches → Units and warehouses)"
+          },
+          "parts": "{added} new · {adds} top-up · {present} present",
+          "apply": "Import selected ({count})",
+          "applied": "Created: {created}, updated: {updated}",
+          "errors": {
+            "unauthorized": "You cannot import repair orders in this branch.",
+            "invalid_input": "Invalid import input.",
+            "unexpected": "The repair-order import failed.",
+            "unit_not_in_branch": "Some orders belong to a unit outside this branch. Check the branch's units."
+          },
+          "checkAll": "Select all ({count})",
+          "uncheckAll": "Clear all",
+          "receiptHint": "An unchecked order stays out of the PZ together with its parts.",
+          "alreadyImportedIn": "This document (ZL and ZW, the same parts) was already imported in session “{session}” — nothing will be added.",
+          "alreadyImportedInUnnamed": "This document (ZL and ZW, the same parts) was already imported in another session — nothing will be added."
+        },
+        "warehouse": {
+          "title": "Warehouse and deliveries",
+          "subtitle": "What was ordered and received (PZ), where the parts are now and what was issued (RW).",
+          "loadFailed": "Could not load the order's warehouse documents.",
+          "tabs": {
+            "receiving": "Orders & receipts",
+            "stock": "Warehouse"
+          },
+          "ordered": "Ordered",
+          "received": "Received",
+          "complete": "Complete",
+          "outstanding": "{quantity} missing",
+          "noReceipts": "No receipts.",
+          "available": "Available to issue",
+          "issued": "Issued",
+          "notInStock": "Not in stock.",
+          "locationsFailed": "Could not load locations.",
+          "noIssues": "No issues."
+        },
+        "warehouseFilter": {
+          "all": "All warehouses",
+          "label": "Warehouse"
+        },
+        "tabs": {
+          "label": "Sections of the order",
+          "overview": "Overview",
+          "lines": "Lines",
+          "warehouse": "Warehouse and orders",
+          "documents": "Documents",
+          "related": "Related",
+          "containers": "Containers",
+          "history": "History"
+        },
+        "relations": {
+          "loadError": "The related items could not be loaded.",
+          "emptyTitle": "Nothing related yet",
+          "emptyHint": "Tickets raised for this order and tasks, comments and conversations that mention it with @ will show here.",
+          "untitled": "Untitled",
+          "directConversation": "Direct conversation",
+          "groups": {
+            "ticket": "Tickets",
+            "task": "Tasks",
+            "comment": "Comments",
+            "chat": "Conversations"
+          },
+          "relation": {
+            "reference": "about this order",
+            "mention": "mention"
+          }
+        },
+        "stock": {
+          "positions": {
+            "title": "Order lines",
+            "part": "Part",
+            "needed": "Needed",
+            "reserved": "Reserved",
+            "issued": "Issued",
+            "missing": "Missing",
+            "where": "Where",
+            "status": "State",
+            "empty": "The order has no lines yet.",
+            "loadError": "Could not load the order lines.",
+            "complete": "Complete",
+            "incomplete": "Missing: {count, plural, one {# line} other {# lines}}",
+            "showReservations": "Reservations",
+            "hideReservations": "Hide",
+            "noCatalogItem": "no catalog item",
+            "statuses": {
+              "missing": "missing",
+              "partial": "partial",
+              "reserved_receiving": "reserved in the receiving zone",
+              "reserved": "reserved",
+              "in_container": "in a container",
+              "issued": "issued"
+            },
+            "stockLoadError": "Could not load reservations and issues — the parts' state is unknown (this does not mean they are missing). Refresh the page.",
+            "source": "Order"
+          },
+          "reserve": {
+            "button": "Reserve from stock",
+            "title": "Reserve from stock",
+            "description": "Parts the order is missing, from available stock (D). One reservation document for the whole order.",
+            "confirm": "Reserve selected",
+            "none": "No available pieces of the parts this order is missing.",
+            "line": "{part} — missing {missing}",
+            "location": "From",
+            "quantity": "Quantity",
+            "done": "Reserved ({number})"
+          },
+          "documents": {
+            "title": "Warehouse documents of the order",
+            "subtitle": "Receipts, reservations, moves, issues and releases — oldest first.",
+            "empty": "The order has no warehouse documents yet.",
+            "date": "Date",
+            "document": "Document",
+            "kind": "Kind",
+            "part": "Part",
+            "quantity": "Qty",
+            "detail": "Details"
+          },
+          "history": {
+            "title": "Reservation history",
+            "subtitle": "Every change to the reservations of this order's parts: who, when, with which document and why. Entries cannot be edited.",
+            "empty": "No events.",
+            "when": "When",
+            "event": "Event",
+            "part": "Part",
+            "quantity": "Qty",
+            "where": "Where",
+            "document": "Document",
+            "reason": "Reason",
+            "who": "Who",
+            "system": "system"
+          },
+          "kinds": {
+            "receipt": "Receipt (PZ)",
+            "issue": "Issue (RW)",
+            "created": "Reservation",
+            "moved": "Move (MM)",
+            "allocated": "Into a container",
+            "issued": "Issued from the reservation",
+            "released": "Reservation released",
+            "transferred": "Transferred to another order"
+          }
         }
       }
     },
@@ -3227,13 +4254,13 @@
       },
       "tickets": {
         "status": {
-          "open": "Open",
-          "in_progress": "In Progress",
-          "waiting": "Waiting",
-          "waiting_response": "Waiting for Response",
-          "resolved": "Resolved",
+          "open": "New",
+          "in_progress": "In progress",
+          "waiting": "Waiting for VGP / supplier",
+          "waiting_response": "Waiting for requester",
+          "resolved": "Answered",
           "closed": "Closed",
-          "cancelled": "Cancelled"
+          "cancelled": "Withdrawn"
         },
         "priority": {
           "low": "Low",
@@ -3316,7 +4343,8 @@
           "ticket_accepted": "accepted the ticket",
           "status_changed": "changed the status",
           "assignee_added": "added a responder",
-          "assignee_removed": "removed a responder"
+          "assignee_removed": "removed a responder",
+          "ticket_taken": "took the ticket"
         },
         "acceptance": {
           "label": "Acceptance",
@@ -3326,6 +4354,25 @@
           "acceptSuccess": "Ticket accepted successfully.",
           "acceptedBy": "Accepted by",
           "authorizedAcceptors": "Authorized Acceptors"
+        },
+        "handling": {
+          "title": "Handling",
+          "take": "Take it",
+          "status": "Status",
+          "replyToRequester": "Reply to requester",
+          "internalNote": "Private note",
+          "internalBadge": "private · only you",
+          "statusChanged": "Status changed",
+          "taken": "Ticket assigned to you",
+          "failed": "Could not save the change"
+        },
+        "queues": {
+          "label": "Queues",
+          "unassigned": "Unassigned in branch",
+          "mine": "Mine",
+          "waitingRequester": "Waiting for requester",
+          "waitingVendor": "Waiting for VGP / supplier",
+          "all": "All"
         }
       },
       "features": {
@@ -3813,6 +4860,21 @@
       "errors": {
         "loadRetry": "Failed to load CRM data. Please try again.",
         "tryAgain": "Try again"
+      },
+      "directory": {
+        "kinds": {
+          "member": "Employee",
+          "external": "External"
+        },
+        "kindFilter": {
+          "label": "Kind",
+          "member": "Employees",
+          "external": "External"
+        },
+        "memberNote": "From the employee's profile. They change it themselves in Account → Profile.",
+        "messageMember": "Send a message",
+        "branchField": "Branch",
+        "you": "This is you"
       }
     },
     "analytics": {
@@ -4010,6 +5072,10 @@
         "results": {
           "session": "Session",
           "exportCsv": "Export CSV",
+          "createPz": "Create PZ",
+          "createPzHint": "New PZ from this session: repair orders and parts are checked and created, the form is filled in -- only posting is left",
+          "savingSession": "The session is still being saved -- the buttons will be available in a moment",
+          "savingShort": "Saving the session…",
           "exportEnhancedPdf": "PDF Preview",
           "newUpload": "New Upload",
           "exactMatches": "exact",
@@ -4071,7 +5137,12 @@
           "goToWorkshop": "Go to Workshop",
           "approvedStatusUnavailable": "Approved — Status unavailable",
           "statusUnavailableDescription": "Could not check whether repair orders were created. This may not mean anything is wrong — refresh to check again.",
-          "refreshStatus": "Refresh Status"
+          "refreshStatus": "Refresh Status",
+          "markReviewed": "Mark as reviewed",
+          "reviewed": "Session reviewed",
+          "reviewedHint": "The Matcher does not create repair orders. Create them in Workshop → Import repair orders, or while importing a PZ from this session.",
+          "goToRepairOrderImport": "Import repair orders",
+          "reviewedToast": "Session marked as reviewed"
         },
         "extractionReview": {
           "title": "Extraction Preview",
@@ -4318,7 +5389,8 @@
         "dashboard": "Dashboard",
         "adminPanel": "Admin Panel",
         "diagnostics": "Diagnostics",
-        "logOut": "Log out"
+        "logOut": "Log out",
+        "reportFeedback": "Report a bug or idea"
       }
     }
   },
@@ -5720,7 +6792,43 @@
       "manufacturer": "Manufacturer",
       "unitConversions": "Unit conversions",
       "noProductConversions": "No product-specific conversions.",
-      "profileTitle": "Product profile"
+      "profileTitle": "Product profile",
+      "handling": {
+        "title": "Putaway in branch {branch}",
+        "modeLabel": "Handling",
+        "mode": {
+          "standard": "Standard (into the repair-order container)",
+          "bulk": "Bulk material (fixed location)"
+        },
+        "locationLabel": "Fixed location",
+        "noLocation": "None",
+        "help": {
+          "standard": "A part received for a repair order goes into that order's container.",
+          "bulk": "Clips, consumables: stored at a fixed location (bin, shelf, cabinet) without a container, still reserved for the order and ticked off on the issue."
+        },
+        "save": "Save",
+        "saving": "Saving…",
+        "saved": "Product handling saved.",
+        "saveError": "Could not save."
+      },
+      "stockByLocation": {
+        "title": "Stock by location",
+        "empty": "This item is not in any location of this branch right now.",
+        "noBranch": "Pick a branch to see the stock.",
+        "avgCost": "Avg. cost",
+        "value": "Value",
+        "lastMovement": "Last movement",
+        "total": "Total"
+      },
+      "warehouseStock": {
+        "title": "AutoStacja warehouses",
+        "hint": "How many pieces belong to which AS warehouse. Parts of different warehouses may lie on the same shelves.",
+        "unit": "Unit",
+        "warehouse": "Warehouse",
+        "quantity": "Quantity",
+        "without": "No warehouse",
+        "withoutHint": "Stock from before the split into warehouses, or from deliveries whose document named no warehouse."
+      }
     },
     "inventory": {
       "title": "Inventory",
@@ -5797,7 +6905,9 @@
       "selectBranch": "Select a branch to create movements.",
       "adjustmentWarning": "Adjustments should be used only for inventory corrections. For normal returns or moves, post a receipt, issue, or transfer.",
       "from": "from {location}",
-      "to": "to {location}"
+      "to": "to {location}",
+      "warehouse": "Warehouse",
+      "unit": "Unit"
     },
     "movementEditor": {
       "newMovement": "New Movement",
@@ -5947,7 +7057,52 @@
       "colProductBrand": "Product / Brand",
       "colUnit": "Unit",
       "colAvail": "Avail.",
-      "colQuantity": "Quantity"
+      "colQuantity": "Quantity",
+      "receivingZoneHint": "A goods receipt always lands in the receiving zone. Stock becomes available once it is put away (Warehouse → Putaway).",
+      "receiptAttribution": "Linked to repair orders: {attributed} lines. Left as free stock: {skipped} lines (no order, part not on the order, or already received).",
+      "receiptAttributionFailed": "Receipt posted, but its parts could not be linked to repair orders — they are free stock in the receiving zone. Check the repair orders or report the problem.",
+      "manualCorrectionsRequired": "Enable manual corrections before changing imported positions.",
+      "senderNameTooLong": "Sender name is too long",
+      "recipientNameTooLong": "Recipient name is too long",
+      "importedBadge": "Imported",
+      "manualCorrectionsEnabled": "Manual corrections enabled",
+      "enableManualCorrections": "Enable manual corrections",
+      "manualCorrectionsConfirm": "Manual corrections may break alignment with the imported SVWMS source data. Continue?",
+      "importReplacesLines": "Importing data will replace the current unsaved movement lines.",
+      "selectBranchFirst": "Select a branch to create movements.",
+      "unitTransferNoBranch": "Pick the destination branch (recipient).",
+      "unitTransferFailed": "Could not create the transfer.",
+      "unitTransferSent": "Sent on its way (MMJ- in transit).",
+      "unitTransferHeld": "Held: MMJ- draft, parts reserved.",
+      "unitTransferTitle": "Transfer to another unit (MMJ-)",
+      "unitTransferHold": "No — hold",
+      "unitTransferSend": "Yes — send on its way",
+      "unitTransferNotice": "The goods will be moved to another organizational unit. A pending MMJ+ document will be created in the receiving warehouse. Until the receiver accepts, the parts stay on your stock, reserved — you can withdraw them until then.",
+      "documentsPosted": "Posted {count, plural, one {# goods receipt} other {# goods receipts}}, one per warehouse: {numbers}",
+      "errors": {
+        "draftSeveralWarehouses": "The lines belong to several warehouses. A draft has one warehouse: post now to get one receipt per warehouse.",
+        "documentSeveralWarehouses": "A document has one warehouse. Lines of different warehouses need separate documents.",
+        "mmOtherUnit": "An MM moves stock only between warehouses of one unit. Use MMJ for another unit.",
+        "warehouseShort": "The source warehouse does not hold enough of this part.",
+        "mmNoChange": "An MM must change the shelf or the warehouse.",
+        "warehouseRequired": "Choose the document's warehouse. For delivery lines, the warehouse of the document is not configured: add it in Organization → Branches → Units and warehouses.",
+        "wuOneWarehouse": "One WU issues parts of one warehouse. Issue the other warehouse separately or move the parts by MM first."
+      },
+      "documentWarehouse": {
+        "title": "Warehouse",
+        "warehouse": "Document warehouse",
+        "choose": "Choose a warehouse",
+        "none": "No warehouse",
+        "destination": "Target warehouse",
+        "sameWarehouse": "Same warehouse",
+        "destinationHint": "Only warehouses of the same unit. For another unit: MMJ.",
+        "fromMatcher": "Delivery lines take their warehouse from the documents (115, 315…). If there are several, posting makes one receipt per warehouse.",
+        "transferTarget": "Target unit and warehouse",
+        "chooseTarget": "Choose a unit and warehouse",
+        "transferTargetHint": "Another unit, also in the same branch. Within one unit parts move by MM."
+      },
+      "warehouseRequired": "Choose the document's warehouse.",
+      "transferTargetRequired": "Choose the target unit and warehouse of the MMJ."
     },
     "itemPicker": {
       "title": "WMS Item Picker",
@@ -5960,7 +7115,7 @@
       "noItemsMatch": "No items match your search.",
       "noStockInSource": "No stock in this source location.",
       "noItemsFound": "No items found.",
-      "binToBinHint": "Bin-to-bin movements only show items with stock at the source location.",
+      "binToBinHint": "An MM lists only the free stock of the location. Parts reserved for a repair order or ZW move by putaway.",
       "available": "Available",
       "add": "Add",
       "ok": "OK",
@@ -6024,7 +7179,56 @@
       "actionDeclined": "Declined",
       "actionUpdated": "Updated",
       "actionDraftUpdated": "Draft Updated",
-      "actionDraftSaved": "Draft Saved"
+      "actionDraftSaved": "Draft Saved",
+      "reverse": {
+        "open": "Reverse",
+        "title": "Reverse document {number}",
+        "description": "A reversal posts an inverse document (900) that takes back every line of this document as if it never happened. The original stays in history marked as reversed. It only works while the stock is still where this document put it and is not reserved.",
+        "reason": "Reason",
+        "reasonPlaceholder": "e.g. delivery posted by mistake",
+        "cancel": "Cancel",
+        "confirm": "Reverse",
+        "done": "Posted reversal {number}",
+        "errors": {
+          "unauthorized": "You cannot reverse movements in this branch.",
+          "not_found": "Document not found in the active branch.",
+          "reason_required": "Enter a reason.",
+          "not_posted": "Only a posted document can be reversed.",
+          "already_reversed": "This document has already been reversed.",
+          "is_reversal": "A reversal cannot itself be reversed.",
+          "stock_moved": "Cannot reverse: some of this document's stock has already been put away, issued or reserved.",
+          "unexpected": "The reversal failed."
+        }
+      },
+      "related": {
+        "reversed_by": "Reversed by",
+        "reversal_of": "Reversal of",
+        "corrected_by": "Correction",
+        "correction_of": "Correction of"
+      },
+      "correction": {
+        "open": "Correction (KPZ)",
+        "title": "Correct document {number}",
+        "description": "A KPZ is a separate document linked to this PZ. It takes the entered quantity back out of the place the PZ put it — e.g. a short delivery or a wrong or damaged part. Free stock is corrected first, the repair-order receipt only after that. The original PZ does not change.",
+        "lineInfo": "Received {quantity} {unit} · correctable {correctable}",
+        "quantity": "Quantity to correct",
+        "reason": "Reason",
+        "reasonPlaceholder": "e.g. supplier sent 1 pc less",
+        "cancel": "Cancel",
+        "confirm": "Post KPZ ({count})",
+        "done": "Posted correction {number}",
+        "errors": {
+          "unauthorized": "You cannot correct movements in this branch.",
+          "not_found": "PZ not found in the active branch.",
+          "not_correctable": "Only a posted PZ can be corrected.",
+          "reason_required": "Enter a reason.",
+          "too_much": "The quantity exceeds what is left to correct.",
+          "invalid_input": "Check the quantities.",
+          "stock_moved": "Cannot correct: the stock has already been put away, issued or reserved.",
+          "unexpected": "The correction failed."
+        }
+      },
+      "colWarehouse": "Warehouse"
     },
     "transfers": {
       "title": "Branch transfers",
@@ -6543,6 +7747,7 @@
         "sessionCreateFailed": "Failed to create audit session",
         "sessionApproved": "Audit posted — stock corrected",
         "sessionApproveFailed": "Failed to post audit",
+        "sessionApproveShortage": "{shortage} pcs of {sku} are missing at {location}, but only {free} are free (D): {reserved} reserved (R) and {blocked} blocked (B). Release those reservations or unblock first, then approve.",
         "sessionStatusUpdateFailed": "Failed to update audit status",
         "lineUpdated": "Line saved",
         "lineUpdateFailed": "Failed to save line",
@@ -6801,6 +8006,261 @@
         "reorderViewAll": "View full reorder report",
         "reorderEmpty": "No items in this audit's scope are below their reorder point."
       }
+    },
+    "receiptReport": {
+      "title": "Delivery putaway",
+      "subtitle": "Where each line of this goods receipt went — data for updating DMS/AutoStacja.",
+      "statusDone": "Everything put away",
+      "statusWaiting": "In the receiving zone: {waiting} of {total}",
+      "csv": "Export CSV",
+      "print": "Print",
+      "columns": {
+        "sku": "Part number",
+        "name": "Name",
+        "quantity": "Quantity",
+        "zl": "ZL",
+        "location": "Put away to",
+        "container": "Container",
+        "pending": "Waiting in receiving",
+        "assignment": "Assignment"
+      },
+      "assignedSummary": "Linked to repair orders: {assigned} of {total} lines.",
+      "allFree": "No line was linked to a repair order — the whole delivery is free stock.",
+      "free": "Free stock",
+      "reservedFor": "ZL {zl}",
+      "assignedQty": "reserved {quantity} {unit}",
+      "restFree": "rest ({quantity}) as free stock",
+      "loadError": "Could not load where this receipt was put away. Refresh the page."
+    },
+    "movementImport": {
+      "title": "Import movement data",
+      "description": "Pick a source and a session. Quick import creates missing repair orders and parts and fills the form. Manual review walks through every step.",
+      "source": "Source",
+      "sourcePlaceholder": "Select source",
+      "noSources": "No import sources are available for this movement type.",
+      "sources": {
+        "svwms_wdd_matcher": "SVWMS matcher (WDD)"
+      },
+      "fields": {
+        "session_id": {
+          "label": "Matcher session",
+          "placeholder": "Select Matcher session"
+        }
+      },
+      "selectPlaceholder": "Select",
+      "noSessions": "No branch sessions are ready to import.",
+      "alreadyImportedOption": "{label} — already in {document}",
+      "alreadyImported": "This session was already imported: {document}. Importing it again receives the same delivery twice.",
+      "quickImport": "Quick import",
+      "quickImportHint": "Checks the whole session, creates missing repair orders and parts (unit: pcs) and fills the form right away.",
+      "autoStartUnavailable": "This Matcher session cannot be received in this branch (another branch, or the session is not matched yet). Pick a session from the list.",
+      "autoStartAlreadyImported": "This session is already received on {document}. The import did not start by itself -- check before receiving it again.",
+      "manualReview": "Manual review",
+      "quickStep": {
+        "preview": "Loading session…",
+        "repairOrders": "Creating missing repair orders…",
+        "products": "Creating missing parts…",
+        "fill": "Filling in the form…"
+      },
+      "autoProgress": {
+        "title": "Preparing the PZ from the Matcher session…",
+        "preview": "Loading the delivery from the Matcher session",
+        "repairOrders": "Checking repair orders, creating missing ones",
+        "products": "Checking parts, creating missing ones",
+        "fill": "Filling in the PZ document"
+      },
+      "quickDone": "Form filled: {lines} lines. New repair orders: {orders}, new parts: {products}.",
+      "quickStoppedAmbiguous": "Quick import stopped: {count, plural, one {# part matches} other {# parts match}} several catalog items — pick the right ones below.",
+      "quickStoppedNeedsReview": "Quick import stopped: some lines need a decision — finish below.",
+      "quickNoProductPermission": "You cannot create parts — assign the missing parts manually below.",
+      "quickNoUnit": "Unit \"SZT\" is missing and could not be created.",
+      "quickRepairOrdersFailed": "Could not create the missing repair orders. Import stopped — try again or create them manually below.",
+      "sourceDocument": "Source document",
+      "documentReady": "This source document is ready to fill the form.",
+      "repairOrders": {
+        "title": "Repair orders in this delivery",
+        "hint": "Parts are matched to repair orders by ZL number and part code. Create missing repair orders before posting the receipt — otherwise their parts become free stock."
+      },
+      "allReady": "All lines are ready. Review the list, then fill the movement form.",
+      "allSkipped": "All lines are skipped. Restore at least one before filling the form.",
+      "needsDecisions": "Import needs decisions: {rows, plural, one {# line} other {# lines}} in {groups, plural, one {# group} other {# groups}}. Filling the form is blocked until issues are resolved or skipped.",
+      "tiles": {
+        "imported": "Imported lines",
+        "ready": "Ready",
+        "missingUnits": "Missing units",
+        "productExceptions": "Missing parts",
+        "skipped": "Skipped"
+      },
+      "decisions": {
+        "title": "Import needs decisions",
+        "hint": "Handle each group (same part or unit) once — matching lines update together."
+      },
+      "actions": {
+        "createUnits": "Create missing units",
+        "createSelected": "Create selected parts ({count})",
+        "toggleDetails": "Issue details",
+        "skipMissing": "Skip missing parts",
+        "restoreSkipped": "Restore skipped",
+        "copyUnit": "Copy the first row's unit to all rows",
+        "copyAction": "Copy the first row's action to all rows"
+      },
+      "allSkippedPanel": "All lines are skipped. Restore skipped lines or choose another session.",
+      "unitMismatches": {
+        "title": "Unit mismatches",
+        "description": "Resolve units first so missing parts are created with the correct unit."
+      },
+      "productMismatches": {
+        "title": "Missing parts",
+        "description": "Choose how to handle each part before filling the form."
+      },
+      "items": {
+        "title": "Lines to receive",
+        "description": "Review the lines before filling the movement form.",
+        "empty": "No lines."
+      },
+      "columns": {
+        "no": "No.",
+        "sku": "Code",
+        "itemSku": "Part code",
+        "name": "Name",
+        "qty": "Qty",
+        "order": "Repair order",
+        "importedUnit": "Imported unit",
+        "problem": "Problem",
+        "action": "Action",
+        "unit": "Unit",
+        "rows": "Lines",
+        "howToProceed": "How to proceed",
+        "status": "Status",
+        "importedItem": "Imported item",
+        "product": "Part",
+        "source": "From",
+        "destination": "To"
+      },
+      "more": "+{count} more",
+      "noUnitProvided": "not in import",
+      "problems": {
+        "ambiguousUnit": "Several matching units",
+        "missingUnit": "Missing unit",
+        "multipleMatches": "Several matching parts",
+        "missingProductSelectUnit": "Missing part · select unit first",
+        "missingProduct": "Missing part"
+      },
+      "assignExistingUnit": "Assign existing unit",
+      "selectUnit": "Select unit",
+      "bulkUnit": "Set unit for all lines without one",
+      "bulkUnitAria": "Unit for all lines",
+      "productActions": {
+        "create": "Create part",
+        "assignExisting": "Assign existing",
+        "skip": "Skip",
+        "pickExisting": "Pick existing part",
+        "willCreate": "Will be created with \"Create selected parts\".",
+        "willSkip": "These lines will be skipped."
+      },
+      "blockReasons": {
+        "ambiguous": "Part matches several catalog items — assign it manually.",
+        "selectUnit": "Select unit first.",
+        "noPermission": "You cannot create parts."
+      },
+      "skippedRows": "{count, plural, one {# skipped line is} other {# skipped lines are}} not added to this movement.",
+      "statusReady": "Ready",
+      "needsResolution": "Needs a decision",
+      "selectProduct": "Select part",
+      "noSource": "None",
+      "noDestination": "None",
+      "importedUnitValue": "Imported: {unit}",
+      "cancel": "Cancel",
+      "fill": "Fill movement form",
+      "note": "Imported from {source}: {document}",
+      "toasts": {
+        "loadSourcesFailed": "Could not load import sources",
+        "previewFailed": "Could not load import data",
+        "fieldRequired": "{label} is required",
+        "unitsCreated": "Units created: {count}",
+        "noUnitsCreated": "No missing units could be created",
+        "createUnitsFailed": "Could not create missing units",
+        "productsCreated": "Parts created: {count}",
+        "noProductsCreated": "No missing parts could be created",
+        "createProductsFailed": "Could not create missing parts",
+        "resolveUnitsFirst": "Set units for the parts you want to create first",
+        "firstRowUnitFirst": "Select a unit in the first row first",
+        "filled": "Imported data filled the movement form",
+        "resolveFirst": "Resolve import issues before filling the form"
+      },
+      "errors": {
+        "productRequired": "Part is required",
+        "unitRequired": "Unit is required",
+        "quantityRequired": "Quantity is required",
+        "sourceLocationRequired": "Source location is required",
+        "destinationLocationRequired": "Destination location is required",
+        "locationsMustDiffer": "Source and destination locations must differ",
+        "productNotResolved": "Part could not be resolved",
+        "unitNotResolved": "Unit could not be resolved",
+        "productMultiple": "Part matched several records",
+        "unitMultiple": "Unit matched several records"
+      },
+      "summary": {
+        "loading": "Checking the session: repair orders and parts…",
+        "ordersTitle": "Repair orders",
+        "ordersNew": "new: {count}",
+        "ordersExisting": "existing: {count}",
+        "ordersConflict": "conflicts: {count}",
+        "ordersUnchecked": "Repair orders could not be checked (no permission or error).",
+        "partsTitle": "Parts ({count} lines)",
+        "partsInCatalog": "in catalog: {count}",
+        "partsCreate": "to create: {count}",
+        "partsAmbiguous": "to pick manually: {count}",
+        "partsNoPermission": "cannot create (permission): {count}",
+        "verdictQuick": "Quick import will create {orders, plural, one {# repair order} other {# repair orders}} and {parts, plural, one {# part} other {# parts}} (unit SZT), then fill the form ({lines} lines).",
+        "verdictStops": "Quick import will stop at {count, plural, one {# line} other {# lines}} that need a decision — the manual review opens then.",
+        "freeStock": "{count, plural, one {# line goes} other {# lines go}} in as free stock (no repair order or order closed).",
+        "internalOrderStock": "{count, plural, one {# line} other {# lines}} will be reserved under internal orders without a repair order (e.g. for another branch).",
+        "internalOrderFor": "for: {branch}",
+        "noOrder": "No repair order",
+        "partsCount": "{count, plural, one {# part} other {# parts}}",
+        "orderStatus": {
+          "new": "To create",
+          "existing": "Exists",
+          "existing_changes": "Exists · new parts",
+          "conflict": "Conflict",
+          "unknown": "Not checked",
+          "none": "Free stock",
+          "internal_order": "Internal order"
+        },
+        "conflict": {
+          "missing_zl": "No ZL number",
+          "repair_order_closed": "Order closed",
+          "repair_order_archived": "Order archived",
+          "unit_in_other_branch": "Unit {unit} belongs to branch {branch}",
+          "unit_unknown": "Unit {unit} is not in this branch"
+        },
+        "partStatus": {
+          "in_catalog": "In catalog",
+          "create": "Will be created ({unit})",
+          "ambiguous": "Several matches — pick manually",
+          "no_permission": "Not in catalog — no permission"
+        }
+      }
+    },
+    "warehouseStockReport": {
+      "title": "AutoStacja warehouse stock",
+      "description": "How much of each part belongs to which AS warehouse of this branch, whatever the shelf. To compare with AutoStacja warehouse by warehouse.",
+      "unit": "Unit",
+      "warehouse": "Warehouse",
+      "search": "Part",
+      "searchPlaceholder": "Part number or name",
+      "all": "All",
+      "apply": "Show",
+      "sku": "Part number",
+      "name": "Name",
+      "quantity": "Quantity",
+      "positions": "{count, plural, one {# line} other {# lines}}",
+      "pieces": "{qty} pcs",
+      "without": "No warehouse",
+      "empty": "No stock for these filters.",
+      "loadError": "Could not load the stock.",
+      "noBranch": "Choose a branch."
     }
   },
   "warehouseReports": {
@@ -7008,13 +8468,21 @@
       "itemRemoved": "Item removed from container.",
       "containerMoved": "Container moved to new location.",
       "ruleDeleted": "Putaway rule deleted.",
-      "deleteRule": "Delete rule"
+      "deleteRule": "Delete rule",
+      "openContainer": "Open container"
     },
     "history": {
       "recentMovements": "Recent movements",
       "noActivity": "No activity recorded",
       "internalRelocation": "Internal relocation",
-      "external": "External"
+      "external": "External",
+      "kind": {
+        "receipt": "Goods receipt (PZ)",
+        "transfer": "Transfer (MM)",
+        "issue": "Issue to repair order (RW)",
+        "adjustment": "Adjustment (INW)",
+        "reversal": "Reversal"
+      }
     },
     "export": {
       "title": "Location data export",
@@ -7454,6 +8922,674 @@
         "healthcare": "Healthcare Facilities",
         "serviceRepair": "Service & Repair",
         "construction": "Construction"
+      }
+    }
+  },
+  "qrScanner": {
+    "back": "Back",
+    "tryAgain": "Try again",
+    "hint": "Point the camera at a QR label to scan it automatically.",
+    "invalidToken": "Could not read a valid QR token. Try again.",
+    "lookingUp": "Looking up QR code…",
+    "notFound": "QR code not found in this organisation.",
+    "revoked": "This QR code has been revoked.",
+    "cameraError": "Camera access denied or unavailable."
+  },
+  "globalSearch": {
+    "triggerLabel": "Search orders, parts, locations, people…",
+    "triggerAria": "Search ({shortcut})",
+    "dialogTitle": "Search Ambra",
+    "dialogDescription": "Find a page or an action. Type > to show actions only.",
+    "placeholder": "Search orders, parts, locations, documents, people… or type > to run an action",
+    "actionsPlaceholder": "Type an action name…",
+    "actionsModeBadge": "> Actions",
+    "cancel": "Cancel",
+    "empty": "No results. Try another word.",
+    "switchBranch": "Switch branch to: {name}",
+    "branchSwitched": "Switched to branch {name}",
+    "branchSwitchFailed": "Failed to switch branch",
+    "hints": {
+      "navigate": "select",
+      "open": "open",
+      "newTab": "new tab",
+      "close": "close",
+      "actionsMode": "> actions only",
+      "backToSearch": "Backspace — back to search",
+      "preview": "actions",
+      "scope": "scope",
+      "quickPick": "quick pick",
+      "clearScope": "all results"
+    },
+    "groups": {
+      "quickActions": "Quick actions",
+      "goTo": "Go to",
+      "pages": "Pages",
+      "actions": "Actions",
+      "exact": "Exact match",
+      "recent": "Recently opened"
+    },
+    "sections": {
+      "warehouse": "Warehouse",
+      "workshop": "Workshop",
+      "helpDesk": "Help Desk",
+      "planning": "Planning",
+      "crm": "CRM",
+      "organization": "Organization",
+      "analytics": "Analytics",
+      "tools": "Tools",
+      "account": "Account",
+      "general": "General"
+    },
+    "entries": {
+      "warehouseMap": "Warehouse map",
+      "warehouseItemsImport": "Import items",
+      "warehouseCustomFields": "Item custom fields",
+      "warehouseReorder": "Reorder report",
+      "organizationMembers": "Organization members",
+      "organizationInvitations": "Invitations",
+      "organizationRoles": "Roles and permissions",
+      "organizationPositions": "Positions",
+      "organizationPublicProfile": "Organization public profile",
+      "accountProfile": "My profile",
+      "accountPreferences": "Preferences and appearance",
+      "accountNotifications": "Notifications",
+      "messages": "Messages",
+      "myFeedback": "My bugs & ideas"
+    },
+    "actions": {
+      "newRepairOrder": "New repair order",
+      "importRepairOrders": "Import repair orders from Matcher",
+      "newMovement": "New stock movement (receipt, issue, transfer…)",
+      "putaway": "Put away a delivery",
+      "newItem": "New item",
+      "newAudit": "New stock count",
+      "newTicket": "New request",
+      "inviteMember": "Invite someone to the organization",
+      "toggleTheme": "Light / dark theme",
+      "toggleLocale": "Language (Polish / English)",
+      "signOut": "Sign out",
+      "pickColorTheme": "Colour theme",
+      "reportFeedback": "Report a bug or idea"
+    },
+    "searching": "Searching…",
+    "hitTypes": {
+      "repairOrder": "Repair order",
+      "ticket": "Request",
+      "task": "Task",
+      "document": "Stock document",
+      "container": "Container",
+      "location": "Location",
+      "item": "Item",
+      "person": "Person",
+      "party": "Business partner",
+      "contact": "Contact",
+      "audit": "Stock count",
+      "matcherSession": "Matcher session",
+      "qrCode": "QR code",
+      "board": "Board",
+      "map": "Warehouse map",
+      "ticketType": "Request type",
+      "invitation": "Invitation",
+      "comment": "Comment",
+      "attachment": "Attachment"
+    },
+    "statuses": {
+      "open": "open",
+      "closed": "closed",
+      "waiting": "waiting",
+      "waiting_response": "awaiting response",
+      "in_progress": "in progress",
+      "resolved": "resolved",
+      "completed": "completed",
+      "cancelled": "cancelled",
+      "posted": "posted",
+      "draft": "draft",
+      "reversed": "reversed",
+      "active": "active",
+      "counting": "counting",
+      "submitted": "to review",
+      "approved": "approved",
+      "pending": "pending",
+      "ready_for_review": "ready for review",
+      "revoked": "revoked",
+      "inactive": "inactive",
+      "accepted": "accepted",
+      "declined": "declined",
+      "expired": "expired",
+      "published": "published"
+    },
+    "dataGroups": {
+      "repairOrder": "Repair orders",
+      "item": "Items",
+      "container": "Containers",
+      "location": "Locations",
+      "document": "Stock documents",
+      "ticket": "Requests",
+      "task": "Tasks",
+      "person": "People",
+      "party": "Partners and suppliers",
+      "contact": "Contacts",
+      "audit": "Stock counts",
+      "matcherSession": "Matcher sessions",
+      "qrCode": "QR codes",
+      "board": "Boards",
+      "map": "Warehouse maps",
+      "ticketType": "Request types",
+      "invitation": "Invitations",
+      "comment": "Comments",
+      "attachment": "Attachments"
+    },
+    "details": {
+      "warehouse": "warehouse {code}",
+      "containsPart": "contains {code}",
+      "stock": "on hand {onHand} · available {available}",
+      "noStock": "no stock in this branch",
+      "location": "location {code}",
+      "due": "due {date}",
+      "qrUnassigned": "unassigned",
+      "roles": {
+        "supplier": "supplier",
+        "customer": "customer",
+        "carrier": "carrier"
+      },
+      "qrTargets": {
+        "warehouse_location": "location",
+        "inventory_container": "container",
+        "helpdesk_ticket": "request",
+        "planning_task": "task",
+        "workshop_repair_order": "repair order",
+        "planning_kanban_card": "board card"
+      },
+      "expires": "valid until {date}"
+    },
+    "scopes": {
+      "repairOrders": "Orders",
+      "items": "Items",
+      "containers": "Containers",
+      "locations": "Locations",
+      "documents": "Documents",
+      "tickets": "Requests",
+      "tasks": "Tasks",
+      "people": "People",
+      "parties": "Partners",
+      "contacts": "Contacts",
+      "audits": "Stock counts",
+      "matcherSessions": "Matcher",
+      "qrCodes": "QR codes",
+      "boards": "Boards",
+      "maps": "Maps",
+      "ticketTypes": "Request types",
+      "invitations": "Invitations",
+      "comments": "Comments",
+      "attachments": "Attachments"
+    },
+    "scopeAll": "All",
+    "scopeActions": "Actions",
+    "scopesLabel": "Search scope",
+    "scopePlaceholder": "Search: {scope}…",
+    "typeMore": "Type at least 3 characters.",
+    "showAll": "Show all: {group}",
+    "otherBranches": "In other branches:",
+    "otherBranchCount": "{name} ({count})",
+    "copied": "Copied {code}",
+    "copyFailed": "Could not copy",
+    "preview": {
+      "title": "Result preview",
+      "loading": "Loading…",
+      "actions": "Result actions",
+      "open": "Open",
+      "openNewTab": "In a new tab",
+      "copy": "Copy number",
+      "movements": "Movement history",
+      "tabReceiving": "Orders & receipts tab",
+      "tabStock": "Warehouse tab",
+      "onHand": "On hand",
+      "committed": "Reserved",
+      "available": "Available",
+      "locations": "Where it is",
+      "noStock": "No stock in this branch",
+      "openOrders": "On open repair orders",
+      "noOrders": "Not on open repair orders",
+      "client": "Client",
+      "vehicle": "Brand",
+      "vin": "VIN",
+      "warehouse": "Warehouse",
+      "status": "Status",
+      "lines": "Lines",
+      "linkedLines": "Linked to items",
+      "firstLines": "First lines",
+      "message": "Send a message"
+    },
+    "scanner": {
+      "open": "Scan a code",
+      "cta": "Scan a QR code or barcode",
+      "back": "Back to search",
+      "hint": "Point the camera at a QR code, a part barcode or a label",
+      "cameraError": "No camera access. Allow the camera in the browser settings.",
+      "unsupported": "This browser does not support the camera."
+    },
+    "colorTheme": {
+      "badge": "Theme",
+      "heading": "Colour theme",
+      "placeholder": "Pick a theme — arrows preview it",
+      "current": "current",
+      "applied": "Theme: {name}",
+      "hintPreview": "preview",
+      "hintApply": "save",
+      "hintRestore": "restore previous"
+    },
+    "themeMode": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "submenu": {
+      "toggle": "Show options",
+      "open": "options",
+      "pick": "pick",
+      "back": "back"
+    }
+  },
+  "chat": {
+    "bar": {
+      "label": "Messages",
+      "expand": "Messages — expand the bar",
+      "collapse": "Collapse to the bar",
+      "openPage": "Open the Messages page",
+      "newConversation": "New conversation",
+      "search": "Search people or groups",
+      "unread": "Unread",
+      "recent": "Recent",
+      "groups": "Groups",
+      "empty": "No conversations",
+      "emptyHint": "Start a conversation with someone on your team.",
+      "noResults": "Nothing found",
+      "loadFailed": "Could not load conversations",
+      "soundOn": "Turn on the new message sound",
+      "soundOff": "Turn off the new message sound"
+    },
+    "window": {
+      "openFull": "Open in full view",
+      "collapse": "Collapse window",
+      "expand": "Expand window",
+      "close": "Close window",
+      "placeholder": "Write a message…",
+      "send": "Send",
+      "attach": "Attach a file",
+      "read": "Seen",
+      "readBy": "Seen by {count}",
+      "sending": "Sending…",
+      "failed": "Not sent — click to retry",
+      "loadOlder": "Earlier messages",
+      "empty": "Write the first message",
+      "members": "{count, plural, one {# person} other {# people}}",
+      "online": "Active now",
+      "offline": "Inactive",
+      "you": "You",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "deleted": "Message deleted",
+      "hint": "Enter to send · Shift+Enter new line",
+      "uploading": "Uploading files…",
+      "loadFailed": "Could not load messages",
+      "retry": "Try again",
+      "options": "Conversation options",
+      "manageGroup": "Members and group settings",
+      "edit": "Edit message",
+      "delete": "Delete message",
+      "deleteConfirm": "Delete?",
+      "edited": "edited",
+      "editing": "Editing a message",
+      "cancelEdit": "Cancel editing",
+      "save": "Save",
+      "editClosed": "A message can be edited for 15 minutes after sending"
+    },
+    "system": {
+      "created": "{actor} created the group “{name}”",
+      "added": "{actor} added: {users}",
+      "removed": "{actor} removed: {users}",
+      "left": "{actor} left the group",
+      "renamed": "{actor} renamed the group to “{name}”",
+      "someone": "Someone",
+      "invited": "{actor} invited: {users}",
+      "joined": "{actor} joined the group",
+      "declined": "{actor} declined the invitation",
+      "withdrawn": "{actor} withdrew the invitation: {users}"
+    },
+    "preview": {
+      "you": "You: ",
+      "attachment": "Attachment",
+      "attachments": "{count, plural, one {# attachment} other {# attachments}}",
+      "system": "Group change",
+      "empty": "No messages"
+    },
+    "newConversation": {
+      "title": "New message",
+      "search": "Search people",
+      "groupName": "Group name",
+      "groupNamePlaceholder": "e.g. Warehouse CNP Poznań",
+      "start": "Message",
+      "selected": "Selected: {count}",
+      "empty": "No people",
+      "cancel": "Cancel",
+      "hint": "Pick the person you want to write to",
+      "groupHint": "The people you pick get an invitation and decide themselves whether to join",
+      "sendInvites": "Create the group and send invitations",
+      "invitesSent": "{count, plural, one {# invitation sent} other {# invitations sent}}",
+      "keys": "↑↓ select · Enter opens the conversation",
+      "modeDirect": "Person",
+      "modeGroup": "Group",
+      "pickPeople": "Tick the people you want to invite"
+    },
+    "errors": {
+      "forbidden": "No access to this conversation",
+      "invalid": "Invalid data",
+      "tooLong": "The message is too long",
+      "notFound": "Conversation not found",
+      "failed": "Something went wrong. Try again."
+    },
+    "page": {
+      "title": "Messages",
+      "filters": {
+        "all": "All",
+        "unread": "Unread",
+        "groups": "Groups"
+      },
+      "selectConversation": "Pick a conversation from the list or start a new one.",
+      "details": "Details",
+      "members": "Members",
+      "files": "Files",
+      "noFiles": "No files",
+      "owner": "Owner",
+      "addMembers": "Invite people",
+      "add": "Add",
+      "rename": "Rename",
+      "save": "Save",
+      "cancel": "Cancel",
+      "leave": "Leave group",
+      "confirmLeave": "Leave the group “{name}”? You will no longer see its messages.",
+      "remove": "Remove from group",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "muted": "Muted",
+      "back": "Back to the list",
+      "invite": "Invite",
+      "invited": "Invited — waiting for an answer",
+      "withdrawInvite": "Withdraw the invitation: {name}"
+    },
+    "invitations": {
+      "title": "Group invitations",
+      "from": "Invited by {name}",
+      "fromUnknown": "Group invitation",
+      "join": "Join",
+      "decline": "Decline"
+    }
+  },
+  "contactsDrawer": {
+    "title": "Contacts",
+    "description": "People in your organization and external contacts",
+    "search": "Search by name, e-mail, phone",
+    "tabsLabel": "Contact kind",
+    "tabs": {
+      "all": "All",
+      "members": "Employees",
+      "external": "External"
+    },
+    "member": "Employee",
+    "you": "You",
+    "message": "Send a message",
+    "email": "Send an e-mail",
+    "call": "Call",
+    "empty": "No contacts",
+    "noResults": "Nothing found",
+    "loadFailed": "Could not load contacts",
+    "retry": "Try again",
+    "openModule": "Open the Contacts module"
+  },
+  "mentions": {
+    "tabsLabel": "Mention scope",
+    "all": "All",
+    "people": "People",
+    "groupPeople": "People",
+    "groupRecent": "Recently mentioned",
+    "groupResults": "Results",
+    "empty": "No results",
+    "typeMore": "Type at least 3 characters to search orders, parts and other objects",
+    "searching": "Searching…",
+    "hint": "↑↓ select · Enter insert · Tab scope · Esc close",
+    "noAccess": "no access",
+    "inConversation": "in conversation"
+  },
+  "notificationCenter": {
+    "title": "Notifications",
+    "description": "Assignments and changes in your work, live.",
+    "open": "Notifications",
+    "newCount": "{count} new",
+    "markAll": "Mark all read",
+    "tabsLabel": "Notification filter",
+    "tabs": {
+      "all": "All",
+      "unread": "Unread",
+      "mentions": "Mentions",
+      "assigned": "Assigned to me"
+    },
+    "groups": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "earlier": "Earlier"
+    },
+    "empty": {
+      "title": "No notifications",
+      "description": "When someone assigns you a ticket or a task, or comments on your work, you will see it here right away."
+    },
+    "emptyUnread": {
+      "title": "All caught up",
+      "description": "New notifications appear here right away, without a refresh."
+    },
+    "loadFailed": "Could not load notifications",
+    "retry": "Try again",
+    "loadMore": "Earlier notifications",
+    "markRead": "Mark as read",
+    "markUnread": "Mark as unread",
+    "settings": "Notification settings",
+    "allNotifications": "All notifications",
+    "system": "System",
+    "toast": {
+      "open": "Open",
+      "markRead": "Mark as read"
+    },
+    "modules": {
+      "helpdesk_ticket": "Help Desk",
+      "planning_task": "Planning",
+      "workshop_repair_order": "Workshop",
+      "other": "Ambra",
+      "chat_conversation": "Messages"
+    },
+    "text": {
+      "ticket_new": "created a ticket for you",
+      "ticket_assigned": "assigned a ticket to you",
+      "ticket_closed": "closed the ticket",
+      "ticket_accepted": "accepted the ticket",
+      "ticket_status": "changed the ticket status",
+      "comment_ticket": "commented on the ticket",
+      "comment_task": "commented on the task",
+      "comment_order": "commented on the order",
+      "comment": "added a comment",
+      "mention": "mentioned you",
+      "task_assigned": "assigned a task to you",
+      "task_status": "changed the task status: {status}",
+      "unknown": "— new notification",
+      "mention_chat": "mentioned you in a conversation",
+      "task_due": "a task is due today"
+    },
+    "taskStatus": {
+      "open": "open",
+      "in_progress": "in progress",
+      "completed": "completed",
+      "cancelled": "cancelled"
+    },
+    "page": {
+      "title": "Notifications",
+      "subtitle": "All your notifications in this organization."
+    },
+    "directConversation": "Direct conversation",
+    "emptyMentions": {
+      "title": "No mentions",
+      "description": "When someone mentions you with @ in a conversation or a comment, you will see it here."
+    },
+    "settingsPage": {
+      "title": "Events",
+      "description": "Choose what you want to hear about and through which channel. Changes are saved right away.",
+      "event": "Event",
+      "inApp": "In the app",
+      "email": "E-mail",
+      "emailSoon": "E-mail delivery will be switched on soon — your choice is already saved.",
+      "channelOff": "The channel is switched off above",
+      "toggle": "{event} — {channel}",
+      "groups": {
+        "helpdesk": "Help Desk",
+        "planning": "Planning",
+        "conversations": "Comments and mentions"
+      },
+      "events": {
+        "ticket_new": "A new ticket for me",
+        "ticket_assigned": "Assigned to a ticket",
+        "ticket_status": "Status change of my ticket",
+        "task_assigned": "Task assigned to me",
+        "task_status": "Status change of my task",
+        "comment": "A comment on my case",
+        "mention": "A mention of me (@) in a conversation or a comment",
+        "task_due": "My task is due today",
+        "chat_message": "An unread chat message (after 15 minutes)"
+      }
+    },
+    "reminder": "Reminder:",
+    "email": {
+      "subjectOne": "{actor} {text}",
+      "subjectMany": "You have {count} unread notifications in Ambra",
+      "preview": "Unread notifications in {organization}",
+      "heading": "Notifications are waiting for you",
+      "greeting": "Hi {name},",
+      "intro": "these notifications in {organization} are still unread:",
+      "open": "Open",
+      "openAll": "See all notifications",
+      "settings": "You receive this message because e-mail notifications are on. You can change that in the notification settings:",
+      "footer": "© Ambra System",
+      "chatSubject": "You have {count, plural, one {# unread message} other {# unread messages}} in Ambra",
+      "chatHeading": "Unread messages",
+      "chatIntro": "messages are waiting for you in {organization}:",
+      "chatDirect": "{name} — {count, plural, one {# new message} other {# new messages}}",
+      "chatGroup": "Group “{name}” — {count, plural, one {# new message} other {# new messages}}",
+      "chatAttachments": "{count, plural, one {# attachment} other {# attachments}}",
+      "chatSomeone": "Someone",
+      "chatModule": "Messages",
+      "chatOpenAll": "Open Messages"
+    }
+  },
+  "avatarCrop": {
+    "title": "Frame the photo",
+    "hint": "Drag the photo to position it and use the slider to zoom in.",
+    "area": "Photo framing — drag or use the arrow keys, + and − change the zoom",
+    "zoom": "Zoom",
+    "cancel": "Cancel",
+    "save": "Save photo",
+    "loadFailed": "This file could not be loaded. Pick another photo."
+  },
+  "platformFeedback": {
+    "status": {
+      "new": "New",
+      "in_progress": "In progress",
+      "resolved": "Resolved",
+      "rejected": "Rejected"
+    },
+    "kind": {
+      "bug": "Bug",
+      "problem": "Problem",
+      "idea": "Idea"
+    },
+    "priority": {
+      "low": "Low",
+      "normal": "Normal",
+      "high": "High",
+      "critical": "Critical"
+    },
+    "files": {
+      "add": "Add files",
+      "pasteHint": "or paste a screenshot (Ctrl+V)",
+      "rejected": "Some files were skipped: images, PDF, documents, CSV and recordings up to 25 MB are allowed.",
+      "tooMany": "You can add at most {max} files at once.",
+      "remove": "Remove {name}"
+    },
+    "report": {
+      "open": "Report a bug or idea",
+      "title": "Report a bug or idea",
+      "description": "Describe what happened or what should change. The report goes to the Ambra team.",
+      "kind": "Report type",
+      "titleLabel": "Title",
+      "titlePlaceholder": "In short: what does not work or what to improve",
+      "bodyLabel": "Description",
+      "bodyPlaceholder": "What you did, what happened, what you expected…",
+      "contextHint": "The page, organization, branch, browser and app version are attached automatically.",
+      "cancel": "Cancel",
+      "submit": "Send report",
+      "sent": "Report {code} sent. You will find the answer in Account → Bugs & ideas.",
+      "failed": "Could not send the report. Please try again.",
+      "filesFailed": "Could not add files: {files}"
+    },
+    "detail": {
+      "loading": "Loading…",
+      "reportedBy": "Reported by {name}, {date}",
+      "reportedAt": "Reported {date}",
+      "formerUser": "Deleted user",
+      "statusLabel": "Status",
+      "priorityLabel": "Priority",
+      "noDescription": "No description",
+      "context": {
+        "page": "Page",
+        "browser": "Browser",
+        "screen": "Screen",
+        "version": "Version"
+      },
+      "thread": "Conversation ({count})",
+      "noMessages": "No answers yet.",
+      "ambraTeam": "Ambra team",
+      "internalBadge": "Private · only you",
+      "replyPlaceholder": "Write an answer…",
+      "internalPlaceholder": "A note only you can see…",
+      "internalToggle": "Private note (only you)",
+      "send": "Send",
+      "sendInternal": "Save note",
+      "sendFailed": "Could not send the answer.",
+      "updateFailed": "Could not update the report.",
+      "filesFailed": "Could not add files: {files}"
+    },
+    "filters": {
+      "status": "Status",
+      "kind": "Type",
+      "priority": "Priority"
+    },
+    "columns": {
+      "code": "No.",
+      "title": "Report",
+      "status": "Status",
+      "reporter": "Reporter",
+      "activity": "Activity"
+    },
+    "views": {
+      "list": "List",
+      "board": "Kanban"
+    },
+    "board": {
+      "empty": "No reports"
+    },
+    "pages": {
+      "mine": {
+        "title": "My bugs & ideas",
+        "subtitle": "Bugs, problems and ideas sent to the Ambra team, with the answers."
+      },
+      "admin": {
+        "title": "Bugs & ideas",
+        "subtitle": "Bugs, problems and ideas from every organization."
       }
     }
   }

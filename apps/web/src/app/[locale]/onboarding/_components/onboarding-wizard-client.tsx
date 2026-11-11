@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { BrandLoader } from "@/components/branding";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "framer-motion";
@@ -433,7 +434,11 @@ export function OnboardingWizardClient({ userEmail, firstName, plans }: Props) {
             >
               <Card>
                 <CardContent className="flex flex-col items-center gap-4 py-12">
-                  <Loader2 className="h-12 w-12 animate-spin" />
+                  <BrandLoader
+                    variant="beacon_swap"
+                    showWordmark={false}
+                    logoClassName="h-20 w-20"
+                  />
                   <p className="text-lg font-medium">{t("creatingTitle")}</p>
                   <p className="text-sm text-muted-foreground">{t("creatingDescription")}</p>
                 </CardContent>

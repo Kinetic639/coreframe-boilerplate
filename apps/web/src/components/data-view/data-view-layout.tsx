@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/utils";
 import { useDataViewUrl } from "./use-data-view";
@@ -19,94 +19,35 @@ const SHARED_EASE = [0.22, 1, 0.36, 1] as const;
 const WIDTH_TRANSITION = { duration: COLLAPSE_MS / 1000, ease: SHARED_EASE };
 const DETAIL_TRANSITION = { duration: COLLAPSE_MS / 1000, ease: SHARED_EASE };
 
-type TransitionPhase = "list" | "entering" | "detail" | "exiting";
-
 function DataViewDesktopLayout() {
   const { isDetailOpen } = useDataViewUrl();
-  const [phase, setPhase] = useState<TransitionPhase>(isDetailOpen ? "detail" : "list");
-  const [showOnlyPrimary, setShowOnlyPrimary] = useState(isDetailOpen);
-  const [isCollapsed, setIsCollapsed] = useState(isDetailOpen);
-  const [showDetailPanel, setShowDetailPanel] = useState(isDetailOpen);
-  const hasMountedRef = useRef(false);
-  const frameRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (!hasMountedRef.current) {
-      hasMountedRef.current = true;
-      return;
-    }
-
-    if (frameRef.current) cancelAnimationFrame(frameRef.current);
-
-    if (isDetailOpen) {
-      setPhase((current) => (current === "detail" ? current : "entering"));
-      setShowOnlyPrimary(true);
-      setShowDetailPanel(false);
-      frameRef.current = requestAnimationFrame(() => {
-        setIsCollapsed(true);
-      });
-    } else {
-      setPhase((current) => (current === "list" ? current : "exiting"));
-      setShowDetailPanel(false);
-      setShowOnlyPrimary(true);
-      setIsCollapsed(false);
-    }
-
-    return () => {
-      if (frameRef.current) cancelAnimationFrame(frameRef.current);
-    };
-  }, [isDetailOpen]);
-
-  useEffect(() => {
-    if (isDetailOpen || phase !== "list") return;
-
-    setShowOnlyPrimary(false);
-    setIsCollapsed(false);
-    setShowDetailPanel(false);
-  }, [isDetailOpen, phase]);
-
-  const showSidebar = phase === "detail" || phase === "exiting";
-  const showPaginationSlot = phase === "list" || phase === "exiting";
-  const showPaginationContent = phase === "list";
-  const toolbarMode = phase === "list" ? "list" : "compact";
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden rounded-lg border bg-background">
       <motion.div
-        animate={{ width: isCollapsed ? SIDEBAR_WIDTH : "100%" }}
+        animate={{ width: isDetailOpen ? SIDEBAR_WIDTH : "100%" }}
         transition={WIDTH_TRANSITION}
-        onAnimationComplete={() => {
-          if (phase === "entering") {
-            setShowDetailPanel(true);
-            setPhase("detail");
-          }
-
-          if (phase === "exiting") {
-            setShowOnlyPrimary(false);
-            setPhase("list");
-          }
-        }}
         style={{ willChange: "width" }}
         className="flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r bg-background"
       >
-        <DataViewToolbar mode={toolbarMode} />
+        <DataViewToolbar mode={isDetailOpen ? "compact" : "list"} />
 
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-          {showSidebar ? <DataViewSidebar /> : <DataViewTable primaryOnly={showOnlyPrimary} />}
+          {isDetailOpen ? <DataViewSidebar /> : <DataViewTable />}
         </div>
 
         <div
           className={cn(
             "shrink-0 overflow-hidden transition-[height,opacity] duration-200 ease-out",
-            showPaginationSlot ? "opacity-100" : "pointer-events-none opacity-0"
+            !isDetailOpen ? "opacity-100" : "pointer-events-none opacity-0"
           )}
-          style={{ height: showPaginationSlot ? PAGINATION_HEIGHT : 0 }}
-          aria-hidden={!showPaginationContent}
+          style={{ height: !isDetailOpen ? PAGINATION_HEIGHT : 0 }}
+          aria-hidden={isDetailOpen}
         >
           <div
             className={cn(
               "transition-opacity duration-150",
-              showPaginationContent ? "opacity-100" : "pointer-events-none opacity-0"
+              !isDetailOpen ? "opacity-100" : "pointer-events-none opacity-0"
             )}
           >
             <DataViewPagination />
@@ -115,7 +56,7 @@ function DataViewDesktopLayout() {
       </motion.div>
 
       <AnimatePresence initial={false}>
-        {showDetailPanel && (
+        {isDetailOpen && (
           <motion.div
             key="detail-panel"
             initial={{ x: 64, opacity: 0 }}

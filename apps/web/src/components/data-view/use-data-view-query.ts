@@ -2,73 +2,91 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import type { PaginatedResult, DataViewListParams, InfinitePaginatedData } from "./data-view.types";
+import type {
+  PaginatedResult,
+  DataViewListParams,
+  DataViewScope,
+  InfinitePaginatedData,
+} from "./data-view.types";
+import {
+  DATA_VIEW_DETAIL_STALE_TIME,
+  DATA_VIEW_LIST_STALE_TIME,
+  dataViewKeys,
+} from "./data-view-query-keys";
 
 type UseDataViewListQueryOptions<TListRow> = {
-  queryKey: string[];
+  entity: string;
+  scope: DataViewScope;
   listFetcher: (params: DataViewListParams) => Promise<PaginatedResult<TListRow>>;
   listParams: DataViewListParams;
-  initialData: PaginatedResult<TListRow>;
+  initialData?: PaginatedResult<TListRow>;
+  initialDataUpdatedAt?: number;
 };
 
 export function useDataViewListQuery<TListRow>({
-  queryKey,
+  entity,
+  scope,
   listFetcher,
   listParams,
   initialData,
+  initialDataUpdatedAt,
 }: UseDataViewListQueryOptions<TListRow>) {
   return useQuery({
-    queryKey: [...queryKey, listParams],
+    queryKey: dataViewKeys.list(entity, scope, listParams),
     queryFn: () => listFetcher(listParams),
-    // IMPORTANT: Do NOT use `initialData` here.
-    // TanStack Query v5 sets dataUpdatedAt = Date.now() when initialData is provided
-    // without initialDataUpdatedAt, making the data "fresh" for the full staleTime.
-    // This blocks refetches when query params change (filter/sort/page), causing the
-    // "only works after refresh" bug.
-    // `placeholderData` shows prior data while loading (smooth UX) but always fetches.
-    placeholderData: (prev) => prev ?? initialData,
-    staleTime: 30_000,
+    initialData,
+    initialDataUpdatedAt,
+    placeholderData: (previous) => previous,
+    staleTime: DATA_VIEW_LIST_STALE_TIME,
     refetchOnWindowFocus: false,
   });
 }
 
 type UseDataViewDetailQueryOptions<TDetail> = {
-  queryKey: string[];
+  entity: string;
+  scope: DataViewScope;
   detailFetcher: (id: string) => Promise<TDetail | null>;
   selectedId: string | null;
 };
 
 export function useDataViewDetailQuery<TDetail>({
-  queryKey,
+  entity,
+  scope,
   detailFetcher,
   selectedId,
 }: UseDataViewDetailQueryOptions<TDetail>) {
   return useQuery({
-    queryKey: [...queryKey, "detail", selectedId],
+    queryKey: selectedId
+      ? dataViewKeys.detail(entity, scope, selectedId)
+      : [...dataViewKeys.details(entity, scope), "none"],
     queryFn: () => detailFetcher(selectedId!),
     enabled: !!selectedId,
-    staleTime: 60_000,
+    staleTime: DATA_VIEW_DETAIL_STALE_TIME,
     refetchOnWindowFocus: false,
   });
 }
 
 type UseDataViewSidebarInfiniteQueryOptions<TListRow> = {
-  queryKey: string[];
+  entity: string;
+  scope: DataViewScope;
   listFetcher: (params: DataViewListParams) => Promise<PaginatedResult<TListRow>>;
   listParams: DataViewListParams;
-  initialPageData: PaginatedResult<TListRow>;
+  initialPageData?: PaginatedResult<TListRow>;
+  initialDataUpdatedAt?: number;
   enabled: boolean;
 };
 
 export function useDataViewSidebarInfiniteQuery<TListRow>({
-  queryKey,
+  entity,
+  scope,
   listFetcher,
   listParams,
   initialPageData,
+  initialDataUpdatedAt,
   enabled,
 }: UseDataViewSidebarInfiniteQueryOptions<TListRow>) {
   const canSeedFromInitialPage =
-    initialPageData.page === listParams.page && initialPageData.pageSize === listParams.pageSize;
+    initialPageData?.page === listParams.page && initialPageData?.pageSize === listParams.pageSize;
 
   return useInfiniteQuery<
     PaginatedResult<TListRow>,
@@ -77,16 +95,7 @@ export function useDataViewSidebarInfiniteQuery<TListRow>({
     readonly unknown[],
     number
   >({
-    queryKey: [
-      ...queryKey,
-      "sidebar",
-      {
-        search: listParams.search,
-        sort: listParams.sort,
-        filters: listParams.filters,
-        pageSize: listParams.pageSize,
-      },
-    ],
+    queryKey: dataViewKeys.sidebar(entity, scope, listParams),
     queryFn: ({ pageParam }) =>
       listFetcher({
         ...listParams,
@@ -102,13 +111,14 @@ export function useDataViewSidebarInfiniteQuery<TListRow>({
       return firstPage.page > 1 ? firstPage.page - 1 : undefined;
     },
     initialData:
-      enabled && canSeedFromInitialPage
+      enabled && canSeedFromInitialPage && initialPageData
         ? {
             pages: [initialPageData],
             pageParams: [listParams.page],
           }
         : undefined,
-    staleTime: 30_000,
+    initialDataUpdatedAt,
+    staleTime: DATA_VIEW_LIST_STALE_TIME,
     refetchOnWindowFocus: false,
   });
 }

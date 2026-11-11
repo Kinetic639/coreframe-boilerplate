@@ -1,5 +1,5 @@
-import { AlertTriangle, ListChecks } from "lucide-react";
-import { loadAttention, loadOpenTaskCount } from "../_lib/data";
+import { AlertTriangle, Inbox, ListChecks } from "lucide-react";
+import { loadAttention, loadOpenTaskCount, loadPutawayCount } from "../_lib/data";
 import type { HomeCopy } from "../_lib/copy";
 import type { HomeAction } from "../_lib/model";
 import { QuickActions } from "./home-sections";
@@ -9,16 +9,20 @@ export async function OperationalOverview({
   copy,
   attentionResult,
   taskResult,
+  putawayResult = null,
 }: {
   actions: HomeAction[];
   copy: HomeCopy;
   attentionResult: ReturnType<typeof loadAttention> | null;
   taskResult: ReturnType<typeof loadOpenTaskCount> | null;
+  putawayResult?: ReturnType<typeof loadPutawayCount> | null;
 }) {
-  const [attention, tasks] = await Promise.all([
+  const [attention, tasks, putaway] = await Promise.all([
     attentionResult ?? Promise.resolve(null),
     taskResult ?? Promise.resolve(null),
+    putawayResult ?? Promise.resolve(null),
   ]);
+  const putawayCount = putaway?.state === "ready" ? putaway.data.totalCount : undefined;
   const attentionCount = attention?.state === "ready" ? attention.data.totalCount : undefined;
   const taskCount = tasks?.state === "ready" ? tasks.data.totalCount : undefined;
   const signals: Partial<Record<HomeAction, string>> = {};
@@ -28,10 +32,13 @@ export async function OperationalOverview({
   if (taskCount !== undefined) {
     signals.tasks = copy.tasksSignal.replace("{count}", String(taskCount));
   }
+  if (putawayCount !== undefined) {
+    signals.putaway = copy.putawaySignal.replace("{count}", String(putawayCount));
+  }
 
   return (
     <div className="space-y-3">
-      {attentionCount !== undefined || taskCount !== undefined ? (
+      {attentionCount !== undefined || taskCount !== undefined || putawayCount !== undefined ? (
         <section aria-labelledby="home-summary">
           <h2 id="home-summary" className="sr-only">
             {copy.operationalSummary}
@@ -44,6 +51,15 @@ export async function OperationalOverview({
                 value={attentionCount}
                 icon={AlertTriangle}
                 tone="attention"
+              />
+            ) : null}
+            {putawayCount !== undefined ? (
+              <SummaryCard
+                label={copy.putawayMetric}
+                description={copy.putawayMetricDescription}
+                value={putawayCount}
+                icon={Inbox}
+                tone={putawayCount > 0 ? "attention" : "info"}
               />
             ) : null}
             {taskCount !== undefined ? (

@@ -60,7 +60,10 @@ export default async function PlanningOverviewPage() {
       currentUserId={userId}
       canAssign={checkPermission(snap, PLANNING_TASKS_ASSIGN)}
       canCreateTasks={checkPermission(snap, PLANNING_TASKS_CREATE)}
-      priorityConfigs={settingsResult.success ? settingsResult.data.priority_configs : null}
+      // No planning_settings row yet (new or reset organization) → default badges
+      priorityConfigs={
+        settingsResult.success ? (settingsResult.data?.priority_configs ?? null) : null
+      }
       initialVisibleSources={calendarSettings?.visibleSources ?? {}}
     />
   );

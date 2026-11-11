@@ -8,6 +8,7 @@ import {
   loadHomeContext,
   loadOpenTaskCount,
   loadPlanningSummary,
+  loadPutawayCount,
 } from "./_lib/data";
 import { homeCopy } from "./_lib/copy";
 import { formatRefreshTime } from "./_lib/model";
@@ -36,6 +37,10 @@ export default async function DashboardStartPage({
   const taskResult =
     context.orgId && context.branchId && context.actions.includes("tasks")
       ? loadOpenTaskCount(context.orgId, context.branchId)
+      : null;
+  const putawayResult =
+    context.orgId && context.branchId && context.actions.includes("putaway")
+      ? loadPutawayCount(context.orgId, context.branchId)
       : null;
   const refreshedAt = formatRefreshTime(new Date().toISOString(), locale);
   const planningResult =
@@ -97,6 +102,7 @@ export default async function DashboardStartPage({
               copy={copy}
               attentionResult={attentionResult}
               taskResult={taskResult}
+              putawayResult={putawayResult}
             />
           </Suspense>
           {context.orgId ? (

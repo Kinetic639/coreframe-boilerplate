@@ -1,0 +1,48 @@
+-- PRE-IC8 P0 -- structural closure of the balance/settings GUC
+-- authorization bypass. PRIMARY fix: an ordinary session (authenticated
+-- or anon) is now structurally unable to INSERT/UPDATE/DELETE
+-- inventory_balances or inventory_settings AT ALL, regardless of any
+-- session GUC it sets -- Postgres checks table-level privileges BEFORE
+-- RLS and BEFORE any trigger fires, so this closes the exploit at a
+-- stronger layer than trigger logic alone ever could.
+--
+-- Every legitimate writer of both tables is a SECURITY DEFINER
+-- function owned by `postgres` (confirmed live via pg_get_functiondef
+-- for inventory_finalize_posting_internal, inventory_create_reservation,
+-- inventory_release_reservation, inventory_create_allocation,
+-- inventory_release_allocation, inventory_send_branch_transfer,
+-- inventory_create_draft, inventory_create_and_finalize's own nested
+-- calls, inventory_create_purchase_order, inventory_create_product_with_
+-- default_variant) -- SECURITY DEFINER functions execute with the
+-- privileges of their OWNER (postgres), not the calling role, so they
+-- are completely unaffected by this REVOKE. `inventory_get_or_create_
+-- balance_for_update` is itself SECURITY INVOKER, but every real caller
+-- invokes it nested from inside one of the SECURITY DEFINER functions
+-- above, so it also runs with postgres's own effective privileges in
+-- every legitimate call path (same-owner-nesting semantics already
+-- established and relied on throughout this project).
+--
+-- `inventory_settings` has ZERO direct TypeScript writers of any kind
+-- (live-verified this pass via full-repo grep) -- safe to close
+-- entirely. `inventory_balances` DOES have a real, live, non-RPC direct
+-- writer -- `apps/public-web/src/app/actions/warehouse/
+-- ambra-location-inventory.ts`'s own `addItemsToContainerAction`/
+-- `removeItemFromContainerAction`/`relocateContainerAction` (a fork of
+-- the exact functions IC-6 already confirmed dead and removed from
+-- apps/web's own copy of this file, apparently never cleaned up in the
+-- apps/public-web fork, which points at the SAME live database).
+-- EXPLICIT PRODUCT DECISION (asked and confirmed this pass): close the
+-- raw-write path fully; apps/public-web's container feature will break
+-- until migrated to a canonical RPC, matching exactly how apps/web's
+-- own copy was already treated by IC-6. Not fixed here -- out of this
+-- narrow pass's own scope; disclosed in security-evidence.md.
+--
+-- SELECT access is completely unaffected -- only INSERT/UPDATE/DELETE
+-- are revoked. RLS policies on both tables are left untouched (they
+-- simply become unreachable for authenticated/anon on write operations,
+-- since the base table privilege check now fails before RLS is ever
+-- evaluated -- this does NOT weaken RLS, RLS was never the layer doing
+-- the real work here).
+
+REVOKE INSERT, UPDATE, DELETE ON public.inventory_balances FROM authenticated, anon;
+REVOKE INSERT, UPDATE, DELETE ON public.inventory_settings FROM authenticated, anon;

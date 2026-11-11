@@ -2,11 +2,18 @@
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import { HeaderSearch } from "./header-search";
+import { GlobalSearchDialog } from "@/components/v2/global-search/global-search-dialog";
+import {
+  GlobalScanTrigger,
+  GlobalSearchTrigger,
+} from "@/components/v2/global-search/global-search-trigger";
+import type { SearchEntry } from "@/lib/global-search/types";
+import type { SearchSourceId } from "@/lib/global-search/sources";
+import { HeaderMessagesLink } from "@/components/v2/messages/header-messages-link";
 import { HeaderNotifications } from "./header-notifications";
-import { HeaderMessages } from "./header-messages";
 import { HeaderContacts } from "./header-contacts";
 import { HeaderQuickAdd } from "./header-quick-add";
+import { ReportFeedbackHost } from "@/components/platform-feedback/report-feedback-dialog";
 
 /**
  * Dashboard Header V2
@@ -16,44 +23,60 @@ import { HeaderQuickAdd } from "./header-quick-add";
  *
  * Features:
  * - Sidebar toggle button (integrated from shadcn)
- * - Global search with command palette (Cmd+K)
- * - Messages drawer
+ * - Global search palette (Ctrl+K / ⌘K) — pages and actions resolved server-side
  * - Notifications drawer
  * - Contacts drawer
  *
  * Layout:
  * - Left: Sidebar trigger + separator
  * - Center: Search bar
- * - Right: Contacts + Messages + Notifications
+ * - Right: Contacts + Notifications (messages live in the right bar; below lg a header icon)
  *
  * Note: Recent activity is accessible via the status bar at the bottom.
  * Note: User menu is available in the sidebar footer.
  */
-export function DashboardHeaderV2() {
+interface DashboardHeaderV2Props {
+  /** Server-resolved global search entries (pages + actions) */
+  searchEntries?: SearchEntry[];
+  /** Data sources the user may search (scope chips) */
+  searchSources?: SearchSourceId[];
+}
+
+export function DashboardHeaderV2({
+  searchEntries = [],
+  searchSources = [],
+}: DashboardHeaderV2Props) {
   return (
     <header className="sticky top-0 z-50 flex h-12 shrink-0 items-center gap-2 bg-muted shadow-sm transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-      <div className="flex items-center gap-2 px-6">
+      <div className="flex items-center gap-2 px-3 md:px-6">
         <SidebarTrigger />
         <Separator orientation="vertical" className="mr-2 h-4" />
       </div>
 
       {/* Center: Search */}
       <div className="hidden md:flex flex-1 max-w-md">
-        <HeaderSearch />
+        <GlobalSearchTrigger variant="bar" />
       </div>
 
-      {/* Right: Quick Add + Contacts + Messages + Notifications */}
-      <div className="flex items-center gap-2 ml-auto px-6">
-        {/* Mobile: Search icon */}
-        <div className="md:hidden">
-          <HeaderSearch />
+      {/* Right: Quick Add + Contacts + Notifications */}
+      <div className="flex items-center gap-1 ml-auto px-3 sm:gap-2 md:px-6">
+        {/* Mobile: scan + search icons (scanning is the main way in on the floor) */}
+        <div className="flex items-center gap-1 md:hidden">
+          <GlobalScanTrigger />
+          <GlobalSearchTrigger variant="icon" />
         </div>
 
         <HeaderQuickAdd />
         <HeaderContacts />
-        <HeaderMessages />
+        {/* Below lg the messages bar is hidden: the icon opens the Messages page */}
+        <HeaderMessagesLink />
         <HeaderNotifications />
       </div>
+
+      {/* Mounted once: both triggers open this palette */}
+      <GlobalSearchDialog entries={searchEntries} sources={searchSources} />
+      {/* Opened from the user menu or the search palette */}
+      <ReportFeedbackHost />
     </header>
   );
 }

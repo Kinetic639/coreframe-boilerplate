@@ -9,6 +9,7 @@ import {
 import { createClient } from "@/utils/supabase/server";
 import { RepairOrdersService } from "@/server/services/repair-orders.service";
 import { NewRepairOrderForm } from "./_components/new-repair-order-form";
+import { BranchWarehousesService } from "@/server/services/branch-warehouses.service";
 
 /**
  * Phase 7 -- manual RepairOrder header creation. DEMO READY gate
@@ -44,6 +45,16 @@ export default async function NewRepairOrderPage() {
   const t = await getTranslations("modules.workshop.repairOrders");
   const supabase = await createClient();
   const orgId = context.app.activeOrgId;
+  const warehousesResult = await BranchWarehousesService.list(
+    supabase,
+    orgId,
+    context.app.activeBranchId ?? null
+  );
+  const warehouses = (warehousesResult.success ? warehousesResult.data : []).map((w) => ({
+    code: w.code,
+    name: w.name,
+    orderPrefix: w.orderPrefix,
+  }));
 
   const advisorCandidatesResult = canManageAll
     ? await RepairOrdersService.listAdvisorCandidates(supabase, orgId)
@@ -60,6 +71,7 @@ export default async function NewRepairOrderPage() {
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
       <h1 className="text-2xl font-semibold tracking-tight">{t("newOrder.title")}</h1>
       <NewRepairOrderForm
+        warehouses={warehouses}
         advisorCandidates={advisorCandidates}
         canManageAll={canManageAll}
         ownAdvisorContactId={ownAdvisorContactId}

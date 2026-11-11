@@ -479,14 +479,22 @@ describe("Sidebar SSR Integration", () => {
     const warehouseGroup = findItemById(model, "warehouse");
     expect(warehouseGroup).toBeDefined(); // Shown: module entitled
     // Implemented Phase 1 inventory children are visible with exact read permissions.
-    expect(findItemById(model, "warehouse.inventory")).toBeDefined();
+    // The Inventory list page was removed (2026-10-12): stock lives on the item page.
+    expect(findItemById(model, "warehouse.inventory")).toBeUndefined();
     expect(findItemById(model, "warehouse.inventory.movements")).toBeDefined();
     expect(findItemById(model, "warehouse.items")).toBeDefined();
     expect(findItemById(model, "warehouse.locations")).toBeDefined();
-    expect(findItemById(model, "warehouse.purchases")).toBeDefined();
-    expect(findItemById(model, "warehouse.deliveries")).toBeDefined();
-    expect(findItemById(model, "warehouse.suppliers")).toBeDefined();
     expect(findItemById(model, "warehouse.settings")).toBeDefined();
+    // Flat list: no Purchases group, inventory pages sit directly under Warehouse
+    expect(findItemById(model, "warehouse.purchases")).toBeUndefined();
+    expect(findItemById(model, "warehouse.deliveries")).toBeUndefined();
+    expect(warehouseGroup?.children?.map((item) => item.id)).toEqual(
+      expect.arrayContaining([
+        "warehouse.inventory.movements",
+        "warehouse.putaway",
+        "warehouse.items",
+      ])
+    );
   });
 
   // wh-2: warehouse group absent when MODULE_WAREHOUSE is NOT in enabled_modules

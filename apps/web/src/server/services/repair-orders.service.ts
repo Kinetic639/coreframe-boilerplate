@@ -72,12 +72,32 @@ const REPAIR_ORDER_RPC_KNOWN_ERRORS: ReadonlyArray<{ code: string; pattern: RegE
   { code: "42501", pattern: /^Not authorized to materialize repair orders for this branch$/ },
 ];
 
-function normalizeMaterializationRpcError(error: { code?: string; message: string }): string {
-  const isKnown = REPAIR_ORDER_RPC_KNOWN_ERRORS.some(
+/**
+ * A3 simplification pass: mechanical extraction of the identical 4-line
+ * "match against my own allowlist array, else null" shape previously
+ * repeated verbatim across 5 `normalize*RpcError` functions below,
+ * differing only in which allowlist array they closed over. Pure
+ * matcher -- returns the original (already-safe) message on a match, or
+ * `null` on no match -- so each of the 5 functions below keeps its own
+ * domain-specific fallback message, call signature, and call sites
+ * completely unchanged. Allowlist DATA (the 5 arrays) is intentionally
+ * NOT merged -- each stays its own independently-curated table.
+ */
+function normalizeKnownRpcError(
+  error: { code?: string; message: string },
+  knownErrors: ReadonlyArray<{ code: string; pattern: RegExp }>
+): string | null {
+  const isKnown = knownErrors.some(
     (known) => error.code === known.code && known.pattern.test(error.message)
   );
-  if (isKnown) return error.message;
-  return "Materialization failed due to an unexpected server error. Please try again or contact support.";
+  return isKnown ? error.message : null;
+}
+
+function normalizeMaterializationRpcError(error: { code?: string; message: string }): string {
+  return (
+    normalizeKnownRpcError(error, REPAIR_ORDER_RPC_KNOWN_ERRORS) ??
+    "Materialization failed due to an unexpected server error. Please try again or contact support."
+  );
 }
 
 /**
@@ -109,6 +129,118 @@ function normalizeRepairOrderCrudError(
   }
   console.error(`[RepairOrdersService.${methodName}] Unexpected DB error:`, error);
   return "An unexpected error occurred. Please try again or contact support.";
+}
+
+/**
+ * Phase 10: the atomic, fully-validated writer for
+ * `repair_order_line_movement_links` (`attach_repair_order_line_movement`,
+ * apps/web/supabase-target/supabase/migrations/20260912162802_repair_order_
+ * line_movement_attach_rpc.sql) RAISEs a small set of deliberately-authored,
+ * already-safe messages, each with a stable ERRCODE -- same allowlist
+ * pattern as normalizeMaterializationRpcError above (code AND message-shape
+ * match required, not errcode alone, for the same reason Finding E fixed
+ * there: several of these codes are broad Postgres error CLASSES a native,
+ * un-authored error could also raise).
+ */
+const REPAIR_ORDER_MOVEMENT_LINK_KNOWN_ERRORS: ReadonlyArray<{ code: string; pattern: RegExp }> = [
+  { code: "28000", pattern: /^p_actor_user_id must match the authenticated caller$/ },
+  { code: "22023", pattern: /^applied_quantity must be greater than zero$/ },
+  { code: "22023", pattern: /^relation_type must be receipt or issue$/ },
+  { code: "P0002", pattern: /^RepairOrderLine not found: / },
+  {
+    code: "42501",
+    pattern: /^Not authorized to attribute inventory movements for this branch$/,
+  },
+  { code: "P0002", pattern: /^Inventory movement line not found: / },
+  {
+    code: "42501",
+    pattern: /^Movement line organization\/branch does not match the RepairOrder$/,
+  },
+  {
+    code: "55000",
+    pattern: /^Only posted movement lines can be attributed to a RepairOrderLine$/,
+  },
+  { code: "22023", pattern: /^relation_type .* does not match movement category / },
+  { code: "55000", pattern: /^Movement is referenced to a different RepairOrder$/ },
+  {
+    code: "55000",
+    pattern: /^Movement line product\/variant does not match the RepairOrderLine's own variant$/,
+  },
+  {
+    code: "22023",
+    pattern: /^applied_quantity exceeds the movement line's own remaining quantity /,
+  },
+  {
+    code: "23505",
+    pattern:
+      /^This movement line is already attributed to this RepairOrderLine with this relation type$/,
+  },
+];
+
+function normalizeMovementLinkRpcError(error: { code?: string; message: string }): string {
+  return (
+    normalizeKnownRpcError(error, REPAIR_ORDER_MOVEMENT_LINK_KNOWN_ERRORS) ??
+    "Failed to attribute this movement to the repair order line due to an unexpected server error. Please try again or contact support."
+  );
+}
+
+/**
+ * Phase 10C: `inventory_create_container`/`inventory_add_to_container`/
+ * `inventory_remove_from_container`/`inventory_seal_container`'s own known,
+ * safe error shapes -- every message below copied verbatim from
+ * `pg_get_functiondef` output (LIVE VERIFIED, not guessed), matched by
+ * code AND exact message pattern together. Unlike Phase 10/10A/10B's own
+ * RPCs (which let Postgres assign the default P0001 to every RAISE), these
+ * four RPCs each set an explicit, specific SQLSTATE per error
+ * (`USING ERRCODE = ...`) -- matched here accordingly. Some messages carry
+ * a `%`-substituted dynamic value (current status, or a quantity) -- those
+ * patterns match the surrounding literal text and allow any content in the
+ * substituted position, never the other way around.
+ *
+ * CORRECTION PASS (2026-09-14, external review): `inventory_add_to_container`
+ * gained two new checks -- allocation/container location-identity and
+ * RepairOrder-ownership identity (both LIVE VERIFIED via `pg_get_functiondef`
+ * re-fetched after applying the forward-migration fix) -- their exact error
+ * text is added below alongside the original set, unchanged otherwise.
+ */
+const REPAIR_ORDER_CONTAINER_KNOWN_ERRORS: ReadonlyArray<{ code: string; pattern: RegExp }> = [
+  { code: "28000", pattern: /^p_actor_user_id must match the authenticated caller$/ },
+  { code: "42501", pattern: /^Missing warehouse\.inventory\.operate permission$/ },
+  { code: "22023", pattern: /^Container code is required$/ },
+  { code: "P0002", pattern: /^Location not found$/ },
+  { code: "22023", pattern: /^Only stockable bins can hold a container$/ },
+  { code: "22023", pattern: /^Quantity must be positive$/ },
+  { code: "P0002", pattern: /^Container not found$/ },
+  { code: "55000", pattern: /^Container is not open for adding stock \(status: .+\)$/ },
+  { code: "55000", pattern: /^Container is not open for removing stock \(status: .+\)$/ },
+  { code: "P0002", pattern: /^Allocation line not found$/ },
+  {
+    code: "22023",
+    pattern: /^Allocation location does not match the container's own current location$/,
+  },
+  {
+    code: "P0002",
+    pattern: /^Allocation does not belong to this container's own RepairOrder$/,
+  },
+  {
+    code: "22023",
+    pattern:
+      /^Placement quantity exceeds the allocation line's own allocated quantity \(already placed .+, allocated .+\)$/,
+  },
+  { code: "P0002", pattern: /^Unable to resolve unit for this allocation line's own variant$/ },
+  { code: "P0002", pattern: /^Allocation-container link not found$/ },
+  {
+    code: "22023",
+    pattern: /^Cannot remove more than the currently linked quantity \(linked .+, requested .+\)$/,
+  },
+  { code: "55000", pattern: /^Container cannot be sealed from its current status \(.+\)$/ },
+];
+
+function normalizeContainerRpcError(error: { code?: string; message: string }): string {
+  return (
+    normalizeKnownRpcError(error, REPAIR_ORDER_CONTAINER_KNOWN_ERRORS) ??
+    "Failed to process this container request due to an unexpected server error. Please try again or contact support."
+  );
 }
 
 /**
@@ -172,6 +304,10 @@ export interface MaterializationStatus {
 export interface RepairOrderListRow {
   id: string;
   zlNumber: string | null;
+  /** Parts of zlNumber (ZL/<orderNo>/<orderYear>/<warehouseCode>/BL), set by the DB trigger. */
+  orderNo: string | null;
+  orderYear: number | null;
+  warehouseCode: string | null;
   orderNumber: string | null;
   vin: string | null;
   status: string;
@@ -185,6 +321,9 @@ export interface RepairOrderListRow {
 interface RepairOrderListDbRow {
   id: string;
   zl_number: string | null;
+  order_no: string | null;
+  order_year: number | null;
+  warehouse_code: string | null;
   order_number: string | null;
   vin: string | null;
   status: string;
@@ -235,7 +374,7 @@ function mapRepairOrderHeader(row: RepairOrderHeaderDbRow): RepairOrderHeader {
   };
 }
 
-const HEADER_COLUMNS = `id, zl_number, order_number, vin, vehicle_brand, client_name, dealer_name,
+const HEADER_COLUMNS = `id, zl_number, order_no, order_year, warehouse_code, order_number, vin, vehicle_brand, client_name, dealer_name,
    status, identity_status, advisor_contact_id, created_by, created_at, updated_at,
    advisor:crm_contacts!repair_orders_advisor_contact_id_fkey(display_name)`;
 
@@ -244,6 +383,9 @@ function mapRepairOrderListRow(row: RepairOrderListDbRow): RepairOrderListRow {
   return {
     id: row.id,
     zlNumber: row.zl_number,
+    orderNo: row.order_no,
+    orderYear: row.order_year,
+    warehouseCode: row.warehouse_code,
     orderNumber: row.order_number,
     vin: row.vin,
     status: row.status,
@@ -253,6 +395,229 @@ function mapRepairOrderListRow(row: RepairOrderListDbRow): RepairOrderListRow {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+/**
+ * Phase 10: the result of a successful `attachMovementToRepairOrderLine`
+ * call -- one real, persisted `repair_order_line_movement_links` row,
+ * mapped to a domain type so callers never depend on the RPC's raw jsonb
+ * key names directly.
+ */
+export interface RepairOrderLineMovementAttachment {
+  id: string;
+  repairOrderLineId: string;
+  inventoryMovementLineId: string;
+  appliedQuantity: number;
+  relationType: "receipt" | "issue";
+}
+
+/**
+ * Phase 10A: one real, persisted `inventory_reservation_lines` row under a
+ * reservation attributed to a RepairOrderLine. `outstandingQuantity` is the
+ * LIVE-VERIFIED engine formula (`inventory_release_reservation`'s own body,
+ * verbatim): `reserved_quantity - released_quantity - fulfilled_quantity`
+ * -- computed here from the same three persisted columns, never a fourth,
+ * separately-tracked number. `fulfilled_quantity` is whatever the generic
+ * engine itself produces (0 today, since nothing calls
+ * `inventory_create_allocation` yet -- that is Phase 10B's own job, not
+ * fabricated here).
+ */
+export interface RepairOrderLineReservationLine {
+  id: string;
+  variantId: string;
+  locationId: string | null;
+  lotId: string | null;
+  serialId: string | null;
+  reservedQuantity: number;
+  releasedQuantity: number;
+  fulfilledQuantity: number;
+  outstandingQuantity: number;
+}
+
+/**
+ * Phase 10A: one real, persisted `inventory_reservations` row referencing
+ * this RepairOrderLine (`reference_type = 'repair_order_line'`,
+ * `reference_id = repair_order_line_id`). A RepairOrderLine may have MANY
+ * of these over time (no uniqueness constraint restricts it, LIVE
+ * VERIFIED) -- each one may itself carry more than one
+ * `inventory_reservation_lines` row (the schema allows it, even though
+ * this phase's own writer -- `reserveForLine` -- always creates exactly
+ * one). `outstandingQuantity` here is the SUM of every one of this
+ * reservation's own lines' own outstanding quantity, never assumed to be
+ * exactly one line's worth.
+ */
+export interface RepairOrderLineReservation {
+  id: string;
+  reservationNumber: string;
+  status: string;
+  expiresAt: string | null;
+  createdAt: string;
+  lines: RepairOrderLineReservationLine[];
+  outstandingQuantity: number;
+}
+
+/**
+ * Phase 10B: one real, persisted `inventory_allocation_lines` row reachable
+ * from this RepairOrderLine via the authoritative relational chain --
+ * RepairOrderLine -> (reservation.reference_id) -> reservation ->
+ * reservation lines -> (allocation_lines.reservation_line_id) -> allocation
+ * lines -- never a redundant RepairOrderLine FK on the allocation tables
+ * themselves (none was added; LIVE VERIFIED none is needed -- the chain is
+ * sufficient and already indexed, see `listAllocationsForLine`).
+ * `outstandingQuantity` is the LIVE-VERIFIED engine formula
+ * (`inventory_release_allocation`'s own body, verbatim):
+ * `allocated_quantity - fulfilled_quantity` (this table has no
+ * `released_quantity` column, unlike reservation lines -- confirmed live,
+ * not assumed). A flat list, not grouped by allocation header -- each row
+ * already carries its own parent allocation's number/status inline, and a
+ * RepairOrderLine's allocations do not need a header-level rollup the way
+ * reservations' own multi-line-per-reservation shape did.
+ */
+export interface RepairOrderLineAllocationLine {
+  id: string;
+  allocationId: string;
+  allocationNumber: string;
+  allocationStatus: string;
+  reservationLineId: string | null;
+  variantId: string;
+  locationId: string;
+  lotId: string | null;
+  serialId: string | null;
+  allocatedQuantity: number;
+  fulfilledQuantity: number;
+  outstandingQuantity: number;
+}
+
+/**
+ * Phase 10C: the result of a successful `createContainerForRepairOrder`
+ * call -- the raw jsonb `inventory_create_container` returns, mapped to a
+ * domain type. A freshly created container always starts `status: "empty"`
+ * (LIVE VERIFIED, this RPC's own deliberate choice -- see its doc comment).
+ */
+export interface RepairOrderContainerResult {
+  containerId: string;
+  code: string;
+  status: string;
+}
+
+/**
+ * Zone 3 <-> Zone 5 integration layer (2026-09-15): one container's own
+ * contribution to a RepairOrderLine's stock at ONE location bucket --
+ * `quantity` is the sum of every active `inventory_allocation_container_links`
+ * row for this container, for this RepairOrderLine's own allocation lines
+ * whose own `location_id` equals the bucket's `locationId` (never the
+ * container's own total contents, which may include other allocation
+ * lines/RepairOrders entirely -- see `inventory_containers`' own
+ * many-allocation-lines-per-container cardinality, Phase 10C).
+ */
+/** Zone 3 / Phase 11: one PZ / RW document line attributed to a RepairOrderLine. */
+export interface RepairOrderWarehouseDocument {
+  movementId: string;
+  documentNumber: string | null;
+  /** PZ, RW, … (falls back to the movement type code, e.g. 101 / 261). */
+  documentTypeCode: string | null;
+  status: string;
+  date: string | null;
+  quantity: number;
+  /** Destination for a receipt, source for an issue (snapshot at posting). */
+  locationName: string | null;
+}
+
+/** Zone 3 / Phase 11: warehouse state of one RepairOrderLine for the RO page tabs. */
+export interface RepairOrderLineWarehouseView {
+  repairOrderLineId: string;
+  receipts: RepairOrderWarehouseDocument[];
+  issues: RepairOrderWarehouseDocument[];
+  locations: {
+    locationId: string;
+    locationName: string | null;
+    quantity: number;
+    containerCodes: string[];
+  }[];
+  /** Current locations could not be loaded (documents are still shown). */
+  locationsError: boolean;
+}
+
+export interface RepairOrderLinePhysicalStateContainer {
+  containerId: string;
+  containerCode: string;
+  quantity: number;
+  currentLocationId: string | null;
+  status: string;
+}
+
+/**
+ * One physical-location bucket in a RepairOrderLine's own reconciled state.
+ * `locationId` values are the UNION of every location either Zone 5's own
+ * live physical-state read (A8) OR this line's own outstanding
+ * allocations claim -- a location present on only one side is still
+ * surfaced here (with the other side's own quantities at 0), which is
+ * exactly what makes a `location_mismatch`/`uncontainerized` bucket
+ * visible rather than silently dropped.
+ */
+export interface RepairOrderLinePhysicalStateLocation {
+  locationId: string;
+  /** Zone 5's own live-computed physical quantity at this location (A8: `get_repair_order_line_physical_state`, not a persisted projection). */
+  physicalQuantity: number;
+  /** Sum of this line's own outstanding reservation-line quantity here. */
+  reservedQuantity: number;
+  /** Sum of this line's own outstanding allocation-line quantity here. */
+  allocatedQuantity: number;
+  /** Sum of active container-link quantity for allocation lines here. */
+  containerizedQuantity: number;
+  /** `allocatedQuantity - containerizedQuantity`, floored at 0. */
+  uncontainerizedAllocatedQuantity: number;
+  containers: RepairOrderLinePhysicalStateContainer[];
+}
+
+/**
+ * - `"consistent"`: every signal available agrees (or there is simply
+ *   nothing yet to disagree about -- e.g. Zone 5 has received stock but
+ *   nothing has been reserved yet).
+ * - `"uncontainerized"`: allocated stock exists that has not (yet) been
+ *   placed into any container -- a normal, expected mid-lifecycle state,
+ *   not an error.
+ * - `"location_mismatch"`: Zone 5's own spatial projection and this line's
+ *   own outstanding allocations name DIFFERENT, non-overlapping location
+ *   sets -- a real, reachable divergence (see the integration audit) since
+ *   nothing today wires a reservation's own `location_id` to wherever
+ *   Zone 5's putaway actually placed the stock.
+ * - `"unknown"`: this method found an active container link whose own
+ *   container disagrees with its own allocation line's `location_id`
+ *   (which the Phase 10C RPC itself should never allow -- surfaced as
+ *   `unknown`, not silently trusted, per the "no guessing" requirement).
+ * - `"inconsistent_history"` (A8, 2026-09-22): Zone 5's own live physical-
+ *   state read (`get_repair_order_line_physical_state`) found a bucket
+ *   where canonical attribution history (`repair_order_line_movement_
+ *   links` + the ledger) is inconsistent with physical reality -- e.g. a
+ *   generic, non-RepairOrder-aware movement decreased stock at an
+ *   attributed bucket without recording a link. Reported explicitly,
+ *   never silently clamped or guessed; takes precedence over every other
+ *   consistency value, since Zone 5's own physical-quantity signal cannot
+ *   be trusted for this line's own locations at all when this fires (all
+ *   `physicalQuantity` values are 0 in this case -- the read failed, it
+ *   was not merely empty).
+ */
+export type RepairOrderLinePhysicalStateConsistency =
+  | "consistent"
+  | "uncontainerized"
+  | "location_mismatch"
+  | "unknown"
+  | "inconsistent_history";
+
+/**
+ * Zone 3 <-> Zone 5 integration layer (2026-09-15, live-read since A8
+ * 2026-09-22): "what is the current physical stock state for this
+ * RepairOrderLine?", reconciling Zone 5's own live-computed physical
+ * state with Phase 10's own reservation/allocation/container chain,
+ * WITHOUT mutating either side.
+ * See `RepairOrdersService.getPhysicalStateForLine`'s own doc comment for
+ * the full reconciliation algorithm and its "never guess" guarantee.
+ */
+export interface RepairOrderLinePhysicalState {
+  repairOrderLineId: string;
+  locations: RepairOrderLinePhysicalStateLocation[];
+  consistency: RepairOrderLinePhysicalStateConsistency;
 }
 
 /**
@@ -456,14 +821,18 @@ interface ProvenanceDbRow {
       unit: string | null;
       raw_text: string | null;
       wdd_matcher_line_id: string | null;
-      line_links: Array<{
-        repair_order_line_id: string;
-        quantity_contribution: number;
-        linked_at: string;
-      }> | null;
+      /** An array -- or a single object: the unique index on
+       * workshop_source_document_line_id (2026-10-02) makes PostgREST embed it as 1:1. */
+      line_links: ProvenanceLineLink[] | ProvenanceLineLink | null;
     }> | null;
   } | null;
 }
+
+type ProvenanceLineLink = {
+  repair_order_line_id: string;
+  quantity_contribution: number;
+  linked_at: string;
+};
 
 function mapProvenanceDocument(
   row: ProvenanceDbRow,
@@ -488,7 +857,12 @@ function mapProvenanceDocument(
     // anywhere in the architecture doc calls for the latter (checked, not
     // assumed, before applying this fix) -- the line-level content itself
     // is therefore filtered, not just the contribution reference inside it.
-    const ownContributions = (line.line_links ?? [])
+    const links = Array.isArray(line.line_links)
+      ? line.line_links
+      : line.line_links
+        ? [line.line_links]
+        : [];
+    const ownContributions = links
       .filter((link) => ownLineIds.has(link.repair_order_line_id))
       .map((link) => ({
         repairOrderLineId: link.repair_order_line_id,
@@ -737,12 +1111,14 @@ export class RepairOrdersService {
     supabase: SupabaseClient,
     orgId: string,
     branchId: string | null,
-    search: string | null
+    search: string | null,
+    /** DMS warehouse code (e.g. 3112): the same order number exists in several warehouses. */
+    warehouseCode: string | null = null
   ): Promise<ServiceResult<RepairOrderListRow[]>> {
     let query = supabase
       .from("repair_orders")
       .select(
-        `id, zl_number, order_number, vin, status, identity_status, advisor_contact_id, created_at, updated_at,
+        `id, zl_number, order_no, order_year, warehouse_code, order_number, vin, status, identity_status, advisor_contact_id, created_at, updated_at,
          advisor:crm_contacts!repair_orders_advisor_contact_id_fkey(display_name)`
       )
       .eq("organization_id", orgId)
@@ -750,6 +1126,7 @@ export class RepairOrdersService {
       .order("created_at", { ascending: false });
 
     if (branchId) query = query.eq("branch_id", branchId);
+    if (warehouseCode) query = query.eq("warehouse_code", warehouseCode);
 
     const trimmed = search?.trim();
     if (trimmed) {
@@ -1492,5 +1869,1029 @@ export class RepairOrdersService {
     }
 
     return { success: true, data: documents };
+  }
+
+  /**
+   * Phase 10: attribute one already-posted, real `inventory_movement_lines`
+   * row to a RepairOrderLine -- the ONLY writer this phase adds for
+   * `repair_order_line_movement_links`. Calls the atomic SECURITY DEFINER
+   * RPC `attach_repair_order_line_movement` (20260912162802_repair_order_
+   * line_movement_attach_rpc.sql), which is the single place every
+   * attribution validation rule lives (actor identity, branch permission,
+   * cross-org/branch movement-line match, posted-status, relation_type <->
+   * movement-category match, RepairOrder-reference consistency where the
+   * movement carries one, variant compatibility where the RepairOrderLine
+   * carries one, and the applied-quantity-never-exceeds-the-movement-line's
+   * -own-quantity cap, enforced under a row lock so concurrent attempts
+   * against the SAME movement line cannot race past the cap) -- see that
+   * migration's own comments for the exact rules. This method performs no
+   * additional validation of its own and makes no assumption about SKU:
+   * every RepairOrderLine/movement-line pairing is exactly what the caller
+   * explicitly passed in, never inferred.
+   *
+   * `relation_type: 'issue'` is accepted by the RPC's own signature (kept
+   * forward-compatible for Phase 10F, which will reuse this exact same
+   * primitive rather than needing a new one) but cannot succeed against any
+   * data live today -- LIVE VERIFIED this session: the target project has
+   * no `inventory_movement_types` row with `category = 'issue'` at all (the
+   * only live categories are `receipt`, `transfer`, `adjustment`,
+   * `bin_operation`), so the RPC's own category-match check rejects every
+   * real issue attempt today. This method does not fabricate an issue flow
+   * to work around that -- it is a genuine, disclosed, live-data-backed
+   * limitation, not a design choice made here.
+   *
+   * `relation_type: 'reversal'` is deliberately not accepted at all (the
+   * RPC rejects it outright) -- no netting/linkage semantics for it exist
+   * anywhere in the architecture, matching Phase 8's own read-side
+   * disclosed limitation (`listRepairOrderLines`'s own doc comment).
+   *
+   * Event emission (Mode A, best-effort, same pattern as
+   * materializeFromSession above): emitted AFTER the RPC commits; a failure
+   * to emit never rolls back or hides the already-successful attribution.
+   */
+  static async attachMovementToRepairOrderLine(
+    supabase: SupabaseClient,
+    actorUserId: string,
+    params: {
+      repairOrderLineId: string;
+      inventoryMovementLineId: string;
+      appliedQuantity: number;
+      relationType: "receipt" | "issue";
+    }
+  ): Promise<ServiceResult<RepairOrderLineMovementAttachment>> {
+    const { data, error } = await supabase.rpc("attach_repair_order_line_movement", {
+      p_actor_user_id: actorUserId,
+      p_repair_order_line_id: params.repairOrderLineId,
+      p_inventory_movement_line_id: params.inventoryMovementLineId,
+      p_applied_quantity: params.appliedQuantity,
+      p_relation_type: params.relationType,
+    });
+
+    if (error) {
+      console.error(
+        "[RepairOrdersService.attachMovementToRepairOrderLine] attach_repair_order_line_movement RPC error:",
+        error
+      );
+      return { success: false, error: normalizeMovementLinkRpcError(error) };
+    }
+
+    const row = data as {
+      id: string;
+      repair_order_line_id: string;
+      inventory_movement_line_id: string;
+      applied_quantity: number;
+      relation_type: string;
+    };
+    const result: RepairOrderLineMovementAttachment = {
+      id: row.id,
+      repairOrderLineId: row.repair_order_line_id,
+      inventoryMovementLineId: row.inventory_movement_line_id,
+      appliedQuantity: row.applied_quantity,
+      relationType: row.relation_type as "receipt" | "issue",
+    };
+
+    const emitResult = await eventService.emit({
+      actionKey: "workshop.repair_orders.movement_attributed",
+      actorType: "user",
+      actorUserId,
+      entityType: "repair_order_line",
+      entityId: result.repairOrderLineId,
+      metadata: {
+        inventoryMovementLineId: result.inventoryMovementLineId,
+        appliedQuantity: result.appliedQuantity,
+        relationType: result.relationType,
+      },
+      eventTier: "baseline",
+    });
+
+    if (!emitResult.success) {
+      // Best-effort per Mode A -- the domain write above already succeeded
+      // and is returned to the caller regardless of this failure.
+      console.error(
+        "[RepairOrdersService.attachMovementToRepairOrderLine] Failed to emit workshop.repair_orders.movement_attributed:",
+        (emitResult as { success: false; error: string }).error
+      );
+    }
+
+    return { success: true, data: result };
+  }
+
+  /**
+   * Phase 10A: resolve a RepairOrderLine's own authoritative scope --
+   * its parent RepairOrder's `organization_id`/`branch_id`, and the line's
+   * own `variant_id` (nullable -- some logical lines have no variant match
+   * yet, per Phase 8's own read model). Two bounded queries (parent-then-
+   * child), matching every other Zone 3 method's own "never trust a
+   * client-supplied org/branch" convention -- never a single query that
+   * would let a caller supply org/branch directly. Returns `null` for a
+   * missing/soft-deleted line or a missing/soft-deleted parent RepairOrder
+   * -- the caller turns that into a safe, existence-non-leaking error.
+   */
+  private static async resolveRepairOrderLineScope(
+    supabase: SupabaseClient,
+    repairOrderLineId: string
+  ): Promise<{
+    repairOrderId: string;
+    organizationId: string;
+    branchId: string;
+    variantId: string | null;
+  } | null> {
+    const { data: line, error: lineError } = await supabase
+      .from("repair_order_lines")
+      .select("id, repair_order_id, variant_id")
+      .eq("id", repairOrderLineId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (lineError || !line) return null;
+
+    const { data: order, error: orderError } = await supabase
+      .from("repair_orders")
+      .select("id, organization_id, branch_id")
+      .eq("id", line.repair_order_id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (orderError || !order) return null;
+
+    return {
+      repairOrderId: order.id,
+      organizationId: order.organization_id,
+      branchId: order.branch_id,
+      variantId: line.variant_id,
+    };
+  }
+
+  /**
+   * Phase 10C: resolve a RepairOrder's own authoritative
+   * `organization_id`/`branch_id` directly (no logical-line hop needed --
+   * container ownership is at the RepairOrder header level, per decision:
+   * "one RepairOrder may own many containers; one container operationally
+   * belongs to one RepairOrder"). Same never-trust-client-supplied-scope
+   * convention as `resolveRepairOrderLineScope`. Returns `null` for a
+   * missing/soft-deleted RepairOrder.
+   */
+  private static async resolveRepairOrderScope(
+    supabase: SupabaseClient,
+    repairOrderId: string
+  ): Promise<{ organizationId: string; branchId: string } | null> {
+    const { data: order, error } = await supabase
+      .from("repair_orders")
+      .select("id, organization_id, branch_id")
+      .eq("id", repairOrderId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error || !order) return null;
+
+    return { organizationId: order.organization_id, branchId: order.branch_id };
+  }
+
+  /**
+   * Phase 10A read model: every reservation genuinely attributed to one
+   * RepairOrderLine (`reference_type='repair_order_line'`,
+   * `reference_id=repairOrderLineId`), with each reservation's own lines
+   * and their outstanding quantity (`reserved - released - fulfilled`,
+   * the LIVE-VERIFIED engine formula). Deliberately does NOT assume 1
+   * reservation or 1 line per reservation -- both are genuinely
+   * many-valued in this schema (LIVE VERIFIED: no uniqueness constraint
+   * restricts either). `deleted_at IS NULL` scoped, ordered oldest-first.
+   * Org/branch scope is resolved from the parent RepairOrderLine, never
+   * trusted from the caller, matching every other Zone 3 read method.
+   *
+   * Domain-integrity correction (2026-09-14, external review): header
+   * reference equality is not sufficient proof of product identity (see
+   * `allocateForLine`'s own doc comment for the full finding) -- only
+   * lines whose own `variant_id` exactly matches this RepairOrderLine's
+   * authoritative `variant_id` are counted; a reservation left with zero
+   * matching lines after that filter is omitted from the result entirely.
+   */
+  static async listReservationsForLine(
+    supabase: SupabaseClient,
+    repairOrderLineId: string
+  ): Promise<ServiceResult<RepairOrderLineReservation[]>> {
+    const scope = await RepairOrdersService.resolveRepairOrderLineScope(
+      supabase,
+      repairOrderLineId
+    );
+    if (!scope) {
+      // Not found / wrong scope -- no reservations exposed, no error, no
+      // existence leak, matching listRepairOrderLines' own convention.
+      return { success: true, data: [] };
+    }
+
+    const { data, error } = await supabase
+      .from("inventory_reservations")
+      .select(
+        `id, reservation_number, status, expires_at, created_at,
+         inventory_reservation_lines!inner(id, variant_id, location_id, lot_id, serial_id, reserved_quantity, released_quantity, fulfilled_quantity)`
+      )
+      .eq("organization_id", scope.organizationId)
+      .eq("branch_id", scope.branchId)
+      // A reservation line names its repair-order line (one document per
+      // order line, or one per repair order with a line per part).
+      .eq("inventory_reservation_lines.repair_order_line_id", repairOrderLineId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("[RepairOrdersService.listReservationsForLine] query error:", error);
+      return {
+        success: false,
+        error:
+          "Failed to load reservations due to an unexpected server error. Please try again or contact support.",
+      };
+    }
+
+    type ReservationRow = {
+      id: string;
+      reservation_number: string;
+      status: string;
+      expires_at: string | null;
+      created_at: string;
+      inventory_reservation_lines: Array<{
+        id: string;
+        variant_id: string;
+        location_id: string | null;
+        lot_id: string | null;
+        serial_id: string | null;
+        reserved_quantity: number;
+        released_quantity: number;
+        fulfilled_quantity: number;
+      }> | null;
+    };
+
+    // Domain-integrity correction (2026-09-14, external review): a
+    // reservation HEADER matching `reference_type`/`reference_id` is NOT
+    // sufficient proof that one of its own LINES represents this
+    // RepairOrderLine's product identity -- `reference_id` is generic
+    // metadata with no FK (LIVE VERIFIED), and the generic Warehouse
+    // reservation action accepts it as unrestricted client input, entirely
+    // independent of each line's own `variant_id`. Only a reservation
+    // line whose own `variant_id` exactly matches this RepairOrderLine's
+    // own authoritative `scope.variantId` is counted as this line's own
+    // reservation quantity -- never inferred by SKU/product_code. A
+    // reservation with zero matching lines after this filter contributes
+    // nothing and is omitted entirely (a reservation header alone, with no
+    // line genuinely attributable to this RepairOrderLine, carries no
+    // useful reservation-quantity information for it). `scope.variantId`
+    // may be `null` (a RepairOrderLine with no product identity yet) --
+    // no real reservation line can ever match that, which is correct
+    // (mirrors `reserveForLine`'s own pre-existing no-variant guard).
+    const reservations = (data as unknown as ReservationRow[])
+      .map((row) => {
+        const lines: RepairOrderLineReservationLine[] = (row.inventory_reservation_lines ?? [])
+          .filter((line) => line.variant_id === scope.variantId)
+          .map((line) => ({
+            id: line.id,
+            variantId: line.variant_id,
+            locationId: line.location_id,
+            lotId: line.lot_id,
+            serialId: line.serial_id,
+            reservedQuantity: line.reserved_quantity,
+            releasedQuantity: line.released_quantity,
+            fulfilledQuantity: line.fulfilled_quantity,
+            outstandingQuantity:
+              line.reserved_quantity - line.released_quantity - line.fulfilled_quantity,
+          }));
+        return {
+          id: row.id,
+          reservationNumber: row.reservation_number,
+          status: row.status,
+          expiresAt: row.expires_at,
+          createdAt: row.created_at,
+          lines,
+          outstandingQuantity: lines.reduce((sum, l) => sum + l.outstandingQuantity, 0),
+        };
+      })
+      .filter((reservation) => reservation.lines.length > 0);
+
+    return { success: true, data: reservations };
+  }
+
+  /**
+   * Phase 10B read model: every `inventory_allocation_lines` row reachable
+   * from this RepairOrderLine via the authoritative chain (this line's own
+   * reservations -> their own reservation lines -> allocation lines
+   * pointing at those reservation lines via `reservation_line_id`). No
+   * RepairOrderLine FK was added to either allocation table -- the chain,
+   * already indexed (`inventory_allocation_lines_reservation_line_id_idx`,
+   * LIVE VERIFIED to already exist), is sufficient. Returns `[]` (not an
+   * error) for an unresolvable line, matching `listReservationsForLine`'s
+   * own no-existence-leak convention. `deleted_at IS NULL` is filtered
+   * explicitly on the allocation header, not left to RLS alone -- LIVE
+   * VERIFIED `inventory_allocations_operate` (the `ALL`-command policy) has
+   * no `deleted_at` check of its own, unlike the dedicated `_select`
+   * policy; an actor with only `.operate` could otherwise see a
+   * soft-deleted row through that policy (the exact same asymmetry
+   * Phase 10A's own reservation read model already defends against the
+   * same way).
+   *
+   * Domain-integrity correction (2026-09-14, external review): the chain
+   * only follows reservation LINES whose own `variant_id` exactly matches
+   * this RepairOrderLine's own authoritative `variant_id` -- a reservation
+   * header matching `reference_type`/`reference_id` is not itself
+   * sufficient proof of product identity (see `allocateForLine`'s own doc
+   * comment for the full finding).
+   */
+  static async listAllocationsForLine(
+    supabase: SupabaseClient,
+    repairOrderLineId: string
+  ): Promise<ServiceResult<RepairOrderLineAllocationLine[]>> {
+    const scope = await RepairOrdersService.resolveRepairOrderLineScope(
+      supabase,
+      repairOrderLineId
+    );
+    if (!scope) {
+      return { success: true, data: [] };
+    }
+
+    const { data: reservationRows, error: reservationError } = await supabase
+      .from("inventory_reservations")
+      .select("inventory_reservation_lines!inner(id, variant_id)")
+      .eq("organization_id", scope.organizationId)
+      .eq("branch_id", scope.branchId)
+      .eq("inventory_reservation_lines.repair_order_line_id", repairOrderLineId)
+      .is("deleted_at", null);
+
+    if (reservationError) {
+      console.error(
+        "[RepairOrdersService.listAllocationsForLine] reservation lookup error:",
+        reservationError
+      );
+      return {
+        success: false,
+        error:
+          "Failed to load allocations due to an unexpected server error. Please try again or contact support.",
+      };
+    }
+
+    // Domain-integrity correction (2026-09-14, external review): a
+    // reservation LINE is only a valid source of allocation state for
+    // this RepairOrderLine if its own `variant_id` exactly matches the
+    // RepairOrderLine's own authoritative `scope.variantId` -- header
+    // reference equality alone is not sufficient (see `allocateForLine`'s
+    // own doc comment for the full finding). Filtered here, BEFORE
+    // collecting reservation-line ids, so a wrong-variant reservation
+    // line's own allocation lines are never even queried, let alone
+    // surfaced.
+    type ReservationLinesRow = {
+      inventory_reservation_lines: Array<{ id: string; variant_id: string }> | null;
+    };
+    const reservationLineIds = (
+      (reservationRows ?? []) as unknown as ReservationLinesRow[]
+    ).flatMap((r) =>
+      (r.inventory_reservation_lines ?? [])
+        .filter((l) => l.variant_id === scope.variantId)
+        .map((l) => l.id)
+    );
+
+    if (reservationLineIds.length === 0) {
+      return { success: true, data: [] };
+    }
+
+    const { data, error } = await supabase
+      .from("inventory_allocation_lines")
+      .select(
+        `id, reservation_line_id, variant_id, location_id, lot_id, serial_id, allocated_quantity, fulfilled_quantity,
+         allocation:inventory_allocations!inventory_allocation_lines_allocation_id_fkey(id, allocation_number, status, deleted_at)`
+      )
+      .eq("organization_id", scope.organizationId)
+      .eq("branch_id", scope.branchId)
+      .in("reservation_line_id", reservationLineIds);
+
+    if (error) {
+      console.error("[RepairOrdersService.listAllocationsForLine] query error:", error);
+      return {
+        success: false,
+        error:
+          "Failed to load allocations due to an unexpected server error. Please try again or contact support.",
+      };
+    }
+
+    type AllocationHeaderEmbed = {
+      id: string;
+      allocation_number: string;
+      status: string;
+      deleted_at: string | null;
+    };
+    type AllocationLineRow = {
+      id: string;
+      reservation_line_id: string | null;
+      variant_id: string;
+      location_id: string;
+      lot_id: string | null;
+      serial_id: string | null;
+      allocated_quantity: number;
+      fulfilled_quantity: number;
+      allocation: AllocationHeaderEmbed | AllocationHeaderEmbed[] | null;
+    };
+
+    const lines: RepairOrderLineAllocationLine[] = [];
+    for (const row of (data ?? []) as unknown as AllocationLineRow[]) {
+      const allocation = Array.isArray(row.allocation) ? row.allocation[0] : row.allocation;
+      // Defensive re-filter, not relying on RLS alone -- see this method's
+      // own doc comment for why the ALL/`.operate` policy does not itself
+      // exclude a soft-deleted allocation header.
+      if (!allocation || allocation.deleted_at !== null) continue;
+
+      lines.push({
+        id: row.id,
+        allocationId: allocation.id,
+        allocationNumber: allocation.allocation_number,
+        allocationStatus: allocation.status,
+        reservationLineId: row.reservation_line_id,
+        variantId: row.variant_id,
+        locationId: row.location_id,
+        lotId: row.lot_id,
+        serialId: row.serial_id,
+        allocatedQuantity: row.allocated_quantity,
+        fulfilledQuantity: row.fulfilled_quantity,
+        outstandingQuantity: row.allocated_quantity - row.fulfilled_quantity,
+      });
+    }
+
+    return { success: true, data: lines };
+  }
+
+  /**
+   * Phase 10C: create a real physical container owned by one RepairOrder,
+   * via the existing, unmodified generic `inventory_create_container` RPC
+   * (LIVE VERIFIED: `SECURITY DEFINER`, owner `postgres`, its own actor-
+   * identity check first, then `has_branch_permission(...,
+   * 'warehouse.inventory.operate')`).
+   *
+   * Ownership is server-authoritative: `organization_id`/`branch_id` are
+   * resolved from the RepairOrder's own row (`resolveRepairOrderScope`),
+   * never accepted from the caller. `reference_type = 'repair_order'` /
+   * `reference_id = repairOrderId` is the ONLY ownership signal ever
+   * written -- the same generic reference pattern reservations/allocations
+   * already use, requiring zero schema change. One RepairOrder may own
+   * many containers; this method never assumes 1:1.
+   *
+   * A freshly created container always starts `status: "empty"` (the
+   * RPC's own deliberate choice, LIVE VERIFIED -- an honestly empty
+   * container, not a nominally-"active"-but-actually-empty one).
+   */
+  static async createContainerForRepairOrder(
+    supabase: SupabaseClient,
+    actorUserId: string,
+    input: {
+      repairOrderId: string;
+      code: string;
+      currentLocationId: string;
+      type?: string;
+    }
+  ): Promise<ServiceResult<RepairOrderContainerResult>> {
+    const scope = await RepairOrdersService.resolveRepairOrderScope(supabase, input.repairOrderId);
+    if (!scope) {
+      return { success: false, error: "RepairOrder not found" };
+    }
+
+    const { data, error } = await supabase.rpc("inventory_create_container", {
+      p_actor_user_id: actorUserId,
+      p_organization_id: scope.organizationId,
+      p_branch_id: scope.branchId,
+      p_code: input.code,
+      p_current_location_id: input.currentLocationId,
+      p_type: input.type ?? "container",
+      p_reference_type: "repair_order",
+      p_reference_id: input.repairOrderId,
+    });
+
+    if (error) {
+      console.error(
+        "[RepairOrdersService.createContainerForRepairOrder] inventory_create_container RPC error:",
+        error
+      );
+      return { success: false, error: normalizeContainerRpcError(error) };
+    }
+
+    const row = data as { container_id: string; code: string; status: string };
+    const result: RepairOrderContainerResult = {
+      containerId: row.container_id,
+      code: row.code,
+      status: row.status,
+    };
+
+    const emitResult = await eventService.emit({
+      actionKey: "workshop.repair_orders.container_created",
+      actorType: "user",
+      actorUserId,
+      entityType: "repair_order",
+      entityId: input.repairOrderId,
+      metadata: { containerId: result.containerId, code: result.code },
+      eventTier: "baseline",
+    });
+    if (!emitResult.success) {
+      console.error(
+        "[RepairOrdersService.createContainerForRepairOrder] Failed to emit workshop.repair_orders.container_created:",
+        (emitResult as { success: false; error: string }).error
+      );
+    }
+
+    return { success: true, data: result };
+  }
+
+  /**
+   * Zone 3 <-> Zone 5 integration layer (2026-09-15, live-read since A8
+   * 2026-09-22): "what is the current physical stock state for this
+   * RepairOrderLine?" -- reconciles Zone 5's own physical-location state,
+   * now computed LIVE on every call via `get_repair_order_line_physical_
+   * state` (no more persisted, incrementally-maintained projection table --
+   * see the A8 review bundle) with this line's own reservation/allocation/
+   * container chain (Phase 10A/10B/10C), a PURE READ, mutating neither
+   * side. Per the accepted integration decision: these are SEQUENTIAL
+   * stages of one normal lifecycle (101 receive -> 801 putaway ->
+   * reservation -> allocation -> container -> QR -> 801 relocation ->
+   * issue), not competing models -- this method is the first read layer
+   * that looks at both stages together.
+   *
+   * NEVER guesses. If the two sides' own physical-location claims disagree,
+   * this returns an honest `"location_mismatch"` consistency value rather
+   * than silently preferring one side. If the live read itself detects a
+   * bucket-level history inconsistency (canonical attribution exceeding
+   * physical reality), this returns `"inconsistent_history"` rather than
+   * silently clamping or guessing -- see
+   * `RepairOrderLinePhysicalStateConsistency`'s own doc comment for the
+   * exact rules and their precedence.
+   *
+   * NO hard schema coupling was added to produce this: no FK/trigger
+   * between the live-read RPC and
+   * `inventory_containers`/`inventory_allocation_container_links` -- this
+   * method reconciles them entirely in application code, reading each
+   * domain's own existing, unmodified tables/read-model methods.
+   *
+   * Org/branch/variant scope is resolved once from the RepairOrderLine's
+   * own authoritative row (`resolveRepairOrderLineScope`) and every query
+   * below is explicitly re-scoped by it -- never trusted from an FK alone
+   * (matches every other Zone 3 read method's own convention; also closes
+   * the specific cross-org/branch leak risk this integration layer's own
+   * task explicitly called out).
+   *
+   * Reuses `listReservationsForLine`/`listAllocationsForLine` rather than
+   * re-deriving the RepairOrderLine -> Reservation -> ReservationLine ->
+   * AllocationLine chain a third time -- both already enforce the accepted
+   * domain-integrity variant-identity filter (2026-09-14 correction), so
+   * this method inherits that guarantee for free.
+   *
+   * Returns `{ success: true, data: null }` (no error, no existence leak)
+   * for an unresolvable RepairOrderLine, matching `getByIdForWorkshop`'s
+   * own singular-read convention.
+   */
+  static async getPhysicalStateForLine(
+    supabase: SupabaseClient,
+    repairOrderLineId: string
+  ): Promise<ServiceResult<RepairOrderLinePhysicalState | null>> {
+    const scope = await RepairOrdersService.resolveRepairOrderLineScope(
+      supabase,
+      repairOrderLineId
+    );
+    if (!scope) {
+      return { success: true, data: null };
+    }
+
+    // ---- Zone 5's own physical-location state, computed LIVE (A8) ------
+    const { data: physicalStateRow, error: physicalStateError } = await supabase.rpc(
+      "get_repair_order_line_physical_state",
+      {
+        p_organization_id: scope.organizationId,
+        p_branch_id: scope.branchId,
+        p_repair_order_line_id: repairOrderLineId,
+      }
+    );
+
+    let zone5Rows: { location_id: string; quantity: number }[] = [];
+    let historyInconsistent = false;
+
+    if (physicalStateError) {
+      if (physicalStateError.code === "P0008") {
+        // A genuine, explicit history inconsistency (never silently
+        // clamped/guessed) -- surfaced as its own consistency value below,
+        // not treated as a generic server-error failure. Zone 5's own
+        // physical-quantity signal is not trusted for this line at all
+        // in this case (every location's own physicalQuantity is 0).
+        historyInconsistent = true;
+      } else {
+        console.error(
+          "[RepairOrdersService.getPhysicalStateForLine] get_repair_order_line_physical_state RPC error:",
+          physicalStateError
+        );
+        return {
+          success: false,
+          error:
+            "Failed to load physical stock state due to an unexpected server error. Please try again or contact support.",
+        };
+      }
+    } else {
+      const row = physicalStateRow as {
+        locations: { location_id: string; variant_id: string; quantity: number }[];
+      };
+      zone5Rows = (row?.locations ?? []).map((l) => ({
+        location_id: l.location_id,
+        quantity: l.quantity,
+      }));
+    }
+
+    // ---- Phase 10A/10B: reservations and allocations, reused -----------
+    const reservationsResult = await RepairOrdersService.listReservationsForLine(
+      supabase,
+      repairOrderLineId
+    );
+    if (!reservationsResult.success) {
+      return {
+        success: false,
+        error: (reservationsResult as { success: false; error: string }).error,
+      };
+    }
+
+    const allocationsResult = await RepairOrdersService.listAllocationsForLine(
+      supabase,
+      repairOrderLineId
+    );
+    if (!allocationsResult.success) {
+      return {
+        success: false,
+        error: (allocationsResult as { success: false; error: string }).error,
+      };
+    }
+
+    // ---- Phase 10C: active container placements for this line's own
+    // allocation lines, via three plain sequential queries (matches this
+    // service's own established style elsewhere, rather than a fragile
+    // multi-level embed) -------------------------------------------------
+    const allocationLineIds = allocationsResult.data.map((a) => a.id);
+
+    type LinkRow = {
+      id: string;
+      quantity: number;
+      allocation_line_id: string;
+      container_line_id: string;
+    };
+    let linkRows: LinkRow[] = [];
+    if (allocationLineIds.length > 0) {
+      const { data, error } = await supabase
+        .from("inventory_allocation_container_links")
+        .select("id, quantity, allocation_line_id, container_line_id")
+        .eq("organization_id", scope.organizationId)
+        .eq("branch_id", scope.branchId)
+        .in("allocation_line_id", allocationLineIds)
+        .is("deleted_at", null);
+
+      if (error) {
+        console.error(
+          "[RepairOrdersService.getPhysicalStateForLine] inventory_allocation_container_links query error:",
+          error
+        );
+        return {
+          success: false,
+          error:
+            "Failed to load physical stock state due to an unexpected server error. Please try again or contact support.",
+        };
+      }
+      linkRows = (data ?? []) as LinkRow[];
+    }
+
+    type ContainerLineRow = { id: string; container_id: string };
+    let containerLineRows: ContainerLineRow[] = [];
+    const containerLineIds = [...new Set(linkRows.map((l) => l.container_line_id))];
+    if (containerLineIds.length > 0) {
+      const { data, error } = await supabase
+        .from("inventory_container_lines")
+        .select("id, container_id")
+        .eq("organization_id", scope.organizationId)
+        .eq("branch_id", scope.branchId)
+        .in("id", containerLineIds)
+        .is("deleted_at", null);
+
+      if (error) {
+        console.error(
+          "[RepairOrdersService.getPhysicalStateForLine] inventory_container_lines query error:",
+          error
+        );
+        return {
+          success: false,
+          error:
+            "Failed to load physical stock state due to an unexpected server error. Please try again or contact support.",
+        };
+      }
+      containerLineRows = (data ?? []) as ContainerLineRow[];
+    }
+
+    type ContainerRow = {
+      id: string;
+      code: string;
+      current_location_id: string | null;
+      status: string;
+    };
+    let containerRows: ContainerRow[] = [];
+    const containerIds = [...new Set(containerLineRows.map((cl) => cl.container_id))];
+    if (containerIds.length > 0) {
+      const { data, error } = await supabase
+        .from("inventory_containers")
+        .select("id, code, current_location_id, status")
+        .eq("organization_id", scope.organizationId)
+        .eq("branch_id", scope.branchId)
+        .in("id", containerIds)
+        .is("deleted_at", null);
+
+      if (error) {
+        console.error(
+          "[RepairOrdersService.getPhysicalStateForLine] inventory_containers query error:",
+          error
+        );
+        return {
+          success: false,
+          error:
+            "Failed to load physical stock state due to an unexpected server error. Please try again or contact support.",
+        };
+      }
+      containerRows = (data ?? []) as ContainerRow[];
+    }
+
+    const containerLineById = new Map(containerLineRows.map((cl) => [cl.id, cl]));
+    const containerById = new Map(containerRows.map((c) => [c.id, c]));
+    const allocationLineById = new Map(allocationsResult.data.map((a) => [a.id, a]));
+
+    // A soft-deleted container/container_line means the link's own chain is
+    // no longer active physical placement, even if the link row itself
+    // passed the `deleted_at IS NULL` filter above (e.g. a container
+    // deleted -- not a real path today, but defensively excluded, not
+    // assumed impossible) -- excluded here rather than trusted.
+    const activeLinks = linkRows
+      .map((link) => {
+        const containerLine = containerLineById.get(link.container_line_id);
+        const container = containerLine ? containerById.get(containerLine.container_id) : undefined;
+        const allocationLine = allocationLineById.get(link.allocation_line_id);
+        if (!containerLine || !container || !allocationLine) return null;
+        return { link, container, allocationLine };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+
+    // Internal Phase 10C consistency: an active link's own container must
+    // sit at the same location as its own allocation line (the invariant
+    // `inventory_add_to_container` itself enforces at placement time --
+    // see Phase 10C's own correction pass). If it ever doesn't, this
+    // method cannot trust either signal -- surfaced as "unknown", never
+    // silently picked.
+    const hasInternalPhase10cInconsistency = activeLinks.some(
+      ({ container, allocationLine }) => container.current_location_id !== allocationLine.locationId
+    );
+
+    // ---- Union of every location either side ever mentions -------------
+    const locationIds = new Set<string>();
+    for (const row of zone5Rows ?? []) locationIds.add(row.location_id as string);
+    for (const line of reservationsResult.data.flatMap((r) => r.lines)) {
+      if (line.locationId) locationIds.add(line.locationId);
+    }
+    for (const line of allocationsResult.data) locationIds.add(line.locationId);
+
+    // ---- Build one bucket per location ----------------------------------
+    const locations: RepairOrderLinePhysicalStateLocation[] = [...locationIds]
+      .sort()
+      .map((locationId) => {
+        const physicalQuantity = (zone5Rows ?? [])
+          .filter((r) => r.location_id === locationId)
+          .reduce((sum, r) => sum + (r.quantity as number), 0);
+
+        const reservedQuantity = reservationsResult.data
+          .flatMap((r) => r.lines)
+          .filter((l) => l.locationId === locationId)
+          .reduce((sum, l) => sum + l.outstandingQuantity, 0);
+
+        const allocationLinesHere = allocationsResult.data.filter(
+          (l) => l.locationId === locationId
+        );
+        const allocatedQuantity = allocationLinesHere.reduce(
+          (sum, l) => sum + l.outstandingQuantity,
+          0
+        );
+
+        const linksHere = activeLinks.filter(({ allocationLine }) =>
+          allocationLinesHere.some((l) => l.id === allocationLine.id)
+        );
+        const containerizedQuantity = linksHere.reduce((sum, { link }) => sum + link.quantity, 0);
+
+        const containersByContainerId = new Map<string, RepairOrderLinePhysicalStateContainer>();
+        for (const { link, container } of linksHere) {
+          const existing = containersByContainerId.get(container.id);
+          if (existing) {
+            existing.quantity += link.quantity;
+          } else {
+            containersByContainerId.set(container.id, {
+              containerId: container.id,
+              containerCode: container.code,
+              quantity: link.quantity,
+              currentLocationId: container.current_location_id,
+              status: container.status,
+            });
+          }
+        }
+
+        return {
+          locationId,
+          physicalQuantity,
+          reservedQuantity,
+          allocatedQuantity,
+          containerizedQuantity,
+          uncontainerizedAllocatedQuantity: Math.max(0, allocatedQuantity - containerizedQuantity),
+          containers: [...containersByContainerId.values()],
+        };
+      });
+
+    // ---- Overall consistency (precedence: inconsistent_history > unknown
+    // > mismatch > uncontainerized > consistent) --------------------------
+    let consistency: RepairOrderLinePhysicalStateConsistency;
+
+    const zone5LocationSet = new Set(
+      locations.filter((l) => l.physicalQuantity > 0).map((l) => l.locationId)
+    );
+    const allocatedLocationSet = new Set(
+      locations.filter((l) => l.allocatedQuantity > 0).map((l) => l.locationId)
+    );
+    const bothNonEmpty = zone5LocationSet.size > 0 && allocatedLocationSet.size > 0;
+    const setsDiffer =
+      bothNonEmpty &&
+      ([...zone5LocationSet].some((id) => !allocatedLocationSet.has(id)) ||
+        [...allocatedLocationSet].some((id) => !zone5LocationSet.has(id)));
+
+    if (historyInconsistent) {
+      consistency = "inconsistent_history";
+    } else if (hasInternalPhase10cInconsistency) {
+      consistency = "unknown";
+    } else if (setsDiffer) {
+      consistency = "location_mismatch";
+    } else if (locations.some((l) => l.uncontainerizedAllocatedQuantity > 0)) {
+      consistency = "uncontainerized";
+    } else {
+      consistency = "consistent";
+    }
+
+    return {
+      success: true,
+      data: { repairOrderLineId, locations, consistency },
+    };
+  }
+
+  /**
+   * Zone 3 / Phase 11: per-line warehouse documents and current locations, for the
+   * "Zamówienia-Przyjęcia" and "Magazyn" tabs of the RepairOrder page.
+   *
+   * Same parent-scope check as `listRepairOrderLines` (an inaccessible / wrong-branch /
+   * soft-deleted order yields an empty list, never an error or a leak). Documents come from
+   * `repair_order_line_movement_links` (receipt and issue relations) in one embedded select
+   * through the movement line to its header; current locations reuse
+   * `getPhysicalStateForLine` per line (a RepairOrder has a handful of lines) plus one query
+   * for the location names.
+   */
+  static async getWarehouseView(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string | null,
+    repairOrderId: string
+  ): Promise<ServiceResult<RepairOrderLineWarehouseView[]>> {
+    let parentQuery = supabase
+      .from("repair_orders")
+      .select("id")
+      .eq("id", repairOrderId)
+      .eq("organization_id", orgId)
+      .is("deleted_at", null);
+    if (branchId) parentQuery = parentQuery.eq("branch_id", branchId);
+    const { data: parent, error: parentError } = await parentQuery.maybeSingle();
+    if (parentError) {
+      return {
+        success: false,
+        error: normalizeRepairOrderCrudError("getWarehouseView", parentError),
+      };
+    }
+    if (!parent) return { success: true, data: [] };
+
+    const { data: lineRows, error: linesError } = await supabase
+      .from("repair_order_lines")
+      .select("id")
+      .eq("repair_order_id", repairOrderId)
+      .is("deleted_at", null);
+    if (linesError) {
+      return {
+        success: false,
+        error: normalizeRepairOrderCrudError("getWarehouseView", linesError),
+      };
+    }
+    const lineIds = (lineRows ?? []).map((r) => (r as { id: string }).id);
+    if (lineIds.length === 0) return { success: true, data: [] };
+
+    const [linksResult, physicalResults] = await Promise.all([
+      supabase
+        .from("repair_order_line_movement_links")
+        .select(
+          `repair_order_line_id, applied_quantity, relation_type, created_at,
+           inventory_movement_lines(
+             snapshot_source_location_name, snapshot_destination_location_name,
+             inventory_movement_headers!inventory_movement_lines_header_fk(
+               id, document_number, draft_number, movement_type_code, document_type_code,
+               status, posted_at, document_date
+             )
+           )`
+        )
+        .in("repair_order_line_id", lineIds)
+        .in("relation_type", ["receipt", "issue"]),
+      Promise.all(lineIds.map((id) => RepairOrdersService.getPhysicalStateForLine(supabase, id))),
+    ]);
+    if (linksResult.error) {
+      return {
+        success: false,
+        error: normalizeRepairOrderCrudError("getWarehouseView", linksResult.error),
+      };
+    }
+
+    type LinkRow = {
+      repair_order_line_id: string;
+      applied_quantity: number;
+      relation_type: string;
+      created_at: string;
+      inventory_movement_lines: {
+        snapshot_source_location_name: string | null;
+        snapshot_destination_location_name: string | null;
+        inventory_movement_headers: {
+          id: string;
+          document_number: string | null;
+          draft_number: string | null;
+          movement_type_code: string | null;
+          document_type_code: string | null;
+          status: string;
+          posted_at: string | null;
+          document_date: string | null;
+        } | null;
+      } | null;
+    };
+
+    const view = new Map<string, RepairOrderLineWarehouseView>(
+      lineIds.map((id) => [
+        id,
+        { repairOrderLineId: id, receipts: [], issues: [], locations: [], locationsError: false },
+      ])
+    );
+
+    for (const link of (linksResult.data ?? []) as unknown as LinkRow[]) {
+      const line = view.get(link.repair_order_line_id);
+      const header = link.inventory_movement_lines?.inventory_movement_headers;
+      if (!line || !header) continue;
+      const isIssue = link.relation_type === "issue";
+      const doc: RepairOrderWarehouseDocument = {
+        movementId: header.id,
+        documentNumber: header.document_number ?? header.draft_number,
+        documentTypeCode: header.document_type_code ?? header.movement_type_code,
+        status: header.status,
+        date: header.posted_at ?? header.document_date ?? link.created_at,
+        quantity: Number(link.applied_quantity),
+        locationName: isIssue
+          ? (link.inventory_movement_lines?.snapshot_source_location_name ?? null)
+          : (link.inventory_movement_lines?.snapshot_destination_location_name ?? null),
+      };
+      (isIssue ? line.issues : line.receipts).push(doc);
+    }
+
+    const locationIds = new Set<string>();
+    physicalResults.forEach((r, i) => {
+      const line = view.get(lineIds[i]!)!;
+      if (!r.success) {
+        line.locationsError = true;
+        return;
+      }
+      for (const loc of r.data?.locations ?? []) {
+        if (loc.physicalQuantity <= 0) continue;
+        locationIds.add(loc.locationId);
+        line.locations.push({
+          locationId: loc.locationId,
+          locationName: null,
+          quantity: loc.physicalQuantity,
+          containerCodes: loc.containers.map((c) => c.containerCode),
+        });
+      }
+    });
+
+    if (locationIds.size > 0) {
+      const { data: locs } = await supabase
+        .from("warehouse_locations")
+        .select("id, name, code")
+        .in("id", [...locationIds]);
+      const names = new Map(
+        ((locs ?? []) as { id: string; name: string; code: string | null }[]).map((l) => [
+          l.id,
+          l.code ? `${l.code} · ${l.name}` : l.name,
+        ])
+      );
+      for (const line of view.values()) {
+        for (const loc of line.locations) loc.locationName = names.get(loc.locationId) ?? null;
+      }
+    }
+
+    const byDateDesc = (a: RepairOrderWarehouseDocument, b: RepairOrderWarehouseDocument) =>
+      (b.date ?? "").localeCompare(a.date ?? "");
+    for (const line of view.values()) {
+      line.receipts.sort(byDateDesc);
+      line.issues.sort(byDateDesc);
+    }
+    return { success: true, data: lineIds.map((id) => view.get(id)!) };
   }
 }

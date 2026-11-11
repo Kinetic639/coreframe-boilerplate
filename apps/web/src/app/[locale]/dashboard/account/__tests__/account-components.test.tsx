@@ -52,6 +52,28 @@ vi.mock("@/hooks/queries/user-preferences", () => ({
   useUpdateProfileMutation: vi.fn(),
 }));
 
+// The cropper needs a canvas; here it hands back a fixed "cropped" file
+const croppedFile = new File(["cropped"], "avatar.jpg", { type: "image/jpeg" });
+vi.mock("@/components/v2/media/avatar-crop-dialog", () => ({
+  AvatarCropDialog: ({
+    file,
+    onConfirm,
+  }: {
+    file: File | null;
+    onConfirm: (cropped: File) => void;
+  }) =>
+    file ? (
+      <button
+        type="button"
+        data-testid="crop-save"
+        data-source={file.name}
+        onClick={() => onConfirm(croppedFile)}
+      >
+        save crop
+      </button>
+    ) : null,
+}));
+
 vi.mock("@/components/v2/feedback/loading-skeleton", () => ({
   LoadingSkeleton: ({ variant, count }: { variant?: string; count?: number }) => (
     <div data-testid="loading-skeleton" data-variant={variant} data-count={count}>
@@ -352,7 +374,7 @@ describe("ProfileClient", () => {
     expect(copyButton).toHaveAttribute("data-text", "user-123");
   });
 
-  it("uploads an avatar and refreshes on success", async () => {
+  it("frames the picked photo, then uploads the cropped one and refreshes", async () => {
     setupMocks();
 
     render(
@@ -363,12 +385,18 @@ describe("ProfileClient", () => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [file] } });
 
+    // Picking a file opens the cropper; nothing is uploaded until the frame is saved
+    const save = await screen.findByTestId("crop-save");
+    expect(save).toHaveAttribute("data-source", "avatar.png");
+    expect(uploadAvatarAction).not.toHaveBeenCalled();
+    fireEvent.click(save);
+
     await vi.waitFor(() => {
       expect(uploadAvatarAction).toHaveBeenCalledOnce();
     });
 
     const formData = vi.mocked(uploadAvatarAction).mock.calls[0][0] as FormData;
-    expect(formData.get("file")).toBe(file);
+    expect(formData.get("file")).toBe(croppedFile);
     expect(mockRouterRefresh).toHaveBeenCalled();
   });
 

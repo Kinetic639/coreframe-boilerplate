@@ -38,6 +38,9 @@ import {
   LayoutGrid,
   KanbanSquare,
   ListTodo,
+  BookmarkCheck,
+  Lock,
+  Bug,
 } from "lucide-react";
 import type { IconKey } from "@/lib/types/v2/sidebar";
 
@@ -85,6 +88,9 @@ export const ICON_MAP: Record<IconKey, React.ComponentType<{ className?: string 
   layoutGrid: LayoutGrid,
   kanban: KanbanSquare,
   listTodo: ListTodo,
+  bookmark: BookmarkCheck,
+  lock: Lock,
+  bug: Bug,
 };
 
 /**

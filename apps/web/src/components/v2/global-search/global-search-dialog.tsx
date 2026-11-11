@@ -1,0 +1,1421 @@
+"use client";
+
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
+import { useTheme } from "next-themes";
+import { useQuery } from "@tanstack/react-query";
+import {
+  ArrowRight,
+  ChevronRight,
+  Building2,
+  Check,
+  CornerDownLeft,
+  History,
+  ScanLine,
+  Search,
+  type LucideIcon,
+} from "lucide-react";
+import { toast } from "react-toastify";
+import { Command as CommandPrimitive } from "cmdk";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import { getPathname, usePathname, useRouter } from "@/i18n/navigation";
+import { toUnsafeI18nHref } from "@/lib/i18n/unsafe-href";
+import { getIconComponent } from "@/lib/sidebar/v2/icon-map";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
+import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
+import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
+import { changeBranch } from "@/app/actions/shared/changeBranch";
+import { signOutAction } from "@/app/[locale]/actions";
+import { useReportFeedbackStore } from "@/lib/platform-feedback/report-store";
+import { cn } from "@/lib/utils";
+import {
+  ACTIONS_PREFIX,
+  buildPaletteGroups,
+  parsePaletteQuery,
+  withPalettePrefix,
+  type PaletteItem,
+} from "@/lib/global-search/palette";
+import {
+  pushRecentSearch,
+  readRecentSearches,
+  type RecentSearchItem,
+} from "@/lib/global-search/recent";
+import { SEARCH_SCOPES, type SearchSourceId } from "@/lib/global-search/sources";
+import { readUsage, recordUsage, usageScore } from "@/lib/global-search/frecency";
+import { applyColorTheme } from "@/lib/global-search/color-theme";
+import { COLOR_THEMES } from "@/lib/constants/color-themes";
+import type { SearchEntry } from "@/lib/global-search/types";
+import { useDebounce } from "@/hooks/use-debounce";
+import { useStartDirectChat } from "@/components/v2/messages/use-start-direct-chat";
+import {
+  EMPTY_SEARCH_RESULT,
+  ENTITY_SEARCH_DEBOUNCE_MS,
+  MIN_ENTITY_QUERY,
+  entitySearchQuery,
+} from "@/lib/global-search/entity-search";
+import type { ExactHitType, SearchExactHit } from "@/server/services/global-search.service";
+import { useGlobalSearchStore } from "./global-search-store";
+import { directQrHref, useQrRouteIndex } from "./qr-route-index";
+import { scanSuccessFeedback, unlockScanSound } from "@/components/features/qr/scan-feedback";
+import { GlobalSearchPreview } from "./global-search-preview";
+import { GlobalSearchScanner, type ScannedCode } from "./global-search-scanner";
+import {
+  resolveSubmenu,
+  subItemId,
+  subOptionOf,
+  type PaletteSubmenu,
+  type SubmenuContext,
+} from "./global-search-submenus";
+import { HIT_ICONS, Highlighted, hitDetails, type GlobalSearchTranslator } from "./hit-display";
+
+// Same landing route as the sidebar branch switcher: branch-neutral, never 404s.
+const SAFE_ROUTE_AFTER_BRANCH_SWITCH = "/dashboard/start";
+const BRANCH_ITEM_PREFIX = "branch:";
+const HIT_ITEM_PREFIX = "hit:";
+const SEARCH_DEBOUNCE_MS = ENTITY_SEARCH_DEBOUNCE_MS;
+const MIN_DATA_QUERY = MIN_ENTITY_QUERY;
+const EMPTY_RESULT = EMPTY_SEARCH_RESULT;
+/** Rows per data group from the server; a full group gets a "show all" row */
+const DATA_GROUP_LIMIT = 5;
+const SHOW_ALL_PREFIX = "all:";
+const PREVIEW_DEBOUNCE_MS = 120;
+
+/** Module list a data group's "show all" opens, with the query as its search */
+const SHOW_ALL_LISTS: Partial<Record<ExactHitType, { href: string; param: string }>> = {
+  repairOrder: { href: "/dashboard/workshop", param: "q" },
+  item: { href: "/dashboard/warehouse/items", param: "search" },
+  location: { href: "/dashboard/warehouse/locations", param: "search" },
+  document: { href: "/dashboard/warehouse/inventory/movements", param: "search" },
+  ticket: { href: "/dashboard/help-desk/tickets", param: "search" },
+  task: { href: "/dashboard/planning/tasks", param: "search" },
+  person: { href: "/dashboard/organization/users/members", param: "search" },
+  party: { href: "/dashboard/crm/parties", param: "search" },
+  contact: { href: "/dashboard/crm/contacts", param: "search" },
+  qrCode: { href: "/dashboard/qr", param: "search" },
+  invitation: { href: "/dashboard/organization/users/invitations", param: "search" },
+};
+
+/** Order of the data groups below the pages and actions */
+const DATA_GROUP_ORDER: ExactHitType[] = [
+  "repairOrder",
+  "item",
+  "container",
+  "location",
+  "document",
+  "ticket",
+  "task",
+  "audit",
+  "matcherSession",
+  "qrCode",
+  "party",
+  "contact",
+  "person",
+  "board",
+  "map",
+  "ticketType",
+  "invitation",
+  "comment",
+  "attachment",
+];
+
+type Target =
+  | { type: "entry"; entry: SearchEntry }
+  | { type: "branch"; branchId: string; name: string }
+  | { type: "hit"; hit: SearchExactHit }
+  | { type: "recent"; item: RecentSearchItem }
+  | { type: "link"; href: string; query?: Record<string, string> };
+
+const RECENT_ITEM_PREFIX = "recent:";
+
+function hitItemId(hit: SearchExactHit): string {
+  return `${HIT_ITEM_PREFIX}${hit.type}:${hit.id}`;
+}
+
+function recentItemId(item: RecentSearchItem): string {
+  return `${RECENT_ITEM_PREFIX}${item.id}`;
+}
+
+function routeHref(href: string, query?: Record<string, string>) {
+  const pathname = toUnsafeI18nHref(href);
+  return query ? { pathname, query } : pathname;
+}
+
+function hitHref(hit: SearchExactHit) {
+  return routeHref(hit.href, hit.query);
+}
+
+function recentHref(item: RecentSearchItem) {
+  return routeHref(item.href, item.query);
+}
+
+function recentIcon(
+  item: RecentSearchItem
+): LucideIcon | React.ComponentType<{ className?: string }> {
+  if (item.kind === "hit" && item.icon in HIT_ICONS) return HIT_ICONS[item.icon as ExactHitType];
+  return item.kind === "page" ? getIconComponent(item.icon) : History;
+}
+
+interface GlobalSearchDialogProps {
+  /** Server-resolved pages and actions the user may open */
+  entries: SearchEntry[];
+  /** Data sources the user may search (scope chips and prefixes) */
+  sources?: SearchSourceId[];
+}
+
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="rounded border bg-background px-1.5 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
+      {children}
+    </kbd>
+  );
+}
+
+/** How many visible results get a quick key (Alt+1 … Alt+9) */
+const QUICK_KEY_COUNT = 9;
+
+/** The quick key of a result row, shown at its right edge */
+function QuickKey({ label }: { label: string | null | undefined }) {
+  if (!label) return null;
+  return (
+    <kbd
+      className="shrink-0 rounded border bg-background px-1.5 py-0.5 font-mono text-[11px] font-medium text-muted-foreground group-data-[selected=true]:border-primary/40 group-data-[selected=true]:text-primary"
+      data-testid="quick-key"
+    >
+      {label}
+    </kbd>
+  );
+}
+
+/**
+ * One search scope in the scope bar: a tab (underlined when active), the
+ * prefix it types shown in a tooltip. Tab / Shift+Tab in the input cycles them.
+ */
+function ScopeTab({
+  active,
+  hint,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  hint?: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  const tab = (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      data-active={active || undefined}
+      tabIndex={-1}
+      onClick={onClick}
+      className={cn(
+        "relative flex h-10 shrink-0 items-center whitespace-nowrap px-3 text-sm transition-colors",
+        "after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:transition-colors",
+        active
+          ? "font-medium text-foreground after:bg-primary"
+          : "text-muted-foreground after:bg-transparent hover:text-foreground"
+      )}
+    >
+      {children}
+    </button>
+  );
+  if (!hint) return tab;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{tab}</TooltipTrigger>
+      <TooltipContent side="bottom" className="font-mono text-xs">
+        {hint}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+interface HitRowProps {
+  hit: SearchExactHit;
+  exact: boolean;
+  onSelect: (value: string) => void;
+  t: GlobalSearchTranslator;
+  statusLabel: (status: string) => string;
+  /** Query text (without the mode prefix) to highlight */
+  query: string;
+  /** Quick key label ("Alt 3"), for the first results */
+  quickKey?: string | null;
+  /** Extra control at the right edge (the submenu chevron) */
+  trailing?: React.ReactNode;
+}
+
+function HitRow({ hit, exact, onSelect, t, statusLabel, query, quickKey, trailing }: HitRowProps) {
+  const Icon = HIT_ICONS[hit.type];
+  const details = hitDetails(hit, t, exact);
+  return (
+    <CommandItem
+      value={hitItemId(hit)}
+      onSelect={onSelect}
+      className={
+        exact
+          ? "group gap-3 rounded-lg border border-transparent px-2 py-2.5 data-[selected=true]:border-primary/40 data-[selected=true]:bg-primary/10"
+          : "group gap-3 rounded-lg px-2 py-2.5 data-[selected=true]:bg-primary/10"
+      }
+    >
+      <span
+        className={
+          exact
+            ? "flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground"
+            : "flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary"
+        }
+      >
+        <Icon className="size-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">
+          {hit.code ? (
+            <span className="font-mono">
+              <Highlighted text={hit.code} query={query} />
+            </span>
+          ) : null}
+          {hit.code && hit.title ? " · " : null}
+          {hit.title ? <Highlighted text={hit.title} query={query} /> : null}
+        </span>
+        {details ? (
+          <span className="block truncate text-xs text-muted-foreground">{details}</span>
+        ) : null}
+      </span>
+      {hit.status ? (
+        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+          {statusLabel(hit.status)}
+        </span>
+      ) : null}
+      <QuickKey label={quickKey} />
+      {trailing ?? (
+        <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
+      )}
+    </CommandItem>
+  );
+}
+
+/** Chevron at the right edge of a row that has a submenu; rotates when it is open */
+function SubmenuChevron({
+  open,
+  label,
+  current,
+  onToggle,
+}: {
+  open: boolean;
+  label: string;
+  /** Value in effect, shown before the chevron ("Bursztyn") */
+  current?: string;
+  onToggle: () => void;
+}) {
+  return (
+    <span className="flex shrink-0 items-center gap-1.5">
+      {current ? <span className="text-xs text-muted-foreground">{current}</span> : null}
+      <button
+        type="button"
+        aria-label={label}
+        aria-expanded={open}
+        title={label}
+        tabIndex={-1}
+        onClick={(event) => {
+          // The row's own click would run it (or toggle twice)
+          event.stopPropagation();
+          onToggle();
+        }}
+        className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-background hover:text-foreground"
+        data-testid="palette-submenu-toggle"
+      >
+        <ChevronRight className={cn("size-4 transition-transform", open && "rotate-90")} />
+      </button>
+    </span>
+  );
+}
+
+/**
+ * Global search palette (Ctrl+K / ⌘K).
+ *
+ * Mounted once in the dashboard header. Lists pages and actions resolved
+ * server-side; `>` switches to the actions mode. Enter opens, Ctrl+Enter opens
+ * a page in a new tab, Esc closes (focus returns to where it was).
+ */
+export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialogProps) {
+  const t = useTranslations("globalSearch");
+  const tRoot = useTranslations();
+  const locale = useLocale();
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useParams();
+  const { theme, setTheme } = useTheme();
+  const setStoreTheme = useUiStoreV2((s) => s.setTheme);
+  const setStoreColorTheme = useUiStoreV2((s) => s.setColorTheme);
+  /**
+   * Submenu expanded under an item (accordion), and how to undo its previews.
+   * Any item can have one: see global-search-submenus.tsx.
+   */
+  const [expanded, setExpanded] = useState<{ id: string; restore: (() => void) | null } | null>(
+    null
+  );
+  const { accessibleBranches, activeBranchId, activeOrgId, setActiveBranch } = useAppStoreV2();
+  const userId = useUserStoreV2((s) => s.user?.id ?? null);
+  const { open, initialQuery, scanOnOpen, setOpen, toggle } = useGlobalSearchStore();
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState("");
+  const [recent, setRecent] = useState<RecentSearchItem[]>([]);
+  const [usage, setUsage] = useState<ReturnType<typeof readUsage>>({});
+  const [scanning, setScanning] = useState(false);
+  const [isMac, setIsMac] = useState(false);
+  useEffect(() => {
+    setIsMac(navigator.platform.toUpperCase().includes("MAC"));
+  }, []);
+
+  // Every opening starts in the search, never in the camera
+  useEffect(() => {
+    if (!open) setScanning(false);
+  }, [open]);
+  // ...except from the header's scan button (phones): straight into the camera.
+  useEffect(() => {
+    if (open && scanOnOpen) setScanning(true);
+  }, [open, scanOnOpen]);
+  // Where QR labels point, loaded while the palette is open (see qr-route-index).
+  const qrRoute = useQrRouteIndex(activeOrgId ?? null, open);
+  const [isPending, startTransition] = useTransition();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open && userId && activeOrgId) {
+      setRecent(readRecentSearches(userId, activeOrgId));
+      setUsage(readUsage(userId, activeOrgId));
+    }
+  }, [open, userId, activeOrgId]);
+
+  const remember = useCallback(
+    (item: RecentSearchItem) => {
+      if (userId && activeOrgId) setRecent(pushRecentSearch(userId, activeOrgId, item));
+    },
+    [userId, activeOrgId]
+  );
+
+  /** Frecency: every opening makes the item rank higher next time */
+  const track = useCallback(
+    (id: string) => {
+      if (userId && activeOrgId) setUsage(recordUsage(userId, activeOrgId, id));
+    },
+    [userId, activeOrgId]
+  );
+  const usageOf = useCallback((id: string) => usageScore(usage, id), [usage]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey) && !event.altKey) {
+        event.preventDefault();
+        toggle();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [toggle]);
+
+  useEffect(() => {
+    if (open) setQuery(initialQuery);
+  }, [open, initialQuery]);
+
+  const label = useCallback(
+    (key: string | undefined, fallback: string | undefined) =>
+      key && tRoot.has(key) ? tRoot(key) : (fallback ?? ""),
+    [tRoot]
+  );
+
+  const { items, targets } = useMemo(() => {
+    const targetMap = new Map<string, Target>();
+    const list: PaletteItem[] = [];
+
+    for (const entry of entries) {
+      const parent = label(entry.parentTitleKey, entry.parentTitle);
+      list.push({
+        id: entry.id,
+        kind: entry.kind,
+        section: entry.section,
+        label: label(entry.titleKey, entry.title),
+        subtitle: parent || undefined,
+        keywords: entry.keywords,
+      });
+      targetMap.set(entry.id, { type: "entry", entry });
+    }
+
+    for (const branch of accessibleBranches) {
+      if (branch.id === activeBranchId) continue;
+      const id = `${BRANCH_ITEM_PREFIX}${branch.id}`;
+      list.push({
+        id,
+        kind: "action",
+        section: "general",
+        label: t("switchBranch", { name: branch.name }),
+        keywords: ["oddzial", "zmien oddzial", "przelacz", "branch", "switch branch", branch.name],
+      });
+      targetMap.set(id, { type: "branch", branchId: branch.id, name: branch.name });
+    }
+
+    return { items: list, targets: targetMap };
+  }, [entries, accessibleBranches, activeBranchId, label, t]);
+
+  const groups = useMemo(
+    () => buildPaletteGroups(query, items, sources, usageOf),
+    [query, items, sources, usageOf]
+  );
+  const parsed = parsePaletteQuery(query, sources);
+  const { actionsMode } = parsed;
+  const isEmptyQuery = !parsed.prefix && !parsed.text;
+
+  // Data: exact hits for a recognized identifier (ZL, VIN, HD-, PZ/…, code) and
+  // fragment matches across orders, parts, locations, … — one server call
+  const debouncedQuery = useDebounce(query, SEARCH_DEBOUNCE_MS);
+  const debounced = parsePaletteQuery(debouncedQuery, sources);
+  const dataText = debounced.actionsMode ? "" : debounced.text;
+  const dataEnabled =
+    open && !actionsMode && sources.length > 0 && dataText.length >= MIN_DATA_QUERY;
+  const dataQuery = useQuery({
+    ...entitySearchQuery(activeBranchId, debounced.scope, dataText),
+    enabled: dataEnabled,
+    // Keep the previous results on screen while the next query loads
+    placeholderData: (previous) => previous,
+  });
+  const showData = dataEnabled && parsed.text.length >= MIN_DATA_QUERY;
+  const data = showData ? (dataQuery.data ?? EMPTY_RESULT) : EMPTY_RESULT;
+  const exactHits = data.exact;
+  const dataLoading = dataEnabled && dataQuery.isFetching;
+
+  const dataGroups = useMemo(
+    () =>
+      DATA_GROUP_ORDER.map((type) => {
+        // Server relevance order, with the records the user opens most moved up
+        const hits = data.results
+          .filter((hit) => hit.type === type)
+          .map((hit, index) => ({ hit, index, score: usageOf(hitItemId(hit)) }))
+          .sort((a, b) => b.score - a.score || a.index - b.index)
+          .map((row) => row.hit);
+        const list = SHOW_ALL_LISTS[type];
+        // A full group probably has more: link to the module list with the query
+        const showAll =
+          list && hits.length >= DATA_GROUP_LIMIT
+            ? {
+                id: `${SHOW_ALL_PREFIX}${type}`,
+                href: list.href,
+                query: { [list.param]: dataText },
+              }
+            : null;
+        return { type, hits, showAll };
+      }).filter((group) => group.hits.length > 0),
+    [data.results, dataText, usageOf]
+  );
+
+  // Recently opened: shown for an empty query only
+  const recentItems = useMemo(() => (isEmptyQuery ? recent : []), [isEmptyQuery, recent]);
+
+  const allTargets = useMemo(() => {
+    const map = new Map(targets);
+    for (const hit of [...exactHits, ...data.results]) {
+      map.set(hitItemId(hit), { type: "hit", hit });
+    }
+    for (const item of recentItems) map.set(recentItemId(item), { type: "recent", item });
+    for (const group of dataGroups) {
+      if (group.showAll) {
+        map.set(group.showAll.id, {
+          type: "link",
+          href: group.showAll.href,
+          query: group.showAll.query,
+        });
+      }
+    }
+    return map;
+  }, [data.results, dataGroups, exactHits, recentItems, targets]);
+
+  /**
+   * Quick keys: Alt+1 … Alt+9 open the first nine results as listed (recent,
+   * exact, pages and actions, data), so a result needs no arrowing to.
+   */
+  const listedIds = useMemo(
+    () => [
+      ...recentItems.map(recentItemId),
+      ...exactHits.map(hitItemId),
+      ...groups.flatMap((group) => group.items.map((item) => item.id)),
+      ...dataGroups.flatMap((group) => [
+        ...group.hits.map(hitItemId),
+        ...(group.showAll ? [group.showAll.id] : []),
+      ]),
+    ],
+    [dataGroups, exactHits, groups, recentItems]
+  );
+  const quickIds = useMemo(() => listedIds.slice(0, QUICK_KEY_COUNT), [listedIds]);
+  const quickKeyLabel = (id: string) => {
+    const index = quickIds.indexOf(id);
+    if (index < 0) return null;
+    return isMac ? `⌥${index + 1}` : `Alt ${index + 1}`;
+  };
+
+  // Preview pane follows the highlighted data result (debounced: ↑↓ moves fast)
+  const previewSelected = useDebounce(selected, PREVIEW_DEBOUNCE_MS);
+  const previewTarget = allTargets.get(previewSelected);
+  const previewHit = previewTarget?.type === "hit" ? previewTarget.hit : null;
+  const actionsRef = useRef<HTMLDivElement>(null);
+
+  // Other branches: matches the user can open after switching branch
+  const otherBranches = useMemo(
+    () =>
+      data.otherBranches
+        .map((row) => ({
+          ...row,
+          name: accessibleBranches.find((branch) => branch.id === row.branchId)?.name,
+        }))
+        .filter((row): row is typeof row & { name: string } => Boolean(row.name)),
+    [accessibleBranches, data.otherBranches]
+  );
+
+  const statusLabel = useCallback(
+    (status: string) =>
+      tRoot.has(`globalSearch.statuses.${status}`) ? t(`statuses.${status}`) : status,
+    [t, tRoot]
+  );
+
+  // A pasted number should open its object on Enter: highlight the first exact hit
+  const firstHitId = exactHits[0] ? hitItemId(exactHits[0]) : null;
+  useEffect(() => {
+    if (firstHitId) setSelected(firstHitId);
+  }, [firstHitId]);
+
+  const close = useCallback(() => setOpen(false), [setOpen]);
+
+  const switchBranch = useCallback(
+    (branchId: string, name: string) => {
+      startTransition(async () => {
+        try {
+          const result = await changeBranch(branchId);
+          if (!result.success) {
+            toast.error("error" in result ? result.error : t("branchSwitchFailed"));
+            return;
+          }
+          setActiveBranch(branchId);
+          toast.success(t("branchSwitched", { name }));
+          close();
+          router.replace(SAFE_ROUTE_AFTER_BRANCH_SWITCH);
+          router.refresh();
+        } catch {
+          toast.error(t("branchSwitchFailed"));
+        }
+      });
+    },
+    [close, router, setActiveBranch, t]
+  );
+
+  const runEntry = useCallback(
+    (entry: SearchEntry) => {
+      switch (entry.command) {
+        case "auth.signOut":
+          close();
+          startTransition(() => signOutAction());
+          return;
+        case "feedback.report":
+          close();
+          useReportFeedbackStore.getState().setOpen(true);
+          return;
+        default:
+          if (entry.href) {
+            close();
+            router.push(toUnsafeI18nHref(entry.href));
+          }
+      }
+    },
+    [close, router]
+  );
+
+  /** What "recently opened" keeps for a target (pages and data; not commands) */
+  const recentFor = useCallback(
+    (target: Target): RecentSearchItem | null => {
+      if (target.type === "recent") return target.item;
+      if (target.type === "hit") {
+        return {
+          id: hitItemId(target.hit),
+          kind: "hit",
+          label: target.hit.title ?? "",
+          code: target.hit.code,
+          subtitle: t(`hitTypes.${target.hit.type}`),
+          icon: target.hit.type,
+          href: target.hit.href,
+          query: target.hit.query,
+        };
+      }
+      if (target.type === "entry" && target.entry.kind === "page" && target.entry.href) {
+        const parent = label(target.entry.parentTitleKey, target.entry.parentTitle);
+        return {
+          id: target.entry.id,
+          kind: "page",
+          label: label(target.entry.titleKey, target.entry.title),
+          subtitle: parent || undefined,
+          icon: target.entry.iconKey,
+          href: target.entry.href,
+        };
+      }
+      return null;
+    },
+    [label, t]
+  );
+
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      // Closing the palette with a submenu open undoes its unsaved preview
+      if (!next && expanded) {
+        expanded.restore?.();
+        setExpanded(null);
+      }
+      setOpen(next);
+    },
+    [expanded, setOpen]
+  );
+
+  // However the palette closes (Esc, outside click, Ctrl+K), an unsaved preview is undone
+  useEffect(() => {
+    if (!open && expanded) {
+      expanded.restore?.();
+      setExpanded(null);
+    }
+  }, [open, expanded]);
+
+  /** Runs an item's own action (open, navigate, command) */
+  const runItem = useCallback(
+    (id: string) => {
+      const target = allTargets.get(id);
+      if (!target) return;
+      const recentItem = recentFor(target);
+      if (recentItem) remember(recentItem);
+      track(target.type === "recent" ? target.item.id : id);
+      if (target.type === "branch") switchBranch(target.branchId, target.name);
+      else if (target.type === "hit" || target.type === "recent") {
+        close();
+        router.push(target.type === "hit" ? hitHref(target.hit) : recentHref(target.item));
+      } else if (target.type === "link") {
+        close();
+        router.push(routeHref(target.href, target.query));
+      } else runEntry(target.entry);
+    },
+    [allTargets, close, recentFor, remember, router, runEntry, switchBranch, track]
+  );
+
+  const openInNewTab = useCallback(
+    (id: string) => {
+      const target = allTargets.get(id);
+      let href;
+      if (target?.type === "hit") href = hitHref(target.hit);
+      else if (target?.type === "recent") href = recentHref(target.item);
+      else if (target?.type === "link") href = routeHref(target.href, target.query);
+      else if (target?.type === "entry" && target.entry.href && !target.entry.command)
+        href = toUnsafeI18nHref(target.entry.href);
+      if (!href || !target) return false;
+      const recentItem = recentFor(target);
+      if (recentItem) remember(recentItem);
+      track(target.type === "recent" ? target.item.id : id);
+      window.open(getPathname({ href, locale }), "_blank", "noopener");
+      close();
+      return true;
+    },
+    [allTargets, close, locale, recentFor, remember, track]
+  );
+
+  const applyPrefix = useCallback(
+    (prefix: string | null) => {
+      setQuery(withPalettePrefix(query, prefix));
+      inputRef.current?.focus();
+    },
+    [query]
+  );
+
+  /** Scope order for Tab / Shift+Tab: all, each searchable source, actions */
+  const scopeCycle = useMemo(
+    () => [
+      null,
+      ...SEARCH_SCOPES.filter((scope) => sources.includes(scope.source)).map(
+        (scope) => scope.prefix
+      ),
+      ACTIONS_PREFIX,
+    ],
+    [sources]
+  );
+  const activeScopeIndex = parsed.actionsMode
+    ? scopeCycle.length - 1
+    : parsed.prefix
+      ? Math.max(0, scopeCycle.indexOf(parsed.prefix))
+      : 0;
+
+  // Keep the active scope tab in view while Tab moves through them
+  const scopeBarRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    scopeBarRef.current
+      ?.querySelector<HTMLElement>("[data-active]")
+      ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [activeScopeIndex]);
+
+  // Mode prefix as typed (leading spaces included), painted in the accent colour
+  const prefixLength = parsed.prefix
+    ? query.length - query.trimStart().length + parsed.prefix.length
+    : 0;
+  const [inputScroll, setInputScroll] = useState(0);
+  const syncInputScroll = useCallback(
+    (event: React.SyntheticEvent<HTMLInputElement>) =>
+      setInputScroll(event.currentTarget.scrollLeft),
+    []
+  );
+
+  /**
+   * A scanned code: an Ambra QR label opens its QR page (which resolves the
+   * location / container / … and handles other branches); any other code is
+   * searched, so a part number, order number or VIN gets its exact hit.
+   */
+  const onScanned = useCallback(
+    (code: ScannedCode) => {
+      // The code is read: say so at once, before anything loads.
+      scanSuccessFeedback();
+      setScanning(false);
+      if (code.kind === "ambraQr") {
+        close();
+        // A label of a location / container of this branch opens its page
+        // directly; anything else goes through /qr (validation, branch switch).
+        const direct = directQrHref(qrRoute(code.token), activeBranchId);
+        if (direct) router.push(direct);
+        else router.push(toUnsafeI18nHref(`/qr/${encodeURIComponent(code.token)}`));
+        return;
+      }
+      setQuery(code.text);
+      requestAnimationFrame(() => inputRef.current?.focus());
+    },
+    [close, router, qrRoute, activeBranchId]
+  );
+
+  const copyCode = useCallback(
+    (hit: SearchExactHit) => {
+      if (!hit.code) return;
+      navigator.clipboard
+        ?.writeText(hit.code)
+        .then(() => toast.success(t("copied", { code: hit.code ?? "" })))
+        .catch(() => toast.error(t("copyFailed")));
+    },
+    [t]
+  );
+
+  // ── Submenus (accordion under an item) ──────────────────────────────────
+  const startDirectChat = useStartDirectChat();
+  const submenuCtx: SubmenuContext = {
+    t: (key, values) => t(key as never, values as never),
+    label,
+    locale,
+    theme,
+    setThemeMode: (mode, save) => {
+      setTheme(mode);
+      if (save) setStoreTheme(mode);
+    },
+    saveColorTheme: (name) => {
+      applyColorTheme(name, setStoreColorTheme);
+      const picked = COLOR_THEMES.find((item) => item.name === name);
+      toast.success(t("colorTheme.applied", { name: picked?.label ?? name }));
+    },
+    switchLocale: (next) => {
+      close();
+      router.replace(
+        // @ts-expect-error -- pathname and params come from the current route
+        { pathname, params },
+        { locale: next }
+      );
+    },
+    navigate: (href, linkQuery) => {
+      close();
+      router.push(routeHref(href, linkQuery));
+    },
+    openInNewTab,
+    copyCode,
+    messagePerson: startDirectChat
+      ? (userId) => {
+          close();
+          void startDirectChat(userId);
+        }
+      : undefined,
+  };
+  const submenuOf = (id: string | null | undefined): PaletteSubmenu | null =>
+    id ? resolveSubmenu(id, allTargets.get(id), submenuCtx) : null;
+  const openSubmenu = submenuOf(expanded?.id);
+  const selectedSubmenu = expanded ? null : submenuOf(selected);
+
+  const expand = (id: string): boolean => {
+    const submenu = submenuOf(id);
+    if (!submenu) return false;
+    expanded?.restore?.();
+    const restore = submenu.begin?.() || null;
+    setExpanded({ id, restore });
+    const initial =
+      submenu.initialOptionId ??
+      submenu.options.find((option) => option.current)?.id ??
+      submenu.options[0]?.id ??
+      "";
+    setSelected(subItemId(id, initial));
+    return true;
+  };
+  /** Back to the row; `revert` undoes previews (nothing was picked) */
+  const collapse = (revert: boolean) => {
+    if (!expanded) return;
+    if (revert) expanded.restore?.();
+    setSelected(expanded.id);
+    setExpanded(null);
+  };
+  const toggleSubmenu = (id: string) => {
+    if (expanded?.id === id) collapse(true);
+    else expand(id);
+  };
+
+  const select = (id: string) => {
+    const optionId = subOptionOf(id, expanded?.id ?? null);
+    if (expanded && optionId !== null) {
+      const outcome = openSubmenu?.select(optionId) ?? "collapse";
+      if (outcome === "close") {
+        setExpanded(null);
+        close();
+      } else collapse(false);
+      return;
+    }
+    // A row that is only a choice (theme, language) opens its submenu
+    if (submenuOf(id)?.primary) {
+      toggleSubmenu(id);
+      return;
+    }
+    if (expanded) {
+      expanded.restore?.();
+      setExpanded(null);
+    }
+    runItem(id);
+  };
+
+  // Highlighting an option (arrows or pointer) previews it, without saving
+  const previewOption = subOptionOf(selected, expanded?.id ?? null);
+  useEffect(() => {
+    if (previewOption !== null) openSubmenu?.preview?.(previewOption);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the submenu is rebuilt every render
+  }, [previewOption, expanded?.id]);
+
+  // The expanded row left the list (query changed): undo and collapse
+  const expandedGone = !!expanded && !listedIds.includes(expanded.id);
+  useEffect(() => {
+    if (!expandedGone) return;
+    setExpanded((current) => {
+      current?.restore?.();
+      return null;
+    });
+  }, [expandedGone]);
+
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    // Tab / Shift+Tab in the input switch the search scope (and search right away)
+    if (event.key === "Tab" && event.target === inputRef.current && !expanded && !scanning) {
+      event.preventDefault();
+      // Keep the dialog's focus trap out of it: on the first field it would move
+      // Shift+Tab focus to the last button (the scanner) instead
+      event.stopPropagation();
+      const step = event.shiftKey ? -1 : 1;
+      const next = (activeScopeIndex + step + scopeCycle.length) % scopeCycle.length;
+      applyPrefix(scopeCycle[next] ?? null);
+      return;
+    }
+    // Inside a submenu: ↑↓ stay within its options, ← goes back to the row
+    if (expanded && openSubmenu && !scanning) {
+      const ids = openSubmenu.options.map((option) => subItemId(expanded.id, option.id));
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const index = ids.indexOf(selected);
+        const step = event.key === "ArrowDown" ? 1 : -1;
+        setSelected(ids[(index + step + ids.length) % ids.length] ?? ids[0] ?? selected);
+        return;
+      }
+      const field = inputRef.current;
+      if (
+        event.key === "ArrowLeft" &&
+        event.target === field &&
+        (field?.selectionStart ?? 0) === 0
+      ) {
+        event.preventDefault();
+        collapse(true);
+        return;
+      }
+    }
+    // Alt+1 … Alt+9 open the n-th listed result (event.code: on a Mac ⌥ changes the key)
+    const quickDigit = /^Digit([1-9])$/.exec(event.code)?.[1];
+    if (quickDigit && event.altKey && !event.ctrlKey && !event.metaKey && !expanded && !scanning) {
+      const id = quickIds[Number(quickDigit) - 1];
+      if (id) {
+        event.preventDefault();
+        if (!isPending) select(id);
+        return;
+      }
+    }
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && selected) {
+      if (openInNewTab(selected)) event.preventDefault();
+    }
+    const selectedTarget = allTargets.get(selected);
+    const selectedHit = selectedTarget?.type === "hit" ? selectedTarget.hit : null;
+    // Ctrl+Shift+C copies the highlighted result's number
+    if (
+      selectedHit &&
+      event.key.toLowerCase() === "c" &&
+      (event.ctrlKey || event.metaKey) &&
+      event.shiftKey
+    ) {
+      event.preventDefault();
+      copyCode(selectedHit);
+    }
+    // → at the end of the input opens the item's submenu (else the preview actions)
+    const input = inputRef.current;
+    if (
+      event.key === "ArrowRight" &&
+      !expanded &&
+      input &&
+      event.target === input &&
+      input.selectionStart === input.value.length
+    ) {
+      if (expand(selected)) {
+        event.preventDefault();
+        return;
+      }
+      const firstAction = actionsRef.current?.querySelector("button");
+      if (firstAction && firstAction.offsetParent !== null) {
+        event.preventDefault();
+        firstAction.focus();
+      }
+    }
+    // Backspace on a bare prefix (">", "zl: ") leaves the mode
+    if (event.key === "Backspace" && parsed.prefix && !parsed.text) {
+      event.preventDefault();
+      setQuery("");
+    }
+  };
+
+  /** Chevron for a row with a submenu (null for rows without one) */
+  const submenuToggle = (id: string) => {
+    const submenu = submenuOf(id);
+    if (!submenu) return null;
+    return (
+      <SubmenuChevron
+        open={expanded?.id === id}
+        label={t("submenu.toggle")}
+        current={submenu.currentLabel}
+        onToggle={() => toggleSubmenu(id)}
+      />
+    );
+  };
+
+  /** Options of the expanded row, indented under it */
+  const submenuRows = (id: string) => {
+    if (expanded?.id !== id || !openSubmenu) return null;
+    return (
+      <div className="my-0.5 ml-6 border-l pl-2" role="group" data-testid="palette-submenu">
+        {openSubmenu.options.map((option) => {
+          const OptionIcon = option.icon;
+          return (
+            <CommandItem
+              key={option.id}
+              value={subItemId(id, option.id)}
+              onSelect={select}
+              className="group gap-2.5 rounded-lg px-2 py-1.5 text-sm data-[selected=true]:bg-primary/10"
+            >
+              {option.swatch ? (
+                <span className="flex shrink-0 overflow-hidden rounded border" aria-hidden>
+                  {option.swatch.map((color) => (
+                    <span key={color} className="h-5 w-2" style={{ backgroundColor: color }} />
+                  ))}
+                </span>
+              ) : OptionIcon ? (
+                <OptionIcon className="size-4 shrink-0 text-muted-foreground group-data-[selected=true]:text-primary" />
+              ) : null}
+              <span className="min-w-0 flex-1 truncate">{option.label}</span>
+              {option.subtitle ? (
+                <span className="truncate text-xs text-muted-foreground">{option.subtitle}</span>
+              ) : null}
+              {option.current ? (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Check className="size-3.5" /> {t("colorTheme.current")}
+                </span>
+              ) : null}
+              <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
+            </CommandItem>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const groupHeading = (id: string) =>
+    t.has(`groups.${id}`) ? t(`groups.${id}`) : t(`sections.${id}`);
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent
+        hideClose
+        onEscapeKeyDown={(event) => {
+          // First Esc in a submenu undoes its preview and goes back to the row
+          if (expanded) {
+            event.preventDefault();
+            collapse(true);
+            return;
+          }
+          // In a scope (or the actions mode) Esc first goes back to "all", text kept
+          if (parsed.prefix && !scanning) {
+            event.preventDefault();
+            applyPrefix(null);
+          }
+        }}
+        className="top-0 flex h-dvh max-w-none translate-y-0 flex-col gap-0 overflow-hidden rounded-none p-0 sm:top-[12vh] sm:h-auto sm:max-h-[76vh] sm:max-w-2xl sm:rounded-xl lg:max-w-4xl"
+      >
+        <VisuallyHidden>
+          <DialogTitle>{t("dialogTitle")}</DialogTitle>
+          <DialogDescription>{t("dialogDescription")}</DialogDescription>
+        </VisuallyHidden>
+        <Command
+          shouldFilter={false}
+          value={selected}
+          onValueChange={setSelected}
+          onKeyDown={onKeyDown}
+          className="flex min-h-0 flex-1 flex-col [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:text-muted-foreground"
+        >
+          <div className="flex items-center gap-2 border-b pl-4 pr-3">
+            <Search className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+            {/* The input's own text is transparent; this mirror paints it, the mode prefix in the accent colour */}
+            <div className="relative min-w-0 flex-1">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 flex items-center overflow-hidden whitespace-pre text-base"
+              >
+                <span style={{ transform: `translateX(-${inputScroll}px)` }}>
+                  <span className="font-medium text-primary">{query.slice(0, prefixLength)}</span>
+                  <span className="text-foreground">{query.slice(prefixLength)}</span>
+                </span>
+              </div>
+              <CommandPrimitive.Input
+                ref={inputRef}
+                value={query}
+                onValueChange={setQuery}
+                onScroll={syncInputScroll}
+                onSelect={syncInputScroll}
+                onKeyUp={syncInputScroll}
+                placeholder={
+                  actionsMode
+                    ? t("actionsPlaceholder")
+                    : parsed.scope
+                      ? t("scopePlaceholder", { scope: t(`scopes.${parsed.scope}`) })
+                      : t("placeholder")
+                }
+                aria-label={t("dialogTitle")}
+                className="relative h-14 w-full bg-transparent text-base text-transparent caret-foreground outline-none selection:bg-primary/25 placeholder:text-muted-foreground"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                unlockScanSound();
+                setScanning((value) => !value);
+              }}
+              aria-label={t("scanner.open")}
+              aria-pressed={scanning}
+              title={t("scanner.open")}
+              className="mr-2 flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground aria-pressed:bg-primary/10 aria-pressed:text-primary"
+            >
+              <ScanLine className="size-5" />
+            </button>
+            <button
+              type="button"
+              onClick={close}
+              className="shrink-0 text-sm text-primary sm:hidden"
+            >
+              {t("cancel")}
+            </button>
+          </div>
+
+          {scanning ? (
+            <GlobalSearchScanner onDetected={onScanned} onBack={() => setScanning(false)} />
+          ) : (
+            <>
+              {/* Scope chips: same as typing the prefix */}
+              <TooltipProvider delayDuration={300}>
+                <div
+                  ref={scopeBarRef}
+                  role="tablist"
+                  aria-label={t("scopesLabel")}
+                  className="flex overflow-x-auto border-b px-2 [scrollbar-width:none]"
+                >
+                  <ScopeTab active={!parsed.prefix} onClick={() => applyPrefix(null)}>
+                    {t("scopeAll")}
+                  </ScopeTab>
+                  {SEARCH_SCOPES.filter((scope) => sources.includes(scope.source)).map((scope) => (
+                    <ScopeTab
+                      key={scope.source}
+                      active={parsed.scope === scope.source}
+                      hint={scope.prefix}
+                      onClick={() => applyPrefix(scope.prefix)}
+                    >
+                      {t(`scopes.${scope.source}`)}
+                    </ScopeTab>
+                  ))}
+                  <ScopeTab
+                    active={actionsMode}
+                    hint={ACTIONS_PREFIX}
+                    onClick={() => applyPrefix(ACTIONS_PREFIX)}
+                  >
+                    {t("scopeActions")}
+                  </ScopeTab>
+                </div>
+              </TooltipProvider>
+
+              <div className="flex min-h-0 flex-1">
+                <CommandList className="!max-h-none min-h-0 min-w-0 flex-1 overflow-y-auto px-2 pb-2 sm:!max-h-[60vh]">
+                  <CommandEmpty className="py-10 text-center text-sm text-muted-foreground">
+                    {dataLoading
+                      ? t("searching")
+                      : parsed.scope && parsed.text.length < MIN_DATA_QUERY
+                        ? t("typeMore")
+                        : t("empty")}
+                  </CommandEmpty>
+                  {recentItems.length > 0 ? (
+                    <CommandGroup heading={t("groups.recent")}>
+                      {recentItems.map((item) => {
+                        const Icon = recentIcon(item);
+                        return (
+                          <CommandItem
+                            key={recentItemId(item)}
+                            value={recentItemId(item)}
+                            onSelect={select}
+                            className="group gap-3 rounded-lg px-2 py-2.5 data-[selected=true]:bg-primary/10"
+                          >
+                            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary">
+                              <Icon className="size-4" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium">
+                                {item.code ? <span className="font-mono">{item.code}</span> : null}
+                                {item.code && item.label ? " · " : null}
+                                {item.label}
+                              </span>
+                              {item.subtitle ? (
+                                <span className="block truncate text-xs text-muted-foreground">
+                                  {item.subtitle}
+                                </span>
+                              ) : null}
+                            </span>
+                            <QuickKey label={quickKeyLabel(recentItemId(item))} />
+                            <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  ) : null}
+                  {exactHits.length > 0 ? (
+                    <CommandGroup heading={t("groups.exact")}>
+                      {exactHits.map((hit) => (
+                        <Fragment key={hitItemId(hit)}>
+                          <HitRow
+                            hit={hit}
+                            quickKey={quickKeyLabel(hitItemId(hit))}
+                            exact
+                            onSelect={select}
+                            t={t}
+                            statusLabel={statusLabel}
+                            query={parsed.text}
+                            trailing={submenuToggle(hitItemId(hit))}
+                          />
+                          {submenuRows(hitItemId(hit))}
+                        </Fragment>
+                      ))}
+                    </CommandGroup>
+                  ) : null}
+                  {groups.map((group) => (
+                    <CommandGroup key={group.id} heading={groupHeading(group.id)}>
+                      {group.items.map((item) => {
+                        const target = allTargets.get(item.id);
+                        const Icon =
+                          target?.type === "entry"
+                            ? getIconComponent(target.entry.iconKey)
+                            : Building2;
+                        const shortcut =
+                          target?.type === "entry" ? target.entry.shortcut : undefined;
+                        const toggle = submenuToggle(item.id);
+                        return (
+                          <Fragment key={item.id}>
+                            <CommandItem
+                              value={item.id}
+                              onSelect={select}
+                              disabled={isPending}
+                              className="group gap-3 rounded-lg px-2 py-2.5 data-[selected=true]:bg-primary/10"
+                            >
+                              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary">
+                                <Icon className="size-4" />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-medium">
+                                  <Highlighted text={item.label} query={parsed.text} />
+                                </span>
+                                {item.subtitle ? (
+                                  <span className="block truncate text-xs text-muted-foreground">
+                                    {item.subtitle}
+                                  </span>
+                                ) : null}
+                              </span>
+                              {shortcut ? <Kbd>{shortcut}</Kbd> : null}
+                              <QuickKey label={quickKeyLabel(item.id)} />
+                              {toggle ?? (
+                                <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
+                              )}
+                            </CommandItem>
+                            {submenuRows(item.id)}
+                          </Fragment>
+                        );
+                      })}
+                    </CommandGroup>
+                  ))}
+                  {dataGroups.map((group) => (
+                    <CommandGroup key={group.type} heading={t(`dataGroups.${group.type}`)}>
+                      {group.hits.map((hit) => (
+                        <Fragment key={hitItemId(hit)}>
+                          <HitRow
+                            hit={hit}
+                            quickKey={quickKeyLabel(hitItemId(hit))}
+                            exact={false}
+                            onSelect={select}
+                            t={t}
+                            statusLabel={statusLabel}
+                            query={parsed.text}
+                            trailing={submenuToggle(hitItemId(hit))}
+                          />
+                          {submenuRows(hitItemId(hit))}
+                        </Fragment>
+                      ))}
+                      {group.showAll ? (
+                        <CommandItem
+                          value={group.showAll.id}
+                          onSelect={select}
+                          className="group gap-2 rounded-lg px-2 py-2 text-sm text-primary data-[selected=true]:bg-primary/10"
+                        >
+                          <ArrowRight className="size-4" />
+                          <span className="flex-1">
+                            {t("showAll", { group: t(`dataGroups.${group.type}`) })}
+                          </span>
+                          <QuickKey label={quickKeyLabel(group.showAll.id)} />
+                        </CommandItem>
+                      ) : null}
+                    </CommandGroup>
+                  ))}
+                </CommandList>
+                {previewHit ? (
+                  <GlobalSearchPreview
+                    ref={actionsRef}
+                    hit={previewHit}
+                    details={hitDetails(previewHit, t, false)}
+                    statusLabel={statusLabel}
+                    onOpen={() => select(hitItemId(previewHit))}
+                    onOpenNewTab={() => openInNewTab(hitItemId(previewHit))}
+                    onCopy={() => copyCode(previewHit)}
+                    onNavigate={(link) => {
+                      close();
+                      router.push(routeHref(link.href, link.query));
+                    }}
+                    onBack={() => inputRef.current?.focus()}
+                  />
+                ) : null}
+              </div>
+
+              {showData && otherBranches.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t px-4 py-2 text-xs text-muted-foreground">
+                  <span>{t("otherBranches")}</span>
+                  {otherBranches.map((row) => (
+                    <button
+                      key={row.branchId}
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => switchBranch(row.branchId, row.name)}
+                      className="rounded-full border bg-background px-2 py-0.5 text-foreground hover:bg-accent"
+                      title={t("switchBranch", { name: row.name })}
+                    >
+                      {t("otherBranchCount", { name: row.name, count: row.count })}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {expanded ? (
+                <div
+                  className="hidden items-center gap-4 border-t bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground sm:flex"
+                  data-testid="palette-submenu-hints"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Kbd>↑↓</Kbd> {t("hints.navigate")}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Kbd>↵</Kbd> {t("submenu.pick")}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Kbd>Esc</Kbd> {t("submenu.back")}
+                  </span>
+                </div>
+              ) : null}
+              <div
+                className={cn(
+                  "hidden items-center gap-4 border-t bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground",
+                  !expanded && "sm:flex"
+                )}
+              >
+                <span className="flex items-center gap-1.5">
+                  <Kbd>↑↓</Kbd> {t("hints.navigate")}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Kbd>↵</Kbd> {t("hints.open")}
+                </span>
+                <span className="hidden items-center gap-1.5 md:flex">
+                  <Kbd>Ctrl ↵</Kbd> {t("hints.newTab")}
+                </span>
+                {selectedSubmenu ? (
+                  <span className="hidden items-center gap-1.5 lg:flex">
+                    <Kbd>→</Kbd> {t("submenu.open")}
+                  </span>
+                ) : null}
+                {quickIds.length > 0 ? (
+                  <span className="flex items-center gap-1.5">
+                    <Kbd>{isMac ? "⌥1–9" : "Alt 1–9"}</Kbd> {t("hints.quickPick")}
+                  </span>
+                ) : null}
+                <span className="flex items-center gap-1.5">
+                  <Kbd>Tab</Kbd> {t("hints.scope")}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Kbd>Esc</Kbd> {parsed.prefix ? t("hints.clearScope") : t("hints.close")}
+                </span>
+                <span className="ml-auto">{parsed.prefix ? null : t("hints.actionsMode")}</span>
+              </div>
+
+              {/* Phones: the scanner is the main way in on the shop floor */}
+              <div className="border-t bg-muted/40 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden">
+                <button
+                  type="button"
+                  onClick={() => {
+                    unlockScanSound();
+                    setScanning(true);
+                  }}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border bg-background text-base font-medium"
+                >
+                  <ScanLine className="size-5" />
+                  {t("scanner.cta")}
+                </button>
+              </div>
+            </>
+          )}
+        </Command>
+      </DialogContent>
+    </Dialog>
+  );
+}

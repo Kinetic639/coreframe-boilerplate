@@ -3,6 +3,8 @@ export type {
   DataViewFilterDef,
   DataViewListParams,
   DataViewProps,
+  DataViewScope,
+  DataViewScopePrimitive,
   DataViewUrlState,
   InfinitePaginatedData,
   PaginatedResult,

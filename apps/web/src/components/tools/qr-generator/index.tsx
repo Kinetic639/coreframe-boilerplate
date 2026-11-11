@@ -7,6 +7,7 @@ import { listQrCodesAction } from "@/app/actions/qr/list";
 import { paginateQrCodes } from "@/app/[locale]/dashboard/qr/_utils/data-view";
 import type { QrCodeWithStatus } from "@/server/services/qr.service";
 import type { PaginatedResult } from "@/components/data-view/data-view.types";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 
 interface LoadedState {
   initialData: PaginatedResult<QrCodeWithStatus>;
@@ -20,12 +21,15 @@ interface LoadedState {
  * Permissions are resolved internally via usePermissions (no snapshot prop needed).
  */
 export function QrGeneratorTool() {
+  const activeOrgId = useAppStoreV2((state) => state.activeOrgId);
   const [state, setState] = useState<LoadedState | null>(null);
-  const fetched = useRef(false);
+  const fetchedOrgId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (fetched.current) return;
-    fetched.current = true;
+    if (!activeOrgId) return;
+    if (fetchedOrgId.current === activeOrgId) return;
+    fetchedOrgId.current = activeOrgId;
+    setState(null);
 
     listQrCodesAction().then((result) => {
       const codes = result.success
@@ -36,7 +40,7 @@ export function QrGeneratorTool() {
         initialData: paginateQrCodes(codes, 1, 50),
       });
     });
-  }, []);
+  }, [activeOrgId]);
 
   if (!state) {
     return (
@@ -50,7 +54,11 @@ export function QrGeneratorTool() {
 
   return (
     <div className="h-[calc(100vh-12rem)]">
-      <QrManagementClient initialData={state.initialData} allCodes={state.allCodes} />
+      <QrManagementClient
+        orgId={activeOrgId!}
+        initialData={state.initialData}
+        allCodes={state.allCodes}
+      />
     </div>
   );
 }

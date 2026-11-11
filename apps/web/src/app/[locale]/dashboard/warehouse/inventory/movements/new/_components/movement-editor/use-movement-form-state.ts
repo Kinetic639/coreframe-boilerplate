@@ -26,7 +26,8 @@ type ActiveBranchParty = {
 
 const CURRENT_BRANCH_RECIPIENT_CODES = new Set(["101"]);
 const CURRENT_BRANCH_BOTH_LOCKED_CODES = new Set(["801", "401", "402"]);
-const INTER_BRANCH_OUT_CODES = new Set(["311"]);
+// MMJ- (303): to another unit; the recipient is a branch.
+const INTER_BRANCH_OUT_CODES = new Set(["303", "311"]);
 
 function initNoteValue(note?: string): RichTextValue | null {
   if (!note) return null;
@@ -140,10 +141,15 @@ export function useMovementFormState(
   units: InventoryUnitRow[],
   initialValues?: MovementFormInitialValues,
   defaultRecipientName = "",
-  activeBranch: ActiveBranchParty = null
+  activeBranch: ActiveBranchParty = null,
+  preferredTypeCode?: string
 ) {
   const t = useTranslations("warehouseInventory.movementEditor");
-  const initialTypeCode = initialValues?.movementTypeCode ?? movementTypes[0]?.code ?? "";
+  const initialTypeCode =
+    initialValues?.movementTypeCode ??
+    (movementTypes.some((type) => type.code === preferredTypeCode) ? preferredTypeCode : null) ??
+    movementTypes[0]?.code ??
+    "";
   const initialContract = movementPartyContract(initialTypeCode);
   const initialBranchFields = useMemo(
     () => branchPartyFields(activeBranch, defaultRecipientName),
@@ -367,22 +373,15 @@ export function useMovementFormState(
 
   const enableManualCorrections = useCallback(() => {
     if (!isImportedMovement) return;
-    if (
-      !window.confirm(
-        "Manual corrections may break alignment with the imported SVWMS source data. Continue?"
-      )
-    ) {
+    if (!window.confirm(t("manualCorrectionsConfirm"))) {
       return;
     }
     setManualCorrectionMode(true);
-  }, [isImportedMovement]);
+  }, [isImportedMovement, t]);
 
   const applyImportedDocument = useCallback(
     (document: ImportedMovementDocumentDraft) => {
-      if (
-        lines.length > 0 &&
-        !window.confirm("Importing data will replace the current unsaved movement lines.")
-      ) {
+      if (lines.length > 0 && !window.confirm(t("importReplacesLines"))) {
         return;
       }
       const nextType = movementTypes.find((type) => type.code === document.movementTypeCode);
@@ -400,6 +399,7 @@ export function useMovementFormState(
           source_label: line.source_label ?? null,
           source_line_id: line.source_line_id ?? null,
           source_order_number: line.source_order_number ?? null,
+          source_product_code: line.source_product_code ?? null,
           variant_id: line.variant_id,
           unit_id: line.unit_id,
           sku: variant?.sku ?? line.sku ?? line.variant_id,

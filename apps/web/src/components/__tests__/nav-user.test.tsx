@@ -56,6 +56,7 @@ vi.mock("@/app/[locale]/actions", () => ({
 }));
 
 import { NavUser } from "../nav-user";
+import { useReportFeedbackStore } from "@/lib/platform-feedback/report-store";
 
 describe("NavUser", () => {
   beforeEach(() => {
@@ -87,5 +88,14 @@ describe("NavUser", () => {
     expect(mockPush).toHaveBeenNthCalledWith(2, "/admin");
     expect(mockPush).toHaveBeenNthCalledWith(3, "/dashboard/diagnostics");
     expect(screen.getByRole("button", { name: /log out/i })).toBeInTheDocument();
+  });
+
+  it("opens the bug / idea report from the menu", () => {
+    useReportFeedbackStore.setState({ open: false });
+    render(<NavUser user={{ name: "Alice Smith", email: "alice@example.com", avatar: "" }} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /reportFeedback/ }));
+
+    expect(useReportFeedbackStore.getState().open).toBe(true);
   });
 });

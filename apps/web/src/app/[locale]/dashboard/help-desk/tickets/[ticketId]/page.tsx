@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getLocale } from "next-intl/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
-import { HELPDESK_TICKETS_READ, HELPDESK_TICKETS_MANAGE } from "@/lib/constants/permissions";
+import { HELPDESK_TICKETS_READ } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
 import { HelpdeskTicketsService } from "@/server/services/helpdesk-tickets.service";
 import { HelpdeskTicketTypesService } from "@/server/services/helpdesk-ticket-types.service";
@@ -48,8 +48,15 @@ export default async function TicketDetailPage({ params }: PageProps) {
   // Now we have the UUID — look up the QR assignment with the correct target_id
   const qrAssignmentResult = await getQrAssignmentForTicketAction(result.data.id);
 
-  const canManage = checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_MANAGE);
   const currentUserId = context.user.user?.id ?? "";
+  // Handlers may hold helpdesk.tickets.manage for a single branch (role "Obsługa zapytań"),
+  // so decide for this ticket's branch rather than for the active branch snapshot.
+  const canManage = await HelpdeskTicketsService.canManageBranch(
+    supabase,
+    orgId,
+    currentUserId,
+    result.data.branch_id ?? null
+  );
   const settings = settingsResult.success ? settingsResult.data : null;
   const qrAssignment = qrAssignmentResult.success ? qrAssignmentResult.data : null;
 

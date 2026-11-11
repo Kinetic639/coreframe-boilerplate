@@ -191,6 +191,221 @@ describe("InventoryProductsService.createEnhancedProduct", () => {
   });
 });
 
+describe("InventoryProductsService.createEnhancedProduct — opening stock (IC-6A)", () => {
+  const BRANCH_ID = "77777777-7777-4777-8777-777777777777";
+  const LOCATION_ID = "88888888-8888-4888-8888-888888888888";
+  const VARIANT_ID_2 = "99999999-9999-4999-8999-999999999999";
+
+  function withOpeningStockRpcs(
+    createEnhancedProductResult: { product_id: string; variant_ids: string[]; sku: string },
+    ...movementResults: Array<{ data: unknown; error: { message: string } | null }>
+  ) {
+    const supabase = createSupabaseMock();
+    const rpc = vi.fn();
+    rpc.mockResolvedValueOnce({ data: [], error: null }); // inventory_find_sku_collisions
+    rpc.mockResolvedValueOnce({ data: createEnhancedProductResult, error: null }); // inventory_create_enhanced_product
+    for (const result of movementResults) rpc.mockResolvedValueOnce(result);
+    supabase.client.rpc = rpc;
+    return supabase;
+  }
+
+  it("A. opening_quantity = 0 does not call the movement RPC at all", async () => {
+    const supabase = withOpeningStockRpcs({
+      product_id: PRODUCT_ID,
+      variant_ids: [VARIANT_ID],
+      sku: "SKU-1",
+    });
+
+    const result = await InventoryProductsService.createEnhancedProduct(
+      supabase.client as never,
+      ORG_ID,
+      {
+        name: "Brake pad",
+        product_type: "stocked",
+        base_unit_id: UNIT_ID,
+        sku: "SKU-1",
+        track_inventory: true,
+        branch_id: BRANCH_ID,
+        opening_location_id: LOCATION_ID,
+        variants: [{ name: "Brake pad", sku: "SKU-1", opening_quantity: 0 }],
+      },
+      USER_ID
+    );
+
+    expect(result.success).toBe(true);
+    expect(supabase.client.rpc).not.toHaveBeenCalledWith(
+      "inventory_create_and_finalize",
+      expect.anything()
+    );
+  });
+
+  it("B. opening_quantity > 0 calls inventory_create_and_finalize with the correct actor/org/branch/variant/quantity/location/movement type", async () => {
+    const supabase = withOpeningStockRpcs(
+      { product_id: PRODUCT_ID, variant_ids: [VARIANT_ID], sku: "SKU-1" },
+      {
+        data: { movement_id: "m1", document_number: "IA/2026/000001", status: "posted" },
+        error: null,
+      }
+    );
+
+    const result = await InventoryProductsService.createEnhancedProduct(
+      supabase.client as never,
+      ORG_ID,
+      {
+        name: "Brake pad",
+        product_type: "stocked",
+        base_unit_id: UNIT_ID,
+        sku: "SKU-1",
+        track_inventory: true,
+        branch_id: BRANCH_ID,
+        opening_location_id: LOCATION_ID,
+        variants: [{ name: "Brake pad", sku: "SKU-1", opening_quantity: 5 }],
+      },
+      USER_ID
+    );
+
+    expect(result.success).toBe(true);
+    expect(supabase.client.rpc).toHaveBeenCalledWith(
+      "inventory_create_and_finalize",
+      expect.objectContaining({
+        p_organization_id: ORG_ID,
+        p_branch_id: BRANCH_ID,
+        p_movement_type_code: "401",
+        p_actor_user_id: USER_ID,
+        p_external_reference: PRODUCT_ID,
+        p_lines: [
+          expect.objectContaining({
+            variant_id: VARIANT_ID,
+            destination_location_id: LOCATION_ID,
+            unit_id: UNIT_ID,
+            quantity: 5,
+          }),
+        ],
+      })
+    );
+    // The old, broken two-call draft+post pattern must never be called again.
+    expect(supabase.client.rpc).not.toHaveBeenCalledWith(
+      "inventory_create_draft_movement",
+      expect.anything()
+    );
+    expect(supabase.client.rpc).not.toHaveBeenCalledWith(
+      "inventory_post_movement",
+      expect.anything()
+    );
+  });
+
+  it("C. a canonical RPC error propagates as a truthful failed ServiceResult and triggers compensating cleanup", async () => {
+    const supabase = withOpeningStockRpcs(
+      { product_id: PRODUCT_ID, variant_ids: [VARIANT_ID], sku: "SKU-1" },
+      {
+        data: null,
+        error: { message: "Not authorized to create inventory movements for this branch" },
+      }
+    );
+
+    const result = await InventoryProductsService.createEnhancedProduct(
+      supabase.client as never,
+      ORG_ID,
+      {
+        name: "Brake pad",
+        product_type: "stocked",
+        base_unit_id: UNIT_ID,
+        sku: "SKU-1",
+        track_inventory: true,
+        branch_id: BRANCH_ID,
+        opening_location_id: LOCATION_ID,
+        variants: [{ name: "Brake pad", sku: "SKU-1", opening_quantity: 5 }],
+      },
+      USER_ID
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.success === false && result.error).toContain("Not authorized");
+    const cleanupOps = supabase.operations.filter(
+      (op) =>
+        (op.table === "inventory_variants" || op.table === "inventory_products") &&
+        op.action === "update" &&
+        op.payload?.status === "archived"
+    );
+    expect(cleanupOps.length).toBeGreaterThan(0);
+  });
+
+  it("D. multiple variants with opening quantity post independent exact quantities in one call", async () => {
+    const supabase = withOpeningStockRpcs(
+      { product_id: PRODUCT_ID, variant_ids: [VARIANT_ID, VARIANT_ID_2], sku: "SKU-1" },
+      { data: { movement_id: "m1", status: "posted" }, error: null }
+    );
+
+    const result = await InventoryProductsService.createEnhancedProduct(
+      supabase.client as never,
+      ORG_ID,
+      {
+        name: "Brake pad",
+        product_type: "stocked",
+        base_unit_id: UNIT_ID,
+        sku: "SKU-1",
+        track_inventory: true,
+        branch_id: BRANCH_ID,
+        opening_location_id: LOCATION_ID,
+        variants: [
+          { name: "Brake pad - Black", sku: "SKU-1-BLK", opening_quantity: 5 },
+          { name: "Brake pad - Red", sku: "SKU-1-RED", opening_quantity: 12 },
+        ],
+      },
+      USER_ID
+    );
+
+    expect(result.success).toBe(true);
+    expect(supabase.client.rpc).toHaveBeenCalledWith(
+      "inventory_create_and_finalize",
+      expect.objectContaining({
+        p_lines: [
+          expect.objectContaining({ variant_id: VARIANT_ID, quantity: 5 }),
+          expect.objectContaining({ variant_id: VARIANT_ID_2, quantity: 12 }),
+        ],
+      })
+    );
+  });
+
+  it("E. each line's variant_id is taken from its own created variant, never inferred from SKU/position mismatch", async () => {
+    const supabase = withOpeningStockRpcs(
+      { product_id: PRODUCT_ID, variant_ids: [VARIANT_ID, VARIANT_ID_2], sku: "SKU-1" },
+      { data: { movement_id: "m1", status: "posted" }, error: null }
+    );
+
+    await InventoryProductsService.createEnhancedProduct(
+      supabase.client as never,
+      ORG_ID,
+      {
+        name: "Brake pad",
+        product_type: "stocked",
+        base_unit_id: UNIT_ID,
+        sku: "SKU-1",
+        track_inventory: true,
+        branch_id: BRANCH_ID,
+        opening_location_id: LOCATION_ID,
+        variants: [
+          // Only the SECOND variant carries an opening quantity — proves the
+          // first (zero-quantity) variant is filtered out without shifting
+          // the second variant's own id out of position.
+          { name: "Brake pad - Black", sku: "SKU-1-BLK", opening_quantity: 0 },
+          { name: "Brake pad - Red", sku: "SKU-1-RED", opening_quantity: 7 },
+        ],
+      },
+      USER_ID
+    );
+
+    const call = (supabase.client.rpc as ReturnType<typeof vi.fn>).mock.calls.find(
+      ([name]) => name === "inventory_create_and_finalize"
+    );
+    expect(call?.[1]).toEqual(
+      expect.objectContaining({
+        p_lines: [expect.objectContaining({ variant_id: VARIANT_ID_2, quantity: 7 })],
+      })
+    );
+  });
+});
+
 describe("InventoryProductsService.checkSkuCollisions", () => {
   it("delegates collision detection to the canonical database fingerprint RPC", async () => {
     const client = {

@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { ChevronDown, ChevronRight, Download, PackagePlus, Upload } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { DataView } from "@/components/data-view/data-view";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
@@ -24,6 +25,7 @@ import {
   getInventoryProductAction,
   listInventoryProductsAction,
 } from "@/app/actions/warehouse/inventory";
+import { getInventoryProductIdFromSelection } from "@/lib/warehouse/inventory-product-selection";
 import {
   ExpandedVariantRows,
   ProductDetailPanel,
@@ -33,9 +35,14 @@ import {
 } from "./inventory-product-display";
 
 type InventoryProductsClientProps = {
+  organizationId: string;
+  branchId: string | null;
   initialData: PaginatedResult<InventoryProductListRow>;
+  initialDataUpdatedAt?: number;
   customFields: InventoryCustomFieldDefinition[];
   canManageProducts: boolean;
+  /** warehouse.inventory.read: the item panel shows stock per location with R / B behind it. */
+  canReadStock?: boolean;
   canImportProducts: boolean;
 };
 
@@ -50,7 +57,7 @@ async function listFetcher(params: DataViewListParams) {
 
 async function detailFetcher(id: string) {
   const result = await getInventoryProductAction({
-    id: id.includes("::") ? id.split("::")[0] : id,
+    id: getInventoryProductIdFromSelection(id),
   });
   if (!result.success || !("data" in result))
     throw new Error("error" in result ? result.error : "unauthorized");
@@ -58,13 +65,18 @@ async function detailFetcher(id: string) {
 }
 
 export function InventoryProductsClient({
+  organizationId,
+  branchId,
   initialData,
+  initialDataUpdatedAt,
   customFields,
   canManageProducts,
+  canReadStock = false,
   canImportProducts,
 }: InventoryProductsClientProps) {
   const t = useTranslations("warehouseInventory.common");
   const tList = useTranslations("warehouseInventory.list");
+  const tCommit = useTranslations("modules.warehouse.stockCommitments");
   const [expandedProductIds, setExpandedProductIds] = useState<Record<string, true>>({});
   const [listMessage, setListMessage] = useState<string | null>(null);
 
@@ -90,7 +102,7 @@ export function InventoryProductsClient({
     anchor.download = result.data.file_name;
     anchor.click();
     URL.revokeObjectURL(url);
-  }, []);
+  }, [tList]);
 
   const columns = useMemo<DataViewColumnDef<InventoryProductListRow>[]>(
     () => [
@@ -169,6 +181,29 @@ export function InventoryProductsClient({
         defaultVisible: true,
       },
       {
+        // R: reserved for repair orders (stage E6).
+        key: "reserved_total_quantity",
+        header: tCommit("states.reserved"),
+        accessor: (row) => (
+          <span className="tabular-nums">{row.reserved_total_quantity || "—"}</span>
+        ),
+        sortable: false,
+        defaultVisible: true,
+      },
+      {
+        // B: blocked.
+        key: "blocked_quantity",
+        header: tCommit("states.blocked"),
+        accessor: (row) =>
+          row.blocked_quantity ? (
+            <span className="tabular-nums text-destructive">{row.blocked_quantity}</span>
+          ) : (
+            <span className="tabular-nums">—</span>
+          ),
+        sortable: false,
+        defaultVisible: true,
+      },
+      {
         key: "updated_at",
         header: tList("updated"),
         accessor: (row) => (
@@ -190,7 +225,7 @@ export function InventoryProductsClient({
         defaultVisible: false,
       })),
     ],
-    [customFields, t, tList]
+    [customFields, t, tList, tCommit]
   );
 
   const filters = useMemo<DataViewFilterDef[]>(
@@ -221,7 +256,7 @@ export function InventoryProductsClient({
         label: field.name,
       })),
     ],
-    [customFields, t, tList]
+    [customFields, t, tList, tCommit]
   );
 
   const renderCompactItem = useCallback(
@@ -268,9 +303,10 @@ export function InventoryProductsClient({
         detail={detail}
         customFields={customFields}
         canManageProducts={canManageProducts}
+        canReadStock={canReadStock}
       />
     ),
-    [canManageProducts, customFields]
+    [canManageProducts, canReadStock, customFields]
   );
 
   const getRowId = useCallback((row: InventoryProductListRow) => row.row_id, []);
@@ -318,9 +354,11 @@ export function InventoryProductsClient({
 
       <DataView<InventoryProductListRow, InventoryProductDetail>
         entity="inventory-products"
+        scope={dataViewScope.branch(organizationId, branchId)}
         columns={columns}
         filters={filters}
         initialData={initialData}
+        initialDataUpdatedAt={initialDataUpdatedAt}
         queryKey={INVENTORY_PRODUCTS_QUERY_KEY}
         listFetcher={listFetcher}
         detailFetcher={detailFetcher}

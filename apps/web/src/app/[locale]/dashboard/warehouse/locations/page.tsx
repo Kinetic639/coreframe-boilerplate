@@ -56,6 +56,10 @@ export default async function AmbraWarehouseLocationsPage({ searchParams }: Page
         success: true as const,
         data: { balances: [], movements: [], containers: [], putawayRules: [] },
       };
+  // A failed read must not render as an empty tree with zero stock.
+  if (!locationsResult.success || !inventorySnapshotResult.success) {
+    throw new Error("Failed to load warehouse locations or their stock");
+  }
   const variantOptionsResult = branchId
     ? await InventoryProductsService.listVariantOptions(supabase, context.app.activeOrgId, branchId)
     : { success: true as const, data: [] };
@@ -80,6 +84,16 @@ export default async function AmbraWarehouseLocationsPage({ searchParams }: Page
 
   return (
     <AmbraLocationsClient
+      // Zone 1 / Phase 6: keying on branchId forces a full remount whenever the
+      // active branch changes. router.refresh() re-executes this Server
+      // Component and passes fresh props down, but by design does NOT reset an
+      // already-mounted client component's own useState (locations,
+      // treeSelectedId, etc.) -- without this key, a same-route branch switch
+      // (the new cross-branch QR confirm flow) would leave this component
+      // showing stale, wrong-branch client state even after a successful,
+      // server-confirmed switch.
+      key={branchId ?? "no-branch"}
+      organizationId={context.app.activeOrgId}
       activeBranch={createAmbraBranch(branchId, context.app.activeBranch?.name)}
       initialLocations={
         locationsResult.success ? warehouseLocationsToAmbra(locationsResult.data) : []

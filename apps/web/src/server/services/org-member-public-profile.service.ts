@@ -18,6 +18,7 @@ const USER_AVATAR_BUCKET = "user-avatars";
 const AVATAR_SIGNED_URL_TTL_SECONDS = 60 * 60;
 const MAX_PROFILE_LOOKUP_USERS = 100;
 const MAX_PROFILE_PAGE_SIZE = 48;
+const MAX_AVATAR_LOOKUP_USERS = 300;
 
 type MembershipRow = {
   user_id: string;
@@ -281,6 +282,75 @@ export class OrgMemberPublicProfileService {
         totalPages: Math.max(1, Math.ceil(totalCount / pageSize)),
       },
     };
+  }
+
+  /**
+   * Avatar URLs of active members of the organization, by user id — for lists
+   * that already have the names (conversations, chat members) and only miss the
+   * picture. Private avatars are signed in one storage call; users without an
+   * avatar are absent from the map.
+   */
+  static async avatarUrls(
+    supabase: SupabaseClient,
+    orgId: string,
+    userIds: string[]
+  ): Promise<Map<string, string>> {
+    const urls = new Map<string, string>();
+    const targetUserIds = Array.from(new Set(userIds.filter(Boolean))).slice(
+      0,
+      MAX_AVATAR_LOOKUP_USERS
+    );
+    if (targetUserIds.length === 0) return urls;
+
+    const authResult = await authorizeViewer(supabase, orgId);
+    if (!authResult.success) return urls;
+
+    const { data: memberships, error: membershipError } = await supabase
+      .from("organization_members")
+      .select("user_id")
+      .eq("organization_id", orgId)
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .in("user_id", targetUserIds);
+    if (membershipError) return urls;
+    const memberIds = ((memberships ?? []) as MembershipRow[]).map((row) => row.user_id);
+    if (memberIds.length === 0) return urls;
+
+    const { data: users, error: usersError } = await supabase
+      .from("users")
+      .select("id, email, first_name, last_name, avatar_url, avatar_path")
+      .in("id", memberIds);
+    if (usersError) return urls;
+    const rows = (users ?? []) as UserProfileRow[];
+
+    for (const user of rows) {
+      if (user.avatar_url) urls.set(user.id, user.avatar_url);
+    }
+    const privateAvatars = rows.filter(canSignAvatarPath);
+    if (privateAvatars.length === 0) return urls;
+
+    try {
+      const { data: signed, error } = await createServiceClient()
+        .storage.from(USER_AVATAR_BUCKET)
+        .createSignedUrls(
+          privateAvatars.map((user) => user.avatar_path),
+          AVATAR_SIGNED_URL_TTL_SECONDS
+        );
+      if (error) {
+        console.error("[OrgMemberPublicProfileService] Failed to sign avatars", error);
+        return urls;
+      }
+      (signed ?? []).forEach((item, index) => {
+        const user = privateAvatars[index];
+        if (user && item.signedUrl) urls.set(user.id, item.signedUrl);
+      });
+    } catch (error) {
+      console.error(
+        "[OrgMemberPublicProfileService] Service client unavailable for avatars",
+        error
+      );
+    }
+    return urls;
   }
 
   static async listProfiles(

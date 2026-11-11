@@ -25,18 +25,21 @@ const nuqsState = {
 // Mocks
 // ---------------------------------------------------------------------------
 
-vi.mock("framer-motion", () => ({
-  AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  motion: {
-    div: React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-      ({ children, className, ...rest }, ref) => (
-        <div ref={ref} className={className} {...rest}>
-          {children}
-        </div>
-      )
-    ),
-  },
-}));
+vi.mock("framer-motion", () => {
+  const MotionDiv = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+    ({ children, className, ...rest }, ref) => (
+      <div ref={ref} className={className} {...rest}>
+        {children}
+      </div>
+    )
+  );
+  MotionDiv.displayName = "MotionDiv";
+
+  return {
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    motion: { div: MotionDiv },
+  };
+});
 
 vi.mock("nuqs", () => {
   const parseAsString = {
@@ -54,12 +57,53 @@ vi.mock("nuqs", () => {
     parseAsString,
     parseAsInteger,
     parseAsJson,
-    useQueryStates: (parsers: Record<string, { _t?: string; _d?: unknown }>) => {
+    createLoader:
+      (parsers: Record<string, { _t?: string; _d?: unknown }>) =>
+      (input: Record<string, string | string[] | undefined> | URLSearchParams | string) => {
+        const params =
+          typeof input === "string"
+            ? new URLSearchParams(input)
+            : input instanceof URLSearchParams
+              ? input
+              : new URLSearchParams(
+                  Object.entries(input).flatMap(([key, value]) =>
+                    typeof value === "string" ? [[key, value]] : []
+                  )
+                );
+        return Object.fromEntries(
+          Object.entries(parsers).map(([key, parser]) => {
+            const value = params.get(key);
+            if (!value) return [key, parser._d];
+            if (parser._t === "int") return [key, Number.parseInt(value, 10) || parser._d];
+            if (parser._t === "json") {
+              try {
+                return [key, JSON.parse(value)];
+              } catch {
+                return [key, parser._d];
+              }
+            }
+            return [key, value];
+          })
+        );
+      },
+    useQueryStates: (
+      parsers: Record<
+        string,
+        {
+          _t?: string;
+          _d?: unknown;
+          defaultValue?: unknown;
+          parse?: (value: string) => unknown;
+        }
+      >
+    ) => {
       const state: Record<string, unknown> = {};
       for (const [k, p] of Object.entries(parsers)) {
         const raw = nuqsState.params.get(k) ?? null;
         if (raw === null || raw === "") {
-          state[k] = p._d ?? (p._t === "int" ? 0 : p._t === "json" ? {} : "");
+          state[k] = p.defaultValue ?? p._d ?? (p._t === "int" ? 0 : p._t === "json" ? {} : "");
+        } else if (p.parse) {
+          state[k] = p.parse(raw) ?? p.defaultValue;
         } else if (p._t === "int") {
           state[k] = parseInt(raw, 10) || p._d;
         } else if (p._t === "json") {
@@ -129,6 +173,9 @@ const TEST_TRANSLATIONS: Record<string, string> = {
   "dataView.detail.closeAria": "Close detail",
   "dataView.detail.loadingAria": "Loading details",
   "dataView.detail.empty": "No item selected",
+  "dataView.detail.error": "Unable to load details.",
+  "dataView.detail.notFound": "This item no longer exists.",
+  "dataView.detail.selectedOutsideResults": "Selected item is outside current results.",
   "dataView.toolbar.searchPlaceholder": "Search...",
   "dataView.toolbar.searchAria": "Search",
   "dataView.toolbar.closeSearchAria": "Close search",
@@ -174,6 +221,7 @@ const TEST_TRANSLATIONS: Record<string, string> = {
   "dataView.sidebar.loadingPreviousAria": "Loading previous items",
   "dataView.sidebar.loadingMoreAria": "Loading more items",
   "dataView.table.noResults": "No results",
+  "dataView.table.error": "Unable to load results.",
   "dataView.mobile.loadingAria": "Loading rows",
 };
 
@@ -315,6 +363,7 @@ const mockFilters: DataViewProps<MockProduct, MockProductDetail>["filters"] = [
 
 const defaultProps: DataViewProps<MockProduct, MockProductDetail> = {
   entity: "test-products",
+  scope: { testScope: "global" },
   columns: mockColumns,
   filters: mockFilters,
   initialData: makeInitialData(),
@@ -362,6 +411,37 @@ function renderDataView(
   nuqsState.params = new Map(Object.entries(searchParams));
   const mergedProps = { ...defaultProps, ...props };
   return renderWithProviders(<DataView {...mergedProps} />);
+}
+
+function renderDataViewWithClient(
+  props: Partial<DataViewProps<MockProduct, MockProductDetail>> = {},
+  searchParams: Record<string, string> = {},
+  strict = false
+) {
+  nuqsState.params = new Map(Object.entries(searchParams));
+  const mergedProps = { ...defaultProps, ...props };
+  const queryClient = makeQueryClient();
+  const view = <DataView {...mergedProps} />;
+  const tree = (
+    <QueryClientProvider client={queryClient}>
+      {strict ? <React.StrictMode>{view}</React.StrictMode> : view}
+    </QueryClientProvider>
+  );
+  const result = render(tree);
+
+  return {
+    ...result,
+    queryClient,
+    rerenderDataView(nextSearchParams: Record<string, string>) {
+      nuqsState.params = new Map(Object.entries(nextSearchParams));
+      const nextView = <DataView {...mergedProps} />;
+      result.rerender(
+        <QueryClientProvider client={queryClient}>
+          {strict ? <React.StrictMode>{nextView}</React.StrictMode> : nextView}
+        </QueryClientProvider>
+      );
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -438,6 +518,17 @@ describe("T-DV-PAGINATION: shows correct pagination info", () => {
     // Synchronous check — sees placeholder data before the query resolves
     expect(screen.getByTestId("pagination-info")).toHaveTextContent("No results");
   });
+
+  it("replaces an out-of-range page with the nearest valid page", async () => {
+    renderDataView(
+      { initialData: { rows: [], totalCount: 126, page: 999, pageSize: 50 } },
+      { page: "999" }
+    );
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith(expect.stringContaining("page=3"));
+    });
+  });
 });
 
 describe("T-DV-SELECT: clicking a row updates selected state", () => {
@@ -473,6 +564,65 @@ describe("T-DV-DETAIL: selecting a row shows detail panel", () => {
     renderDataView({}, { selected: "p1" });
     await waitFor(() => expect(screen.getByText("Great widget")).toBeInTheDocument());
   });
+
+  it("keeps a direct selected detail visible after StrictMode effects settle", async () => {
+    renderDataViewWithClient({}, { selected: "p1" }, true);
+
+    expect(await screen.findByText("Great widget")).toBeInTheDocument();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    });
+
+    expect(screen.getByTestId("detail-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("sidebar-item-p1")).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("re-initializes a selected URL after a route-Back remount", async () => {
+    const first = renderDataViewWithClient({}, { selected: "p1" });
+    expect(await screen.findByText("Great widget")).toBeInTheDocument();
+    first.unmount();
+
+    renderDataViewWithClient({}, { selected: "p1" }, true);
+    expect(await screen.findByText("Great widget")).toBeInTheDocument();
+    expect(screen.getByTestId("detail-panel")).toBeInTheDocument();
+  });
+
+  it("shows detail when route Back restores selected without waiting for animation completion", async () => {
+    const result = renderDataViewWithClient({}, {});
+    expect(screen.queryByTestId("detail-panel")).not.toBeInTheDocument();
+
+    result.rerenderDataView({ selected: "p1" });
+
+    expect(await screen.findByText("Great widget")).toBeInTheDocument();
+    expect(screen.getByTestId("detail-panel")).toBeInTheDocument();
+  });
+});
+
+describe("T-DV-SIDEBAR-CACHE: selected sidebar follows normalized list params", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorageMock.clear();
+    mockDetailFetcher.mockResolvedValue(MOCK_DETAILS.p1);
+  });
+
+  it("fetches a new key and does not keep previous rows fresh after search changes", async () => {
+    const listFetcher = vi.fn(async (params: { search: string }) => ({
+      rows: params.search === "NO_MATCH" ? [] : MOCK_PRODUCTS,
+      totalCount: params.search === "NO_MATCH" ? 0 : MOCK_PRODUCTS.length,
+      page: 1,
+      pageSize: 50,
+    }));
+    const result = renderDataViewWithClient({ listFetcher }, { selected: "p1" });
+
+    expect(await screen.findByTestId("sidebar-item-p1")).toBeInTheDocument();
+    result.rerenderDataView({ selected: "p1", search: "NO_MATCH" });
+
+    await waitFor(() =>
+      expect(listFetcher).toHaveBeenCalledWith(expect.objectContaining({ search: "NO_MATCH" }))
+    );
+    await waitFor(() => expect(screen.queryByTestId("sidebar-item-p1")).not.toBeInTheDocument());
+    expect(screen.getByTestId("detail-panel")).toBeInTheDocument();
+  });
 });
 
 describe("T-DV-CLOSE: clearing selected returns to full table mode", () => {
@@ -489,7 +639,7 @@ describe("T-DV-CLOSE: clearing selected returns to full table mode", () => {
     // Close is now the "Filters / Back to full list" button in the toolbar
     fireEvent.click(screen.getByTestId("back-to-list-button"));
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"));
+      expect(mockReplace).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"));
     });
   });
 
@@ -512,8 +662,8 @@ describe("T-DV-CLOSE: clearing selected returns to full table mode", () => {
           filters: {},
         },
       });
-      expect(mockPush).toHaveBeenCalledWith(expect.stringContaining("page=1"));
-      expect(mockPush).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"));
+      expect(mockReplace).toHaveBeenCalledWith(expect.stringContaining("page=1"));
+      expect(mockReplace).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"));
     });
   });
 });
@@ -639,6 +789,15 @@ describe("T-DV-COLUMNS: column visibility hides/shows a column", () => {
     expect(screen.getAllByText("Category").length).toBeGreaterThan(0);
     expect(screen.getByText("Price")).toBeInTheDocument();
   });
+
+  it("honors defaultVisible false when no stored preference exists", () => {
+    renderDataView({
+      columns: mockColumns.map((column) =>
+        column.key === "price" ? { ...column, defaultVisible: false } : column
+      ),
+    });
+    expect(screen.queryByText("Price")).not.toBeInTheDocument();
+  });
 });
 
 describe("T-DV-DETAIL-Q: detail fetcher called only when item selected", () => {
@@ -660,6 +819,38 @@ describe("T-DV-DETAIL-Q: detail fetcher called only when item selected", () => {
     mockDetailFetcher.mockResolvedValue(MOCK_DETAILS["p2"]);
     renderDataView({}, { selected: "p2" });
     await waitFor(() => expect(mockDetailFetcher).toHaveBeenCalledWith("p2"));
+  });
+});
+
+describe("T-DV-STATES: loading and failures remain distinct", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorageMock.clear();
+  });
+
+  it("renders detail not-found separately from an unselected detail", async () => {
+    renderDataView({ detailFetcher: vi.fn().mockResolvedValue(null) }, { selected: "missing" });
+    expect(await screen.findByText("This item no longer exists.")).toBeInTheDocument();
+  });
+
+  it("renders a detail request error separately from not-found", async () => {
+    renderDataView(
+      { detailFetcher: vi.fn().mockRejectedValue(new Error("network unavailable")) },
+      { selected: "p1" }
+    );
+    expect(await screen.findByText("Unable to load details.")).toBeInTheDocument();
+  });
+
+  it("renders a list transition error instead of reporting an empty success", async () => {
+    const listFetcher = vi.fn(async (params: { search: string }) => {
+      if (params.search) throw new Error("network unavailable");
+      return makeInitialData();
+    });
+    const result = renderDataViewWithClient({ listFetcher });
+    result.rerenderDataView({ search: "fails" });
+
+    expect(await screen.findByText("Unable to load results.")).toBeInTheDocument();
+    expect(screen.queryByText("No results")).not.toBeInTheDocument();
   });
 });
 
@@ -757,7 +948,7 @@ describe("T-DV-TOOLBAR-DETAIL: detail/sidebar mode toolbar", () => {
     await waitFor(() => screen.getByTestId("detail-panel"));
     fireEvent.click(screen.getByTestId("back-to-list-button"));
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"));
+      expect(mockReplace).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"));
     });
   });
 
@@ -849,7 +1040,7 @@ describe("T-DV-CLOSE-BTN: detail panel has close button", () => {
     await waitFor(() => screen.getByTestId("detail-panel"));
     fireEvent.click(screen.getByRole("button", { name: /close detail/i }));
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"));
+      expect(mockReplace).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"));
     });
   });
 });

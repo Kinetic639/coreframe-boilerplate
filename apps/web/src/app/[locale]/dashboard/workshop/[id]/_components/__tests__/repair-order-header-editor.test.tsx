@@ -60,6 +60,9 @@ function render(ui: ReactElement) {
 const BASE_ORDER: RepairOrderHeader = {
   id: "ro-1",
   zlNumber: "ZL/1",
+  orderNo: null,
+  orderYear: null,
+  warehouseCode: null,
   orderNumber: "BLWK/1",
   vin: "VIN1",
   status: "open",

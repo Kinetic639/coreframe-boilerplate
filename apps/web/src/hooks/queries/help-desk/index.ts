@@ -11,14 +11,23 @@ import {
   createTicketAction,
   getTicketDetailAction,
   closeTicketAction,
+  setTicketStatusAction,
+  takeTicketAction,
   acceptTicketAction,
 } from "@/app/actions/help-desk";
 import type {
   AcceptTicketInput,
   CreateTicketInput,
   CloseTicketInput,
+  SetTicketStatusInput,
+  TakeTicketInput,
 } from "@/lib/validations/helpdesk";
 import type { HelpdeskTicketDetail } from "@/server/services/helpdesk-tickets.service";
+import {
+  dataViewKeys,
+  invalidateDataViewEntity,
+} from "@/components/data-view/data-view-query-keys";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 
 // ---------------------------------------------------------------------------
 // Query key factory
@@ -30,9 +39,11 @@ export const helpdeskKeys = {
   ticketTypeDefaultResponders: (typeId: string) =>
     [...helpdeskKeys.ticketTypes(), typeId, "default-responders"] as const,
   tickets: () => [...helpdeskKeys.all, "tickets"] as const,
-  ticketsDataView: () => [...helpdeskKeys.tickets(), "data-view"] as const,
+  ticketsDataView: (orgId: string) =>
+    dataViewKeys.lists("helpdesk-tickets", dataViewScope.organization(orgId)),
   ticket: (id: string) => [...helpdeskKeys.tickets(), id] as const,
-  ticketDetail: (id: string) => [...helpdeskKeys.ticket(id), "detail"] as const,
+  ticketDetail: (orgId: string, id: string) =>
+    dataViewKeys.detail("helpdesk-tickets", dataViewScope.organization(orgId), id),
   orgMembers: () => [...helpdeskKeys.all, "org-members"] as const,
 };
 
@@ -119,7 +130,7 @@ export function useTicketDetailQuery(
   initialData?: HelpdeskTicketDetail
 ) {
   return useQuery({
-    queryKey: helpdeskKeys.ticketDetail(ticketNumber),
+    queryKey: helpdeskKeys.ticketDetail(orgId, ticketNumber),
     queryFn: async () => {
       const result = await getTicketDetailAction(ticketNumber, orgId);
       if (!result.success) throw new Error((result as { success: false; error: string }).error);
@@ -154,7 +165,7 @@ export function useCreateTicketMutation() {
 // Close Ticket
 // ---------------------------------------------------------------------------
 
-export function useCloseTicketMutation(ticketNumber: string) {
+export function useCloseTicketMutation(ticketNumber: string, orgId: string) {
   const queryClient = useQueryClient();
   const t = useTranslations("modules.helpDesk");
 
@@ -165,8 +176,12 @@ export function useCloseTicketMutation(ticketNumber: string) {
       return result.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: helpdeskKeys.ticketDetail(ticketNumber) });
-      queryClient.invalidateQueries({ queryKey: helpdeskKeys.ticketsDataView() });
+      void invalidateDataViewEntity(
+        queryClient,
+        "helpdesk-tickets",
+        dataViewScope.organization(orgId),
+        ticketNumber
+      );
       toast.success(t("tickets.ticketClosed"));
     },
     onError: (err: Error) => {
@@ -176,10 +191,64 @@ export function useCloseTicketMutation(ticketNumber: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Handling: status and "take" (step 5b)
+// ---------------------------------------------------------------------------
+
+export function useSetTicketStatusMutation(ticketNumber: string, orgId: string) {
+  const queryClient = useQueryClient();
+  const t = useTranslations("modules.helpDesk");
+
+  return useMutation({
+    mutationFn: async (input: SetTicketStatusInput) => {
+      const result = await setTicketStatusAction(input);
+      if (!result.success) throw new Error((result as { success: false; error: string }).error);
+      return result.data;
+    },
+    onSuccess: () => {
+      void invalidateDataViewEntity(
+        queryClient,
+        "helpdesk-tickets",
+        dataViewScope.organization(orgId),
+        ticketNumber
+      );
+      toast.success(t("tickets.handling.statusChanged"));
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || t("tickets.handling.failed"));
+    },
+  });
+}
+
+export function useTakeTicketMutation(ticketNumber: string, orgId: string) {
+  const queryClient = useQueryClient();
+  const t = useTranslations("modules.helpDesk");
+
+  return useMutation({
+    mutationFn: async (input: TakeTicketInput) => {
+      const result = await takeTicketAction(input);
+      if (!result.success) throw new Error((result as { success: false; error: string }).error);
+      return result.data;
+    },
+    onSuccess: () => {
+      void invalidateDataViewEntity(
+        queryClient,
+        "helpdesk-tickets",
+        dataViewScope.organization(orgId),
+        ticketNumber
+      );
+      toast.success(t("tickets.handling.taken"));
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || t("tickets.handling.failed"));
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Accept Ticket
 // ---------------------------------------------------------------------------
 
-export function useAcceptTicketMutation(ticketNumber: string) {
+export function useAcceptTicketMutation(ticketNumber: string, orgId: string) {
   const queryClient = useQueryClient();
   const t = useTranslations("modules.helpDesk");
 
@@ -190,8 +259,12 @@ export function useAcceptTicketMutation(ticketNumber: string) {
       return result.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: helpdeskKeys.ticketDetail(ticketNumber) });
-      queryClient.invalidateQueries({ queryKey: helpdeskKeys.ticketsDataView() });
+      void invalidateDataViewEntity(
+        queryClient,
+        "helpdesk-tickets",
+        dataViewScope.organization(orgId),
+        ticketNumber
+      );
       toast.success(t("tickets.acceptance.acceptSuccess"));
     },
     onError: (err: Error) => {

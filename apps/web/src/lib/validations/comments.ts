@@ -1,3 +1,4 @@
+import { compactRichText } from "@repo/rich-text/rich-text-utils";
 import { z } from "zod";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
 
@@ -16,7 +17,10 @@ const ALLOWED_NODE_TYPES = new Set([
   "blockquote",
   "codeBlock",
   "hardBreak",
+  "mention",
 ]);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MENTION_ATTR_LIMITS: Record<string, number> = { type: 40, label: 200, code: 80, href: 300 };
 const ALLOWED_MARK_TYPES = new Set(["bold", "italic", "underline", "strike", "code", "link"]);
 
 export const commentTargetSchema = z.object({
@@ -52,6 +56,25 @@ function isSafeLinkHref(value: unknown): boolean {
   );
 }
 
+/**
+ * "@" mention: `{ type, id, label, code?, href? }`. The id is a uuid, texts are
+ * short, and the link (if any) stays inside the dashboard — it is rendered as one.
+ */
+function isAllowedMention(node: Record<string, unknown>): boolean {
+  const attrs = isRecord(node.attrs) ? node.attrs : null;
+  if (!attrs || node.content !== undefined || node.marks !== undefined) return false;
+  if (typeof attrs.id !== "string" || !UUID_RE.test(attrs.id)) return false;
+  for (const [name, limit] of Object.entries(MENTION_ATTR_LIMITS)) {
+    const value = attrs[name];
+    if (value === undefined || value === null) continue;
+    if (typeof value !== "string" || value.length > limit) return false;
+  }
+  if (typeof attrs.href === "string" && attrs.href) {
+    if (!/^\/dashboard\/[^\s\\]*$/.test(attrs.href) || attrs.href.includes("//")) return false;
+  }
+  return true;
+}
+
 function isAllowedRichTextNode(value: unknown, depth: number): boolean {
   if (depth > MAX_RICH_TEXT_DEPTH || !isRecord(value)) return false;
 
@@ -59,6 +82,7 @@ function isAllowedRichTextNode(value: unknown, depth: number): boolean {
   if (typeof type !== "string" || !ALLOWED_NODE_TYPES.has(type)) return false;
 
   if ("text" in value && typeof value.text !== "string") return false;
+  if (type === "mention") return isAllowedMention(value);
 
   const marks = value.marks;
   if (marks !== undefined) {
@@ -99,5 +123,5 @@ export function normalizeCommentRichText(value: unknown): RichTextValue | null {
   const candidate = value as RichTextValue;
   if (candidate.type !== "doc" || !Array.isArray(candidate.content)) return null;
 
-  return candidate;
+  return compactRichText(candidate);
 }

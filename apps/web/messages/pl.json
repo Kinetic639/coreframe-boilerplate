@@ -203,7 +203,9 @@
       "loadMore": "Załaduj więcej",
       "edited": "edytowano",
       "formerMember": "Były członek",
-      "addFailed": "Nie udało się dodać komentarza"
+      "addFailed": "Nie udało się dodać komentarza",
+      "typing": "{name} pisze…",
+      "typingMany": "{count, plural, few {# osoby piszą…} other {# osób pisze…}}"
     },
     "attachments": {
       "title": "Załączniki",
@@ -258,7 +260,12 @@
     "detail": {
       "closeAria": "Zamknij szczegóły",
       "loadingAria": "Ładowanie szczegółów",
-      "empty": "Nie wybrano elementu"
+      "refreshing": "Odświeżanie szczegółów",
+      "empty": "Nie wybrano elementu",
+      "error": "Nie udało się załadować szczegółów.",
+      "refreshError": "Nie udało się pobrać najnowszych szczegółów. Wyświetlana jest poprzednia wersja.",
+      "notFound": "Ten element już nie istnieje.",
+      "selectedOutsideResults": "Wybrany element jest poza bieżącymi wynikami."
     },
     "toolbar": {
       "searchPlaceholder": "Szukaj...",
@@ -315,7 +322,9 @@
       "loadingMoreAria": "Ładowanie kolejnych elementów"
     },
     "table": {
-      "noResults": "Brak wyników"
+      "noResults": "Brak wyników",
+      "error": "Nie udało się załadować wyników.",
+      "updating": "Aktualizowanie wyników"
     },
     "mobile": {
       "loadingAria": "Ładowanie wierszy"
@@ -455,13 +464,15 @@
     "no": "Nie",
     "save": "Zapisz zmiany",
     "saving": "Zapisywanie...",
-    "profileUpdated": "Profil został zaktualizowany"
+    "profileUpdated": "Profil został zaktualizowany",
+    "phoneHint": "Widoczny dla współpracowników w Twojej organizacji (Kontakty)."
   },
   "AccountPage": {
     "title": "Konto",
     "profile": "Profil",
     "preferences": "Preferencje",
-    "notifications": "Powiadomienia"
+    "notifications": "Powiadomienia",
+    "feedback": "Błędy i propozycje"
   },
   "NotificationsPage": {
     "description": "Zarządzaj sposobem otrzymywania powiadomień i alertów."
@@ -641,6 +652,8 @@
   },
   "common": {
     "loading": "Ładowanie...",
+    "loadingApp": "Ładowanie…",
+    "loadingPage": "Wczytywanie strony…",
     "retry": "Ponów",
     "cancel": "Anuluj",
     "searching": "Wyszukiwanie...",
@@ -1119,6 +1132,14 @@
     "listView": {
       "treeView": "Widok drzewa",
       "listView": "Widok listy",
+      "crossBranchDialog": {
+        "title": "Przełączyć oddział, aby zobaczyć tę lokalizację?",
+        "description": "Ta lokalizacja należy do innego oddziału. Przełączyć się na ten oddział, aby ją zobaczyć?",
+        "confirm": "Przełącz oddział",
+        "cancel": "Anuluj",
+        "switching": "Przełączanie...",
+        "switchFailed": "Nie udało się przełączyć oddziału. Spróbuj ponownie."
+      },
       "code": "Kod",
       "name": "Nazwa",
       "path": "Ścieżka",
@@ -2298,7 +2319,8 @@
           "adjustments": {
             "title": "Korekty stanów",
             "single": "Pojedyncza korekta"
-          }
+          },
+          "warehouseStock": "Stany magazynów AS"
         },
         "locations": "Lokalizacje",
         "audits": "Inwentaryzacje",
@@ -2697,7 +2719,12 @@
         "purchases": {
           "title": "Zakupy",
           "orders": "Zamówienia Zakupu"
-        }
+        },
+        "putaway": "Do rozlokowania",
+        "reservations": "Rezerwacje",
+        "blocks": "Blokady",
+        "reservationsAndBlocks": "Rezerwacje i blokady",
+        "internalOrders": "Zamówienia wewnętrzne"
       },
       "partnerTypes": {
         "vendor": "Dostawca",
@@ -2713,6 +2740,659 @@
       "placeholder": {
         "comingSoon": "Ta sekcja będzie wkrótce dostępna.",
         "moduleShell": "Ten placeholder jest celową częścią szkieletu Warehouse V2."
+      },
+      "containers": {
+        "back": "Wróć do zlecenia",
+        "backToWarehouse": "Wróć do lokalizacji",
+        "title": "Kontener",
+        "status": {
+          "empty": "Pusty",
+          "active": "W użyciu",
+          "sealed": "Zamknięty",
+          "in_transit": "W transporcie",
+          "archived": "Zarchiwizowany"
+        },
+        "repairOrder": "Zlecenie naprawy",
+        "noRepairOrder": "Kontener nie jest powiązany ze zleceniem.",
+        "client": "Klient",
+        "vehicle": "Pojazd",
+        "vin": "VIN",
+        "location": "Lokalizacja",
+        "noLocation": "Brak lokalizacji",
+        "contents": "Zawartość",
+        "contentsEmpty": "Kontener jest pusty.",
+        "columns": {
+          "sku": "Numer części",
+          "name": "Nazwa",
+          "quantity": "Ilość"
+        },
+        "qr": {
+          "title": "Kod QR kontenera",
+          "none": "Kontener nie ma jeszcze kodu QR.",
+          "assigned": "Kod QR przypisany",
+          "generate": "Wygeneruj kod QR",
+          "generating": "Generowanie…",
+          "print": "Drukuj etykietę",
+          "printing": "Przygotowywanie etykiety…",
+          "generated": "Kod QR został wygenerowany i przypisany.",
+          "error": "Nie udało się wygenerować kodu QR.",
+          "printError": "Nie udało się przygotować etykiety.",
+          "noPermission": "Nie masz uprawnień do przypisywania kodów QR.",
+          "scan": "Zeskanuj naklejkę QR",
+          "scanTitle": "Przypisz naklejkę QR do kontenera",
+          "scanHint": "Zeskanuj wydrukowaną, nieprzypisaną naklejkę QR — zostanie przypisana do tego kontenera.",
+          "scanBack": "Anuluj",
+          "orGenerate": "lub wygeneruj nowy kod",
+          "assignedToast": "Naklejka QR została przypisana do kontenera.",
+          "alreadyThis": "Ta naklejka jest już przypisana do tego kontenera.",
+          "alreadyOther": "Ta naklejka jest już przypisana do innego obiektu.",
+          "assignError": "Nie udało się przypisać naklejki."
+        },
+        "crossBranch": {
+          "title": "Kontener w innym oddziale",
+          "description": "Ten kontener należy do oddziału {branch}. Przełączyć aktywny oddział, aby go otworzyć?",
+          "confirm": "Przełącz oddział",
+          "cancel": "Anuluj",
+          "switching": "Przełączanie…",
+          "error": "Nie udało się przełączyć oddziału."
+        },
+        "relocate": {
+          "open": "Przenieś kontener",
+          "title": "Przenieś kontener {code}",
+          "description": "Cały kontener razem z zawartością trafi do wybranej lokalizacji. Kod QR kontenera się nie zmienia.",
+          "scan": "Zeskanuj naklejkę lokalizacji",
+          "scanHint": "Zeskanuj naklejkę QR lokalizacji docelowej.",
+          "scanBack": "Wróć",
+          "scanNotLocation": "To nie jest naklejka lokalizacji. Zeskanuj naklejkę lokalizacji docelowej.",
+          "scanNotAvailable": "Tej lokalizacji nie można tu użyć — należy do innego oddziału albo nie przechowuje towaru.",
+          "orPick": "lub wybierz z listy",
+          "placeholder": "Wybierz lokalizację docelową",
+          "loading": "Wczytywanie lokalizacji…",
+          "confirm": "Przenieś",
+          "moving": "Przenoszenie…",
+          "cancel": "Anuluj",
+          "movedToast": "Kontener {code} przeniesiono do {location}.",
+          "errors": {
+            "unauthorized": "Nie masz uprawnień do przenoszenia kontenerów w tym oddziale.",
+            "not_found": "Nie znaleziono kontenera w aktywnym oddziale.",
+            "not_movable": "Tego kontenera nie można przenieść w obecnym stanie.",
+            "same_location": "Kontener już jest w tej lokalizacji.",
+            "invalid_destination": "Wybrana lokalizacja nie może przechowywać towaru.",
+            "inconsistent": "Stan kontenera nie zgadza się z przydziałami części — przeniesienie zablokowano. Skontaktuj się z administratorem.",
+            "invalid_input": "Nieprawidłowe dane przeniesienia.",
+            "unexpected": "Nie udało się przenieść kontenera. Spróbuj ponownie."
+          }
+        }
+      },
+      "putaway": {
+        "title": "Do rozlokowania",
+        "subtitle": "Towar w strefie przyjęć nie jest dostępny, dopóki nie zostanie rozłożony na lokalizację lub do kontenera.",
+        "noBranch": "Wybierz aktywny oddział.",
+        "loadError": "Nie udało się wczytać strefy przyjęć.",
+        "noReceivingLocation": "Ten oddział nie ma skonfigurowanej strefy przyjęć. Administrator może ją wskazać na stronie Lokalizacje.",
+        "empty": "Strefa przyjęć jest pusta — wszystko zostało rozlokowane.",
+        "summary": "{count, plural, one {# pozycja czeka na rozlokowanie} few {# pozycje czekają na rozlokowanie} many {# pozycji czeka na rozlokowanie} other {# pozycji czeka na rozlokowanie}}",
+        "freeGroup": "Wolne (bez zlecenia)",
+        "bulkBadge": "Materiał zbiorczy",
+        "putaway": "Rozłóż",
+        "suggest": {
+          "container": "Do kontenera {code} ({location})",
+          "newContainer": "Nowy kontener zlecenia w lokalizacji, którą zeskanujesz",
+          "bulkFixed": "Stała lokalizacja: {location}",
+          "bulkNoFixed": "Materiał zbiorczy — brak stałej lokalizacji, zeskanuj miejsce",
+          "freeFixed": "Stała lokalizacja: {location}",
+          "free": "Dowolna lokalizacja"
+        },
+        "dialog": {
+          "scan": "Zeskanuj lokalizację",
+          "scanHint": "Zeskanuj naklejkę QR lokalizacji, na którą odkładasz część.",
+          "scanBack": "Wróć",
+          "scanNotLocation": "To nie jest naklejka lokalizacji. Zeskanuj naklejkę lokalizacji.",
+          "scanNotAvailable": "Tej lokalizacji nie można użyć — należy do innego oddziału albo nie przechowuje towaru.",
+          "scanIsReceiving": "To strefa przyjęć — zeskanuj lokalizację docelową.",
+          "orPick": "lub wybierz z listy",
+          "placeholder": "Wybierz lokalizację",
+          "loading": "Wczytywanie lokalizacji…",
+          "quantity": "Ilość (maks. {max} {unit})",
+          "outcome": {
+            "pickFirst": "Zeskanuj lub wybierz lokalizację.",
+            "intoContainer": "Trafi do kontenera {code} tego zlecenia.",
+            "newContainer": "Powstanie nowy kontener tego zlecenia w tej lokalizacji.",
+            "bulkReserved": "Materiał zbiorczy: odłożony bez kontenera i zarezerwowany dla zlecenia.",
+            "loose": "Odłożony luzem na lokalizację."
+          },
+          "confirm": "Potwierdź",
+          "confirming": "Zapisywanie…",
+          "cancel": "Anuluj",
+          "doneContainer": "Włożono do kontenera {code} ({location}).",
+          "doneNewContainer": "Utworzono kontener {code} w {location} i włożono część.",
+          "doneLocation": "Rozłożono na {location}.",
+          "position": "{index} z {total}",
+          "skip": "Pomiń",
+          "confirmNext": "Rozłóż i dalej"
+        },
+        "errors": {
+          "unauthorized": "Nie masz uprawnień do rozlokowania w tym oddziale.",
+          "not_found": "Nie znaleziono pozycji — odśwież listę.",
+          "invalid_destination": "Tej lokalizacji nie można użyć jako miejsca odłożenia.",
+          "not_enough": "W strefie przyjęć nie ma już takiej ilości — odśwież listę.",
+          "wrong_item": "Ta część nie pasuje do pozycji zlecenia.",
+          "no_receiving_location": "Ten oddział nie ma skonfigurowanej strefy przyjęć.",
+          "invalid_input": "Nieprawidłowe dane.",
+          "unexpected": "Nie udało się rozlokować. Spróbuj ponownie.",
+          "use_container": "Część zlecenia wkłada się do kontenera zlecenia — użyj skanowania kontenera albo nowego kontenera z naklejką."
+        },
+        "tabs": {
+          "pending": "Do rozłożenia ({count})",
+          "changes": "Do przepisania"
+        },
+        "scanCta": "Skanuj",
+        "scan": {
+          "title": "Skanuj kod",
+          "description": "Zeskanuj kontener, pustą naklejkę albo lokalizację.",
+          "close": "Zamknij",
+          "back": "Wstecz",
+          "scanHint": "Kontener, pusta naklejka albo lokalizacja",
+          "scanExplain": "Wyceluj w kod: kontener — dołożysz części jego zlecenia, pusta naklejka — nowy kontener, lokalizacja — zobaczysz, co tam leży. Po każdym kodzie skanowanie się wstrzymuje; stuknij pasek u góry, aby skanować dalej.",
+          "newWithoutScan": "Nowy kontener bez skanowania",
+          "containerNotHere": "Ten kontener nie należy do zlecenia w tym oddziale.",
+          "locationNotHere": "Ta lokalizacja nie należy do aktywnego oddziału.",
+          "scanIsReceiving": "To strefa przyjęć — zeskanuj miejsce docelowe.",
+          "unknownCode": "Ten kod nie jest kontenerem, lokalizacją ani pustą naklejką.",
+          "scanNotLocation": "To nie jest naklejka lokalizacji.",
+          "stickerTaken": "Ta naklejka jest już przypisana. Użyj pustej naklejki.",
+          "scanLocationTitle": "Skanuj lokalizację",
+          "scanLocationHint": "Naklejka regału, półki lub kuwety",
+          "scanStickerTitle": "Skanuj naklejkę kontenera",
+          "scanStickerHint": "Pusta, nieprzypisana naklejka",
+          "noLocation": "Brak lokalizacji",
+          "orderDone": "To zlecenie nie ma już nic do rozłożenia.",
+          "scanNext": "Skanuj następny",
+          "putIntoContainer": "Włóż do kontenera ({count})",
+          "newTitle": "Nowy kontener",
+          "stickerScanned": "Naklejka zeskanowana",
+          "noSticker": "Bez naklejki",
+          "scanSticker": "Zeskanuj naklejkę",
+          "stepOrder": "1. Zlecenie",
+          "stepParts": "2. Co jest w kontenerze",
+          "stepLocation": "3. Gdzie stoi",
+          "change": "Zmień",
+          "orderSearch": "Numer ZL lub klient",
+          "partsCount": "{count} poz.",
+          "noOrders": "Brak zleceń z częściami do rozłożenia.",
+          "scanLocation": "Skanuj lokalizację",
+          "pickLocation": "lub wybierz z listy",
+          "createContainer": "Utwórz kontener ({count})",
+          "newHere": "Nowy kontener tutaj",
+          "putLoose": "Odłóż luzem",
+          "containersHere": "Kontenery tutaj ({count})",
+          "noContainersHere": "Na tej lokalizacji nie ma kontenerów zleceń.",
+          "inside": "W środku: {count} poz.",
+          "waiting": "czeka {count}",
+          "addTo": "Dołóż",
+          "looseHere": "Luzem tutaj ({count})",
+          "nothingLoose": "Nic tu nie leży luzem.",
+          "reservedQty": "zarezerwowane {qty}",
+          "looseTitle": "Odłóż luzem",
+          "fixedHere": "Stała lokalizacja — tutaj",
+          "fixedElsewhere": "Stała lokalizacja: {location}",
+          "putLooseConfirm": "Odłóż tutaj ({count})",
+          "doneNew": "Utworzono {code}, włożono {count} poz.",
+          "doneContainer": "Dołożono {count} poz. do {code}",
+          "doneLoose": "Odłożono {count} poz.",
+          "stickerNotBound": "Kontener utworzony, ale naklejki nie udało się przypisać — przypisz ją na stronie kontenera.",
+          "checkAll": "Zaznacz wszystkie ({count})",
+          "uncheckAll": "Odznacz wszystkie",
+          "noParts": "Brak części do rozłożenia.",
+          "less": "Mniej",
+          "more": "Więcej",
+          "errors": {
+            "unauthorized": "Brak uprawnień do rozlokowania w tym oddziale.",
+            "not_found": "Nie znaleziono kontenera lub zlecenia.",
+            "mixed_orders": "W kontenerze mogą być części tylko jednego zlecenia.",
+            "invalid_destination": "Tej lokalizacji nie można użyć.",
+            "not_enough": "Ilość przekracza to, co czeka w strefie przyjęć — odśwież listę.",
+            "order_not_open": "Zlecenie nie jest otwarte.",
+            "invalid_input": "Sprawdź wybrane pozycje.",
+            "unexpected": "Nie udało się rozłożyć. Spróbuj ponownie."
+          },
+          "orderNeedsContainer": "Część zlecenia trafia do kontenera tego zlecenia — dołóż ją do istniejącego albo załóż nowy z naklejką.",
+          "orderContainers": "Kontenery zlecenia ({count})",
+          "orderNoContainers": "To zlecenie nie ma jeszcze kontenerów.",
+          "newWithSticker": "Nowy kontener — skanuj naklejkę",
+          "newOversize": "Bez naklejki (gabaryt)",
+          "strip": {
+            "checking": "Sprawdzam kod…",
+            "paused": "Stuknij, aby skanować",
+            "sleeping": "Kamera uśpiona — stuknij, aby wznowić",
+            "cameraError": "Brak dostępu do kamery — stuknij, aby spróbować ponownie"
+          },
+          "offline": "Brak połączenia — zeskanuj jeszcze raz.",
+          "looseLoading": "Luzem tutaj",
+          "looseLoadingHint": "Sprawdzam, co tu leży…",
+          "locationInBranch": "Ta etykieta jest z oddziału {branch} — aktywny jest inny oddział. Zeskanuj etykietę z tego oddziału albo przełącz oddział."
+        },
+        "changes": {
+          "range": {
+            "today": "Dziś",
+            "yesterday": "Od wczoraj",
+            "week": "7 dni"
+          },
+          "hint": "Zlecenia, którym zmieniły się lokalizacje. Pogrubione z plakietką „nowe” — do dopisania w AutoStacji, przekreślone — do wykreślenia.",
+          "loading": "Wczytuję…",
+          "error": "Nie udało się wczytać zmian.",
+          "empty": "W tym okresie nic nie zmieniło lokalizacji.",
+          "nowhere": "Zlecenie nie ma teraz części na lokalizacjach.",
+          "new": "nowe",
+          "released": "zwolnione"
+        },
+        "views": {
+          "documents": "Według dokumentów",
+          "parts": "Wszystkie części"
+        },
+        "documents": {
+          "summary": "{count, plural, one {# dokument} few {# dokumenty} other {# dokumentów}} z towarem do rozłożenia",
+          "unknown": "Bez dokumentu",
+          "unknownHint": "Stan w strefie przyjęć, którego nie da się przypisać do dokumentu (np. starsze ruchy).",
+          "lines": "{count, plural, one {# pozycja} few {# pozycje} other {# pozycji}}",
+          "orders": "Zlecenia: {list}",
+          "free": "wolny towar",
+          "back": "Wszystkie dokumenty",
+          "open": "Otwórz dokument",
+          "reference": "Ref.: {reference}",
+          "fromDocument": "Do rozłożenia z {document}"
+        },
+        "board": {
+          "history": "Historia zmian",
+          "historyTitle": "Historia rozkładania",
+          "historyHint": "Zlecenia, którym zmieniły się lokalizacje (rozłożenie, przeniesienie, wydanie) — do przepisania w AutoStacji.",
+          "back": "Rozlokowanie",
+          "allDeliveries": "Wszystkie dostawy",
+          "from": "z {document}",
+          "fixedTitle": "1. Najpierw na stałe miejsca",
+          "fixedHint": "Części z lokalizacją indywidualną — nie wkładaj ich do kontenerów zleceń.",
+          "putOne": "Odłóż",
+          "placedTitle": "3. Zlecenia, które już gdzieś leżą",
+          "placedHint": "Dołóż części do kontenera, w którym zlecenie już jest.",
+          "newTitle": "4. Nowe zlecenia",
+          "newHint": "Nic jeszcze nie jest rozłożone — zacznij nowy kontener (naklejka, potem lokalizacja).",
+          "freeTitle": "2. Wolne części i inne towary",
+          "freeHint": "Bez zlecenia — rozłóż na dowolną lokalizację.",
+          "waiting": "{count, plural, one {# część czeka} few {# części czekają} other {# części czeka}}",
+          "addTo": "Dołóż do {code} ({location})",
+          "newContainer": "Nowy kontener",
+          "oversize": "Bez naklejki",
+          "walkFree": "Rozłóż po kolei ({count})",
+          "walkFixed": "Odłóż po kolei ({count})",
+          "internalTitle": "Zamówienia wewnętrzne",
+          "internalHint": "Zarezerwowane pod ZW bez zlecenia, np. dla innego oddziału. Nie rozkładaj ich na półki.",
+          "internalFor": "dla: {branch}",
+          "internalExternal": "ZW w AutoStacji: {number}",
+          "internalShip": "Wyślij",
+          "internalInTransit": "w drodze ({number}) — czeka na zatwierdzenie odbiorcy",
+          "internalHeld": "wstrzymane ({number}) — szkic MMJ-, nie wysłane"
+        },
+        "transfers": {
+          "incomingTitle": "Przychodzące z innych jednostek (MMJ+ w drodze)",
+          "incomingHint": "Zatwierdź przyjęcie: części zejdą ze stanu nadawcy (MMJ-) i wejdą do Twojej strefy przyjęć (MMJ+). Oba dokumenty dostaną wtedy numery.",
+          "toSendTitle": "Wstrzymane (szkice MMJ-)",
+          "toSendHint": "Części zarezerwowane, nic nie wysłane i bez numeru. Wyślij w drogę albo wycofaj.",
+          "accept": "Zatwierdź",
+          "send": "Wyślij w drogę",
+          "from": "z: {branch}",
+          "to": "na: {branch}",
+          "accepted": "Przyjęto: {mmIn} (z {mmOut})",
+          "sent": "Wysłano w drogę",
+          "loadError": "Nie udało się wczytać przesunięć między oddziałami — przychodzące mogą tu nie być widoczne. Odśwież stronę.",
+          "outgoingTitle": "Wysłane — w drodze (MMJ-)",
+          "outgoingHint": "Czekają na zatwierdzenie przez odbiorcę. Do tego czasu są na Twoim stanie, zarezerwowane, i możesz je wycofać.",
+          "withdraw": "Wycofaj",
+          "statusDraft": "wstrzymane",
+          "statusInTransit": "w drodze",
+          "withdrawn": "Wycofano — rezerwacja wróciła"
+        }
+      },
+      "stockCommitments": {
+        "states": {
+          "onHand": "Na stanie",
+          "available": "D · dostępne",
+          "reserved": "R · zarezerwowane",
+          "blocked": "B · zablokowane"
+        },
+        "reservations": {
+          "title": "Zarezerwowane (R)",
+          "empty": "Nic nie jest zarezerwowane.",
+          "number": "Rezerwacja",
+          "part": "Część",
+          "order": "Zlecenie",
+          "location": "Lokalizacja",
+          "quantity": "Ilość",
+          "since": "Od",
+          "inContainer": "{quantity} w kontenerze",
+          "parts": "{count, plural, one {# część} few {# części} other {# części}}",
+          "openOrder": "Otwórz zlecenie"
+        },
+        "blocks": {
+          "title": "Zablokowane (B)",
+          "empty": "Nic nie jest zablokowane.",
+          "number": "Blokada",
+          "part": "Część",
+          "reason": "Powód",
+          "reference": "Odwołanie",
+          "location": "Lokalizacja",
+          "quantity": "Ilość",
+          "since": "Od"
+        },
+        "reasons": {
+          "quality_check": "Kontrola jakości",
+          "supplier_complaint": "Reklamacja do dostawcy",
+          "damaged": "Uszkodzenie w magazynie lub warsztacie",
+          "delivery_mismatch": "Niezgodność z dostawą",
+          "other": "Inny"
+        },
+        "actions": {
+          "release": "Zwolnij",
+          "transfer": "Przenieś na inne zlecenie",
+          "block": "Zablokuj",
+          "unblock": "Odblokuj",
+          "move": "Przenieś",
+          "returnToSupplier": "Zwrot do dostawcy",
+          "scrap": "Likwidacja",
+          "reserveForOrder": "Zarezerwuj pod zlecenie",
+          "more": "Więcej operacji"
+        },
+        "dialogs": {
+          "release": {
+            "title": "Zwolnij rezerwację",
+            "description": "Część wróci do dostępnych (D). Powód zostanie zapisany w historii.",
+            "confirm": "Zwolnij rezerwację"
+          },
+          "transfer": {
+            "title": "Przenieś rezerwację na inne zlecenie",
+            "description": "Rezerwacja przejdzie na wybrane zlecenie w jednej operacji — część ani na chwilę nie będzie dostępna dla innych.",
+            "confirm": "Przenieś"
+          },
+          "block": {
+            "title": "Zablokuj część",
+            "description": "Zablokowanej części nikt nie weźmie, dopóki nie zostanie odblokowana, zwrócona do dostawcy albo zlikwidowana.",
+            "reservedNote": "Część jest zarezerwowana — blokada zdejmie ją z rezerwacji, a zlecenie znowu będzie jej potrzebować.",
+            "confirm": "Zablokuj"
+          },
+          "unblock": {
+            "title": "Odblokuj część",
+            "description": "Część wróci do dostępnych (D), nie do zlecenia.",
+            "confirm": "Odblokuj"
+          },
+          "move": {
+            "title": "Przenieś zablokowaną część",
+            "description": "Ruch MM; część zostaje zablokowana na nowym miejscu.",
+            "confirm": "Przenieś"
+          },
+          "returnToSupplier": {
+            "title": "Zwrot do dostawcy",
+            "description": "Dokument ZWD (ruch 122) zdejmie zablokowaną część ze stanu.",
+            "confirm": "Zwróć do dostawcy"
+          },
+          "scrap": {
+            "title": "Likwidacja",
+            "description": "Dokument LIK (ruch 551) zdejmie zablokowaną część ze stanu.",
+            "confirm": "Zlikwiduj"
+          },
+          "reserve": {
+            "title": "Zarezerwuj pod zlecenie",
+            "description": "Rezerwacja z dostępnych (D) dla pozycji zlecenia, która jeszcze potrzebuje tej części.",
+            "confirm": "Zarezerwuj"
+          }
+        },
+        "fields": {
+          "quantity": "Ilość",
+          "max": "maks. {max}",
+          "reason": "Powód",
+          "reasonPlaceholder": "np. klient zrezygnował, kontrola jakości OK…",
+          "reasonCode": "Powód blokady",
+          "description": "Opis",
+          "descriptionRequired": "Opis (wymagany dla „Inny”)",
+          "reference": "Numer zgłoszenia / reklamacji (opcjonalnie)",
+          "location": "Lokalizacja",
+          "destination": "Dokąd",
+          "supplier": "Dostawca (opcjonalnie)",
+          "target": "Zlecenie i pozycja",
+          "searchZl": "Szukaj po numerze ZL",
+          "needs": "potrzeba jeszcze {count}",
+          "noTargets": "Brak otwartych zleceń, które potrzebują tej części.",
+          "noAvailable": "Na żadnej lokalizacji nie ma dostępnych sztuk (D).",
+          "available": "{count} dostępne",
+          "cancel": "Anuluj",
+          "loading": "Wczytuję…",
+          "targetOrder": "Zlecenie docelowe",
+          "toLine": "→ {part}, potrzeba jeszcze {count}",
+          "noNeedInOrder": "To zlecenie nie potrzebuje tej części (albo potrzebuje mniej)."
+        },
+        "toasts": {
+          "released": "Rezerwacja zwolniona",
+          "transferred": "Przeniesiono rezerwację ({number})",
+          "blocked": "Zablokowano ({number})",
+          "unblocked": "Odblokowano",
+          "moved": "Przeniesiono ({document})",
+          "returned": "Zwrot do dostawcy: {document}",
+          "scrapped": "Likwidacja: {document}",
+          "reserved": "Zarezerwowano ({number})"
+        },
+        "errors": {
+          "unauthorized": "Brak uprawnień do tej operacji.",
+          "not_found": "Nie znaleziono — odśwież stronę.",
+          "insufficient_stock": "Za mało dostępnych (D) na tej lokalizacji.",
+          "exceeds_need": "Zlecenie potrzebuje mniej tej części.",
+          "reason_required": "Podaj powód.",
+          "not_open": "Zlecenie nie jest otwarte.",
+          "wrong_part": "To zlecenie potrzebuje innej części.",
+          "in_container": "Część jest w kontenerze zlecenia — najpierw wyjmij ją z kontenera.",
+          "invalid_request": "Nie można wykonać tej operacji.",
+          "invalid_input": "Sprawdź wprowadzone dane.",
+          "failed": "Operacja nie powiodła się. Spróbuj ponownie."
+        },
+        "pages": {
+          "reservationsTitle": "Rezerwacje",
+          "reservationsSubtitle": "Części zarezerwowane pod zlecenia (stan R). Zwolnienie przywraca je do dostępnych.",
+          "blocksTitle": "Blokady",
+          "blocksSubtitle": "Części zablokowane (stan B): nikt ich nie weźmie, dopóki nie zostaną odblokowane, zwrócone do dostawcy albo zlikwidowane.",
+          "filter": "Szukaj: część, ZL, lokalizacja, numer",
+          "noBranch": "Wybierz aktywny oddział.",
+          "loadError": "Nie udało się wczytać danych.",
+          "count": "{count, plural, one {# pozycja} few {# pozycje} other {# pozycji}}",
+          "title": "Rezerwacje i blokady",
+          "subtitle": "Każdy wiersz to jeden dokument (REZ lub BLK). Rozwiń go, zaznacz części i wykonaj na nich jedną operację.",
+          "tabs": {
+            "reservations": "Rezerwacje (R)",
+            "blocks": "Blokady (B)"
+          },
+          "documents": "{count, plural, one {# dokument} few {# dokumenty} other {# dokumentów}}"
+        },
+        "age": {
+          "today": "dziś",
+          "days": "{count, plural, one {# dzień} other {# dni}}"
+        },
+        "breakdown": {
+          "hint": "Rozwiń lokalizację, żeby zobaczyć każdą rezerwację i blokadę osobno: pod jakie zlecenie, jakim dokumentem i od kiedy.",
+          "summary": "Na stanie {onHand}: dostępne (D) {available} · zarezerwowane (R) {reserved} · zablokowane (B) {blocked}"
+        },
+        "selection": {
+          "selected": "{count, plural, one {Zaznaczono # część} few {Zaznaczono # części} other {Zaznaczono # części}}",
+          "clear": "Odznacz",
+          "selectAll": "Zaznacz wszystkie"
+        }
+      },
+      "internalOrders": {
+        "title": "Zamówienia wewnętrzne (ZW)",
+        "subtitle": "ZW oddziału: pod zlecenia i bez zlecenia (np. zamówione przez inny oddział). Numer Ambry i numer z AutoStacji to osobne pola.",
+        "noBranch": "Wybierz oddział, aby zobaczyć zamówienia wewnętrzne.",
+        "loadError": "Nie udało się wczytać zamówień wewnętrznych.",
+        "empty": "Brak zamówień wewnętrznych.",
+        "searchPlaceholder": "Numer ZW, numer z AutoStacji, klient, kod oddziału…",
+        "search": "Szukaj",
+        "kinds": {
+          "all": "Wszystkie",
+          "repair_order": "Pod zlecenia",
+          "standalone": "Bez zlecenia"
+        },
+        "columns": {
+          "order": "Zamówienie",
+          "external": "ZW w AutoStacji",
+          "for": "Dla",
+          "created": "Wystawiono",
+          "lines": "Pozycje",
+          "reserved": "Ilość R",
+          "issued": "Ilość W",
+          "lp": "Lp",
+          "code": "Nr katalogowy",
+          "name": "Nazwa części",
+          "quantity": "Ilość",
+          "receipts": "Przyjęcia"
+        },
+        "repairOrder": "Zlecenie",
+        "forBranch": "dla: {branch}",
+        "back": "Zamówienia wewnętrzne",
+        "externalNumber": "ZW w AutoStacji: {number}",
+        "noExternalNumber": "Bez numeru z AutoStacji",
+        "sources": {
+          "matcher": "z dokumentów dostawy",
+          "manual": "założone w Ambrze"
+        },
+        "statuses": {
+          "open": "Otwarte",
+          "completed": "Zakończone",
+          "cancelled": "Anulowane"
+        },
+        "client": "Klient",
+        "linesTitle": "Pozycje",
+        "receiptsTitle": "Dostawy pod to ZW",
+        "noReceipts": "Pod to ZW nic jeszcze nie przyszło.",
+        "deliveryOnlyHint": "ZW utworzone z dokumentów dostawy: Ambra zna tylko pozycje, które już przyszły, więc nie zaznacza Z (zamówione).",
+        "lineCount": "{count, plural, one {# poz.} few {# poz.} other {# poz.}}",
+        "cancelledBecause": "Anulowano: {reason}",
+        "forOrder": {
+          "title": "Zamówienia (ZW) zlecenia",
+          "subtitle": "Każde ZW z jego pozycjami: Z zamówione, R zarezerwowane, W wydane, A anulowane.",
+          "empty": "Zlecenie nie ma jeszcze zamówień wewnętrznych."
+        },
+        "squares": {
+          "z": {
+            "letter": "Z",
+            "name": "Zamówione"
+          },
+          "r": {
+            "letter": "R",
+            "name": "Zarezerwowane"
+          },
+          "w": {
+            "letter": "W",
+            "name": "Wydane"
+          },
+          "a": {
+            "letter": "A",
+            "name": "Anulowane"
+          },
+          "fill": {
+            "full": "w całości",
+            "half": "częściowo",
+            "none": "nie"
+          }
+        },
+        "form": {
+          "newButton": "Nowe ZW",
+          "newStandaloneButton": "Nowe ZW bez zlecenia",
+          "title": "Nowe zamówienie wewnętrzne (ZW) zlecenia",
+          "titleStandalone": "Nowe zamówienie wewnętrzne (ZW) bez zlecenia",
+          "description": "Pozycje zlecenia albo nowe części (staną się pozycjami zlecenia). To, co jest na stanie, możesz od razu zarezerwować pod to ZW.",
+          "descriptionStandalone": "Np. części zamówione przez inny oddział: wpisz jego kod (WYSOG) albo klienta. To, co jest na stanie, możesz od razu zarezerwować.",
+          "externalNumber": "ZW w AutoStacji (opcjonalnie)",
+          "destinationCode": "Kod oddziału",
+          "client": "Klient / oddział",
+          "addPosition": "Dodaj pozycję zlecenia",
+          "addFromCatalog": "Część z katalogu",
+          "addOutsideCatalog": "Część spoza katalogu",
+          "noLines": "Dodaj co najmniej jedną część.",
+          "part": "Część",
+          "quantity": "Ilość",
+          "reserveFrom": "Zarezerwuj z",
+          "reserveQuantity": "Ile",
+          "code": "Nr katalogowy",
+          "name": "Nazwa",
+          "noStock": "brak na stanie",
+          "notInCatalog": "spoza katalogu — zarezerwujesz po przyjęciu",
+          "dontReserve": "nie rezerwuj",
+          "remove": "Usuń",
+          "cancel": "Anuluj",
+          "submit": "Utwórz ZW",
+          "created": "Utworzono {number}",
+          "createdReserved": "Utworzono {number}, zarezerwowano ({reservation})",
+          "warehouse": "Jednostka (magazyn)"
+        },
+        "actions": {
+          "setNumber": "Numer z AutoStacji",
+          "setNumberHint": "Numer ZW z AutoStacji: dostawa z tym numerem trafi do tego ZW. Można go wpisać tylko raz.",
+          "save": "Zapisz",
+          "numberSet": "Zapisano numer z AutoStacji",
+          "reserve": "Zarezerwuj z magazynu",
+          "reserveHint": "Wolne części (D) tego oddziału pod pozycje, którym czegoś brakuje. Jeden dokument REZ.",
+          "reserveConfirm": "Zarezerwuj",
+          "reserved": "Zarezerwowano ({number})",
+          "reserveElsewhere": "Zarezerwuj na innym oddziale",
+          "reserveElsewhereHint": "Części zostaną zarezerwowane na wybranym oddziale (przesunięcie przygotowane). Oddział wysyła je, a Ty przyjmujesz je w strefie przyjęć — trafią pod to ZW.",
+          "requestConfirm": "Zarezerwuj u nich",
+          "requested": "Zarezerwowano na innym oddziale ({number})",
+          "branch": "Oddział",
+          "pickBranch": "Wybierz oddział",
+          "noStockElsewhere": "Inne oddziały nie mają tych części na stanie.",
+          "needed": "brakuje: {count}",
+          "noStock": "brak na stanie",
+          "from": "Skąd",
+          "quantity": "Ilość",
+          "cancelLine": "Anuluj pozycję",
+          "cancelHint": "Pozycja zostaje na ZW ze statusem A i powodem; jej rezerwacja zostanie zwolniona.",
+          "pickLine": "Wybierz pozycję",
+          "reason": "Powód",
+          "cancelConfirm": "Anuluj pozycję",
+          "cancelled": "Anulowano pozycję",
+          "ship": "Wyślij na oddział",
+          "shipTitle": "Wyślij {number} na oddział",
+          "shipFound": "Oddział z kodem tego ZW: {branch}.",
+          "shipPick": "Żaden oddział nie ma kodu tego ZW — wybierz oddział (kody ustawisz w ustawieniach magazynu).",
+          "noBranches": "Organizacja nie ma innych oddziałów.",
+          "shipConfirm": "Tak — wyślij w drogę",
+          "shipped": "Wysłano w drogę na {branch} (MMJ- w drodze)",
+          "shipHold": "Nie — wstrzymaj",
+          "held": "Wstrzymano: szkic MMJ- na {branch}, części zarezerwowane",
+          "shipNotice": "Nastąpi przesunięcie towarów do innej jednostki organizacyjnej. W docelowym magazynie zostanie utworzony potemowy dokument MMJ+. Do zatwierdzenia przez odbiorcę części zostają na Twoim stanie, zarezerwowane — możesz je do tego czasu wycofać."
+        },
+        "errors": {
+          "unauthorized": "Brak uprawnień.",
+          "not_found": "Nie znaleziono.",
+          "duplicate_number": "ZW z tym numerem z AutoStacji już istnieje.",
+          "number_already_set": "Numer z AutoStacji jest już wpisany.",
+          "not_enough": "Za dużo — pozycja nie potrzebuje tylu części.",
+          "insufficient_stock": "Na tej lokalizacji nie ma tylu wolnych części.",
+          "no_warehouse_code": "Oddział nie ma kodu magazynu do numeracji ZW.",
+          "no_destination": "Nie znaleziono oddziału docelowego.",
+          "nothing_to_ship": "Tego ZW nie ma tu nic do wysłania.",
+          "in_container": "Część pozycji leży w kontenerze zlecenia — najpierw ją wyjmij.",
+          "not_open": "ZW lub pozycja nie jest otwarta.",
+          "reason_required": "Podaj powód.",
+          "code_taken": "Ten kod ma już inny oddział.",
+          "invalid": "Nieprawidłowe dane (np. jednostka spoza oddziału).",
+          "invalid_input": "Nieprawidłowe dane.",
+          "unexpected": "Coś poszło nie tak. Spróbuj ponownie.",
+          "same_unit": "W obrębie jednej jednostki części przenosi MM, nie MMJ.",
+          "warehouse_short": "W magazynie źródłowym jest za mało tej części."
+        },
+        "branchCodes": {
+          "title": "Kody oddziałów (SVWMS / AutoStacja)",
+          "description": "Kody, pod którymi oddział występuje w dokumentach: kod z pola uwag (np. WYSOG) i numer jednostki (np. 3642). ZW zamówione przez inny oddział jest wysyłane na oddział z tym kodem.",
+          "placeholder": "WYSOG, 3642",
+          "codesFor": "Kody oddziału {branch}",
+          "save": "Zapisz",
+          "saved": "Zapisano kody oddziału"
+        }
       }
     },
     "teams": {
@@ -2837,6 +3517,49 @@
           "saving": "Zapisywanie…",
           "create": "Utwórz",
           "save": "Zapisz"
+        },
+        "warehouses": {
+          "title": "Jednostki i magazyny",
+          "subtitle": "Jednostki to oddziały z AutoStacji (np. 3112 Volkswagen), magazyny to ich magazyny (np. 115 blacharnia części). Kody wpisuj dokładnie jak w AutoStacji. Prefiks numeru zlecenia: ZL albo ZLEC.",
+          "add": "Dodaj jednostkę",
+          "edit": "Edytuj",
+          "remove": "Usuń",
+          "cancel": "Anuluj",
+          "empty": "Brak jednostek.",
+          "code": "Kod",
+          "codePlaceholder": "3112",
+          "name": "Nazwa",
+          "namePlaceholder": "np. Volkswagen",
+          "prefix": "Prefiks numeru",
+          "confirmRemove": "Usunąć jednostkę {code} razem z jej magazynami?",
+          "errors": {
+            "duplicate_code": "Ten kod jest już użyty w organizacji.",
+            "invalid_code": "Kod jednostki to 3–5 cyfr.",
+            "forbidden": "Brak uprawnień do zmiany jednostek i magazynów.",
+            "generic": "Nie udało się zapisać.",
+            "invalid_warehouse_code": "Kod magazynu to 2–5 cyfr.",
+            "branch_unavailable": "Ten oddział jest usunięty albo nie należy do organizacji. Odśwież stronę."
+          },
+          "noWarehouses": "Brak magazynów.",
+          "addWarehouse": "Dodaj magazyn",
+          "warehouseCode": "Kod magazynu",
+          "warehouseCodePlaceholder": "115",
+          "warehouseName": "Nazwa magazynu",
+          "warehouseNamePlaceholder": "np. blacharnia części",
+          "default": "domyślny",
+          "setDefault": "Ustaw jako magazyn domyślny (przyjęcie bez wskazanego magazynu)",
+          "unsetDefault": "Usuń jako domyślny",
+          "confirmRemoveWarehouse": "Usunąć magazyn {code}?",
+          "suggestions": {
+            "title": "Matcher widział w dokumentach tego oddziału, a nie ma ich tutaj:",
+            "unit": "Jednostka",
+            "warehouse": "Magazyn",
+            "withUnit": "przy jednostce {code}",
+            "seen": "{count, plural, one {# raz} few {# razy} many {# razy} other {# razy}}",
+            "add": "Dodaj",
+            "needsUnit": "Najpierw dodaj jednostkę {code}",
+            "hint": "Nic nie dodaje się samo. Sprawdź kody z AutoStacją przed dodaniem."
+          }
         }
       },
       "roles": {
@@ -2913,6 +3636,146 @@
             "branchesUpdate": "Edycja oddziałów",
             "branchesDelete": "Usuwanie oddziałów",
             "moduleOrgManagementAccess": "Dostęp do modułu zarządzania organizacją"
+          }
+        },
+        "catalog": {
+          "groups": {
+            "module": "Dostęp do modułów",
+            "warehouse": "Magazyn",
+            "wdd_matcher": "SVWMS Matcher",
+            "workshop": "Warsztat",
+            "planning": "Planowanie",
+            "helpdesk": "Help Desk",
+            "crm": "CRM",
+            "qr": "Kody QR",
+            "analytics": "Analityka i raporty",
+            "tools": "Narzędzia",
+            "messages": "Wiadomości",
+            "org": "Organizacja",
+            "branches": "Oddziały",
+            "branch": "Zarządzanie oddziałem",
+            "members": "Członkowie",
+            "invites": "Zaproszenia",
+            "events": "Aktywność",
+            "audit": "Dziennik audytu",
+            "account": "Konto",
+            "self": "Własny profil",
+            "other": "Inne"
+          },
+          "all": "Wszystkie uprawnienia modułu (także przyszłe)",
+          "allNote": "Obejmuje każde uprawnienie z tej grupy.",
+          "hiddenKept": "{count, plural, one {# uprawnienie spoza listy zostaje bez zmian} few {# uprawnienia spoza listy zostają bez zmian} other {# uprawnień spoza listy zostaje bez zmian}}",
+          "search": "Szukaj uprawnienia…",
+          "noMatch": "Brak uprawnień pasujących do wyszukiwania.",
+          "perms": {
+            "module__analytics__access": "Moduł Analityka",
+            "module__crm__access": "Moduł CRM",
+            "module__helpdesk__access": "Moduł Help Desk",
+            "module__home__access": "Strona startowa",
+            "module__organization-management__access": "Moduł Zarządzanie organizacją",
+            "module__planning__access": "Moduł Planowanie",
+            "module__teams__access": "Moduł Zespoły",
+            "module__tools__access": "Moduł Narzędzia",
+            "module__warehouse__access": "Moduł Magazyn",
+            "module__workshop__access": "Moduł Warsztat",
+            "warehouse__audits__manage": "Prowadzenie inwentaryzacji",
+            "warehouse__audits__read": "Podgląd inwentaryzacji",
+            "warehouse__imports__manage": "Importy danych magazynowych",
+            "warehouse__inventory__adjust": "Korekty stanów",
+            "warehouse__inventory__operate": "Ruchy magazynowe – tworzenie i księgowanie",
+            "warehouse__inventory__read": "Podgląd stanów i ruchów",
+            "warehouse__inventory__reverse": "Storno ruchów",
+            "warehouse__layouts__manage": "Edycja układu magazynu",
+            "warehouse__layouts__publish": "Publikacja układu magazynu",
+            "warehouse__layouts__read": "Podgląd układu magazynu",
+            "warehouse__locations__manage": "Zarządzanie lokalizacjami",
+            "warehouse__locations__read": "Podgląd lokalizacji",
+            "warehouse__pricing__manage": "Zarządzanie cenami",
+            "warehouse__pricing__read": "Podgląd cen",
+            "warehouse__procurement__manage": "Zamówienia i dostawy",
+            "warehouse__procurement__read": "Podgląd zamówień i dostaw",
+            "warehouse__products__archive": "Archiwizacja towarów",
+            "warehouse__products__manage": "Zarządzanie kartoteką towarów",
+            "warehouse__products__read": "Podgląd kartoteki towarów",
+            "warehouse__read": "Podgląd modułu magazynu",
+            "warehouse__reports__read": "Raporty magazynowe",
+            "warehouse__settings__manage": "Ustawienia magazynu",
+            "warehouse__structure__manage": "Jednostki i magazyny oddziału",
+            "wdd_matcher__approve": "Zatwierdzanie sesji",
+            "wdd_matcher__read": "Podgląd sesji",
+            "wdd_matcher__review": "Przegląd dopasowań",
+            "wdd_matcher__upload": "Wczytywanie dokumentów",
+            "workshop__manage": "Zarządzanie warsztatem",
+            "workshop__read": "Podgląd modułu warsztatu",
+            "workshop__repair_orders__manage_all": "Zlecenia naprawy – wszystkie",
+            "workshop__repair_orders__manage_own": "Zlecenia naprawy – tylko własne",
+            "workshop__repair_orders__read": "Podgląd zleceń naprawy",
+            "planning__boards__create": "Tworzenie tablic",
+            "planning__boards__delete": "Usuwanie tablic",
+            "planning__boards__read": "Podgląd tablic",
+            "planning__boards__update": "Edycja tablic",
+            "planning__read": "Podgląd modułu planowania",
+            "planning__settings__manage": "Ustawienia planowania",
+            "planning__tasks__assign": "Przydzielanie zadań",
+            "planning__tasks__create": "Tworzenie zadań",
+            "planning__tasks__delete": "Usuwanie zadań",
+            "planning__tasks__read": "Podgląd zadań",
+            "planning__tasks__update": "Edycja zadań",
+            "helpdesk__manage": "Zarządzanie help deskiem",
+            "helpdesk__read": "Podgląd modułu help desku",
+            "helpdesk__settings__manage": "Ustawienia help desku",
+            "helpdesk__ticket-types__manage": "Typy zgłoszeń",
+            "helpdesk__tickets__create": "Tworzenie zgłoszeń",
+            "helpdesk__tickets__manage": "Obsługa zgłoszeń",
+            "helpdesk__tickets__read": "Podgląd zgłoszeń",
+            "crm__contacts__create": "Dodawanie kontaktów",
+            "crm__contacts__delete": "Archiwizacja kontaktów",
+            "crm__contacts__read": "Podgląd kontaktów",
+            "crm__contacts__update": "Edycja kontaktów",
+            "crm__parties__create": "Dodawanie kontrahentów",
+            "crm__parties__delete": "Archiwizacja kontrahentów",
+            "crm__parties__read": "Podgląd kontrahentów",
+            "crm__parties__update": "Edycja kontrahentów",
+            "crm__read": "Podgląd modułu CRM",
+            "qr__assign": "Przypisywanie kodów QR",
+            "qr__create": "Tworzenie kodów QR",
+            "qr__export": "Eksport etykiet",
+            "qr__read": "Podgląd kodów QR",
+            "qr__revoke": "Unieważnianie kodów QR",
+            "analytics__activity__read": "Aktywność",
+            "analytics__audit__read": "Audyt",
+            "analytics__exports__manage": "Eksporty",
+            "analytics__read": "Podgląd modułu analityki",
+            "analytics__reports__read": "Raporty",
+            "tools__manage": "Włączanie i wyłączanie narzędzi",
+            "tools__read": "Podgląd narzędzi",
+            "messages__use": "Korzystanie z wiadomości",
+            "org__read": "Podgląd profilu organizacji",
+            "org__update": "Edycja profilu i logo organizacji",
+            "branches__read": "Podgląd oddziałów",
+            "branches__create": "Tworzenie oddziałów",
+            "branches__update": "Edycja oddziałów",
+            "branches__delete": "Usuwanie oddziałów",
+            "branches__view__any": "Podgląd każdego oddziału",
+            "branches__view__update__any": "Edycja każdego oddziału",
+            "branches__view__remove__any": "Usuwanie członków z każdego oddziału",
+            "branch__roles__manage": "Przypisywanie ról w oddziale",
+            "members__read": "Podgląd listy członków",
+            "members__manage": "Zarządzanie członkami i ich rolami",
+            "invites__read": "Podgląd zaproszeń",
+            "invites__create": "Wysyłanie zaproszeń",
+            "invites__cancel": "Anulowanie zaproszeń",
+            "events__org_activity__read": "Aktywność organizacji",
+            "events__org_sensitive__read": "Wrażliwe zdarzenia (zaproszenia, role, usunięcia)",
+            "audit__events__read": "Pełny dziennik audytu (z adresami IP)",
+            "account__preferences__read": "Podgląd preferencji",
+            "account__preferences__update": "Zmiana preferencji",
+            "account__profile__read": "Podgląd profilu konta",
+            "account__profile__update": "Edycja profilu konta",
+            "account__settings__read": "Podgląd ustawień konta",
+            "account__settings__update": "Zmiana ustawień konta",
+            "self__read": "Podgląd własnego profilu",
+            "self__update": "Edycja własnego profilu"
           }
         }
       },
@@ -3080,7 +3943,8 @@
           "vin": "VIN",
           "status": "Status",
           "advisor": "Doradca",
-          "created": "Utworzono"
+          "created": "Utworzono",
+          "warehouse": "Magazyn"
         },
         "status": {
           "open": "Otwarte",
@@ -3139,7 +4003,43 @@
             "loadFailed": "Nie udało się wczytać pozycji części"
           },
           "sourcesButton": "Źródła ({count})",
-          "sourcesPopoverTitle": "Pozycje źródłowe tej części"
+          "sourcesPopoverTitle": "Pozycje źródłowe tej części",
+          "reservation": {
+            "badgeReserved": "Zarezerwowano {quantity}",
+            "badgeNone": "Brak rezerwacji",
+            "badgeUnknown": "Rezerwacja",
+            "popoverTitle": "Rezerwacja towaru dla tej pozycji",
+            "loading": "Wczytywanie rezerwacji…",
+            "errorState": "Nie udało się wczytać stanu rezerwacji. Spróbuj ponownie.",
+            "emptyState": "Brak aktywnej rezerwacji dla tej pozycji.",
+            "outstandingLabel": "Pozostało: {quantity}",
+            "reserve": "Zarezerwuj towar",
+            "release": "Zwolnij",
+            "confirmReserve": "Potwierdź",
+            "cancel": "Anuluj",
+            "quantityPlaceholder": "Ilość",
+            "locationPlaceholder": "Lokalizacja"
+          },
+          "container": {
+            "trigger": "Kontener",
+            "popoverTitle": "Przydział i kontener dla tej pozycji",
+            "loading": "Wczytywanie…",
+            "errorState": "Nie udało się wczytać danych. Spróbuj ponownie.",
+            "reservedToAllocate": "Zarezerwowano: {quantity}",
+            "allocate": "Przydziel",
+            "allocated": "Przydzielono: {quantity}",
+            "noReservation": "Najpierw zarezerwuj towar dla tej pozycji.",
+            "addToContainer": "Dodaj do kontenera",
+            "containerPlaceholder": "Wybierz kontener",
+            "noContainers": "Najpierw utwórz kontener dla zlecenia.",
+            "quantityPlaceholder": "Ilość",
+            "confirmAdd": "Dodaj",
+            "cancel": "Anuluj",
+            "allocateError": "Nie udało się przydzielić towaru.",
+            "addError": "Nie udało się dodać do kontenera.",
+            "added": "Dodano do kontenera.",
+            "allocatedToast": "Przydzielono towar."
+          }
         },
         "provenance": {
           "title": "Dokumenty źródłowe",
@@ -3158,13 +4058,249 @@
           "zlNumberPlaceholder": "Pozostaw puste, jeśli jeszcze nieznany",
           "zlNumberHint": "Opcjonalne. Bez numeru ZL zlecenie zaczyna się jako „Nierozwiązane” i może zostać rozwiązane później.",
           "assignToSelf": "Przypisz to zlecenie do mnie",
-          "submit": "Utwórz zlecenie naprawy"
+          "submit": "Utwórz zlecenie naprawy",
+          "orderNo": "Numer zlecenia, magazyn i rok",
+          "year": "Rok",
+          "orderNoHint": "Wpisz numer z DMS, np. 178024, i wybierz magazyn.",
+          "composedNumber": "Pełny numer: {number}"
         },
         "toasts": {
           "createSuccess": "Zlecenie naprawy utworzone",
           "updateSuccess": "Zlecenie naprawy zaktualizowane",
           "advisorAssignedSuccess": "Doradca zaktualizowany",
-          "statusChangedSuccess": "Status zaktualizowany"
+          "statusChangedSuccess": "Status zaktualizowany",
+          "reservationCreatedSuccess": "Towar zarezerwowany",
+          "reservationReleasedSuccess": "Rezerwacja zwolniona"
+        },
+        "containers": {
+          "title": "Kontenery zlecenia",
+          "subtitle": "Części zlecenia są przechowywane w kontenerach. Każdy kontener ma własny kod QR.",
+          "empty": "To zlecenie nie ma jeszcze kontenerów.",
+          "loadError": "Nie udało się wczytać kontenerów.",
+          "columns": {
+            "code": "Kod",
+            "location": "Lokalizacja",
+            "contents": "Zawartość",
+            "status": "Status"
+          },
+          "contentsSummary": "{lines} poz.",
+          "create": "Utwórz kontener",
+          "createTitle": "Nowy kontener",
+          "codeLabel": "Kod kontenera",
+          "locationLabel": "Lokalizacja",
+          "locationPlaceholder": "Wybierz lokalizację",
+          "confirmCreate": "Utwórz",
+          "creating": "Tworzenie…",
+          "cancel": "Anuluj",
+          "created": "Utworzono kontener {code}.",
+          "createError": "Nie udało się utworzyć kontenera.",
+          "open": "Otwórz"
+        },
+        "issue": {
+          "open": "Wydaj części (RW)",
+          "title": "Wydanie części na zlecenie {zl}",
+          "description": "Rozchód wewnętrzny (RW) — części wydawane blacharzowi/lakiernikowi do naprawy. Stan schodzi z magazynu, a pozycje zostają powiązane ze zleceniem.",
+          "loading": "Wczytywanie części do wydania…",
+          "loadError": "Nie udało się wczytać części do wydania.",
+          "empty": "Brak części gotowych do wydania. Najpierw rozlokuj dostawę lub zarezerwuj części.",
+          "groupPrepare": "Do przygotowania (z kontenerów)",
+          "groupTickOff": "Do odhaczenia (zarezerwowane na lokalizacji)",
+          "groupTickOffHint": "Np. klipsy i materiały z kuwet — schodzą ze stanu na tym samym RW, mechanik bierze je sam.",
+          "fromContainers": "{containers} · {location}",
+          "fromLocation": "{location}",
+          "quantity": "Ilość",
+          "recipient": "Odbiorca (komu wydano)",
+          "recipientPlaceholder": "np. Jan Kowalski — blacharz",
+          "note": "Uwagi (opcjonalnie)",
+          "cancel": "Anuluj",
+          "confirm": "{count, plural, one {Wydaj # pozycję} few {Wydaj # pozycje} many {Wydaj # pozycji} other {Wydaj # pozycji}}",
+          "issuing": "Wydawanie…",
+          "issued": "Wydano — dokument {number}.",
+          "errors": {
+            "unauthorized": "Nie masz uprawnień do wydawania części w tym oddziale.",
+            "not_found": "Nie znaleziono pozycji — odśwież stronę.",
+            "not_enough": "Część została już wydana lub zmieniła się ilość — odśwież listę.",
+            "recipient_required": "Podaj odbiorcę.",
+            "insufficient_stock": "Na lokalizacji brakuje stanu do wydania — sprawdź magazyn.",
+            "invalid_input": "Nieprawidłowe dane wydania.",
+            "unexpected": "Nie udało się wydać części. Spróbuj ponownie.",
+            "one_warehouse": "Jedno WU wydaje części z jednego magazynu. Zaznacz części z jednego magazynu i wydaj drugi magazyn osobno, albo najpierw przenieś części ruchem MM."
+          }
+        },
+        "import": {
+          "cta": "Importuj zlecenia",
+          "title": "Import zleceń",
+          "subtitle": "Wybierz źródło, sprawdź, które zlecenia już istnieją, i utwórz brakujące.",
+          "back": "Wróć do zleceń",
+          "noBranch": "Wybierz aktywny oddział.",
+          "source": "Źródło",
+          "choose": "Wybierz…",
+          "pickSource": "Wybierz źródło i dokument, aby zobaczyć zlecenia.",
+          "loading": "Sprawdzam zlecenia…",
+          "empty": "W tym źródle nie ma zleceń z numerem ZL.",
+          "allPresent": "Wszystkie zlecenia są już w systemie.",
+          "counts": {
+            "existing": "Istniejące: {count}",
+            "new": "Nowe: {count}",
+            "conflict": "Konflikty: {count}"
+          },
+          "columns": {
+            "zl": "ZL",
+            "client": "Klient / pojazd",
+            "status": "Stan",
+            "parts": "Części"
+          },
+          "status": {
+            "new": "Do utworzenia",
+            "existing": "Istnieje",
+            "existingChanges": "Istnieje · nowe części"
+          },
+          "conflict": {
+            "missing_zl": "Brak numeru ZL",
+            "repair_order_closed": "Zlecenie zamknięte",
+            "repair_order_archived": "Zlecenie zarchiwizowane",
+            "unit_in_other_branch": "Jednostka {unit} należy do oddziału {branch}",
+            "unit_unknown": "Jednostki {unit} nie ma w tym oddziale (Organizacja → Oddziały → Jednostki i magazyny)"
+          },
+          "parts": "{added} nowe · {adds} uzupełnienie · {present} już są",
+          "apply": "Importuj zaznaczone ({count})",
+          "applied": "Utworzono zleceń: {created}, uzupełniono: {updated}",
+          "errors": {
+            "unauthorized": "Brak uprawnień do importu zleceń w tym oddziale.",
+            "invalid_input": "Nieprawidłowe dane importu.",
+            "unexpected": "Import zleceń nie powiódł się.",
+            "unit_not_in_branch": "Część zleceń jest z jednostki spoza tego oddziału. Sprawdź jednostki w ustawieniach oddziału."
+          },
+          "checkAll": "Zaznacz wszystkie ({count})",
+          "uncheckAll": "Odznacz wszystkie",
+          "receiptHint": "Odznaczone zlecenie nie trafi do PZ razem ze swoimi częściami.",
+          "alreadyImportedIn": "Ten dokument (ZL i ZW, te same części) był już zaimportowany w sesji „{session}” — nic nie zostanie dodane.",
+          "alreadyImportedInUnnamed": "Ten dokument (ZL i ZW, te same części) był już zaimportowany w innej sesji — nic nie zostanie dodane."
+        },
+        "warehouse": {
+          "title": "Magazyn i dostawy",
+          "subtitle": "Co zamówiono i przyjęto (PZ) oraz gdzie części są teraz i co wydano (RW).",
+          "loadFailed": "Nie udało się wczytać dokumentów magazynowych zlecenia.",
+          "tabs": {
+            "receiving": "Zamówienia-Przyjęcia",
+            "stock": "Magazyn"
+          },
+          "ordered": "Zamówiono",
+          "received": "Przyjęto",
+          "complete": "Komplet",
+          "outstanding": "Brakuje {quantity}",
+          "noReceipts": "Brak przyjęć.",
+          "available": "Do wydania",
+          "issued": "Wydano",
+          "notInStock": "Nie ma na stanie.",
+          "locationsFailed": "Nie udało się wczytać lokalizacji.",
+          "noIssues": "Brak wydań."
+        },
+        "warehouseFilter": {
+          "all": "Wszystkie magazyny",
+          "label": "Magazyn"
+        },
+        "tabs": {
+          "label": "Sekcje zlecenia",
+          "overview": "Przegląd",
+          "lines": "Pozycje",
+          "warehouse": "Magazyn i zamówienia",
+          "documents": "Dokumenty",
+          "related": "Powiązania",
+          "containers": "Kontenery",
+          "history": "Historia"
+        },
+        "relations": {
+          "loadError": "Nie udało się wczytać powiązań.",
+          "emptyTitle": "Brak powiązań",
+          "emptyHint": "Tu pojawią się zgłoszenia założone do tego zlecenia oraz zadania, komentarze i rozmowy, w których ktoś wspomniał o nim przez @.",
+          "untitled": "Bez tytułu",
+          "directConversation": "Rozmowa prywatna",
+          "groups": {
+            "ticket": "Zgłoszenia",
+            "task": "Zadania",
+            "comment": "Komentarze",
+            "chat": "Rozmowy"
+          },
+          "relation": {
+            "reference": "dotyczy zlecenia",
+            "mention": "wzmianka"
+          }
+        },
+        "stock": {
+          "positions": {
+            "title": "Pozycje zlecenia",
+            "part": "Część",
+            "needed": "Potrzeba",
+            "reserved": "Zarezerw.",
+            "issued": "Wydano",
+            "missing": "Brakuje",
+            "where": "Gdzie leży",
+            "status": "Stan",
+            "empty": "Zlecenie nie ma jeszcze pozycji.",
+            "loadError": "Nie udało się wczytać pozycji zlecenia.",
+            "complete": "Skompletowane",
+            "incomplete": "Brakuje: {count, plural, one {# pozycja} few {# pozycje} other {# pozycji}}",
+            "showReservations": "Rezerwacje",
+            "hideReservations": "Ukryj",
+            "noCatalogItem": "bez kartoteki",
+            "statuses": {
+              "missing": "brak",
+              "partial": "częściowo",
+              "reserved_receiving": "zarezerwowane w strefie przyjęć",
+              "reserved": "zarezerwowane",
+              "in_container": "w kontenerze",
+              "issued": "wydane"
+            },
+            "stockLoadError": "Nie udało się wczytać rezerwacji i wydań — stan części jest nieznany (to nie znaczy, że ich brakuje). Odśwież stronę.",
+            "source": "Zamówienie"
+          },
+          "reserve": {
+            "button": "Zarezerwuj z magazynu",
+            "title": "Zarezerwuj z magazynu",
+            "description": "Części, których zleceniu brakuje, z dostępnych (D). Jeden dokument rezerwacji na całe zlecenie.",
+            "confirm": "Zarezerwuj zaznaczone",
+            "none": "Na magazynie nie ma dostępnych sztuk części, których brakuje temu zleceniu.",
+            "line": "{part} — brakuje {missing}",
+            "location": "Skąd",
+            "quantity": "Ilość",
+            "done": "Zarezerwowano ({number})"
+          },
+          "documents": {
+            "title": "Dokumenty magazynowe zlecenia",
+            "subtitle": "Przyjęcia, rezerwacje, przesunięcia, wydania i zwolnienia — od najstarszych.",
+            "empty": "Zlecenie nie ma jeszcze dokumentów magazynowych.",
+            "date": "Data",
+            "document": "Dokument",
+            "kind": "Rodzaj",
+            "part": "Część",
+            "quantity": "Ilość",
+            "detail": "Szczegóły"
+          },
+          "history": {
+            "title": "Historia rezerwacji",
+            "subtitle": "Każda zmiana rezerwacji części tego zlecenia: kto, kiedy, jakim dokumentem i dlaczego. Wpisów nie można edytować.",
+            "empty": "Brak zdarzeń.",
+            "when": "Kiedy",
+            "event": "Zdarzenie",
+            "part": "Część",
+            "quantity": "Ilość",
+            "where": "Gdzie",
+            "document": "Dokument",
+            "reason": "Powód",
+            "who": "Kto",
+            "system": "system"
+          },
+          "kinds": {
+            "receipt": "Przyjęcie (PZ)",
+            "issue": "Wydanie (RW)",
+            "created": "Rezerwacja",
+            "moved": "Przeniesienie (MM)",
+            "allocated": "Do kontenera",
+            "issued": "Wydanie z rezerwacji",
+            "released": "Zwolnienie rezerwacji",
+            "transferred": "Przeniesienie na inne zlecenie"
+          }
         }
       }
     },
@@ -3198,13 +4334,13 @@
       },
       "tickets": {
         "status": {
-          "open": "Otwarte",
-          "in_progress": "W toku",
-          "waiting": "Oczekujące",
-          "waiting_response": "Oczekuje na odpowiedź",
-          "resolved": "Rozwiązane",
+          "open": "Nowe",
+          "in_progress": "W trakcie",
+          "waiting": "Czeka na VGP / dostawcę",
+          "waiting_response": "Czeka na doradcę",
+          "resolved": "Odpowiedziano",
           "closed": "Zamknięte",
-          "cancelled": "Anulowane"
+          "cancelled": "Wycofane"
         },
         "priority": {
           "low": "Niski",
@@ -3287,7 +4423,8 @@
           "ticket_accepted": "zaakceptował(a) zgłoszenie",
           "status_changed": "zmienił(a) status",
           "assignee_added": "dodał(a) osobę odpowiedzialną",
-          "assignee_removed": "usunął(a) osobę odpowiedzialną"
+          "assignee_removed": "usunął(a) osobę odpowiedzialną",
+          "ticket_taken": "przejął(-ęła) zgłoszenie"
         },
         "acceptance": {
           "label": "Akceptacja",
@@ -3297,6 +4434,25 @@
           "acceptSuccess": "Zgłoszenie zostało zaakceptowane.",
           "acceptedBy": "Zaakceptowane przez",
           "authorizedAcceptors": "Osoby upoważnione"
+        },
+        "handling": {
+          "title": "Obsługa",
+          "take": "Biorę",
+          "status": "Status",
+          "replyToRequester": "Odpowiedz doradcy",
+          "internalNote": "Prywatna notatka",
+          "internalBadge": "prywatna · tylko Ty",
+          "statusChanged": "Status zmieniony",
+          "taken": "Zgłoszenie przypisane do Ciebie",
+          "failed": "Nie udało się zapisać zmiany"
+        },
+        "queues": {
+          "label": "Kolejki",
+          "unassigned": "Nieprzypisane w oddziale",
+          "mine": "Moje",
+          "waitingRequester": "Czeka na doradcę",
+          "waitingVendor": "Czeka na VGP / dostawcę",
+          "all": "Wszystkie"
         }
       },
       "features": {
@@ -3784,6 +4940,21 @@
       "errors": {
         "loadRetry": "Nie udało się załadować danych CRM. Spróbuj ponownie.",
         "tryAgain": "Spróbuj ponownie"
+      },
+      "directory": {
+        "kinds": {
+          "member": "Pracownik",
+          "external": "Zewnętrzny"
+        },
+        "kindFilter": {
+          "label": "Rodzaj",
+          "member": "Pracownicy",
+          "external": "Zewnętrzne"
+        },
+        "memberNote": "Dane z profilu pracownika. Zmienia je sam w Konto → Profil.",
+        "messageMember": "Napisz wiadomość",
+        "branchField": "Oddział",
+        "you": "To Ty"
       }
     },
     "analytics": {
@@ -3981,6 +5152,10 @@
         "results": {
           "session": "Sesja",
           "exportCsv": "Eksportuj CSV",
+          "createPz": "Utwórz PZ",
+          "createPzHint": "Nowe PZ z tej sesji: zlecenia i części zostaną sprawdzone i uzupełnione, a formularz wypełniony — zostanie tylko zaksięgowanie",
+          "savingSession": "Sesja jest jeszcze zapisywana — przyciski będą dostępne za chwilę",
+          "savingShort": "Zapisywanie sesji…",
           "exportEnhancedPdf": "Podgląd PDF",
           "newUpload": "Nowe wgranie",
           "exactMatches": "dokładne",
@@ -4042,7 +5217,12 @@
           "goToWorkshop": "Przejdź do Warsztatu",
           "approvedStatusUnavailable": "Zatwierdzono — Status niedostępny",
           "statusUnavailableDescription": "Nie udało się sprawdzić, czy zlecenia naprawy zostały utworzone. Niekoniecznie oznacza to problem — odśwież, aby sprawdzić ponownie.",
-          "refreshStatus": "Odśwież status"
+          "refreshStatus": "Odśwież status",
+          "markReviewed": "Oznacz jako sprawdzoną",
+          "reviewed": "Sesja sprawdzona",
+          "reviewedHint": "Matcher nie tworzy zleceń. Utwórz je w Warsztacie → Import zleceń albo przy imporcie PZ z tej sesji.",
+          "goToRepairOrderImport": "Import zleceń",
+          "reviewedToast": "Sesja oznaczona jako sprawdzona"
         },
         "extractionReview": {
           "title": "Podgląd ekstrakcji",
@@ -4289,7 +5469,8 @@
         "dashboard": "Panel",
         "adminPanel": "Panel administracyjny",
         "diagnostics": "Diagnostyka",
-        "logOut": "Wyloguj się"
+        "logOut": "Wyloguj się",
+        "reportFeedback": "Zgłoś błąd lub propozycję"
       }
     }
   },
@@ -5694,7 +6875,43 @@
       "manufacturer": "Producent",
       "unitConversions": "Konwersje jednostek",
       "noProductConversions": "Brak konwersji jednostek dla produktu.",
-      "profileTitle": "Profil produktu"
+      "profileTitle": "Profil produktu",
+      "handling": {
+        "title": "Rozlokowanie w oddziale {branch}",
+        "modeLabel": "Sposób obsługi",
+        "mode": {
+          "standard": "Standard (do kontenera zlecenia)",
+          "bulk": "Materiał zbiorczy (stała lokalizacja)"
+        },
+        "locationLabel": "Stała lokalizacja",
+        "noLocation": "Brak",
+        "help": {
+          "standard": "Część przyjęta pod zlecenie trafia do kontenera tego zlecenia.",
+          "bulk": "Klipsy, spinki, materiały: odkładane do stałej lokalizacji (kuweta, regał, szafa) bez kontenera, ale nadal zarezerwowane pod zlecenie i odhaczane na wydaniu."
+        },
+        "save": "Zapisz",
+        "saving": "Zapisywanie…",
+        "saved": "Zapisano sposób obsługi części.",
+        "saveError": "Nie udało się zapisać."
+      },
+      "stockByLocation": {
+        "title": "Stany w lokalizacjach",
+        "empty": "Tej części nie ma teraz w żadnej lokalizacji w tym oddziale.",
+        "noBranch": "Wybierz oddział, aby zobaczyć stany.",
+        "avgCost": "Śr. koszt",
+        "value": "Wartość",
+        "lastMovement": "Ostatni ruch",
+        "total": "Razem"
+      },
+      "warehouseStock": {
+        "title": "Magazyny AutoStacji",
+        "hint": "Ile sztuk należy do którego magazynu AS. Części różnych magazynów mogą leżeć na tych samych regałach.",
+        "unit": "Jednostka",
+        "warehouse": "Magazyn",
+        "quantity": "Ilość",
+        "without": "Bez magazynu",
+        "withoutHint": "Stan sprzed podziału na magazyny albo z dostaw, w których dokument nie wskazał magazynu."
+      }
     },
     "inventory": {
       "title": "Magazyn",
@@ -5771,7 +6988,9 @@
       "selectBranch": "Wybierz oddział, aby utworzyć ruch.",
       "adjustmentWarning": "Korekty służą tylko do poprawiania stanów. Dla normalnych zwrotów lub przesunięć użyj przyjęcia, wydania albo przesunięcia.",
       "from": "z {location}",
-      "to": "do {location}"
+      "to": "do {location}",
+      "warehouse": "Magazyn",
+      "unit": "Jednostka"
     },
     "movementEditor": {
       "newMovement": "Nowy ruch",
@@ -5921,7 +7140,52 @@
       "colProductBrand": "Produkt / Marka",
       "colUnit": "Jedn.",
       "colAvail": "Dost.",
-      "colQuantity": "Ilość"
+      "colQuantity": "Ilość",
+      "receivingZoneHint": "PZ zawsze trafia do strefy przyjęć. Towar stanie się dostępny po rozlokowaniu (Magazyn → Do rozlokowania).",
+      "receiptAttribution": "Przypięto do zleceń: {attributed} poz. Jako wolny towar: {skipped} poz. (brak zlecenia, brak części na zleceniu lub już przyjęte).",
+      "receiptAttributionFailed": "PZ zaksięgowany, ale nie udało się przypiąć części do zleceń — leżą w strefie przyjęć jako wolny towar. Sprawdź zlecenia lub zgłoś problem.",
+      "manualCorrectionsRequired": "Włącz ręczne poprawki, zanim zmienisz pozycje z importu.",
+      "senderNameTooLong": "Nazwa nadawcy jest za długa",
+      "recipientNameTooLong": "Nazwa odbiorcy jest za długa",
+      "importedBadge": "Z importu",
+      "manualCorrectionsEnabled": "Ręczne poprawki włączone",
+      "enableManualCorrections": "Włącz ręczne poprawki",
+      "manualCorrectionsConfirm": "Ręczne poprawki mogą rozjechać pozycje z danymi zaimportowanymi z Matchera. Kontynuować?",
+      "importReplacesLines": "Import zastąpi obecne, niezapisane pozycje ruchu.",
+      "selectBranchFirst": "Wybierz oddział, aby tworzyć ruchy.",
+      "unitTransferNoBranch": "Wybierz oddział docelowy (odbiorcę).",
+      "unitTransferFailed": "Nie udało się utworzyć przesunięcia.",
+      "unitTransferSent": "Wysłano w drogę (MMJ- w drodze).",
+      "unitTransferHeld": "Wstrzymano: szkic MMJ-, części zarezerwowane.",
+      "unitTransferTitle": "Przesunięcie do innej jednostki (MMJ-)",
+      "unitTransferHold": "Nie — wstrzymaj",
+      "unitTransferSend": "Tak — wyślij w drogę",
+      "unitTransferNotice": "Nastąpi przesunięcie towarów do innej jednostki organizacyjnej. W docelowym magazynie zostanie utworzony potemowy dokument MMJ+. Do zatwierdzenia przez odbiorcę części zostają na Twoim stanie, zarezerwowane — możesz je do tego czasu wycofać.",
+      "documentsPosted": "Zaksięgowano {count, plural, one {# dokument PZ} few {# dokumenty PZ} other {# dokumentów PZ}}, po jednym na magazyn: {numbers}",
+      "errors": {
+        "draftSeveralWarehouses": "Pozycje należą do kilku magazynów. Szkic ma jeden magazyn: zaksięguj od razu, a powstanie osobne PZ dla każdego magazynu.",
+        "documentSeveralWarehouses": "Jeden dokument ma jeden magazyn. Pozycje z różnych magazynów wymagają osobnych dokumentów.",
+        "mmOtherUnit": "MM przenosi tylko między magazynami jednej jednostki. Do innej jednostki użyj MMJ.",
+        "warehouseShort": "W magazynie źródłowym jest za mało tej części.",
+        "mmNoChange": "MM musi zmienić regał albo magazyn.",
+        "warehouseRequired": "Wybierz magazyn dokumentu. Jeśli pozycje są z dostawy, magazyn z dokumentu nie jest skonfigurowany: dodaj go w Organizacja → Oddziały → Jednostki i magazyny.",
+        "wuOneWarehouse": "Jedno WU wydaje części z jednego magazynu. Wydaj drugi magazyn osobno albo najpierw przenieś części ruchem MM."
+      },
+      "documentWarehouse": {
+        "title": "Magazyn",
+        "warehouse": "Magazyn dokumentu",
+        "choose": "Wybierz magazyn",
+        "none": "Bez magazynu",
+        "destination": "Magazyn docelowy",
+        "sameWarehouse": "Ten sam magazyn",
+        "destinationHint": "Tylko magazyny tej samej jednostki. Do innej jednostki: MMJ.",
+        "fromMatcher": "Pozycje z dostawy mają magazyn z dokumentów (115, 315…). Jeśli jest ich kilka, przy księgowaniu powstanie osobne PZ dla każdego magazynu.",
+        "transferTarget": "Jednostka i magazyn docelowy",
+        "chooseTarget": "Wybierz jednostkę i magazyn",
+        "transferTargetHint": "Inna jednostka, także w tym samym oddziale. W obrębie jednej jednostki części przenosi MM."
+      },
+      "warehouseRequired": "Wybierz magazyn dokumentu.",
+      "transferTargetRequired": "Wybierz jednostkę i magazyn docelowy MMJ."
     },
     "itemPicker": {
       "title": "Selektor pozycji WMS",
@@ -5934,7 +7198,7 @@
       "noItemsMatch": "Brak pozycji pasujących do wyszukiwania.",
       "noStockInSource": "Brak zapasu w tej lokalizacji źródłowej.",
       "noItemsFound": "Nie znaleziono pozycji.",
-      "binToBinHint": "Przesunięcia bin-to-bin pokazują tylko pozycje z zapasem w lokalizacji źródłowej.",
+      "binToBinHint": "MM pokazuje tylko wolne części lokalizacji. Części zarezerwowane pod zlecenie lub ZW przenosi rozlokowanie.",
       "available": "Dostępne",
       "add": "Dodaj",
       "ok": "OK",
@@ -5998,7 +7262,56 @@
       "actionDeclined": "Odrzucono",
       "actionUpdated": "Zaktualizowano",
       "actionDraftUpdated": "Szkic zaktualizowany",
-      "actionDraftSaved": "Szkic zapisany"
+      "actionDraftSaved": "Szkic zapisany",
+      "reverse": {
+        "open": "Storno",
+        "title": "Storno dokumentu {number}",
+        "description": "Storno księguje dokument odwrotny (900), który cofa wszystkie pozycje tego dokumentu, jakby się nie wydarzył. Oryginał zostaje w historii jako wycofany. Działa tylko, jeśli towar z dokumentu wciąż jest w tym samym miejscu i nie jest zarezerwowany.",
+        "reason": "Powód storna",
+        "reasonPlaceholder": "np. błędnie zaksięgowana dostawa",
+        "cancel": "Anuluj",
+        "confirm": "Wykonaj storno",
+        "done": "Zaksięgowano storno {number}",
+        "errors": {
+          "unauthorized": "Brak uprawnień do storna w tym oddziale.",
+          "not_found": "Nie znaleziono dokumentu w aktywnym oddziale.",
+          "reason_required": "Podaj powód storna.",
+          "not_posted": "Stornować można tylko zaksięgowany dokument.",
+          "already_reversed": "Ten dokument został już wycofany.",
+          "is_reversal": "Dokumentu storna nie można stornować.",
+          "stock_moved": "Nie można stornować: część towaru z tego dokumentu została już rozlokowana, wydana lub jest zarezerwowana.",
+          "unexpected": "Nie udało się wykonać storna."
+        }
+      },
+      "related": {
+        "reversed_by": "Wycofany dokumentem",
+        "reversal_of": "Storno dokumentu",
+        "corrected_by": "Korekta",
+        "correction_of": "Korekta dokumentu"
+      },
+      "correction": {
+        "open": "Korekta (KPZ)",
+        "title": "Korekta dokumentu {number}",
+        "description": "KPZ to osobny dokument powiązany z tym PZ. Zdejmuje ze stanu wpisaną ilość z miejsca, w które PZ ją przyjął — np. gdy dostawa była niepełna albo część jest błędna lub uszkodzona. Najpierw koryguje wolny towar, dopiero potem przyjęcie na zlecenie. Oryginalny PZ się nie zmienia.",
+        "lineInfo": "Przyjęto {quantity} {unit} · do skorygowania {correctable}",
+        "quantity": "Ilość do korekty",
+        "reason": "Powód korekty",
+        "reasonPlaceholder": "np. dostawca przysłał 1 szt. mniej",
+        "cancel": "Anuluj",
+        "confirm": "Zaksięguj KPZ ({count})",
+        "done": "Zaksięgowano korektę {number}",
+        "errors": {
+          "unauthorized": "Brak uprawnień do korekty w tym oddziale.",
+          "not_found": "Nie znaleziono PZ w aktywnym oddziale.",
+          "not_correctable": "Korygować można tylko zaksięgowany PZ.",
+          "reason_required": "Podaj powód korekty.",
+          "too_much": "Ilość przekracza to, co zostało do skorygowania.",
+          "invalid_input": "Sprawdź wpisane ilości.",
+          "stock_moved": "Nie można skorygować: towar został już rozlokowany, wydany lub zarezerwowany. Skoryguj go tam, gdzie teraz jest.",
+          "unexpected": "Nie udało się zaksięgować korekty."
+        }
+      },
+      "colWarehouse": "Magazyn"
     },
     "transfers": {
       "title": "Przesunięcia między oddziałami",
@@ -6517,6 +7830,7 @@
         "sessionCreateFailed": "Nie udało się utworzyć sesji inwentaryzacji",
         "sessionApproved": "Inwentaryzacja zaksięgowana — stany skorygowane",
         "sessionApproveFailed": "Nie udało się zaksięgować inwentaryzacji",
+        "sessionApproveShortage": "Brakuje {shortage} szt. {sku} w {location}, a wolnych (D) jest tylko {free}: {reserved} zarezerwowanych (R) i {blocked} zablokowanych (B). Najpierw zwolnij te rezerwacje albo odblokuj części, potem zatwierdź.",
         "sessionStatusUpdateFailed": "Nie udało się zaktualizować statusu inwentaryzacji",
         "lineUpdated": "Pozycja zapisana",
         "lineUpdateFailed": "Nie udało się zapisać pozycji",
@@ -6775,6 +8089,261 @@
         "reorderViewAll": "Zobacz pełny raport uzupełnień",
         "reorderEmpty": "Żadna pozycja w zakresie tej inwentaryzacji nie jest poniżej progu zamówienia."
       }
+    },
+    "receiptReport": {
+      "title": "Rozlokowanie dostawy",
+      "subtitle": "Gdzie trafiła każda pozycja tego PZ — dane do aktualizacji DMS/AutoStacji.",
+      "statusDone": "Wszystko rozlokowane",
+      "statusWaiting": "W strefie przyjęć: {waiting} z {total}",
+      "csv": "Eksport CSV",
+      "print": "Drukuj",
+      "columns": {
+        "sku": "Numer części",
+        "name": "Nazwa",
+        "quantity": "Ilość",
+        "zl": "ZL",
+        "location": "Rozłożono na",
+        "container": "Kontener",
+        "pending": "Czeka w PRZ",
+        "assignment": "Przypisanie"
+      },
+      "assignedSummary": "Przypisano do zleceń: {assigned} z {total} poz.",
+      "allFree": "Żadna pozycja nie została przypisana do zlecenia — cała dostawa to wolny towar.",
+      "free": "Wolny towar",
+      "reservedFor": "ZL {zl}",
+      "assignedQty": "zarezerwowano {quantity} {unit}",
+      "restFree": "reszta ({quantity}) jako wolny towar",
+      "loadError": "Nie udało się wczytać, gdzie rozlokowano pozycje tego PZ. Odśwież stronę."
+    },
+    "movementImport": {
+      "title": "Import danych do ruchu",
+      "description": "Wybierz źródło i sesję. Szybki import sam utworzy brakujące zlecenia i części i wypełni formularz. Przegląd ręczny pokazuje wszystko krok po kroku.",
+      "source": "Źródło",
+      "sourcePlaceholder": "Wybierz źródło",
+      "noSources": "Brak źródeł importu dla tego typu ruchu.",
+      "sources": {
+        "svwms_wdd_matcher": "Matcher SVWMS (WDD)"
+      },
+      "fields": {
+        "session_id": {
+          "label": "Sesja Matchera",
+          "placeholder": "Wybierz sesję Matchera"
+        }
+      },
+      "selectPlaceholder": "Wybierz",
+      "noSessions": "Brak sesji tego oddziału gotowych do importu.",
+      "alreadyImportedOption": "{label} — już w {document}",
+      "alreadyImported": "Ta sesja była już zaimportowana: {document}. Ponowny import zdubluje przyjęcie tej dostawy.",
+      "quickImport": "Szybki import",
+      "quickImportHint": "Sprawdza całą sesję, tworzy brakujące zlecenia i części (jednostka: szt.) i od razu wypełnia formularz.",
+      "autoStartUnavailable": "Tej sesji Matchera nie można przyjąć w tym oddziale (inny oddział albo sesja nie jest jeszcze dopasowana). Wybierz sesję z listy.",
+      "autoStartAlreadyImported": "Ta sesja jest już przyjęta na {document}. Import nie ruszył sam — sprawdź, zanim przyjmiesz ją drugi raz.",
+      "manualReview": "Przegląd ręczny",
+      "quickStep": {
+        "preview": "Wczytywanie sesji…",
+        "repairOrders": "Tworzenie brakujących zleceń…",
+        "products": "Tworzenie brakujących części…",
+        "fill": "Wypełnianie formularza…"
+      },
+      "autoProgress": {
+        "title": "Przygotowywanie PZ z sesji Matchera…",
+        "preview": "Wczytanie dostawy z sesji Matchera",
+        "repairOrders": "Sprawdzenie zleceń i utworzenie brakujących",
+        "products": "Sprawdzenie części i utworzenie brakujących",
+        "fill": "Wypełnienie dokumentu PZ"
+      },
+      "quickDone": "Formularz wypełniony: {lines} poz. Nowe zlecenia: {orders}, nowe części: {products}.",
+      "quickStoppedAmbiguous": "Szybki import zatrzymany: {count, plural, one {# część pasuje} few {# części pasują} other {# części pasuje}} do kilku pozycji katalogu — wybierz właściwe poniżej.",
+      "quickStoppedNeedsReview": "Szybki import zatrzymany: część pozycji wymaga decyzji — dokończ poniżej.",
+      "quickNoProductPermission": "Brak uprawnienia do tworzenia części — brakujące części przypisz ręcznie poniżej.",
+      "quickNoUnit": "Brak jednostki „SZT” i nie udało się jej utworzyć.",
+      "quickRepairOrdersFailed": "Nie udało się utworzyć brakujących zleceń. Import zatrzymany — spróbuj ponownie lub utwórz je ręcznie poniżej.",
+      "sourceDocument": "Dokument źródłowy",
+      "documentReady": "Dokument jest gotowy do wypełnienia formularza.",
+      "repairOrders": {
+        "title": "Zlecenia z tej dostawy",
+        "hint": "Części trafią do zleceń po numerze ZL i kodzie części. Utwórz brakujące zlecenia przed zaksięgowaniem PZ — inaczej ich części zostaną wolnym towarem."
+      },
+      "allReady": "Wszystkie pozycje są gotowe. Sprawdź listę i wypełnij formularz ruchu.",
+      "allSkipped": "Wszystkie pozycje są pominięte. Przywróć przynajmniej jedną, zanim wypełnisz formularz.",
+      "needsDecisions": "Import wymaga decyzji: {rows, plural, one {# pozycja} few {# pozycje} other {# pozycji}} w {groups, plural, one {# grupie} other {# grupach}}. Wypełnienie formularza jest zablokowane, dopóki problemy nie zostaną rozwiązane lub pominięte.",
+      "tiles": {
+        "imported": "Pozycje z importu",
+        "ready": "Gotowe",
+        "missingUnits": "Brak jednostki",
+        "productExceptions": "Brak części",
+        "skipped": "Pominięte"
+      },
+      "decisions": {
+        "title": "Import wymaga decyzji",
+        "hint": "Każdą grupę (ta sama część lub jednostka) rozwiązujesz raz — pasujące pozycje zmieniają się razem."
+      },
+      "actions": {
+        "createUnits": "Utwórz brakujące jednostki",
+        "createSelected": "Utwórz zaznaczone części ({count})",
+        "toggleDetails": "Szczegóły problemów",
+        "skipMissing": "Pomiń brakujące części",
+        "restoreSkipped": "Przywróć pominięte",
+        "copyUnit": "Skopiuj jednostkę z pierwszego wiersza do wszystkich",
+        "copyAction": "Skopiuj działanie z pierwszego wiersza do wszystkich"
+      },
+      "allSkippedPanel": "Wszystkie pozycje są pominięte. Przywróć pominięte albo wybierz inną sesję.",
+      "unitMismatches": {
+        "title": "Niezgodne jednostki",
+        "description": "Najpierw ustaw jednostki, żeby brakujące części powstały z właściwą jednostką."
+      },
+      "productMismatches": {
+        "title": "Brakujące części",
+        "description": "Zdecyduj, co zrobić z każdą częścią, zanim wypełnisz formularz."
+      },
+      "items": {
+        "title": "Pozycje do przyjęcia",
+        "description": "Sprawdź pozycje przed wypełnieniem formularza ruchu.",
+        "empty": "Brak pozycji."
+      },
+      "columns": {
+        "no": "Lp.",
+        "sku": "Kod",
+        "itemSku": "Kod części",
+        "name": "Nazwa",
+        "qty": "Ilość",
+        "order": "Zlecenie",
+        "importedUnit": "Jednostka z importu",
+        "problem": "Problem",
+        "action": "Działanie",
+        "unit": "Jednostka",
+        "rows": "Pozycje",
+        "howToProceed": "Co zrobić",
+        "status": "Status",
+        "importedItem": "Pozycja z importu",
+        "product": "Część",
+        "source": "Skąd",
+        "destination": "Dokąd"
+      },
+      "more": "+{count} więcej",
+      "noUnitProvided": "brak w imporcie",
+      "problems": {
+        "ambiguousUnit": "Kilka pasujących jednostek",
+        "missingUnit": "Brak jednostki",
+        "multipleMatches": "Kilka pasujących części",
+        "missingProductSelectUnit": "Brak części · najpierw wybierz jednostkę",
+        "missingProduct": "Brak części"
+      },
+      "assignExistingUnit": "Przypisz istniejącą jednostkę",
+      "selectUnit": "Wybierz jednostkę",
+      "bulkUnit": "Ustaw jednostkę wszystkim pozycjom bez jednostki",
+      "bulkUnitAria": "Jednostka dla wszystkich pozycji",
+      "productActions": {
+        "create": "Utwórz część",
+        "assignExisting": "Przypisz istniejącą",
+        "skip": "Pomiń",
+        "pickExisting": "Wybierz istniejącą część",
+        "willCreate": "Zostanie utworzona przyciskiem „Utwórz zaznaczone części”.",
+        "willSkip": "Te pozycje zostaną pominięte."
+      },
+      "blockReasons": {
+        "ambiguous": "Część pasuje do kilku pozycji katalogu — przypisz ją ręcznie.",
+        "selectUnit": "Najpierw wybierz jednostkę.",
+        "noPermission": "Brak uprawnienia do tworzenia części."
+      },
+      "skippedRows": "{count, plural, one {# pominięta pozycja nie trafi} few {# pominięte pozycje nie trafią} other {# pominiętych pozycji nie trafi}} do tego ruchu.",
+      "statusReady": "Gotowe",
+      "needsResolution": "Wymaga decyzji",
+      "selectProduct": "Wybierz część",
+      "noSource": "Brak",
+      "noDestination": "Brak",
+      "importedUnitValue": "Z importu: {unit}",
+      "cancel": "Anuluj",
+      "fill": "Wypełnij formularz ruchu",
+      "note": "Zaimportowano z {source}: {document}",
+      "toasts": {
+        "loadSourcesFailed": "Nie udało się wczytać źródeł importu",
+        "previewFailed": "Nie udało się wczytać danych do importu",
+        "fieldRequired": "Pole „{label}” jest wymagane",
+        "unitsCreated": "Utworzono jednostki: {count}",
+        "noUnitsCreated": "Nie udało się utworzyć brakujących jednostek",
+        "createUnitsFailed": "Nie udało się utworzyć brakujących jednostek",
+        "productsCreated": "Utworzono części: {count}",
+        "noProductsCreated": "Nie udało się utworzyć brakujących części",
+        "createProductsFailed": "Nie udało się utworzyć brakujących części",
+        "resolveUnitsFirst": "Najpierw ustaw jednostki części, które chcesz utworzyć",
+        "firstRowUnitFirst": "Najpierw wybierz jednostkę w pierwszym wierszu",
+        "filled": "Dane z importu wypełniły formularz ruchu",
+        "resolveFirst": "Rozwiąż problemy importu przed wypełnieniem formularza"
+      },
+      "errors": {
+        "productRequired": "Brak części",
+        "unitRequired": "Brak jednostki",
+        "quantityRequired": "Brak ilości",
+        "sourceLocationRequired": "Brak lokalizacji źródłowej",
+        "destinationLocationRequired": "Brak lokalizacji docelowej",
+        "locationsMustDiffer": "Lokalizacja źródłowa i docelowa muszą być różne",
+        "productNotResolved": "Nie znaleziono części",
+        "unitNotResolved": "Nie znaleziono jednostki",
+        "productMultiple": "Kilka pasujących części",
+        "unitMultiple": "Kilka pasujących jednostek"
+      },
+      "summary": {
+        "loading": "Sprawdzam sesję: zlecenia i części…",
+        "ordersTitle": "Zlecenia",
+        "ordersNew": "nowe: {count}",
+        "ordersExisting": "istniejące: {count}",
+        "ordersConflict": "konflikty: {count}",
+        "ordersUnchecked": "Nie udało się sprawdzić zleceń (brak uprawnień lub błąd).",
+        "partsTitle": "Części ({count} poz.)",
+        "partsInCatalog": "w katalogu: {count}",
+        "partsCreate": "do utworzenia: {count}",
+        "partsAmbiguous": "do wyboru ręcznego: {count}",
+        "partsNoPermission": "brak uprawnień do utworzenia: {count}",
+        "verdictQuick": "Szybki import utworzy {orders, plural, =0 {0 zleceń} one {# zlecenie} few {# zlecenia} other {# zleceń}} i {parts, plural, =0 {0 części} one {# część} few {# części} other {# części}} (jednostka SZT), a potem wypełni formularz ({lines} poz.).",
+        "verdictStops": "Szybki import zatrzyma się na {count, plural, one {# pozycji} other {# pozycjach}}, które wymagają decyzji — wtedy otworzy się przegląd ręczny.",
+        "freeStock": "{count, plural, one {# pozycja wejdzie} few {# pozycje wejdą} other {# pozycji wejdzie}} jako wolny towar (bez zlecenia albo zlecenie zamknięte).",
+        "internalOrderStock": "{count, plural, one {# pozycja zostanie zarezerwowana} few {# pozycje zostaną zarezerwowane} other {# pozycji zostanie zarezerwowanych}} pod zamówienia wewnętrzne bez zlecenia (np. dla innego oddziału).",
+        "internalOrderFor": "dla: {branch}",
+        "noOrder": "Bez zlecenia",
+        "partsCount": "{count, plural, one {# część} few {# części} other {# części}}",
+        "orderStatus": {
+          "new": "Do utworzenia",
+          "existing": "Istnieje",
+          "existing_changes": "Istnieje · nowe części",
+          "conflict": "Konflikt",
+          "unknown": "Nie sprawdzono",
+          "none": "Wolny towar",
+          "internal_order": "Zamówienie wewnętrzne"
+        },
+        "conflict": {
+          "missing_zl": "Brak numeru ZL",
+          "repair_order_closed": "Zlecenie zamknięte",
+          "repair_order_archived": "Zlecenie zarchiwizowane",
+          "unit_in_other_branch": "Jednostka {unit} należy do oddziału {branch}",
+          "unit_unknown": "Jednostki {unit} nie ma w tym oddziale"
+        },
+        "partStatus": {
+          "in_catalog": "W katalogu",
+          "create": "Zostanie utworzona ({unit})",
+          "ambiguous": "Kilka pasujących — wybór ręczny",
+          "no_permission": "Brak w katalogu — brak uprawnień"
+        }
+      }
+    },
+    "warehouseStockReport": {
+      "title": "Stany magazynów AutoStacji",
+      "description": "Ile każdej części należy do którego magazynu AS w tym oddziale, niezależnie od regału. Do porównania z AutoStacją magazyn po magazynie.",
+      "unit": "Jednostka",
+      "warehouse": "Magazyn",
+      "search": "Część",
+      "searchPlaceholder": "Numer lub nazwa części",
+      "all": "Wszystkie",
+      "apply": "Pokaż",
+      "sku": "Numer części",
+      "name": "Nazwa",
+      "quantity": "Ilość",
+      "positions": "{count, plural, one {# pozycja} few {# pozycje} other {# pozycji}}",
+      "pieces": "{qty} szt.",
+      "without": "Bez magazynu",
+      "empty": "Brak stanu dla wybranych filtrów.",
+      "loadError": "Nie udało się wczytać stanów.",
+      "noBranch": "Wybierz oddział."
     }
   },
   "warehouseReports": {
@@ -6982,13 +8551,21 @@
       "itemRemoved": "Pozycja usunięta z kontenera.",
       "containerMoved": "Kontener przeniesiony do nowej lokalizacji.",
       "ruleDeleted": "Reguła składowania usunięta.",
-      "deleteRule": "Usuń regułę"
+      "deleteRule": "Usuń regułę",
+      "openContainer": "Otwórz kontener"
     },
     "history": {
       "recentMovements": "Ostatnie ruchy",
       "noActivity": "Brak zarejestrowanej aktywności",
       "internalRelocation": "Relokacja wewnętrzna",
-      "external": "Zewnętrzne"
+      "external": "Zewnętrzne",
+      "kind": {
+        "receipt": "Przyjęcie (PZ)",
+        "transfer": "Przesunięcie (MM)",
+        "issue": "Wydanie na zlecenie (RW)",
+        "adjustment": "Korekta (INW)",
+        "reversal": "Storno"
+      }
     },
     "export": {
       "title": "Eksport danych lokalizacji",
@@ -7428,6 +9005,674 @@
         "healthcare": "Placówki medyczne",
         "serviceRepair": "Serwis i naprawy",
         "construction": "Budownictwo"
+      }
+    }
+  },
+  "qrScanner": {
+    "back": "Wstecz",
+    "tryAgain": "Spróbuj ponownie",
+    "hint": "Skieruj aparat na naklejkę z kodem QR, a zostanie odczytana automatycznie.",
+    "invalidToken": "Nie udało się odczytać kodu QR. Spróbuj ponownie.",
+    "lookingUp": "Sprawdzanie kodu QR…",
+    "notFound": "Nie znaleziono tego kodu QR w organizacji.",
+    "revoked": "Ten kod QR został unieważniony.",
+    "cameraError": "Brak dostępu do aparatu albo aparat jest niedostępny."
+  },
+  "globalSearch": {
+    "triggerLabel": "Szukaj zleceń, części, lokalizacji, osób…",
+    "triggerAria": "Szukaj ({shortcut})",
+    "dialogTitle": "Szukaj w Ambrze",
+    "dialogDescription": "Wyszukaj stronę lub akcję. Wpisz > aby pokazać tylko akcje.",
+    "placeholder": "Szukaj zleceń, części, lokalizacji, dokumentów, osób… albo wpisz > aby wykonać akcję",
+    "actionsPlaceholder": "Wpisz nazwę akcji…",
+    "actionsModeBadge": "> Akcje",
+    "cancel": "Anuluj",
+    "empty": "Brak wyników. Spróbuj innego słowa.",
+    "switchBranch": "Przełącz oddział na: {name}",
+    "branchSwitched": "Przełączono na oddział {name}",
+    "branchSwitchFailed": "Nie udało się przełączyć oddziału",
+    "hints": {
+      "navigate": "wybierz",
+      "open": "otwórz",
+      "newTab": "nowa karta",
+      "close": "zamknij",
+      "actionsMode": "> tylko akcje",
+      "backToSearch": "Backspace — wróć do wyszukiwania",
+      "preview": "akcje",
+      "scope": "zakres",
+      "quickPick": "szybki wybór",
+      "clearScope": "wszystko"
+    },
+    "groups": {
+      "quickActions": "Szybkie akcje",
+      "goTo": "Przejdź do",
+      "pages": "Strony",
+      "actions": "Akcje",
+      "exact": "Dokładne trafienie",
+      "recent": "Ostatnio otwierane"
+    },
+    "sections": {
+      "warehouse": "Magazyn",
+      "workshop": "Warsztat",
+      "helpDesk": "Help Desk",
+      "planning": "Planowanie",
+      "crm": "CRM",
+      "organization": "Organizacja",
+      "analytics": "Analityka",
+      "tools": "Narzędzia",
+      "account": "Konto",
+      "general": "Ogólne"
+    },
+    "entries": {
+      "warehouseMap": "Mapa magazynu",
+      "warehouseItemsImport": "Import kartoteki",
+      "warehouseCustomFields": "Pola własne części",
+      "warehouseReorder": "Raport uzupełnień",
+      "organizationMembers": "Członkowie organizacji",
+      "organizationInvitations": "Zaproszenia",
+      "organizationRoles": "Role i uprawnienia",
+      "organizationPositions": "Stanowiska",
+      "organizationPublicProfile": "Profil publiczny organizacji",
+      "accountProfile": "Mój profil",
+      "accountPreferences": "Preferencje i wygląd",
+      "accountNotifications": "Powiadomienia",
+      "messages": "Wiadomości",
+      "myFeedback": "Moje błędy i propozycje"
+    },
+    "actions": {
+      "newRepairOrder": "Nowe zlecenie",
+      "importRepairOrders": "Import zleceń z Matchera",
+      "newMovement": "Nowy ruch magazynowy (PZ, RW, MM…)",
+      "putaway": "Rozlokuj dostawę",
+      "newItem": "Nowa część w kartotece",
+      "newAudit": "Nowa inwentaryzacja",
+      "newTicket": "Nowe zapytanie",
+      "inviteMember": "Zaproś osobę do organizacji",
+      "toggleTheme": "Motyw jasny / ciemny",
+      "toggleLocale": "Język (polski / angielski)",
+      "signOut": "Wyloguj się",
+      "pickColorTheme": "Motyw kolorystyczny",
+      "reportFeedback": "Zgłoś błąd lub propozycję"
+    },
+    "searching": "Szukam…",
+    "hitTypes": {
+      "repairOrder": "Zlecenie",
+      "ticket": "Zapytanie",
+      "task": "Zadanie",
+      "document": "Dokument magazynowy",
+      "container": "Kontener",
+      "location": "Lokalizacja",
+      "item": "Część",
+      "person": "Osoba",
+      "party": "Kontrahent",
+      "contact": "Kontakt",
+      "audit": "Inwentaryzacja",
+      "matcherSession": "Sesja Matchera",
+      "qrCode": "Kod QR",
+      "board": "Tablica",
+      "map": "Mapa magazynu",
+      "ticketType": "Typ zgłoszenia",
+      "invitation": "Zaproszenie",
+      "comment": "Komentarz",
+      "attachment": "Załącznik"
+    },
+    "statuses": {
+      "open": "otwarte",
+      "closed": "zamknięte",
+      "waiting": "oczekuje",
+      "waiting_response": "czeka na odpowiedź",
+      "in_progress": "w toku",
+      "resolved": "rozwiązane",
+      "completed": "zakończone",
+      "cancelled": "anulowane",
+      "posted": "zaksięgowany",
+      "draft": "szkic",
+      "reversed": "wycofany",
+      "active": "aktywny",
+      "counting": "liczenie",
+      "submitted": "do weryfikacji",
+      "approved": "zatwierdzone",
+      "pending": "oczekuje",
+      "ready_for_review": "do przeglądu",
+      "revoked": "unieważniony",
+      "inactive": "nieaktywny",
+      "accepted": "przyjęte",
+      "declined": "odrzucone",
+      "expired": "wygasło",
+      "published": "opublikowana"
+    },
+    "dataGroups": {
+      "repairOrder": "Zlecenia",
+      "item": "Części",
+      "container": "Kontenery",
+      "location": "Lokalizacje",
+      "document": "Dokumenty magazynowe",
+      "ticket": "Zapytania",
+      "task": "Zadania",
+      "person": "Osoby",
+      "party": "Kontrahenci i dostawcy",
+      "contact": "Kontakty",
+      "audit": "Inwentaryzacje",
+      "matcherSession": "Sesje Matchera",
+      "qrCode": "Kody QR",
+      "board": "Tablice",
+      "map": "Mapy magazynu",
+      "ticketType": "Typy zgłoszeń",
+      "invitation": "Zaproszenia",
+      "comment": "Komentarze",
+      "attachment": "Załączniki"
+    },
+    "details": {
+      "warehouse": "mag {code}",
+      "containsPart": "zawiera {code}",
+      "stock": "stan {onHand} · dostępne {available}",
+      "noStock": "brak na stanie w tym oddziale",
+      "location": "lokalizacja {code}",
+      "due": "termin {date}",
+      "qrUnassigned": "nieprzypisany",
+      "roles": {
+        "supplier": "dostawca",
+        "customer": "klient",
+        "carrier": "przewoźnik"
+      },
+      "qrTargets": {
+        "warehouse_location": "lokalizacja",
+        "inventory_container": "kontener",
+        "helpdesk_ticket": "zapytanie",
+        "planning_task": "zadanie",
+        "workshop_repair_order": "zlecenie",
+        "planning_kanban_card": "karta tablicy"
+      },
+      "expires": "ważne do {date}"
+    },
+    "scopes": {
+      "repairOrders": "Zlecenia",
+      "items": "Części",
+      "containers": "Kontenery",
+      "locations": "Lokalizacje",
+      "documents": "Dokumenty",
+      "tickets": "Zapytania",
+      "tasks": "Zadania",
+      "people": "Osoby",
+      "parties": "Kontrahenci",
+      "contacts": "Kontakty",
+      "audits": "Inwentaryzacje",
+      "matcherSessions": "Matcher",
+      "qrCodes": "Kody QR",
+      "boards": "Tablice",
+      "maps": "Mapy",
+      "ticketTypes": "Typy zgłoszeń",
+      "invitations": "Zaproszenia",
+      "comments": "Komentarze",
+      "attachments": "Załączniki"
+    },
+    "scopeAll": "Wszystko",
+    "scopeActions": "Akcje",
+    "scopesLabel": "Zakres wyszukiwania",
+    "scopePlaceholder": "Szukaj: {scope}…",
+    "typeMore": "Wpisz co najmniej 3 znaki.",
+    "showAll": "Pokaż wszystkie: {group}",
+    "otherBranches": "W innych oddziałach:",
+    "otherBranchCount": "{name} ({count})",
+    "copied": "Skopiowano {code}",
+    "copyFailed": "Nie udało się skopiować",
+    "preview": {
+      "title": "Podgląd wyniku",
+      "loading": "Wczytuję…",
+      "actions": "Akcje na wyniku",
+      "open": "Otwórz",
+      "openNewTab": "W nowej karcie",
+      "copy": "Kopiuj numer",
+      "movements": "Historia ruchów",
+      "tabReceiving": "Zakładka Zamówienia-Przyjęcia",
+      "tabStock": "Zakładka Magazyn",
+      "onHand": "Na stanie",
+      "committed": "Zarezerw.",
+      "available": "Dostępne",
+      "locations": "Gdzie leży",
+      "noStock": "Brak na stanie w tym oddziale",
+      "openOrders": "Na otwartych zleceniach",
+      "noOrders": "Nie ma na otwartych zleceniach",
+      "client": "Klient",
+      "vehicle": "Marka",
+      "vin": "VIN",
+      "warehouse": "Magazyn",
+      "status": "Status",
+      "lines": "Pozycje",
+      "linkedLines": "Powiązane z kartoteką",
+      "firstLines": "Pierwsze pozycje",
+      "message": "Napisz wiadomość"
+    },
+    "scanner": {
+      "open": "Skanuj kod",
+      "cta": "Zeskanuj kod QR lub kreskowy",
+      "back": "Wróć do wyszukiwania",
+      "hint": "Skieruj aparat na kod QR, kod kreskowy części albo etykietę",
+      "cameraError": "Brak dostępu do aparatu. Zezwól na aparat w ustawieniach przeglądarki.",
+      "unsupported": "Ta przeglądarka nie obsługuje aparatu."
+    },
+    "colorTheme": {
+      "badge": "Motyw",
+      "heading": "Motyw kolorystyczny",
+      "placeholder": "Wybierz motyw — strzałki pokazują podgląd",
+      "current": "obecny",
+      "applied": "Motyw: {name}",
+      "hintPreview": "podgląd",
+      "hintApply": "zapisz",
+      "hintRestore": "przywróć poprzedni"
+    },
+    "themeMode": {
+      "light": "Jasny",
+      "dark": "Ciemny",
+      "system": "Systemowy"
+    },
+    "submenu": {
+      "toggle": "Pokaż opcje",
+      "open": "opcje",
+      "pick": "wybierz",
+      "back": "wróć"
+    }
+  },
+  "chat": {
+    "bar": {
+      "label": "Wiadomości",
+      "expand": "Wiadomości — rozwiń pasek",
+      "collapse": "Zwiń do paska",
+      "openPage": "Otwórz stronę Wiadomości",
+      "newConversation": "Nowa rozmowa",
+      "search": "Szukaj osoby lub grupy",
+      "unread": "Nieprzeczytane",
+      "recent": "Ostatnie",
+      "groups": "Grupy",
+      "empty": "Brak rozmów",
+      "emptyHint": "Zacznij rozmowę z kimś z zespołu.",
+      "noResults": "Nic nie znaleziono",
+      "loadFailed": "Nie udało się wczytać rozmów",
+      "soundOn": "Włącz dźwięk nowych wiadomości",
+      "soundOff": "Wyłącz dźwięk nowych wiadomości"
+    },
+    "window": {
+      "openFull": "Otwórz w pełnym widoku",
+      "collapse": "Zwiń okno",
+      "expand": "Rozwiń okno",
+      "close": "Zamknij okno",
+      "placeholder": "Napisz wiadomość…",
+      "send": "Wyślij",
+      "attach": "Załącz plik",
+      "read": "Przeczytane",
+      "readBy": "Przeczytane przez {count}",
+      "sending": "Wysyłanie…",
+      "failed": "Nie wysłano — kliknij, aby ponowić",
+      "loadOlder": "Wcześniejsze wiadomości",
+      "empty": "Napisz pierwszą wiadomość",
+      "members": "{count, plural, one {# osoba} few {# osoby} many {# osób} other {# osoby}}",
+      "online": "Aktywny teraz",
+      "offline": "Nieaktywny",
+      "you": "Ty",
+      "today": "Dzisiaj",
+      "yesterday": "Wczoraj",
+      "deleted": "Wiadomość usunięta",
+      "hint": "Enter wyślij · Shift+Enter nowa linia",
+      "uploading": "Wysyłanie plików…",
+      "loadFailed": "Nie udało się wczytać wiadomości",
+      "retry": "Spróbuj ponownie",
+      "options": "Opcje rozmowy",
+      "manageGroup": "Członkowie i ustawienia grupy",
+      "edit": "Edytuj wiadomość",
+      "delete": "Usuń wiadomość",
+      "deleteConfirm": "Usunąć?",
+      "edited": "edytowano",
+      "editing": "Edytujesz wiadomość",
+      "cancelEdit": "Anuluj edycję",
+      "save": "Zapisz",
+      "editClosed": "Wiadomość można edytować przez 15 minut od wysłania"
+    },
+    "system": {
+      "created": "{actor} utworzył(a) grupę „{name}”",
+      "added": "{actor} dodał(a): {users}",
+      "removed": "{actor} usunął(-ęła): {users}",
+      "left": "{actor} opuścił(a) grupę",
+      "renamed": "{actor} zmienił(a) nazwę grupy na „{name}”",
+      "someone": "Ktoś",
+      "invited": "{actor} zaprosił(a): {users}",
+      "joined": "{actor} dołączył(a) do grupy",
+      "declined": "{actor} odrzucił(a) zaproszenie",
+      "withdrawn": "{actor} wycofał(a) zaproszenie: {users}"
+    },
+    "preview": {
+      "you": "Ty: ",
+      "attachment": "Załącznik",
+      "attachments": "{count, plural, one {# załącznik} few {# załączniki} many {# załączników} other {# załącznika}}",
+      "system": "Zmiana w grupie",
+      "empty": "Brak wiadomości"
+    },
+    "newConversation": {
+      "title": "Nowa wiadomość",
+      "search": "Szukaj osoby",
+      "groupName": "Nazwa grupy",
+      "groupNamePlaceholder": "np. Magazyn CNP Poznań",
+      "start": "Napisz",
+      "selected": "Wybrane: {count}",
+      "empty": "Brak osób",
+      "cancel": "Anuluj",
+      "hint": "Wybierz osobę, do której chcesz napisać",
+      "groupHint": "Wybrane osoby dostaną zaproszenie i same zdecydują, czy dołączyć",
+      "sendInvites": "Utwórz grupę i wyślij zaproszenia",
+      "invitesSent": "{count, plural, one {Wysłano # zaproszenie} few {Wysłano # zaproszenia} many {Wysłano # zaproszeń} other {Wysłano # zaproszenia}}",
+      "keys": "↑↓ wybór · Enter otwiera rozmowę",
+      "modeDirect": "Osoba",
+      "modeGroup": "Grupa",
+      "pickPeople": "Zaznacz osoby, które chcesz zaprosić"
+    },
+    "errors": {
+      "forbidden": "Brak dostępu do rozmowy",
+      "invalid": "Nieprawidłowe dane",
+      "tooLong": "Wiadomość jest za długa",
+      "notFound": "Nie znaleziono rozmowy",
+      "failed": "Coś poszło nie tak. Spróbuj ponownie."
+    },
+    "page": {
+      "title": "Wiadomości",
+      "filters": {
+        "all": "Wszystkie",
+        "unread": "Nieprzeczytane",
+        "groups": "Grupy"
+      },
+      "selectConversation": "Wybierz rozmowę z listy albo zacznij nową.",
+      "details": "Szczegóły",
+      "members": "Członkowie",
+      "files": "Pliki",
+      "noFiles": "Brak plików",
+      "owner": "Właściciel",
+      "addMembers": "Zaproś osoby",
+      "add": "Dodaj",
+      "rename": "Zmień nazwę",
+      "save": "Zapisz",
+      "cancel": "Anuluj",
+      "leave": "Opuść grupę",
+      "confirmLeave": "Opuścić grupę „{name}”? Nie zobaczysz już jej wiadomości.",
+      "remove": "Usuń z grupy",
+      "mute": "Wycisz",
+      "unmute": "Włącz powiadomienia",
+      "muted": "Wyciszona",
+      "back": "Wróć do listy",
+      "invite": "Zaproś",
+      "invited": "Zaproszono — czeka na odpowiedź",
+      "withdrawInvite": "Wycofaj zaproszenie: {name}"
+    },
+    "invitations": {
+      "title": "Zaproszenia do grup",
+      "from": "Zaprasza: {name}",
+      "fromUnknown": "Zaproszenie do grupy",
+      "join": "Dołącz",
+      "decline": "Odrzuć"
+    }
+  },
+  "contactsDrawer": {
+    "title": "Kontakty",
+    "description": "Pracownicy organizacji i kontakty zewnętrzne",
+    "search": "Szukaj po nazwisku, e-mailu, telefonie",
+    "tabsLabel": "Rodzaj kontaktu",
+    "tabs": {
+      "all": "Wszystkie",
+      "members": "Pracownicy",
+      "external": "Zewnętrzne"
+    },
+    "member": "Pracownik",
+    "you": "Ty",
+    "message": "Napisz wiadomość",
+    "email": "Wyślij e-mail",
+    "call": "Zadzwoń",
+    "empty": "Brak kontaktów",
+    "noResults": "Nic nie znaleziono",
+    "loadFailed": "Nie udało się wczytać kontaktów",
+    "retry": "Spróbuj ponownie",
+    "openModule": "Otwórz moduł Kontakty"
+  },
+  "mentions": {
+    "tabsLabel": "Zakres wzmianki",
+    "all": "Wszystko",
+    "people": "Osoby",
+    "groupPeople": "Osoby",
+    "groupRecent": "Ostatnio wspominane",
+    "groupResults": "Wyniki",
+    "empty": "Brak wyników",
+    "typeMore": "Wpisz co najmniej 3 znaki, aby szukać zleceń, części i innych obiektów",
+    "searching": "Szukam…",
+    "hint": "↑↓ wybór · Enter wstaw · Tab zakres · Esc zamknij",
+    "noAccess": "brak dostępu",
+    "inConversation": "w rozmowie"
+  },
+  "notificationCenter": {
+    "title": "Powiadomienia",
+    "description": "Przypisania i zmiany w Twoich sprawach, na żywo.",
+    "open": "Powiadomienia",
+    "newCount": "{count} nowe",
+    "markAll": "Oznacz wszystkie",
+    "tabsLabel": "Filtr powiadomień",
+    "tabs": {
+      "all": "Wszystkie",
+      "unread": "Nieprzeczytane",
+      "mentions": "Wzmianki",
+      "assigned": "Przypisane"
+    },
+    "groups": {
+      "today": "Dzisiaj",
+      "yesterday": "Wczoraj",
+      "earlier": "Wcześniej"
+    },
+    "empty": {
+      "title": "Brak powiadomień",
+      "description": "Gdy ktoś przypisze Ci zgłoszenie lub zadanie albo skomentuje Twoją sprawę, zobaczysz to tutaj od razu."
+    },
+    "emptyUnread": {
+      "title": "Wszystko przeczytane",
+      "description": "Nowe powiadomienia pojawią się tu od razu, bez odświeżania."
+    },
+    "loadFailed": "Nie udało się wczytać powiadomień",
+    "retry": "Spróbuj ponownie",
+    "loadMore": "Wcześniejsze powiadomienia",
+    "markRead": "Oznacz jako przeczytane",
+    "markUnread": "Oznacz jako nieprzeczytane",
+    "settings": "Ustawienia powiadomień",
+    "allNotifications": "Wszystkie powiadomienia",
+    "system": "System",
+    "toast": {
+      "open": "Otwórz",
+      "markRead": "Oznacz jako przeczytane"
+    },
+    "modules": {
+      "helpdesk_ticket": "Help Desk",
+      "planning_task": "Planowanie",
+      "workshop_repair_order": "Warsztat",
+      "other": "Ambra",
+      "chat_conversation": "Wiadomości"
+    },
+    "text": {
+      "ticket_new": "utworzył(a) zgłoszenie dla Ciebie",
+      "ticket_assigned": "przypisał(a) Ci zgłoszenie",
+      "ticket_closed": "zamknął(-ęła) zgłoszenie",
+      "ticket_accepted": "zaakceptował(a) zgłoszenie",
+      "ticket_status": "zmienił(a) status zgłoszenia",
+      "comment_ticket": "skomentował(a) zgłoszenie",
+      "comment_task": "skomentował(a) zadanie",
+      "comment_order": "skomentował(a) zlecenie",
+      "comment": "dodał(a) komentarz",
+      "mention": "wspomniał(a) o Tobie",
+      "task_assigned": "przypisał(a) Ci zadanie",
+      "task_status": "zmienił(a) status zadania: {status}",
+      "unknown": "— nowe powiadomienie",
+      "mention_chat": "wspomniał(a) o Tobie w rozmowie",
+      "task_due": "termin zadania mija dziś"
+    },
+    "taskStatus": {
+      "open": "otwarte",
+      "in_progress": "w toku",
+      "completed": "ukończone",
+      "cancelled": "anulowane"
+    },
+    "page": {
+      "title": "Powiadomienia",
+      "subtitle": "Wszystkie Twoje powiadomienia w tej organizacji."
+    },
+    "directConversation": "Rozmowa prywatna",
+    "emptyMentions": {
+      "title": "Brak wzmianek",
+      "description": "Gdy ktoś wspomni o Tobie przez @ w rozmowie lub komentarzu, zobaczysz to tutaj."
+    },
+    "settingsPage": {
+      "title": "Zdarzenia",
+      "description": "Wybierz, o czym chcesz wiedzieć i jakim kanałem. Zmiany zapisują się od razu.",
+      "event": "Zdarzenie",
+      "inApp": "W aplikacji",
+      "email": "E-mail",
+      "emailSoon": "Wysyłka e-mail zostanie włączona wkrótce — wybór jest już zapisywany.",
+      "channelOff": "Kanał jest wyłączony powyżej",
+      "toggle": "{event} — {channel}",
+      "groups": {
+        "helpdesk": "Help Desk",
+        "planning": "Planowanie",
+        "conversations": "Komentarze i wzmianki"
+      },
+      "events": {
+        "ticket_new": "Nowe zgłoszenie dla mnie",
+        "ticket_assigned": "Przypisanie do zgłoszenia",
+        "ticket_status": "Zmiana statusu mojego zgłoszenia",
+        "task_assigned": "Przypisanie zadania",
+        "task_status": "Zmiana statusu mojego zadania",
+        "comment": "Komentarz w mojej sprawie",
+        "mention": "Wzmianka o mnie (@) w rozmowie lub komentarzu",
+        "task_due": "Termin mojego zadania mija dziś",
+        "chat_message": "Nieprzeczytana wiadomość na czacie (po 15 minutach)"
+      }
+    },
+    "reminder": "Przypomnienie:",
+    "email": {
+      "subjectOne": "{actor} {text}",
+      "subjectMany": "Masz {count} nieprzeczytane powiadomienia w Ambrze",
+      "preview": "Nieprzeczytane powiadomienia w {organization}",
+      "heading": "Czekają na Ciebie powiadomienia",
+      "greeting": "Cześć {name},",
+      "intro": "te powiadomienia w organizacji {organization} są nadal nieprzeczytane:",
+      "open": "Otwórz",
+      "openAll": "Zobacz wszystkie powiadomienia",
+      "settings": "Dostajesz tę wiadomość, bo masz włączone powiadomienia e-mail. Możesz to zmienić w ustawieniach powiadomień:",
+      "footer": "© Ambra System",
+      "chatSubject": "{count, plural, one {Masz # nieprzeczytaną wiadomość} few {Masz # nieprzeczytane wiadomości} many {Masz # nieprzeczytanych wiadomości} other {Masz # nieprzeczytanej wiadomości}} w Ambrze",
+      "chatHeading": "Nieprzeczytane wiadomości",
+      "chatIntro": "w organizacji {organization} czekają na Ciebie wiadomości:",
+      "chatDirect": "{name} — {count, plural, one {# nowa wiadomość} few {# nowe wiadomości} many {# nowych wiadomości} other {# nowej wiadomości}}",
+      "chatGroup": "Grupa „{name}” — {count, plural, one {# nowa wiadomość} few {# nowe wiadomości} many {# nowych wiadomości} other {# nowej wiadomości}}",
+      "chatAttachments": "{count, plural, one {# załącznik} few {# załączniki} many {# załączników} other {# załącznika}}",
+      "chatSomeone": "Ktoś",
+      "chatModule": "Wiadomości",
+      "chatOpenAll": "Otwórz Wiadomości"
+    }
+  },
+  "avatarCrop": {
+    "title": "Wykadruj zdjęcie",
+    "hint": "Przeciągnij zdjęcie, aby ustawić kadr, i użyj suwaka, aby je przybliżyć.",
+    "area": "Kadr zdjęcia — przeciągnij albo użyj strzałek, + i − zmieniają przybliżenie",
+    "zoom": "Przybliżenie",
+    "cancel": "Anuluj",
+    "save": "Zapisz zdjęcie",
+    "loadFailed": "Nie udało się wczytać tego pliku. Wybierz inne zdjęcie."
+  },
+  "platformFeedback": {
+    "status": {
+      "new": "Nowe",
+      "in_progress": "W trakcie",
+      "resolved": "Rozwiązane",
+      "rejected": "Odrzucone"
+    },
+    "kind": {
+      "bug": "Błąd",
+      "problem": "Problem",
+      "idea": "Propozycja"
+    },
+    "priority": {
+      "low": "Niski",
+      "normal": "Normalny",
+      "high": "Wysoki",
+      "critical": "Krytyczny"
+    },
+    "files": {
+      "add": "Dodaj pliki",
+      "pasteHint": "lub wklej zrzut ekranu (Ctrl+V)",
+      "rejected": "Niektóre pliki pominięto: dozwolone są obrazy, PDF, dokumenty, CSV i nagrania do 25 MB.",
+      "tooMany": "Można dodać najwyżej {max} plików naraz.",
+      "remove": "Usuń {name}"
+    },
+    "report": {
+      "open": "Zgłoś błąd lub propozycję",
+      "title": "Zgłoś błąd lub propozycję",
+      "description": "Opisz, co się stało albo co warto zmienić. Zgłoszenie trafi do zespołu Ambry.",
+      "kind": "Rodzaj zgłoszenia",
+      "titleLabel": "Tytuł",
+      "titlePlaceholder": "Krótko: co nie działa albo co poprawić",
+      "bodyLabel": "Opis",
+      "bodyPlaceholder": "Co robiłeś, co się stało, czego się spodziewałeś…",
+      "contextHint": "Do zgłoszenia automatycznie dołączymy stronę, organizację, oddział, przeglądarkę i wersję aplikacji.",
+      "cancel": "Anuluj",
+      "submit": "Wyślij zgłoszenie",
+      "sent": "Wysłano zgłoszenie {code}. Odpowiedź znajdziesz w Konto → Błędy i propozycje.",
+      "failed": "Nie udało się wysłać zgłoszenia. Spróbuj ponownie.",
+      "filesFailed": "Nie udało się dodać plików: {files}"
+    },
+    "detail": {
+      "loading": "Wczytywanie…",
+      "reportedBy": "Zgłosił(a) {name}, {date}",
+      "reportedAt": "Zgłoszono {date}",
+      "formerUser": "Usunięty użytkownik",
+      "statusLabel": "Status",
+      "priorityLabel": "Priorytet",
+      "noDescription": "Brak opisu",
+      "context": {
+        "page": "Strona",
+        "browser": "Przeglądarka",
+        "screen": "Ekran",
+        "version": "Wersja"
+      },
+      "thread": "Rozmowa ({count})",
+      "noMessages": "Brak odpowiedzi.",
+      "ambraTeam": "zespół Ambry",
+      "internalBadge": "Prywatna · tylko Ty",
+      "replyPlaceholder": "Napisz odpowiedź…",
+      "internalPlaceholder": "Notatka widoczna tylko dla Ciebie…",
+      "internalToggle": "Prywatna notatka (tylko dla Ciebie)",
+      "send": "Wyślij",
+      "sendInternal": "Zapisz notatkę",
+      "sendFailed": "Nie udało się wysłać odpowiedzi.",
+      "updateFailed": "Nie udało się zmienić zgłoszenia.",
+      "filesFailed": "Nie udało się dodać plików: {files}"
+    },
+    "filters": {
+      "status": "Status",
+      "kind": "Rodzaj",
+      "priority": "Priorytet"
+    },
+    "columns": {
+      "code": "Nr",
+      "title": "Zgłoszenie",
+      "status": "Status",
+      "reporter": "Zgłaszający",
+      "activity": "Aktywność"
+    },
+    "views": {
+      "list": "Lista",
+      "board": "Kanban"
+    },
+    "board": {
+      "empty": "Brak zgłoszeń"
+    },
+    "pages": {
+      "mine": {
+        "title": "Moje błędy i propozycje",
+        "subtitle": "Błędy, problemy i propozycje wysłane do zespołu Ambry wraz z odpowiedziami."
+      },
+      "admin": {
+        "title": "Błędy i propozycje",
+        "subtitle": "Błędy, problemy i propozycje ze wszystkich organizacji."
       }
     }
   }

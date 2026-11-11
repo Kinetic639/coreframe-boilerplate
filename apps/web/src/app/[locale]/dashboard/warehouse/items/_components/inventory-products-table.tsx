@@ -35,6 +35,8 @@ export function productColumnSet(
     "status",
     "on_hand_quantity",
     "available_quantity",
+    "reserved_total_quantity",
+    "blocked_quantity",
     "updated_at",
     ...customFields.map((f) => `custom_field:${f.id}`),
   ];
@@ -46,13 +48,23 @@ export function productColumnSet(
       status: labels.status,
       on_hand_quantity: labels.onHand,
       available_quantity: labels.available,
+      reserved_total_quantity: labels.reserved,
+      blocked_quantity: labels.blocked,
       updated_at: labels.updated,
       ...Object.fromEntries(customFields.map((f) => [`custom_field:${f.id}`, f.name])),
     },
     widths: Object.fromEntries(
       ids.map((id) => [id, id === "updated_at" ? 170 : id === "sku" ? 160 : 140])
     ),
-    shownByDefault: ["sku", "product_type", "status", "on_hand_quantity", "available_quantity"],
+    shownByDefault: [
+      "sku",
+      "product_type",
+      "status",
+      "on_hand_quantity",
+      "available_quantity",
+      "reserved_total_quantity",
+      "blocked_quantity",
+    ],
     pinned: { id: "name", label: labels.productColumn, width: 310 },
   };
 }
@@ -190,6 +202,18 @@ export function InventoryProductsTable({
             {new Date(row.updated_at).toLocaleString(labels.locale)}
           </span>
         );
+      case "reserved_total_quantity":
+      case "blocked_quantity":
+        return (
+          <span
+            className={cn(
+              "tabular-nums",
+              id === "blocked_quantity" && row[id] > 0 && "text-destructive"
+            )}
+          >
+            {row[id] || "—"}
+          </span>
+        );
       default:
         return row.custom_field_values[id.replace("custom_field:", "")] || "—";
     }
@@ -253,7 +277,12 @@ export function InventoryProductsTable({
               key={id}
               className={cn(
                 TD,
-                ["on_hand_quantity", "available_quantity"].includes(id)
+                [
+                  "on_hand_quantity",
+                  "available_quantity",
+                  "reserved_total_quantity",
+                  "blocked_quantity",
+                ].includes(id)
                   ? "text-right"
                   : "text-muted-foreground"
               )}

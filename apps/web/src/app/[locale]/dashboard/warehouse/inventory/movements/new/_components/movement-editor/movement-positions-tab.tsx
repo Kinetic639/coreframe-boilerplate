@@ -16,6 +16,8 @@ type Props = {
   is801: boolean;
   srcLoc: string;
   dstLoc: string;
+  /** Zone 5: destination fixed to the receiving zone (PZ). */
+  lockedDestinationId?: string | null;
   stockableLocations: LocationOption[];
   lines: LineDraft[];
   pickerDisabled: boolean;
@@ -135,6 +137,7 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
   is801,
   srcLoc,
   dstLoc,
+  lockedDestinationId = null,
   stockableLocations,
   lines,
   pickerDisabled,
@@ -193,7 +196,9 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
             <select
               value={dstLoc}
               onChange={(e) => onDstLocChange(e.target.value)}
-              className="h-9 w-full rounded-sm border border-input bg-background px-3 text-sm"
+              disabled={!!lockedDestinationId}
+              data-testid="movement-destination-select"
+              className="h-9 w-full rounded-sm border border-input bg-background px-3 text-sm disabled:opacity-80"
             >
               <option value="">{t("selectDestBin")}</option>
               {stockableLocations
@@ -204,6 +209,14 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
                   </option>
                 ))}
             </select>
+            {lockedDestinationId && (
+              <p
+                className="text-muted-foreground mt-1 text-xs"
+                data-testid="movement-receiving-hint"
+              >
+                {t("receivingZoneHint")}
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -223,7 +236,7 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
                 variant="outline"
                 className="text-[10px] rounded-sm border-amber-500/40 text-amber-700"
               >
-                Imported
+                {t("importedBadge")}
               </Badge>
             )}
             {manualCorrectionMode && (
@@ -231,7 +244,7 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
                 variant="outline"
                 className="text-[10px] rounded-sm border-primary/40 text-primary"
               >
-                Manual corrections enabled
+                {t("manualCorrectionsEnabled")}
               </Badge>
             )}
           </div>
@@ -244,7 +257,7 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
               onClick={onEnableManualCorrections}
             >
               <AlertTriangle className="h-3.5 w-3.5" />
-              Enable manual corrections
+              {t("enableManualCorrections")}
             </Button>
           ) : (
             <Button

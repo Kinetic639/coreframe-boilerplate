@@ -31,6 +31,7 @@ import {
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import type { OrgInvitation, OrgRole, OrgBranch } from "@/server/services/organization.service";
 import { DataView } from "@/components/data-view/data-view";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
@@ -50,6 +51,7 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
 };
 
 interface InvitationsClientProps {
+  orgId: string;
   initialData: PaginatedResult<OrgInvitation>;
   allInvitations: OrgInvitation[];
   initialRoles: OrgRole[];
@@ -59,6 +61,7 @@ interface InvitationsClientProps {
 type RoleScopeConfig = { scope: "org" | "branch"; branchIds: string[] };
 
 export function InvitationsClient({
+  orgId,
   initialData,
   allInvitations: initialAllInvitations,
   initialRoles,
@@ -408,6 +411,7 @@ export function InvitationsClient({
         <div className="flex-1 overflow-hidden">
           <DataView<OrgInvitation, OrgInvitation>
             entity="org-invitations"
+            scope={dataViewScope.organization(orgId)}
             columns={columns}
             filters={filters}
             initialData={initialData}

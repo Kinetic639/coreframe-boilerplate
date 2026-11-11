@@ -1,5 +1,5 @@
 import { redirect } from "@/i18n/navigation";
-import { getLocale } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
   WAREHOUSE_INVENTORY_OPERATE,
@@ -14,9 +14,28 @@ import { InventoryProductsService } from "@/server/services/inventory-products.s
 import { InventoryMovementsService } from "@/server/services/inventory-movements.service";
 import { InventoryMovementFieldPoliciesService } from "@/server/services/inventory-movement-field-policies.service";
 import { WarehouseLocationsService } from "@/server/services/warehouse-locations.service";
+import { InventoryReceivingService } from "@/server/services/inventory-receiving.service";
 import { MovementDocumentForm } from "./_components/movement-document-form";
 
-export default async function WarehouseInventoryNewMovementPage() {
+// MMJ+ (305) is created only by accepting an MMJ- at the receiving branch.
+const FLOW_ONLY_MOVEMENT_TYPES = new Set(["102", "261", "305", "900"]);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type SearchParams = Promise<{ type?: string | string[]; svwmsSession?: string | string[] }>;
+
+export default async function WarehouseInventoryNewMovementPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  // "Utwórz PZ" in the Matcher: ?type=101&svwmsSession=<id> opens a PZ that
+  // imports that session by itself.
+  const params = await searchParams;
+  const requestedType = typeof params.type === "string" ? params.type : undefined;
+  const svwmsSession =
+    typeof params.svwmsSession === "string" && UUID_RE.test(params.svwmsSession)
+      ? params.svwmsSession
+      : null;
   const locale = await getLocale();
   const context = await loadDashboardContextV2();
 
@@ -37,10 +56,11 @@ export default async function WarehouseInventoryNewMovementPage() {
 
   const branchId = context.app.activeBranchId;
   if (!branchId) {
+    const t = await getTranslations("warehouseInventory.movementEditor");
     return (
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center p-6">
         <div className="rounded-md border p-6 text-sm text-muted-foreground">
-          Select a branch to create movements.
+          {t("selectBranchFirst")}
         </div>
       </div>
     );
@@ -57,6 +77,23 @@ export default async function WarehouseInventoryNewMovementPage() {
       InventoryProductsService.listUnits(supabase, context.app.activeOrgId),
       InventoryMovementFieldPoliciesService.listForOrganization(supabase, context.app.activeOrgId),
     ]);
+
+  const receivingLocationId = await InventoryReceivingService.getReceivingLocationId(
+    supabase,
+    context.app.activeOrgId,
+    branchId
+  );
+
+  const movementTypes = typesResult.success
+    ? typesResult.data.filter((type) => !FLOW_ONLY_MOVEMENT_TYPES.has(type.code))
+    : [];
+  const initialTypeCode = movementTypes.some((type) => type.code === requestedType)
+    ? requestedType
+    : undefined;
+  const autoImport =
+    svwmsSession && initialTypeCode === "101"
+      ? { sourceType: "svwms_wdd_matcher", sourceInput: { session_id: svwmsSession } }
+      : null;
 
   const stockableLocations = locationsResult.success
     ? locationsResult.data
@@ -84,9 +121,15 @@ export default async function WarehouseInventoryNewMovementPage() {
         context.user.user?.email ||
         ""
       }
-      movementTypes={typesResult.success ? typesResult.data : []}
+      // KPZ (102), RW (261), MMJ+ (305) and storno (900) are posted by their
+      // own flows (PZ correction, repair-order issue, accepting an MMJ-,
+      // reversal), not composed here.
+      movementTypes={movementTypes}
+      initialTypeCode={initialTypeCode}
+      autoImport={autoImport}
       fieldPolicies={policiesResult.success ? policiesResult.data : {}}
       stockableLocations={stockableLocations}
+      receivingLocationId={receivingLocationId}
       variants={variantsResult.success ? variantsResult.data : []}
       units={unitsResult.success ? unitsResult.data : []}
       canManageProducts={checkPermission(

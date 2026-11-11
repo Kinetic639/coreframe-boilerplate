@@ -1,0 +1,21 @@
+-- IC-6 STALE OVERLOAD CLEANUP -- inventory_get_or_create_balance_for_
+-- update carries TWO live overloads: a 5-arg form (no lot/serial
+-- support, hardcodes "lot_id IS NULL AND serial_id IS NULL" in its own
+-- lookup) and the CURRENT canonical 7-arg form (p_lot_id/p_serial_id,
+-- both DEFAULT NULL -- the IC-1 "decision #10" lot/serial-aware
+-- replacement). A live prosrc scan across every function in pg_proc
+-- confirmed all 6 real callers (inventory_create_reservation,
+-- inventory_create_allocation, inventory_release_reservation,
+-- inventory_release_allocation, inventory_finalize_posting_internal,
+-- inventory_send_branch_transfer) already call the 7-arg form
+-- explicitly, every time -- zero callers of the 5-arg form exist
+-- anywhere.
+--
+-- This is exactly the class of landmine this project has repeatedly
+-- warned about: because the 7-arg form's own trailing 2 params both
+-- have DEFAULTs, a hypothetical FUTURE 5-positional-arg call would
+-- resolve to the OLD, lot/serial-blind overload (Postgres prefers the
+-- exact-arity match over the defaulted-tail match), silently landing on
+-- stale, superseded logic instead of the canonical one. Dropping it
+-- removes that ambiguity entirely -- exactly one signature remains.
+DROP FUNCTION public.inventory_get_or_create_balance_for_update(uuid, uuid, uuid, uuid, uuid);

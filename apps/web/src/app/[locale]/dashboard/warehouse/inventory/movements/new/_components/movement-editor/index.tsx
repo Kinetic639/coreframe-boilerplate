@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import { FileText, Layers } from "lucide-react";
@@ -17,6 +17,12 @@ import { useMovementFormState } from "./use-movement-form-state";
 import { useMovementValidation } from "./use-movement-validation";
 import { useMovementSubmission } from "./use-movement-submission";
 import type { MovementFormProps } from "./types";
+import { UnitTransferPrompt } from "./unit-transfer-prompt";
+import {
+  DocumentWarehouseSection,
+  useDocumentUnits,
+  useTransferTargets,
+} from "./document-warehouse-section";
 
 export type { MovementFormInitialValues } from "./types";
 
@@ -33,6 +39,9 @@ export function MovementDocumentForm({
   units,
   canManageProducts,
   initialValues,
+  receivingLocationId = null,
+  initialTypeCode,
+  autoImport = null,
 }: MovementFormProps) {
   const t = useTranslations("warehouseInventory.movementEditor");
   const today = new Date().toISOString().split("T")[0];
@@ -46,8 +55,45 @@ export function MovementDocumentForm({
     units,
     initialValues,
     defaultRecipientName,
-    activeBranch
+    activeBranch,
+    initialTypeCode
   );
+  // The document's AutoStacja magazyn and, for an MM, the target magazyn (U3).
+  // In edit mode an untouched choice is not sent: the draft keeps its own.
+  const documentUnits = useDocumentUnits();
+  const [warehouseId, setWarehouseIdState] = useState<string | null>(null);
+  const [destinationWarehouseId, setDestinationWarehouseIdState] = useState<string | null>(null);
+  const [warehouseTouched, setWarehouseTouched] = useState(false);
+  const setWarehouseId = useCallback((id: string | null) => {
+    setWarehouseIdState(id);
+    setWarehouseTouched(true);
+  }, []);
+  const setDestinationWarehouseId = useCallback((id: string | null) => {
+    setDestinationWarehouseIdState(id);
+    setWarehouseTouched(true);
+  }, []);
+  // One magazyn in the branch: it is the document's magazyn.
+  useEffect(() => {
+    if (isEdit || warehouseTouched || !documentUnits) return;
+    const all = documentUnits.flatMap((u) => u.warehouses);
+    if (all.length === 1) setWarehouseIdState(all[0].id);
+  }, [documentUnits, isEdit, warehouseTouched]);
+  const fromMatcher = form.lines.some((l) => l.source_type === "svwms_wdd_matcher");
+  const changesWarehouse = form.is801 && Boolean(destinationWarehouseId);
+  // MMJ- (303): from the document's magazyn to a magazyn of another jednostka (U4)
+  const isUnitTransfer = form.typeCode === "303";
+  const transferTargets = useTransferTargets(isUnitTransfer);
+  // The magazyn is obligatory once the branch has any (lines from a Matcher
+  // session carry their own); an MMJ also needs its target.
+  const hasWarehouses = (documentUnits?.length ?? 0) > 0;
+  const warehouseMissing =
+    Boolean(form.typeCode) &&
+    hasWarehouses &&
+    !fromMatcher &&
+    !warehouseId &&
+    (!isEdit || warehouseTouched);
+  const transferTargetMissing = isUnitTransfer && hasWarehouses && !destinationWarehouseId;
+
   const validation = useMovementValidation(
     form.typeCode,
     form.requiresSourceLocation,
@@ -56,33 +102,50 @@ export function MovementDocumentForm({
     form.allowsRecipient ? form.recipientName : "",
     form.srcLoc,
     form.dstLoc,
-    form.lines
-  );
-  const { isPending, submit } = useMovementSubmission(
-    mode,
-    form.typeCode,
-    form.requiresSourceLocation,
-    form.allowsSender ? form.senderName : "",
-    form.allowsSender ? form.senderDetails : null,
-    form.allowsRecipient ? form.recipientName : "",
-    form.allowsRecipient ? form.recipientDetails : null,
-    form.externalReference,
-    form.noteForSave,
-    form.srcLoc,
-    form.dstLoc,
     form.lines,
-    validation,
-    initialValues
+    changesWarehouse,
+    { warehouseMissing, transferTargetMissing }
   );
+  const { isPending, submit, transferPrompt, confirmTransfer, cancelTransferPrompt } =
+    useMovementSubmission(
+      mode,
+      form.typeCode,
+      form.requiresSourceLocation,
+      form.allowsSender ? form.senderName : "",
+      form.allowsSender ? form.senderDetails : null,
+      form.allowsRecipient ? form.recipientName : "",
+      form.allowsRecipient ? form.recipientDetails : null,
+      form.externalReference,
+      form.noteForSave,
+      form.srcLoc,
+      form.dstLoc,
+      form.lines,
+      validation,
+      initialValues,
+      {
+        warehouseId: form.is801 || isUnitTransfer || !fromMatcher ? warehouseId : null,
+        destinationWarehouseId: form.is801 || isUnitTransfer ? destinationWarehouseId : null,
+        send: !isEdit || warehouseTouched,
+      }
+    );
+
+  // Zone 5: a PZ always goes to the receiving zone (the server enforces it
+  // too); keep the routing in sync so validation and the summary agree.
+  const lockedDestinationId = form.isPZ ? receivingLocationId : null;
+  const { dstLoc, setDstLoc } = form;
+  useEffect(() => {
+    if (lockedDestinationId && dstLoc !== lockedDestinationId) setDstLoc(lockedDestinationId);
+  }, [lockedDestinationId, dstLoc, setDstLoc]);
 
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
+  // Opened from the Matcher's "Utwórz PZ": the import starts by itself.
+  const [importOpen, setImportOpen] = useState(() => !isEdit && Boolean(autoImport));
   const pickerMode: InventoryItemPickerMode = form.is801 ? "stockInLocation" : "allItems";
   const pickerDisabled = form.is801 && !form.srcLoc;
 
   const handleOpenPicker = useCallback(() => {
     if (form.importedLinesLocked) {
-      toast.error("Enable manual corrections before changing imported positions.");
+      toast.error(t("manualCorrectionsRequired"));
       return;
     }
     if (form.is801 && !form.srcLoc) {
@@ -165,6 +228,18 @@ export function MovementDocumentForm({
       <main className="flex-1 overflow-auto">
         <div className="max-w-5xl w-full mx-auto px-4 py-4">
           {form.activeTab === "header" && (
+            <DocumentWarehouseSection
+              units={documentUnits}
+              warehouseId={warehouseId}
+              destinationWarehouseId={destinationWarehouseId}
+              showDestination={form.is801}
+              transferTargets={isUnitTransfer ? transferTargets : undefined}
+              fromMatcher={fromMatcher}
+              onWarehouseChange={setWarehouseId}
+              onDestinationChange={setDestinationWarehouseId}
+            />
+          )}
+          {form.activeTab === "header" && (
             <MovementDocumentDataTab
               typeCode={form.typeCode}
               selType={form.selType}
@@ -212,6 +287,7 @@ export function MovementDocumentForm({
               is801={form.is801}
               srcLoc={form.srcLoc}
               dstLoc={form.dstLoc}
+              lockedDestinationId={lockedDestinationId}
               stockableLocations={stockableLocations}
               lines={form.lines}
               pickerDisabled={pickerDisabled}
@@ -239,7 +315,6 @@ export function MovementDocumentForm({
         <MovementImportDialog
           open={importOpen}
           onOpenChange={setImportOpen}
-          movementTypes={movementTypes}
           currentMovementTypeCode={form.typeCode}
           variants={variants}
           units={units}
@@ -248,8 +323,16 @@ export function MovementDocumentForm({
           canManageProducts={canManageProducts}
           fieldPolicies={fieldPolicies}
           onApply={form.applyImportedDocument}
+          autoStart={autoImport}
         />
       )}
+      <UnitTransferPrompt
+        open={transferPrompt}
+        isPending={isPending}
+        onSend={() => confirmTransfer(true)}
+        onHold={() => confirmTransfer(false)}
+        onCancel={cancelTransferPrompt}
+      />
     </div>
   );
 }

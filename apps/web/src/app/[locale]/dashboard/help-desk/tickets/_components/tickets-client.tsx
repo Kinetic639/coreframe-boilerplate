@@ -14,21 +14,41 @@ import {
   Loader2,
   QrCode,
   Link2Off,
+  Hand,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { TICKET_STATUSES, type TicketStatus } from "@/lib/validations/helpdesk";
 import { DataView } from "@/components/data-view/data-view";
+import { QueueTabs } from "./queue-tabs";
+import { useHelpdeskRealtime } from "@/hooks/queries/help-desk/use-helpdesk-realtime";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
   DataViewListParams,
   PaginatedResult,
 } from "@/components/data-view/data-view.types";
-import { listTicketsForDataViewAction, getTicketDetailAction } from "@/app/actions/help-desk";
+import {
+  canManageTicketBranchAction,
+  getTicketDetailAction,
+  listTicketsForDataViewAction,
+} from "@/app/actions/help-desk";
 import { getQrAssignmentForTicketAction } from "@/app/actions/qr/assign";
 import { revokeQrAction } from "@/app/actions/qr/revoke";
 import { AssignQrDialog } from "../[ticketId]/_components/assign-qr-dialog";
-import { useAcceptTicketMutation } from "@/hooks/queries/help-desk";
+import {
+  useAcceptTicketMutation,
+  useSetTicketStatusMutation,
+  useTakeTicketMutation,
+} from "@/hooks/queries/help-desk";
 import type {
   HelpdeskTicketListRow,
   HelpdeskTicketDetail,
@@ -48,6 +68,7 @@ import type { UserAvatarGroupItem } from "@/components/primitives/avatar/user-av
 import { UserAvatar } from "@/components/primitives/avatar/user-avatar";
 import { AttachmentsPanel } from "@/components/features/attachments";
 import { CommentsThread } from "@/components/features/comments";
+import { helpdeskTicketTypingTopic } from "@repo/rich-text/comments";
 import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-renderer";
 import { normalizeRichText } from "@/components/primitives/rich-text/rich-text-utils";
 
@@ -55,12 +76,14 @@ const HELPDESK_TICKETS_QUERY_KEY = ["helpdesk-tickets-dataview"];
 
 interface TicketsClientProps {
   initialData: PaginatedResult<HelpdeskTicketListRow>;
+  initialDataUpdatedAt?: number;
   ticketTypes: HelpdeskTicketType[];
   members: Array<{ user_id: string; name: string | null; email: string | null }>;
   branches: Array<{ id: string; name: string }>;
   canCreate: boolean;
   canManage: boolean;
   currentUserId: string;
+  activeBranchId: string | null;
   orgId: string;
   statusConfigs: Record<string, StatusBadgeConfig> | null;
   priorityConfigs: Record<string, PriorityBadgeConfig> | null;
@@ -68,7 +91,7 @@ interface TicketsClientProps {
 
 function TicketDetailPanel({
   detail,
-  canManage,
+  canManage: canManageAnyBranch,
   currentUserId,
   statusConfigs,
   priorityConfigs,
@@ -81,6 +104,23 @@ function TicketDetailPanel({
 }) {
   const t = useTranslations("modules.helpDesk");
   const [activity, setActivity] = useState<HelpdeskTicketActivity[]>(detail.activity);
+
+  // Handlers may hold helpdesk.tickets.manage for a single branch, so decide for this
+  // ticket's branch (same as the full ticket page); the list-level flag is only a first guess.
+  const [canManage, setCanManage] = useState(canManageAnyBranch);
+  useEffect(() => {
+    let current = true;
+    void canManageTicketBranchAction(detail.org_id, detail.branch_id ?? null).then((r) => {
+      if (current && r.success) setCanManage(r.data);
+    });
+    return () => {
+      current = false;
+    };
+  }, [detail.org_id, detail.branch_id]);
+
+  const setStatusMutation = useSetTicketStatusMutation(detail.ticket_number, detail.org_id);
+  const takeTicketMutation = useTakeTicketMutation(detail.ticket_number, detail.org_id);
+  const isMineToHandle = detail.assignees.some((a) => a.user_id === currentUserId);
 
   const [acceptedAt, setAcceptedAt] = useState<string | null>(detail.accepted_at);
   const [acceptedByName, setAcceptedByName] = useState<string | null>(detail.accepted_by_name);
@@ -106,6 +146,12 @@ function TicketDetailPanel({
     });
   }, [detail.id]);
 
+  useEffect(() => {
+    setActivity(detail.activity);
+    setAcceptedAt(detail.accepted_at);
+    setAcceptedByName(detail.accepted_by_name);
+  }, [detail.accepted_at, detail.accepted_by_name, detail.activity]);
+
   const handleRevokeQr = async () => {
     if (!qrAssignment) return;
     setIsRevokingQr(true);
@@ -124,7 +170,7 @@ function TicketDetailPanel({
     }
   };
 
-  const acceptMutation = useAcceptTicketMutation(detail.ticket_number);
+  const acceptMutation = useAcceptTicketMutation(detail.ticket_number, detail.org_id);
   const canComment = detail.status !== "closed" && detail.status !== "cancelled";
   const canAccept =
     detail.requires_acceptance &&
@@ -200,6 +246,7 @@ function TicketDetailPanel({
             targetType="helpdesk.ticket"
             targetId={detail.id}
             canComment={canComment}
+            typingTopic={canComment ? helpdeskTicketTypingTopic(detail.id) : null}
             initialData={{
               rows: detail.comments,
               totalCount: detail.comments.length,
@@ -209,8 +256,16 @@ function TicketDetailPanel({
               title: t("tickets.comments"),
               empty: t("tickets.noComments"),
               placeholder: t("tickets.commentPlaceholder"),
-              submit: t("tickets.addComment"),
+              submit: canManage ? t("tickets.handling.replyToRequester") : t("tickets.addComment"),
             }}
+            internal={
+              canManage
+                ? {
+                    noteLabel: t("tickets.handling.internalNote"),
+                    badge: t("tickets.handling.internalBadge"),
+                  }
+                : undefined
+            }
             density="compact"
             onCommentAdded={refreshActivity}
           />
@@ -229,6 +284,54 @@ function TicketDetailPanel({
             <Ticket className="mr-1.5 h-3.5 w-3.5" />
             {t("tickets.viewFull")}
           </Button>
+
+          {/* Handling: take + status (helpdesk.tickets.manage on the ticket's branch) */}
+          {canManage && (
+            <div className="rounded-lg border p-3 space-y-2">
+              <h4 className="text-xs font-semibold">{t("tickets.handling.title")}</h4>
+              {canComment && !isMineToHandle && (
+                <Button
+                  size="sm"
+                  className="w-full"
+                  onClick={() => takeTicketMutation.mutate({ ticket_id: detail.id })}
+                  disabled={takeTicketMutation.isPending}
+                >
+                  {takeTicketMutation.isPending ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Hand className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  {t("tickets.handling.take")}
+                </Button>
+              )}
+              <div className="space-y-1">
+                <p className="text-muted-foreground text-[10px] uppercase">
+                  {t("tickets.handling.status")}
+                </p>
+                <Select
+                  value={detail.status}
+                  onValueChange={(status) =>
+                    setStatusMutation.mutate({
+                      ticket_id: detail.id,
+                      status: status as TicketStatus,
+                    })
+                  }
+                  disabled={setStatusMutation.isPending}
+                >
+                  <SelectTrigger className="h-8 w-full text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TICKET_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {t(`tickets.status.${s}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
 
           {/* QR Code card */}
           <div className="rounded-lg border p-3 space-y-2">
@@ -323,24 +426,7 @@ function TicketDetailPanel({
                   size="sm"
                   className="w-full"
                   disabled={acceptMutation.isPending}
-                  onClick={() =>
-                    acceptMutation.mutate(
-                      { ticket_id: detail.id },
-                      {
-                        onSuccess: async () => {
-                          const fresh = await getTicketDetailAction(
-                            detail.ticket_number,
-                            detail.org_id
-                          );
-                          if (fresh.success && fresh.data) {
-                            setAcceptedAt(fresh.data.accepted_at);
-                            setAcceptedByName(fresh.data.accepted_by_name);
-                            setActivity(fresh.data.activity);
-                          }
-                        },
-                      }
-                    )
-                  }
+                  onClick={() => acceptMutation.mutate({ ticket_id: detail.id })}
                 >
                   {acceptMutation.isPending ? (
                     <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -474,18 +560,21 @@ function AssigneeAvatars({ assignees }: { assignees: HelpdeskTicketListRow["assi
 
 export function TicketsClient({
   initialData,
+  initialDataUpdatedAt,
   ticketTypes,
   members,
   branches,
   canCreate,
   canManage,
   currentUserId,
+  activeBranchId,
   orgId,
   statusConfigs,
   priorityConfigs,
 }: TicketsClientProps) {
   const t = useTranslations("modules.helpDesk");
   const router = useRouter();
+  useHelpdeskRealtime(orgId);
 
   const listFetcher = useCallback(
     async (params: DataViewListParams): Promise<PaginatedResult<HelpdeskTicketListRow>> => {
@@ -499,7 +588,7 @@ export function TicketsClient({
   const detailFetcher = useCallback(
     async (ticketNumber: string): Promise<HelpdeskTicketDetail | null> => {
       const result = await getTicketDetailAction(ticketNumber, orgId);
-      if (!result.success) return null;
+      if (!result.success) throw new Error((result as { success: false; error: string }).error);
       return result.data;
     },
     [orgId]
@@ -797,12 +886,16 @@ export function TicketsClient({
         )}
       </div>
 
+      {canManage && <QueueTabs currentUserId={currentUserId} activeBranchId={activeBranchId} />}
+
       <div className="min-h-0 flex-1">
         <DataView<HelpdeskTicketListRow, HelpdeskTicketDetail>
           entity="helpdesk-tickets"
+          scope={dataViewScope.organization(orgId)}
           columns={columns}
           filters={filters}
           initialData={initialData}
+          initialDataUpdatedAt={initialDataUpdatedAt}
           queryKey={HELPDESK_TICKETS_QUERY_KEY}
           listFetcher={listFetcher}
           detailFetcher={detailFetcher}

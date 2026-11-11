@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { Check, ExternalLink, Loader2, Pencil, Printer, Send, X, XCircle } from "lucide-react";
+import { Check, ExternalLink, Loader2, Pencil, Printer, Send, XCircle } from "lucide-react";
 import { toast } from "react-toastify";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,9 +14,13 @@ import { normalizeRichText } from "@/components/primitives/rich-text/rich-text-u
 import {
   acceptInventoryBranchTransferAction,
   cancelMovementAction,
-  declineInventoryBranchTransferAction,
   finalizePostingAction,
 } from "@/app/actions/warehouse/inventory";
+import { MovementReverseDialog } from "./movement-reverse-dialog";
+
+// Inter-branch transfers have their own accept/decline flow; a storno
+// cannot itself be reversed.
+const NOT_REVERSIBLE_TYPES = new Set(["311", "312", "900"]);
 
 type LocationOption = { id: string; name: string; code: string | null };
 
@@ -27,6 +31,8 @@ type InventoryMovementDetailPanelProps = {
   canOperate: boolean;
   showOpenPageAction?: boolean;
   showPrintAction?: boolean;
+  /** Extra header actions (e.g. KPZ on a posted PZ). */
+  extraActions?: ReactNode;
 };
 
 const statusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -46,6 +52,7 @@ export function InventoryMovementDetailPanel({
   canOperate,
   showOpenPageAction = true,
   showPrintAction = false,
+  extraActions,
 }: InventoryMovementDetailPanelProps) {
   const t = useTranslations("warehouseInventory.movements");
   const td = useTranslations("warehouseInventory.movementDetail");
@@ -56,6 +63,12 @@ export function InventoryMovementDetailPanel({
   const [isPending, startTransition] = useTransition();
   const isDraft = detail.status === "draft";
   const canRespondToTransfer = canOperate && detail.status === "in_transit";
+  const related = detail.related_movements ?? [];
+  const canReverse =
+    canOperate &&
+    detail.status === "posted" &&
+    !NOT_REVERSIBLE_TYPES.has(detail.movement_type_code) &&
+    !related.some((r) => r.relation === "reversed_by" || r.relation === "reversal_of");
 
   const STATUS_KEYS: Record<string, string> = {
     draft: "statusDraft",
@@ -84,6 +97,8 @@ export function InventoryMovementDetailPanel({
 
   // Derive common locations from lines
   const allDestinations = detail.lines.map((l) => l.destination_location_name).filter(Boolean);
+  // AutoStacja magazyn column (U2), only when some line has one
+  const hasWarehouses = detail.lines.some((l) => l.warehouse_code);
   const allSources = detail.lines.map((l) => l.source_location_name).filter(Boolean);
   const commonDestination =
     allDestinations.length > 0 && new Set(allDestinations).size === 1 ? allDestinations[0] : null;
@@ -99,19 +114,6 @@ export function InventoryMovementDetailPanel({
       });
       setMessage(
         result.success ? tt("accepted") : "error" in result ? result.error : tc("unexpectedError")
-      );
-      if (result.success) router.refresh();
-    });
-  };
-  const declineTransfer = (formData: FormData) => {
-    setMessage(null);
-    startTransition(async () => {
-      const result = await declineInventoryBranchTransferAction({
-        id: String(formData.get("id") ?? ""),
-        decline_reason: String(formData.get("decline_reason") ?? "") || null,
-      });
-      setMessage(
-        result.success ? tt("declined") : "error" in result ? result.error : tc("unexpectedError")
       );
       if (result.success) router.refresh();
     });
@@ -138,6 +140,10 @@ export function InventoryMovementDetailPanel({
           <p className="text-sm text-muted-foreground">{detail.movement_type_name}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {extraActions}
+          {canReverse && (
+            <MovementReverseDialog movementId={detail.id} documentNumber={detail.document_number} />
+          )}
           {showPrintAction && (
             <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
               <Printer className="mr-1.5 h-3.5 w-3.5" />
@@ -154,6 +160,26 @@ export function InventoryMovementDetailPanel({
           )}
         </div>
       </div>
+
+      {related.length > 0 && (
+        <div className="flex flex-wrap gap-2 text-sm" data-testid="movement-related">
+          {related.map((r) => (
+            <Link
+              key={`${r.relation}:${r.id}`}
+              href={getMovementDetailHref({
+                status: r.status,
+                route_key: r.route_key,
+                document_number: r.document_number,
+                draft_number: null,
+              })}
+              className="bg-muted/40 hover:bg-muted rounded-md border px-2 py-1"
+            >
+              {td(`related.${r.relation}` as any)}{" "}
+              <span className="font-mono font-medium">{r.document_number ?? "—"}</span>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* Draft Actions */}
       {isDraft && canOperate && (
@@ -447,6 +473,7 @@ export function InventoryMovementDetailPanel({
                 {!commonDestination && allDestinations.length > 0 && (
                   <th className="px-3 py-1.5 text-left">{td("colDestination")}</th>
                 )}
+                {hasWarehouses && <th className="px-3 py-1.5 text-left">{td("colWarehouse")}</th>}
               </tr>
             </thead>
             <tbody>
@@ -478,6 +505,18 @@ export function InventoryMovementDetailPanel({
                   {!commonDestination && allDestinations.length > 0 && (
                     <td className="px-3 py-1.5 text-xs text-muted-foreground">
                       {line.destination_location_name ?? "—"}
+                    </td>
+                  )}
+                  {hasWarehouses && (
+                    <td
+                      className="px-3 py-1.5 font-mono text-xs"
+                      title={line.warehouse_name ?? undefined}
+                      data-testid="movement-line-warehouse"
+                    >
+                      {line.warehouse_code ?? "—"}
+                      {line.destination_warehouse_code
+                        ? ` → ${line.destination_warehouse_code}`
+                        : ""}
                     </td>
                   )}
                 </tr>
@@ -547,18 +586,7 @@ export function InventoryMovementDetailPanel({
               {tt("accept")}
             </Button>
           </form>
-          <form action={declineTransfer} className="flex gap-2">
-            <input type="hidden" name="id" value={detail.id} />
-            <input
-              name="decline_reason"
-              className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-              placeholder={tc("reason")}
-            />
-            <Button type="submit" variant="outline" disabled={isPending}>
-              <X className="mr-2 h-4 w-4" />
-              {tt("decline")}
-            </Button>
-          </form>
+          {/* The receiver can only accept (in full), as in AutoStacja. */}
         </div>
       )}
       {message && <p className="text-sm text-muted-foreground">{message}</p>}

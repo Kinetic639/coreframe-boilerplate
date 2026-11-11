@@ -12,7 +12,7 @@ function mockClient(matches: { product_id: string }[] = []) {
       const chain: Record<string, unknown> = {
         then: (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve),
       };
-      for (const method of ["select", "eq", "is", "in", "ilike", "or", "order", "range"])
+      for (const method of ["select", "eq", "is", "in", "ilike", "or", "order", "range", "limit"])
         chain[method] = (...args: unknown[]) => {
           calls.push({ table, method, args });
           return chain;
@@ -49,10 +49,10 @@ describe("product list filters", () => {
         args: ["product_type", ["stocked", "service"]],
       });
     });
-  it("finds a grouped product by a tenant-scoped SKU and escapes literal wildcards", async () => {
+  it("finds a grouped product by tenant-scoped SKU or barcode", async () => {
     const id = "22222222-2222-4222-8222-222222222222";
     const { client, calls } = mockClient([{ product_id: id }]);
-    await InventoryProductsService.listProducts(client, "org", { ...base, search: "100%_SKU" });
+    await InventoryProductsService.listProducts(client, "org", { ...base, search: "SKU-100" });
     expect(calls).toContainEqual({
       table: "inventory_variants",
       method: "eq",
@@ -60,13 +60,13 @@ describe("product list filters", () => {
     });
     expect(calls).toContainEqual({
       table: "inventory_variants",
-      method: "ilike",
-      args: ["sku", "%100\\%\\_SKU%"],
+      method: "or",
+      args: ["sku.ilike.%SKU-100%,barcode.ilike.%SKU-100%"],
     });
     expect(calls).toContainEqual({
       table: "inventory_products",
       method: "or",
-      args: [`name.ilike.${JSON.stringify("%100\\%\\_SKU%")},id.in.(${id})`],
+      args: [`name.ilike.%SKU-100%,id.in.(${id})`],
     });
   });
   it("matches variant SKUs in the ungrouped index", async () => {
@@ -79,7 +79,7 @@ describe("product list filters", () => {
     expect(calls).toContainEqual({
       table: "inventory_product_list_rows_v1",
       method: "or",
-      args: ['product_name.ilike."%SKU%",variant_sku.ilike."%SKU%"'],
+      args: ["product_name.ilike.%SKU%,variant_name.ilike.%SKU%,variant_sku.ilike.%SKU%"],
     });
   });
 });

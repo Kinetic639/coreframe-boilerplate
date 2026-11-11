@@ -39,6 +39,20 @@ const assignRoleSchema = z.object({
   scopeId: z.string().uuid().optional(),
 });
 
+/** Unknown and platform-only permissions (superadmin.*) never go into an organization's role. */
+async function refuseUnassignable(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  slugs: string[] | undefined
+): Promise<{ success: false; error: string } | null> {
+  if (!slugs?.length) return null;
+  const check = await OrgRolesService.unassignableSlugs(supabase, slugs);
+  if (!check.success) return { success: false, error: (check as { error: string }).error };
+  const bad = (check as { data: string[] }).data;
+  return bad.length > 0
+    ? { success: false, error: `Permissions not allowed: ${bad.join(", ")}` }
+    : null;
+}
+
 export async function listRolesAction() {
   try {
     const supabase = await createClient();
@@ -83,6 +97,9 @@ export async function createRoleAction(rawInput: unknown) {
 
     const parsed = createRoleSchema.safeParse(rawInput);
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const refused = await refuseUnassignable(supabase, parsed.data.permission_slugs);
+    if (refused) return refused;
 
     // P2: branch-scoped roles may not contain org-only permissions
     if (parsed.data.scope_type === "branch" && parsed.data.permission_slugs?.length) {
@@ -148,6 +165,9 @@ export async function updateRoleAction(rawInput: unknown) {
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
     const { roleId, ...updateInput } = parsed.data;
+
+    const refused = await refuseUnassignable(supabase, updateInput.permission_slugs);
+    if (refused) return refused;
 
     // G2: branch-scoped roles may not contain org-only permissions (mirrors createRoleAction guard)
     if (updateInput.permission_slugs?.length) {

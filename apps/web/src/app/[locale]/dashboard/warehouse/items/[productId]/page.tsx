@@ -7,6 +7,8 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
   CRM_PARTIES_READ,
+  WAREHOUSE_INVENTORY_OPERATE,
+  WAREHOUSE_INVENTORY_READ,
   WAREHOUSE_PRODUCTS_MANAGE,
   WAREHOUSE_PRODUCTS_READ,
   WAREHOUSE_READ,
@@ -27,6 +29,15 @@ import {
   WarehouseItemSuppliersService,
   type WarehouseItemSupplierRow,
 } from "@/server/services/warehouse-item-suppliers.service";
+import { InventoryReceivingService } from "@/server/services/inventory-receiving.service";
+import { InventoryBalancesService } from "@/server/services/inventory-balances.service";
+import { ProductHandlingCard } from "./_components/product-handling-card";
+import { InventoryReservationsService } from "@/server/services/inventory-reservations.service";
+import { InventoryBlocksService } from "@/server/services/inventory-blocks.service";
+import { ItemStockActions } from "@/components/warehouse/stock-commitments";
+import { StockByLocationTable } from "@/components/warehouse/stock-by-location-table";
+import { WarehouseStockSection } from "@/components/warehouse/warehouse-stock-section";
+import { WarehouseStockService } from "@/server/services/warehouse-stock.service";
 
 type PageProps = {
   params: Promise<{ productId: string }>;
@@ -77,6 +88,75 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
   const productImages = product.images.filter((image) => !image.variant_id);
   const canManage = checkPermission(context.user.permissionSnapshot, WAREHOUSE_PRODUCTS_MANAGE);
   const hasVisibleVariants = product.variant_count > 1;
+  const activeBranchId = context.app.activeBranchId ?? null;
+  const handlingResult = activeBranchId
+    ? await InventoryReceivingService.getProductSettings(supabase, activeBranchId, product.id)
+    : null;
+  const handling = handlingResult?.success ? handlingResult.data : null;
+  // Stock per location (replaces the old "Inventory" list page)
+  const tStock = await getTranslations("warehouseInventory.detail.stockByLocation");
+  const canReadStock = checkPermission(context.user.permissionSnapshot, WAREHOUSE_INVENTORY_READ);
+  const stockResult =
+    activeBranchId && canReadStock
+      ? await InventoryBalancesService.listForProduct(
+          supabase,
+          context.app.activeOrgId,
+          activeBranchId,
+          product.id
+        )
+      : null;
+  const stockRows = stockResult?.success ? stockResult.data : [];
+  // R and B of this item: the documents behind the numbers (stages E4-E6).
+  const variantIds = product.variants.map((variant) => variant.id);
+  const [reservationsResult, blocksResult] =
+    activeBranchId && canReadStock && variantIds.length > 0
+      ? await Promise.all([
+          InventoryReservationsService.listActiveDetailed(
+            supabase,
+            context.app.activeOrgId,
+            activeBranchId,
+            { variantIds }
+          ),
+          InventoryBlocksService.listActiveDetailed(
+            supabase,
+            context.app.activeOrgId,
+            activeBranchId,
+            {
+              variantIds,
+            }
+          ),
+        ])
+      : [null, null];
+  const reservationLines = reservationsResult?.success ? reservationsResult.data : [];
+  // Stock per AutoStacja magazyn (U2)
+  const warehouseStock =
+    activeBranchId && canReadStock
+      ? await Promise.all(
+          product.variants.map(async (variant) => {
+            const res = await WarehouseStockService.forVariant(
+              supabase,
+              context.app.activeOrgId,
+              activeBranchId,
+              variant.id
+            );
+            return res.success
+              ? {
+                  variantId: variant.id,
+                  sku: variant.sku ?? null,
+                  rows: res.data.rows,
+                  withoutWarehouse: res.data.withoutWarehouse,
+                }
+              : null;
+          })
+        )
+      : [];
+  const tWarehouseStock = await getTranslations("warehouseInventory.detail.warehouseStock");
+  const blockLines = blocksResult?.success ? blocksResult.data : [];
+  const canOperateStock = checkPermission(
+    context.user.permissionSnapshot,
+    WAREHOUSE_INVENTORY_OPERATE
+  );
+  const tCommit = await getTranslations("modules.warehouse.stockCommitments");
 
   return (
     <div className="mx-auto grid w-full max-w-7xl gap-6 p-6">
@@ -111,6 +191,17 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
           </Button>
         ) : null}
       </div>
+
+      {activeBranchId && handling && (
+        <ProductHandlingCard
+          productId={product.id}
+          branchId={activeBranchId}
+          branchName={context.app.activeBranch?.name ?? ""}
+          handlingMode={handling.handlingMode}
+          defaultLocationId={handling.defaultLocationId}
+          canManage={canManage}
+        />
+      )}
 
       <section className="grid items-start gap-4 lg:grid-cols-[minmax(220px,320px)_minmax(0,1fr)]">
         <div className="grid min-w-0 gap-3">
@@ -287,6 +378,77 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
           </div>
         </section>
       ) : null}
+
+      {canReadStock ? (
+        <section className="grid gap-3 rounded-md border p-4" data-testid="stock-by-location">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-medium">{tStock("title")}</h2>
+              <p className="text-xs text-muted-foreground">{tCommit("breakdown.hint")}</p>
+            </div>
+            {canOperateStock && activeBranchId ? (
+              <ItemStockActions
+                stock={stockRows.map((row) => ({
+                  variantId: row.variant_id,
+                  sku: hasVisibleVariants ? row.sku : null,
+                  locationId: row.location_id,
+                  locationCode: row.location_code,
+                  locationName: row.location_name,
+                  available: row.available_quantity,
+                }))}
+              />
+            ) : null}
+          </div>
+          {stockResult && !stockResult.success ? (
+            <p className="text-sm text-destructive" data-testid="stock-load-error">
+              {tCommit("pages.loadError")}
+            </p>
+          ) : null}
+          {(reservationsResult && !reservationsResult.success) ||
+          (blocksResult && !blocksResult.success) ? (
+            <p className="text-sm text-destructive">{tCommit("pages.loadError")}</p>
+          ) : null}
+          {stockResult && !stockResult.success ? null : (
+            <StockByLocationTable
+              rows={stockRows}
+              reservations={reservationLines}
+              blocks={blockLines}
+              showSku={hasVisibleVariants}
+              locale={locale}
+              canOperate={canOperateStock}
+              branchId={activeBranchId}
+              labels={{
+                title: tStock("title"),
+                empty: activeBranchId ? tStock("empty") : tStock("noBranch"),
+                sku: tc("sku"),
+                location: tc("location"),
+                onHand: tList("onHand"),
+                available: tCommit("states.available"),
+                reserved: tCommit("states.reserved"),
+                blocked: tCommit("states.blocked"),
+                avgCost: tStock("avgCost"),
+                value: tStock("value"),
+                lastMovement: tStock("lastMovement"),
+                total: tStock("total"),
+              }}
+            />
+          )}
+        </section>
+      ) : null}
+
+      <WarehouseStockSection
+        variants={warehouseStock.filter((v): v is NonNullable<typeof v> => v !== null)}
+        showSku={hasVisibleVariants}
+        labels={{
+          title: tWarehouseStock("title"),
+          hint: tWarehouseStock("hint"),
+          unit: tWarehouseStock("unit"),
+          warehouse: tWarehouseStock("warehouse"),
+          quantity: tWarehouseStock("quantity"),
+          without: tWarehouseStock("without"),
+          withoutHint: tWarehouseStock("withoutHint"),
+        }}
+      />
 
       <section className="grid gap-4 rounded-md border p-4">
         <h2 className="text-lg font-medium">{tDetail("unitConversions")}</h2>

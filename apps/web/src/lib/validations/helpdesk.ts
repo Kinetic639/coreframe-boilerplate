@@ -104,6 +104,15 @@ export const createTicketSchema = z
     }
   });
 
+export const setTicketStatusSchema = z.object({
+  ticket_id: z.string().uuid(),
+  status: z.enum(TICKET_STATUSES),
+});
+
+export const takeTicketSchema = z.object({
+  ticket_id: z.string().uuid(),
+});
+
 export const closeTicketSchema = z.object({
   ticket_id: z.string().uuid(),
   resolution_note: z.string().max(2000).optional(),
@@ -122,6 +131,8 @@ export const ticketListFiltersSchema = z.object({
 
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;
 export type CloseTicketInput = z.infer<typeof closeTicketSchema>;
+export type SetTicketStatusInput = z.infer<typeof setTicketStatusSchema>;
+export type TakeTicketInput = z.infer<typeof takeTicketSchema>;
 export type TicketListFilters = z.infer<typeof ticketListFiltersSchema>;
 
 // ---------------------------------------------------------------------------
