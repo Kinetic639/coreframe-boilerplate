@@ -1,0 +1,3441 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Ambra — DataView, sześć propozycji</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        color: #20242b;
+        background: #eceef1;
+        font:
+          14px/1.45 Inter,
+          ui-sans-serif,
+          system-ui,
+          sans-serif;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+      button,
+      a,
+      input,
+      select {
+        -webkit-tap-highlight-color: transparent;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:disabled {
+        cursor: default;
+        opacity: 0.45;
+      }
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 2px solid var(--accent, #a96b10);
+        outline-offset: 2px;
+      }
+      button {
+        color: inherit;
+      }
+      a {
+        color: inherit;
+      }
+      svg {
+        width: 17px;
+        height: 17px;
+        flex-shrink: 0;
+        vertical-align: middle;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .studio {
+        padding: 20px 28px 15px;
+        background: #fff;
+        border-bottom: 1px solid #d9dde3;
+      }
+      .studio-line {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        max-width: 1480px;
+        margin: auto;
+      }
+      .studio h1 {
+        font-size: 19px;
+        margin: 0;
+      }
+      .studio p {
+        font-size: 12px;
+        color: #68707d;
+        margin: 4px 0 13px;
+      }
+      .badge-demo {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        border: 1px solid #d6b37d;
+        background: #fff7e8;
+        padding: 3px 7px;
+        border-radius: 4px;
+        white-space: nowrap;
+      }
+      .choices {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+      }
+      .choices button,
+      .switch button {
+        background: white;
+        border: 1px solid #d9dde3;
+        border-radius: 5px;
+        padding: 8px 11px;
+        font-size: 12px;
+      }
+      .choices button.active {
+        border-color: #a16b1a;
+        background: #fff6e6;
+        color: #70470c;
+      }
+      .switch {
+        display: flex;
+        gap: 4px;
+        margin-left: auto;
+      }
+      .switch button.active {
+        background: #27303d;
+        color: white;
+        border-color: #27303d;
+      }
+      .studio-meta {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        margin: 12px auto 0;
+        max-width: 1480px;
+        color: #616a78;
+        font-size: 12px;
+        flex-wrap: wrap;
+      }
+      .studio-meta a {
+        margin-left: auto;
+      }
+      .stage-wrap {
+        padding: 22px 24px 32px;
+        overflow-x: auto;
+      }
+      .stage {
+        margin: auto;
+        width: min(1440px, 100%);
+        --bg: #fff;
+        --surface: #fff;
+        --muted: #697384;
+        --text: #252b34;
+        --line: #e4e7ed;
+        --soft: #f6f7f9;
+        --accent: #a46a15;
+        --accentsoft: #fbf2e4;
+        --row: 40px;
+        color: var(--text);
+      }
+      .stage.phone {
+        width: 390px;
+        max-width: 100%;
+        border: 8px solid #252930;
+        border-radius: 30px;
+        overflow: hidden;
+        background: var(--bg);
+      }
+      .urlbar {
+        border: 1px solid #d9dde3;
+        border-bottom: 0;
+        border-radius: 8px 8px 0 0;
+        padding: 8px 12px;
+        background: #fafbfc;
+        font:
+          11px/1.4 ui-monospace,
+          monospace;
+        color: #636c79;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .phone .urlbar {
+        border: 0;
+        border-radius: 0;
+        font-size: 9px;
+        padding: 10px 12px 7px;
+        background: var(--soft);
+      }
+      .app {
+        height: 760px;
+        border: 1px solid #d9dde3;
+        border-radius: 0 0 8px 8px;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: 184px minmax(0, 1fr);
+        background: var(--bg);
+        color: var(--text);
+      }
+      .phone .app {
+        height: 794px;
+        border: 0;
+        border-radius: 0;
+        display: block;
+      }
+      .nav {
+        background: var(--soft);
+        border-right: 1px solid var(--line);
+        padding: 18px 11px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 19px;
+        font-weight: 700;
+        padding: 0 9px 17px;
+      }
+      .crystal {
+        color: var(--accent);
+        font-size: 25px;
+      }
+      .org {
+        font-size: 11px;
+        color: var(--muted);
+        padding: 0 9px 18px;
+      }
+      .nav button {
+        display: flex;
+        gap: 9px;
+        align-items: center;
+        border: 0;
+        background: none;
+        padding: 9px 10px;
+        text-align: left;
+        border-radius: 5px;
+        font-size: 12px;
+      }
+      .nav button.selected {
+        background: var(--accentsoft);
+        color: var(--accent);
+        font-weight: 650;
+      }
+      .nav .label {
+        font-size: 10px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 14px 10px 3px;
+      }
+      .account {
+        margin-top: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px;
+        font-size: 11px;
+        border-top: 1px solid var(--line);
+      }
+      .avatar {
+        display: grid;
+        place-items: center;
+        width: 27px;
+        height: 27px;
+        border-radius: 50%;
+        background: var(--line);
+        font-size: 10px;
+      }
+      .phone .nav {
+        display: none;
+      }
+      .main {
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .appbar {
+        height: 43px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 1px solid var(--line);
+        padding: 0 18px;
+        background: var(--surface);
+        font-size: 11px;
+      }
+      .appbar .right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .appbar strong {
+        font-weight: 500;
+      }
+      .pagehead {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 19px 20px 15px;
+        flex-shrink: 0;
+      }
+      .pagehead h2 {
+        margin: 0;
+        font-size: 21px;
+        font-weight: 650;
+        letter-spacing: -0.035em;
+      }
+      .pagehead p {
+        margin: 3px 0 0;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .head-actions {
+        margin-left: auto;
+        display: flex;
+        gap: 7px;
+      }
+      .btn {
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        gap: 7px;
+        min-height: 32px;
+        padding: 5px 10px;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        background: var(--surface);
+        color: var(--text);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .btn.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+      }
+      .btn.ghost {
+        border-color: transparent;
+        background: transparent;
+      }
+      .btn.icon {
+        width: 32px;
+        padding: 5px;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 10px 20px;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+        flex-shrink: 0;
+      }
+      .search {
+        position: relative;
+        flex: 1;
+        max-width: 310px;
+        min-width: 100px;
+      }
+      .search svg {
+        position: absolute;
+        top: 8px;
+        left: 9px;
+        color: var(--muted);
+        width: 15px;
+        height: 15px;
+      }
+      .search input {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        background: var(--bg);
+        padding: 7px 8px 7px 31px;
+        color: var(--text);
+        font-size: 12px;
+        height: 32px;
+      }
+      .toolbar .spacer {
+        flex: 1;
+      }
+      .count {
+        font-size: 11px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .chips {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        padding: 8px 20px;
+        min-height: 36px;
+        flex-shrink: 0;
+        font-size: 11px;
+        border-bottom: 1px solid var(--line);
+      }
+      .chip {
+        border: 1px solid var(--line);
+        background: var(--soft);
+        color: var(--text);
+        padding: 3px 8px;
+        border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      .chip.active {
+        background: var(--accentsoft);
+        border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+        color: var(--accent);
+      }
+      .chip svg {
+        width: 11px;
+        height: 11px;
+      }
+      .body {
+        display: flex;
+        min-height: 0;
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+      }
+      .listarea {
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        background: var(--surface);
+      }
+      .scroll {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        scrollbar-width: thin;
+      }
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        font-size: 12px;
+      }
+      .table th {
+        height: 34px;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: var(--soft);
+        font-weight: 500;
+        font-size: 10px;
+        color: var(--muted);
+        text-align: left;
+        border-bottom: 1px solid var(--line);
+        padding: 0 12px;
+      }
+      .table th button {
+        border: 0;
+        background: none;
+        padding: 0;
+        color: inherit;
+        text-align: inherit;
+        font-size: inherit;
+      }
+      .table td {
+        height: var(--row);
+        padding: 5px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: middle;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .table tr:hover td {
+        background: var(--soft);
+      }
+      .table tr.selected td {
+        background: var(--accentsoft);
+      }
+      .table th.num,
+      .table td.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .table .check {
+        width: 33px;
+        padding-left: 14px;
+        padding-right: 0;
+      }
+      .table .product {
+        width: 36%;
+      }
+      .table .sku {
+        width: 15%;
+      }
+      .table .status {
+        width: 13%;
+      }
+      .table .type {
+        width: 12%;
+      }
+      .table .qty {
+        width: 11%;
+      }
+      .check input {
+        accent-color: var(--accent);
+        cursor: pointer;
+      }
+      .product-link {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        text-decoration: none;
+        min-width: 0;
+      }
+      .product-link strong {
+        font-size: 12px;
+        font-weight: 550;
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .product-link small {
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .thumb {
+        height: 26px;
+        width: 26px;
+        background: var(--soft);
+        border: 1px solid var(--line);
+        display: grid;
+        place-items: center;
+        border-radius: 4px;
+        flex-shrink: 0;
+        color: var(--muted);
+      }
+      .thumb svg {
+        width: 15px;
+        height: 15px;
+      }
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 10px;
+        white-space: nowrap;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #368165;
+        display: inline-block;
+        flex-shrink: 0;
+      }
+      .status-pill.archived .dot {
+        background: #98a0ac;
+      }
+      .stocklow {
+        color: #b07413;
+      }
+      .foot {
+        height: 36px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 16px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 10px;
+        flex-shrink: 0;
+        background: var(--surface);
+      }
+      .foot .right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .foot select {
+        border: 0;
+        background: var(--surface);
+        color: var(--text);
+        font-size: 10px;
+      }
+      .foot .btn {
+        height: 25px;
+        min-height: 25px;
+        width: 25px;
+        padding: 2px;
+      }
+      .mini-list {
+        width: 252px;
+        flex-shrink: 0;
+        border-right: 1px solid var(--line);
+        min-height: 0;
+        overflow-y: auto;
+        background: var(--surface);
+      }
+      .mini-head {
+        position: sticky;
+        top: 0;
+        background: var(--soft);
+        border-bottom: 1px solid var(--line);
+        padding: 9px 12px;
+        font-size: 10px;
+        color: var(--muted);
+        z-index: 1;
+      }
+      .mini-item {
+        display: block;
+        padding: 12px;
+        text-decoration: none;
+        border-bottom: 1px solid var(--line);
+        min-width: 0;
+      }
+      .mini-item.selected {
+        background: var(--accentsoft);
+        border-left: 3px solid var(--accent);
+        padding-left: 9px;
+      }
+      .mini-item strong {
+        display: block;
+        font-size: 11px;
+        font-weight: 550;
+        line-height: 1.4;
+      }
+      .mini-item small {
+        display: block;
+        margin-top: 5px;
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .detail {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-width: 0;
+        min-height: 0;
+        background: var(--surface);
+      }
+      .detail-top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 16px;
+        border-bottom: 1px solid var(--line);
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .detail-top .grow {
+        flex: 1;
+      }
+      .detail-content {
+        overflow-y: auto;
+        flex: 1;
+        min-height: 0;
+        padding: 22px;
+      }
+      .object-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        margin-bottom: 20px;
+      }
+      .object-icon {
+        width: 50px;
+        height: 50px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--line);
+        background: var(--soft);
+        border-radius: 6px;
+        flex-shrink: 0;
+        color: var(--muted);
+      }
+      .object-icon svg {
+        width: 26px;
+        height: 26px;
+      }
+      .object-head h3 {
+        margin: 0 0 5px;
+        font-size: 19px;
+        line-height: 1.3;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+      }
+      .object-head .meta {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        margin-bottom: 18px;
+        background: var(--soft);
+      }
+      .stat {
+        padding: 12px 14px;
+        border-right: 1px solid var(--line);
+        min-width: 0;
+      }
+      .stat:last-child {
+        border: 0;
+      }
+      .stat span {
+        display: block;
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .stat strong {
+        display: block;
+        margin-top: 3px;
+        font-size: 20px;
+        line-height: 1.3;
+        font-weight: 550;
+        font-variant-numeric: tabular-nums;
+      }
+      .stat small {
+        font-size: 11px;
+        font-weight: 400;
+        color: var(--muted);
+      }
+      .tabs {
+        display: flex;
+        gap: 21px;
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 20px;
+      }
+      .tabs button {
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: none;
+        padding: 9px 0;
+        color: var(--muted);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .tabs button.active {
+        border-color: var(--accent);
+        color: var(--text);
+        font-weight: 600;
+      }
+      .props-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+      }
+      .section h4 {
+        font-size: 11px;
+        font-weight: 650;
+        margin: 0;
+        padding: 0 0 9px;
+        border-bottom: 1px solid var(--line);
+      }
+      .props {
+        margin: 0;
+      }
+      .props > div {
+        display: grid;
+        grid-template-columns: minmax(85px, 0.85fr) minmax(0, 1fr);
+        gap: 12px;
+        border-bottom: 1px solid var(--line);
+        padding: 9px 0;
+        font-size: 11px;
+      }
+      .props dt {
+        color: var(--muted);
+      }
+      .props dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      .desc {
+        font-size: 11px;
+        line-height: 1.7;
+        color: var(--muted);
+        margin: 18px 0;
+      }
+      .variant-box {
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 11px;
+        margin-top: 18px;
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .variant-box .grow {
+        flex: 1;
+      }
+      .empty {
+        text-align: center;
+        padding: 60px 18px;
+        color: var(--muted);
+      }
+      .empty h3 {
+        font-size: 16px;
+        color: var(--text);
+      }
+      .mobile-list {
+        display: none;
+      }
+      .toast {
+        position: fixed;
+        bottom: 25px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #262d36;
+        color: white;
+        border-radius: 6px;
+        padding: 10px 18px;
+        font-size: 12px;
+        z-index: 30;
+      }
+      .toast:empty {
+        display: none;
+      }
+      .ribbon {
+        display: none;
+      }
+      .bottomnav {
+        display: none;
+      }
+      .selectionbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 20px;
+        background: var(--accentsoft);
+        color: var(--accent);
+        font-size: 11px;
+        border-bottom: 1px solid var(--line);
+      }
+      .selectionbar .btn {
+        margin-left: auto;
+      }
+      .selectionbar.hidden {
+        display: none;
+      }
+      /* A: Linear — grouped list and restrained detail workspace. */
+      .theme-A {
+        --bg: #191b20;
+        --surface: #1d1f25;
+        --text: #e1e3e8;
+        --muted: #969ba8;
+        --line: #30333b;
+        --soft: #24262e;
+        --accent: #b89a5d;
+        --accentsoft: #343023;
+        --row: 43px;
+      }
+      .theme-A .nav {
+        background: #17191e;
+      }
+      .theme-A .thumb {
+        display: none;
+      }
+      .theme-A .table td {
+        border-color: transparent;
+      }
+      .theme-A .table th {
+        background: var(--surface);
+      }
+      .theme-A .stats {
+        background: none;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        border-radius: 0;
+      }
+      .theme-A .pagehead h2 {
+        font-size: 18px;
+      }
+      .theme-A .object-icon {
+        display: none;
+      }
+      .theme-A .object-head h3 {
+        font-size: 23px;
+      }
+      .theme-A .mini-list {
+        width: 270px;
+      }
+      .theme-A .detail-content {
+        max-width: 860px;
+        width: 100%;
+        align-self: center;
+        padding: 26px 30px;
+      }
+      /* B: Business Central — spreadsheet density, ribbon, table remains visible. */
+      .theme-B {
+        --accent: #087c87;
+        --accentsoft: #e2f3f4;
+        --soft: #f3f6f7;
+        --row: 31px;
+      }
+      .theme-B .appbar {
+        background: #163c43;
+        color: white;
+      }
+      .theme-B .ribbon {
+        display: flex;
+        padding: 6px 18px;
+        gap: 22px;
+        border-bottom: 1px solid var(--line);
+        font-size: 11px;
+        background: var(--soft);
+      }
+      .theme-B .table td {
+        border-right: 1px solid var(--line);
+        padding-top: 3px;
+        padding-bottom: 3px;
+      }
+      .theme-B .product-link small {
+        display: none;
+      }
+      .theme-B .pagehead {
+        padding-top: 13px;
+        padding-bottom: 11px;
+      }
+      .theme-B .pagehead h2 {
+        font-size: 20px;
+      }
+      .theme-B .toolbar {
+        border-top: 0;
+      }
+      .theme-B .detail {
+        flex: 0 0 43%;
+        border-left: 1px solid var(--line);
+      }
+      .theme-B .detail-content {
+        padding: 16px;
+      }
+      .theme-B .props-grid {
+        grid-template-columns: 1fr;
+        gap: 18px;
+      }
+      .theme-B .stats {
+        background: none;
+      }
+      .theme-B .stat {
+        padding: 9px;
+      }
+      .theme-B .stat strong {
+        font-size: 19px;
+      }
+      .theme-B .object-icon {
+        display: none;
+      }
+      .theme-B .detail .object-head h3 {
+        font-size: 17px;
+      }
+      .theme-B .detail .detail-top {
+        padding: 7px 10px;
+      }
+      .theme-B .detail .tabs {
+        gap: 17px;
+      }
+      /* C: Fiori — explicit filter band, object header and sections. */
+      .theme-C {
+        --accent: #0864ad;
+        --accentsoft: #e6f1fb;
+        --soft: #f3f6f8;
+        --row: 45px;
+      }
+      .theme-C .appbar {
+        background: #24475f;
+        color: white;
+      }
+      .theme-C .nav {
+        background: #edf2f5;
+      }
+      .theme-C .pagehead {
+        background: #fff;
+      }
+      .theme-C .toolbar {
+        padding: 13px 20px;
+        background: #edf3f7;
+      }
+      .theme-C .btn {
+        border-radius: 3px;
+      }
+      .theme-C .mini-list {
+        width: 265px;
+      }
+      .theme-C .detail-top {
+        background: #f4f7f9;
+      }
+      .theme-C .stats {
+        background: #eef5fa;
+        border: 0;
+        border-radius: 0;
+      }
+      .theme-C .section {
+        border: 1px solid var(--line);
+        padding: 13px;
+      }
+      .theme-C .section h4 {
+        font-size: 12px;
+      }
+      .theme-C .table th {
+        height: 39px;
+      }
+      /* D: Zoho-inspired operational app; desktop is an original extrapolation. */
+      .theme-D {
+        --accent: #bb3e46;
+        --accentsoft: #fceef0;
+        --soft: #f7f8fa;
+        --row: 49px;
+      }
+      .theme-D .nav {
+        background: #26313e;
+        color: #e4e8ee;
+        --muted: #b1bac6;
+        --line: #404c5a;
+        --accentsoft: #3c4755;
+        --accent: #fff;
+      }
+      .theme-D .pagehead h2 {
+        font-size: 22px;
+      }
+      .theme-D .stat strong {
+        font-weight: 650;
+      }
+      .theme-D .stats {
+        background: #fff;
+      }
+      .theme-D .object-icon {
+        background: #fbeef0;
+        color: #a95055;
+        border-color: #f1d8db;
+      }
+      .theme-D .mini-list {
+        width: 245px;
+      }
+      /* E: Fiori iOS / iPad-inspired grouped object surfaces. */
+      .theme-E {
+        --accent: #0768cf;
+        --accentsoft: #e8f2ff;
+        --bg: #f2f3f6;
+        --surface: #fff;
+        --soft: #f4f5f8;
+        --row: 57px;
+      }
+      .theme-E .appbar {
+        background: #fff;
+      }
+      .theme-E .pagehead {
+        background: #fff;
+      }
+      .theme-E .pagehead h2 {
+        font-size: 25px;
+        letter-spacing: -0.04em;
+      }
+      .theme-E .nav {
+        background: #eef0f5;
+      }
+      .theme-E .btn {
+        border-radius: 8px;
+      }
+      .theme-E .stats {
+        border: 0;
+        background: #f3f6fa;
+        border-radius: 10px;
+      }
+      .theme-E .detail {
+        background: #f3f4f7;
+      }
+      .theme-E .section {
+        background: white;
+        border-radius: 10px;
+        padding: 14px;
+      }
+      .theme-E .props-grid {
+        gap: 15px;
+      }
+      .theme-E .mini-list {
+        width: 275px;
+      }
+      .theme-E .object-head h3 {
+        font-size: 22px;
+      }
+      .theme-E .object-icon {
+        border-radius: 12px;
+      }
+      /* F: Kolor Sensu-inspired; Ambra amber, dense grid, pinned identity and side inspector. */
+      .theme-F {
+        --accent: #a36b18;
+        --accentsoft: #fbf2e3;
+        --soft: #f8f8f7;
+        --line: #e0e1df;
+        --row: 31px;
+      }
+      .theme-F .nav {
+        background: #f4f4f2;
+      }
+      .theme-F .table td {
+        border-right: 1px solid var(--line);
+        padding: 3px 9px;
+        font-size: 11px;
+      }
+      .theme-F .table th {
+        border-right: 1px solid var(--line);
+        height: 31px;
+      }
+      .theme-F .product-link small {
+        display: none;
+      }
+      .theme-F .product-link strong {
+        font-size: 11px;
+      }
+      .theme-F .pagehead {
+        padding: 12px 16px;
+      }
+      .theme-F .pagehead h2 {
+        font-size: 18px;
+      }
+      .theme-F .toolbar {
+        padding: 7px 16px;
+      }
+      .theme-F .chips {
+        padding-left: 16px;
+      }
+      .theme-F .detail {
+        flex: 0 0 360px;
+        border-left: 1px solid var(--line);
+      }
+      .theme-F .detail-content {
+        padding: 15px;
+      }
+      .theme-F .props-grid {
+        grid-template-columns: 1fr;
+        gap: 18px;
+      }
+      .theme-F .object-head h3 {
+        font-size: 16px;
+      }
+      .theme-F .object-icon {
+        display: none;
+      }
+      .theme-F .stat {
+        padding: 9px;
+      }
+      .theme-F .stat strong {
+        font-size: 19px;
+      }
+      .theme-F .stats {
+        border-radius: 3px;
+      }
+      .theme-F .tabs {
+        gap: 16px;
+      }
+      /* All six phone adaptations: task-oriented list, full-screen object, large targets. */
+      .phone .appbar {
+        height: 40px;
+        padding: 0 13px;
+        font-size: 10px;
+      }
+      .phone .appbar .muted {
+        display: none;
+      }
+      .phone .appbar svg {
+        width: 18px;
+        height: 18px;
+      }
+      .phone .pagehead {
+        padding: 14px 14px 12px;
+        gap: 8px;
+      }
+      .phone .pagehead h2 {
+        font-size: 23px;
+      }
+      .phone .pagehead p {
+        font-size: 10px;
+      }
+      .phone .head-actions .secondary {
+        display: none;
+      }
+      .phone .btn {
+        min-height: 42px;
+        padding: 8px 12px;
+        font-size: 12px;
+      }
+      .phone .btn.icon {
+        width: 42px;
+      }
+      .phone .toolbar {
+        padding: 9px 12px;
+        gap: 7px;
+        flex-wrap: wrap;
+      }
+      .phone .toolbar .spacer,
+      .phone .toolbar .count,
+      .phone .toolbar .desktop-control {
+        display: none;
+      }
+      .phone .search {
+        max-width: none;
+        flex: 1;
+        min-width: 130px;
+      }
+      .phone .search input {
+        height: 42px;
+        font-size: 14px;
+      }
+      .phone .search svg {
+        top: 12px;
+        left: 10px;
+        width: 17px;
+        height: 17px;
+      }
+      .phone .chips {
+        overflow-x: auto;
+        padding: 7px 12px;
+        min-height: 43px;
+      }
+      .phone .chip {
+        padding: 6px 9px;
+        font-size: 11px;
+      }
+      .phone .mobile-list {
+        display: block;
+      }
+      .phone .table {
+        display: none;
+      }
+      .phone .body {
+        min-height: 0;
+      }
+      .phone .main {
+        height: 100%;
+        min-height: 0;
+      }
+      .phone .mini-list,
+      .phone .body.has-detail > .listarea {
+        display: none;
+      }
+      .phone .detail {
+        border: 0;
+        flex: 1;
+        max-width: 100%;
+        width: 100%;
+      }
+      .phone .detail-top {
+        padding: 7px 10px;
+        min-height: 53px;
+        flex-wrap: nowrap;
+      }
+      .phone .detail-top .context {
+        font-size: 10px;
+        max-width: 100px;
+      }
+      .phone .detail-content {
+        padding: 17px 14px;
+        max-width: none;
+        align-self: stretch;
+      }
+      .phone .object-head {
+        margin-bottom: 18px;
+        gap: 11px;
+      }
+      .phone .object-head h3 {
+        font-size: 21px;
+        line-height: 1.3;
+      }
+      .phone .object-icon {
+        width: 43px;
+        height: 43px;
+      }
+      .phone .stats {
+        margin-bottom: 14px;
+      }
+      .phone .stat {
+        padding: 10px;
+      }
+      .phone .stat span {
+        font-size: 10px;
+      }
+      .phone .stat strong {
+        font-size: 23px;
+      }
+      .phone .props-grid {
+        grid-template-columns: 1fr;
+        gap: 21px;
+      }
+      .phone .props > div {
+        font-size: 12px;
+        padding: 10px 0;
+      }
+      .phone .section h4 {
+        font-size: 12px;
+      }
+      .phone .tabs {
+        gap: 22px;
+        overflow-x: auto;
+        margin-bottom: 17px;
+      }
+      .phone .tabs button {
+        padding: 11px 0;
+        font-size: 13px;
+      }
+      .phone .foot {
+        height: 49px;
+        font-size: 11px;
+        padding: 0 12px;
+      }
+      .phone .foot .btn {
+        height: 38px;
+        min-height: 38px;
+        width: 38px;
+        padding: 5px;
+      }
+      .phone .foot select {
+        font-size: 12px;
+      }
+      .phone .ribbon {
+        display: none;
+      }
+      .phone .selectionbar {
+        padding: 7px 12px;
+      }
+      .phone .selectionbar .btn {
+        min-height: 34px;
+      }
+      .mobile-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 13px 14px;
+        min-height: 76px;
+        text-decoration: none;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+      }
+      .mobile-row .info {
+        min-width: 0;
+        flex: 1;
+      }
+      .mobile-row strong {
+        font-size: 13px;
+        font-weight: 600;
+        display: block;
+        line-height: 1.4;
+      }
+      .mobile-row .sub {
+        font-size: 11px;
+        color: var(--muted);
+        display: flex;
+        gap: 7px;
+        margin-top: 5px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .mobile-row .quantity {
+        text-align: right;
+        flex-shrink: 0;
+        font-variant-numeric: tabular-nums;
+      }
+      .mobile-row .quantity b {
+        display: block;
+        font-size: 17px;
+        font-weight: 550;
+      }
+      .mobile-row .quantity small {
+        font-size: 9px;
+        color: var(--muted);
+      }
+      .mobile-row .thumb {
+        width: 32px;
+        height: 32px;
+      }
+      .phone.theme-A .mobile-row {
+        min-height: 70px;
+        padding-top: 12px;
+        padding-bottom: 12px;
+      }
+      .phone.theme-A .pagehead h2 {
+        font-size: 21px;
+      }
+      .phone.theme-B .mobile-row {
+        min-height: 72px;
+      }
+      .phone.theme-C .toolbar {
+        background: #eef4f9;
+      }
+      .phone.theme-D .mobile-list {
+        padding: 9px;
+        background: #f4f5f8;
+      }
+      .phone.theme-D .mobile-row {
+        border: 1px solid #e6e8ed;
+        border-radius: 7px;
+        margin-bottom: 8px;
+        min-height: 87px;
+      }
+      .phone.theme-D .mobile-row .thumb {
+        display: grid;
+        width: 37px;
+        height: 37px;
+      }
+      .phone.theme-E .pagehead h2 {
+        font-size: 29px;
+      }
+      .phone.theme-E .mobile-list {
+        padding: 10px;
+        background: #f2f3f6;
+      }
+      .phone.theme-E .mobile-row {
+        min-height: 79px;
+        border-radius: 0;
+      }
+      .phone.theme-E .mobile-row:first-child {
+        border-radius: 9px 9px 0 0;
+      }
+      .phone.theme-E .mobile-row:last-child {
+        border-radius: 0 0 9px 9px;
+      }
+      .phone.theme-E .bottomnav {
+        display: flex;
+        justify-content: space-around;
+        border-top: 1px solid var(--line);
+        height: 48px;
+        flex-shrink: 0;
+        background: var(--surface);
+        align-items: center;
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .phone.theme-E .bottomnav span {
+        display: grid;
+        justify-items: center;
+        gap: 2px;
+      }
+      .phone.theme-E .bottomnav .current {
+        color: var(--accent);
+      }
+      .phone.theme-F .mobile-row {
+        min-height: 65px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+      }
+      .phone.theme-F .mobile-row strong {
+        font-size: 12px;
+      }
+      .phone.theme-F .mobile-row .quantity b {
+        font-size: 16px;
+      }
+      .phone.theme-F .pagehead h2 {
+        font-size: 21px;
+      }
+      .phone .detail .stock-table {
+        display: table;
+        table-layout: auto;
+      }
+      .phone .stock-table td,
+      .phone .stock-table th {
+        padding-left: 6px;
+        padding-right: 6px;
+        font-size: 10px;
+        white-space: normal;
+      }
+      .stock-table th:first-child {
+        width: 42%;
+      }
+      .history-row {
+        padding: 13px 0;
+        border-bottom: 1px solid var(--line);
+        font-size: 12px;
+      }
+      .history-row small {
+        display: block;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+      dialog {
+        border: 1px solid #d9dde3;
+        border-radius: 12px;
+        width: 440px;
+        max-width: calc(100vw - 28px);
+        padding: 0;
+        color: #242a34;
+        background: white;
+        box-shadow: 0 18px 70px #0003;
+      }
+      dialog::backdrop {
+        background: #15233366;
+      }
+      dialog header {
+        padding: 18px 20px;
+        border-bottom: 1px solid #e4e7ed;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      dialog h3 {
+        font-size: 17px;
+        margin: 0;
+      }
+      dialog .content {
+        padding: 18px 20px;
+        display: grid;
+        gap: 16px;
+      }
+      dialog label {
+        display: grid;
+        gap: 6px;
+        font-size: 12px;
+      }
+      dialog select,
+      dialog input[type="text"] {
+        width: 100%;
+        border: 1px solid #d5dae1;
+        border-radius: 5px;
+        padding: 10px;
+        background: #fff;
+        color: #242a34;
+      }
+      dialog footer {
+        padding: 12px 20px;
+        background: #f6f7f9;
+        border-top: 1px solid #e4e7ed;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+      dialog .btn {
+        --line: #d9dde3;
+        --surface: white;
+        --text: #242a34;
+        --accent: #a46a15;
+        min-height: 40px;
+      }
+      .columns-label {
+        display: flex !important;
+        align-items: center;
+        gap: 10px !important;
+        padding: 6px 0;
+      }
+      #filterDialog.mobile-dialog {
+        position: fixed;
+        bottom: 0;
+        top: auto;
+        margin: 0 auto;
+        border-radius: 16px 16px 0 0;
+        width: 390px;
+        max-width: 100vw;
+      }
+      body.capture .studio,
+      body.capture .studio-meta {
+        display: none;
+      }
+      body.capture .stage-wrap {
+        padding: 0;
+      }
+      body.capture {
+        background: transparent;
+      }
+      body.capture .stage {
+        margin: 0;
+        width: 100%;
+        max-width: none;
+      }
+      body.capture .stage.phone {
+        border: 0;
+        border-radius: 0;
+        width: 100%;
+      }
+      body.capture .app {
+        height: calc(100vh - 32px);
+      }
+      body.capture .phone .app {
+        height: calc(100vh - 32px);
+      }
+      body.capture .urlbar {
+        height: 32px;
+        border-radius: 0;
+      }
+      body.capture .app {
+        border-radius: 0;
+      }
+      body.capture .stage.phone .urlbar {
+        height: 32px;
+      }
+      .stage .description-only {
+        display: none;
+      }
+      @media (max-width: 650px) {
+        .studio {
+          padding: 15px;
+        }
+        .studio-line {
+          gap: 10px;
+        }
+        .choices button {
+          font-size: 11px;
+          padding: 8px;
+        }
+        .switch {
+          margin-left: 0;
+        }
+        .stage-wrap {
+          padding: 14px 10px;
+        }
+        .studio-meta {
+          gap: 8px;
+        }
+        .studio-meta a {
+          margin-left: 0;
+        }
+        .stage:not(.phone) {
+          width: 1100px;
+          max-width: none;
+        }
+      }
+
+      /* Product photography is present in every list renderer and every theme. */
+      .thumb .product-photo {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+        background: white;
+        border-radius: 3px;
+      }
+      .theme-A .thumb,
+      .theme-B .thumb,
+      .theme-C .thumb,
+      .theme-D .thumb,
+      .theme-E .thumb,
+      .theme-F .thumb {
+        display: grid;
+      }
+      .mini-item {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .mini-photo {
+        width: 32px;
+        height: 32px;
+        flex: 0 0 32px;
+        object-fit: contain;
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+      }
+      .mini-copy {
+        display: block;
+        min-width: 0;
+        flex: 1;
+      }
+      .mini-copy strong {
+        display: block;
+      }
+      /* F follows the source project's actual tokens and FilterBar structure. */
+      .theme-F {
+        --accent: #0f7a59;
+        --accentsoft: #e6f5ee;
+        --bg: #fbfaf6;
+        --soft: #f8faf9;
+        --line: #dce5e8;
+        --text: #102a56;
+        --muted: #566f94;
+        --row: 34px;
+      }
+      .theme-F .nav {
+        background: #f8faf9;
+      }
+      .theme-F .table td {
+        height: 34px;
+        font-size: 12px;
+        padding: 3px 8px;
+      }
+      .theme-F .table th {
+        background: white;
+        font-size: 12px;
+      }
+      .theme-F .product-link strong {
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .theme-F .thumb {
+        width: 26px;
+        height: 26px;
+      }
+      .theme-F .detail {
+        flex-basis: 384px;
+      }
+      .theme-F .pagehead p {
+        display: none;
+      }
+      .theme-F .pagehead {
+        padding: 10px 12px;
+      }
+      .theme-F .pagehead h2 {
+        font-size: 18px;
+      }
+      .theme-F .toolbar.ks-toolbar {
+        position: relative;
+        min-height: 40px;
+        gap: 6px;
+        padding: 5px 8px;
+        flex-wrap: wrap;
+      }
+      .ks-toolbar .btn {
+        min-height: 28px;
+        height: 28px;
+        border-color: transparent;
+        padding: 0 6px;
+        background: transparent;
+        font-size: 12px;
+      }
+      .ks-toolbar .btn:hover {
+        background: var(--soft);
+      }
+      .ks-toolbar .ks-filter-trigger {
+        width: 28px;
+        flex: 0 0 28px;
+      }
+      .ks-filter-badge {
+        position: absolute;
+        left: 26px;
+        top: 2px;
+        background: var(--accent);
+        color: white;
+        min-width: 14px;
+        padding: 0 3px;
+        font-size: 10px;
+        line-height: 14px;
+        border-radius: 10px;
+        pointer-events: none;
+      }
+      .ks-search {
+        display: inline-flex;
+        align-items: center;
+        height: 28px;
+        border: 1px solid transparent;
+        border-radius: 5px;
+        gap: 0;
+        color: var(--muted);
+        cursor: pointer;
+        padding: 0 5px;
+      }
+      .ks-search svg {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+      }
+      .ks-search input {
+        width: 1px;
+        min-width: 1px;
+        padding: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+        font-size: 13px;
+      }
+      .ks-search.is-open {
+        border-color: var(--accent);
+        background: white;
+        gap: 6px;
+      }
+      .ks-search.is-open input {
+        width: 185px;
+      }
+      .ks-search input::-webkit-search-cancel-button {
+        display: none;
+      }
+      .ks-active {
+        margin-left: auto;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        min-width: 0;
+      }
+      .ks-chip {
+        display: inline-flex;
+        height: 26px;
+        max-width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        overflow: hidden;
+        background: white;
+      }
+      .ks-chip button {
+        border: 0;
+        background: transparent;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0 7px;
+        font: inherit;
+        font-size: 12px;
+        min-width: 0;
+      }
+      .ks-chip button:first-child {
+        overflow: hidden;
+      }
+      .ks-chip button span {
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .ks-chip strong {
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .ks-chip button:last-child {
+        border-left: 1px solid var(--line);
+        padding: 0 5px;
+        flex-shrink: 0;
+      }
+      .ks-chip svg {
+        height: 12px;
+        width: 12px;
+      }
+      .ks-chip button:hover {
+        background: var(--soft);
+      }
+      .ks-popover {
+        z-index: 50;
+        position: fixed;
+        width: 256px;
+        max-height: calc(100dvh - 16px);
+        overflow-y: auto;
+        background: white;
+        color: #102a56;
+        border: 1px solid #dce5e8;
+        padding: 4px;
+        border-radius: 7px;
+        box-shadow: 0 8px 24px #102a5620;
+        font: 13px/1.4 system-ui;
+      }
+      .ks-popover[hidden] {
+        display: none;
+      }
+      .ks-option {
+        border: 0;
+        background: transparent;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 30px;
+        width: 100%;
+        border-radius: 5px;
+        padding: 0 8px;
+        text-align: left;
+        font: inherit;
+      }
+      .ks-option:hover,
+      .ks-option:focus-visible {
+        background: #f8faf9;
+        outline: 2px solid #2a8d70;
+        outline-offset: -2px;
+      }
+      .ks-option.chosen {
+        background: #e6f5ee;
+        color: #0f7a59;
+      }
+      .ks-check {
+        width: 14px;
+      }
+      .ks-value-count {
+        margin-left: auto;
+        color: #566f94;
+        font-size: 11px;
+      }
+      .ks-box {
+        width: 14px;
+        height: 14px;
+        border: 1px solid #c7d4da;
+        border-radius: 3px;
+        display: grid;
+        place-items: center;
+        font-size: 11px;
+        line-height: 1;
+      }
+      .ks-box.checked {
+        background: #0f7a59;
+        border-color: #0f7a59;
+        color: white;
+      }
+      .ks-menu-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 28px;
+        padding: 0 8px;
+        color: #566f94;
+        font-size: 11px;
+      }
+      .ks-menu-title button {
+        border: 0;
+        background: transparent;
+        color: #0f7a59;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .ks-back {
+        color: #566f94;
+      }
+      .ks-back svg {
+        width: 14px;
+        height: 14px;
+      }
+      .ks-divider {
+        border-top: 1px solid #dce5e8;
+        margin: 4px 0;
+      }
+      .phone.theme-F .ks-toolbar {
+        gap: 6px;
+      }
+      .phone.theme-F .ks-toolbar .btn {
+        height: 40px;
+        min-height: 40px;
+      }
+      .phone.theme-F .ks-filter-trigger {
+        width: 40px;
+        flex-basis: 40px;
+      }
+      .phone.theme-F .ks-filter-badge {
+        left: 34px;
+        top: 4px;
+      }
+      .phone.theme-F .ks-search {
+        height: 40px;
+      }
+      .phone.theme-F .ks-search.is-open input {
+        width: min(185px, 42vw);
+      }
+      .phone.theme-F .ks-active {
+        flex-basis: 100%;
+      }
+      .phone.theme-F .ks-active:empty {
+        display: none;
+      }
+      .phone.theme-F .ks-chip {
+        height: 36px;
+      }
+      .phone.theme-F .ks-chip button:last-child {
+        min-width: 34px;
+        justify-content: center;
+      }
+      .phone.theme-F .mobile-row .thumb {
+        width: 36px;
+        height: 36px;
+      }
+      body:has(.phone.theme-F) .ks-option {
+        height: 42px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="studio">
+      <div class="studio-line">
+        <h1>Ambra / DataView produktów</h1>
+        <span class="badge-demo">PROTOTYP · DANE PRZYKŁADOWE</span>
+      </div>
+      <div class="studio-line">
+        <p>
+          Sześć autorskich adaptacji. Lista, szczegóły, filtry i adres działają lokalnie; nie mierzą
+          wydajności prawdziwej bazy.
+        </p>
+      </div>
+      <div class="studio-line">
+        <nav class="choices" aria-label="Kierunek projektu" id="themes"></nav>
+        <div class="switch" id="deviceSwitch">
+          <button data-device="desktop">Desktop</button><button data-device="mobile">Mobile</button>
+        </div>
+        <div class="switch" id="viewSwitch">
+          <button data-view="list">Pełna lista</button
+          ><button data-view="detail">Szczegóły rekordu</button>
+        </div>
+      </div>
+      <div class="studio-meta">
+        <span id="variantDescription"></span
+        ><a href="/gallery.html">Porównaj wszystkie 24 ekrany →</a
+        ><a href="/analysis">Analiza obecnego DataView</a>
+        <button class="btn ghost" data-action="photo-credits">Źródła zdjęć demo</button>
+      </div>
+    </header>
+    <main class="stage-wrap">
+      <section id="stage" class="stage">
+        <div id="url" class="urlbar"></div>
+        <div id="workspace" class="app"></div>
+      </section>
+    </main>
+    <dialog id="photoCredits" aria-labelledby="photoCreditsTitle">
+      <header>
+        <h3 id="photoCreditsTitle">Przykładowe zdjęcia</h3>
+        <button class="btn icon" data-close-dialog aria-label="Zamknij źródła zdjęć">✕</button>
+      </header>
+      <div class="content" style="display: block; font-size: 13px; line-height: 1.7">
+        <p>
+          Cztery przykładowe fotografie ilustrują układ miniatur. Nie przedstawiają dokładnych
+          modeli fikcyjnych produktów. Zmiany: rozmiar 160×160, białe marginesy, format WebP.
+        </p>
+        <p>
+          <a
+            href="https://commons.wikimedia.org/wiki/File:Paint_masking_tape.jpg"
+            target="_blank"
+            rel="noreferrer"
+            >Paint masking tape</a
+          >
+          — Trimacoinc, <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>.
+        </p>
+        <p>
+          <a
+            href="https://commons.wikimedia.org/wiki/File:LED_Headlamp_inside.jpg"
+            target="_blank"
+            rel="noreferrer"
+            >LED Headlamp inside</a
+          >
+          — Cschirp, <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a>.
+        </p>
+        <p>
+          <a
+            href="https://commons.wikimedia.org/wiki/File:A_stack_of_blind_rivets_2017.jpg"
+            target="_blank"
+            rel="noreferrer"
+            >A stack of blind rivets 2017</a
+          >
+          — Fructibus, <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0 1.0</a>.
+        </p>
+        <p>
+          <a
+            href="https://commons.wikimedia.org/wiki/File:Alkydharzlack.jpg"
+            target="_blank"
+            rel="noreferrer"
+            >Alkydharzlack</a
+          >
+          — DTeetz, domena publiczna.
+        </p>
+      </div>
+    </dialog>
+    <dialog id="filterDialog" aria-labelledby="filtersTitle">
+      <form id="filtersForm">
+        <header>
+          <h3 id="filtersTitle">Filtry produktów</h3>
+          <button type="button" class="btn icon" data-close-dialog aria-label="Zamknij filtry">
+            ✕
+          </button>
+        </header>
+        <div class="content">
+          <label
+            >Status<select name="status">
+              <option value="">Wszystkie statusy</option>
+              <option value="active">Aktywne</option>
+              <option value="archived">Archiwalne</option>
+            </select></label
+          ><label
+            >Typ produktu<select name="type">
+              <option value="">Wszystkie typy</option>
+              <option value="stocked">Magazynowy</option>
+              <option value="consumable">Materiał eksploatacyjny</option>
+              <option value="service">Usługa</option>
+            </select></label
+          ><label
+            >Stan zapasu<select name="stock">
+              <option value="">Wszystkie stany</option>
+              <option value="low">Poniżej minimum</option>
+              <option value="available">Dostępne</option>
+              <option value="zero">Brak zapasu</option>
+            </select></label
+          ><label
+            >Kategoria<select name="category">
+              <option value="">Wszystkie kategorie</option>
+              <option>Elementy mocujące</option>
+              <option>Części blacharskie</option>
+              <option>Lakiernia</option>
+              <option>Oświetlenie</option>
+            </select></label
+          >
+        </div>
+        <footer>
+          <button class="btn" type="button" id="resetFilters">Wyczyść</button
+          ><button class="btn primary" type="submit">Zastosuj na liście</button>
+        </footer>
+      </form>
+    </dialog>
+    <dialog id="columnsDialog" aria-labelledby="columnsTitle">
+      <form id="columnsForm">
+        <header>
+          <h3 id="columnsTitle">Widoczne kolumny</h3>
+          <button type="button" class="btn icon" data-close-dialog aria-label="Zamknij kolumny">
+            ✕
+          </button>
+        </header>
+        <div class="content">
+          <p style="margin: 0; font-size: 12px; color: #667080">
+            Nazwa i SKU pozostają widoczne. Ustawienia dotyczą tego prototypu.
+          </p>
+          <label class="columns-label"><input type="checkbox" name="type" />Typ produktu</label
+          ><label class="columns-label"><input type="checkbox" name="status" />Status</label
+          ><label class="columns-label"
+            ><input type="checkbox" name="stock" />Stan i dostępność</label
+          >
+        </div>
+        <footer><button type="submit" class="btn primary">Zapisz widok</button></footer>
+      </form>
+    </dialog>
+    <div class="toast" role="status" id="toast"></div>
+    <div
+      id="ksFilterPopover"
+      class="ks-popover"
+      role="dialog"
+      aria-label="Filtry produktów"
+      hidden
+    ></div>
+    <script>
+      const THEMES = {
+        A: {
+          name: "Linear",
+          label: "A · Linear",
+          description: "Spokojna lista, oszczędny kolor, szczegóły jako obszar skupienia.",
+        },
+        B: {
+          name: "Business Central",
+          label: "B · Business Central",
+          description: "Gęsta tabela, pasek poleceń i obiekt w panelu po prawej.",
+        },
+        C: {
+          name: "SAP Fiori",
+          label: "C · SAP Fiori",
+          description: "Jawne filtry, lista–obiekt, wyraźne sekcje i kontekst operacyjny.",
+        },
+        D: {
+          name: "Zoho Inventory",
+          label: "D · Zoho",
+          description: "Operacyjna kartoteka; desktop to autorska adaptacja mobilnej inspiracji.",
+        },
+        E: {
+          name: "SAP iOS / iPad",
+          label: "E · SAP iOS",
+          description: "Czytelne listy i grupowane sekcje; desktop jako adaptacja układu iPada.",
+        },
+        F: {
+          name: "Kolor Sensu",
+          label: "F · Kolor Sensu",
+          description:
+            "Kolor Sensu: oryginalne kolory, rozwijana lupa, menu pól, wielokrotny wybór i edytowalne filtry na pasku.",
+        },
+      };
+      const DEMO_PHOTOS = [
+        {
+          name: "Paint masking tape.jpg",
+          page: "https://commons.wikimedia.org/wiki/File:Paint%20masking%20tape.jpg",
+          src: "data:image/webp;base64,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",
+        },
+        {
+          name: "LED Headlamp inside.jpg",
+          page: "https://commons.wikimedia.org/wiki/File:LED%20Headlamp%20inside.jpg",
+          src: "data:image/webp;base64,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",
+        },
+        {
+          name: "A stack of blind rivets 2017.jpg",
+          page: "https://commons.wikimedia.org/wiki/File:A%20stack%20of%20blind%20rivets%202017.jpg",
+          src: "data:image/webp;base64,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",
+        },
+        {
+          name: "Alkydharzlack.jpg",
+          page: "https://commons.wikimedia.org/wiki/File:Alkydharzlack.jpg",
+          src: "data:image/webp;base64,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",
+        },
+      ];
+      const RAW = [
+        [
+          "Nit rozprężny 6 mm — czarny",
+          "NIT-006-CZ",
+          "Elementy mocujące",
+          "stocked",
+          240,
+          228,
+          50,
+          "active",
+          2,
+        ],
+        ["Lampa przednia LED — lewa", "LAM-LED-L", "Oświetlenie", "stocked", 8, 6, 3, "active", 2],
+        [
+          "Zderzak przedni — podkład",
+          "ZDR-PRZ-01",
+          "Części blacharskie",
+          "stocked",
+          3,
+          1,
+          4,
+          "active",
+          1,
+        ],
+        ["Taśma maskująca 38 mm", "TAS-038", "Lakiernia", "consumable", 68, 60, 20, "active", 3],
+        [
+          "Klip mocujący nadkole",
+          "KLP-NAD-02",
+          "Elementy mocujące",
+          "stocked",
+          480,
+          456,
+          100,
+          "active",
+          1,
+        ],
+        ["Podkład akrylowy 2K 1 l", "POD-2K-1L", "Lakiernia", "consumable", 15, 12, 8, "active", 2],
+        [
+          "Lusterko zewnętrzne — prawe",
+          "LUS-PR-06",
+          "Części blacharskie",
+          "stocked",
+          2,
+          0,
+          3,
+          "active",
+          2,
+        ],
+        ["Żarówka H7 12 V 55 W", "ZAR-H7-55", "Oświetlenie", "stocked", 96, 84, 24, "active", 1],
+        [
+          "Śruba kołnierzowa M6×20",
+          "SRU-M6-20",
+          "Elementy mocujące",
+          "stocked",
+          320,
+          300,
+          60,
+          "active",
+          1,
+        ],
+        ["Lakier bezbarwny HS 1 l", "LAK-HS-1L", "Lakiernia", "consumable", 12, 10, 6, "active", 2],
+        [
+          "Maska silnika — stal",
+          "MAS-ST-01",
+          "Części blacharskie",
+          "stocked",
+          0,
+          0,
+          2,
+          "active",
+          1,
+        ],
+        ["Reflektor przeciwmgielny", "REF-PM-03", "Oświetlenie", "stocked", 6, 6, 2, "active", 1],
+        [
+          "Spinka tapicerki 8 mm",
+          "SPI-TAP-08",
+          "Elementy mocujące",
+          "stocked",
+          0,
+          0,
+          50,
+          "archived",
+          1,
+        ],
+        [
+          "Papier ścierny P400 — arkusz",
+          "PAP-P400",
+          "Lakiernia",
+          "consumable",
+          125,
+          120,
+          40,
+          "active",
+          1,
+        ],
+        [
+          "Listwa progowa — prawa",
+          "LIS-PRG-P",
+          "Części blacharskie",
+          "stocked",
+          4,
+          3,
+          2,
+          "active",
+          1,
+        ],
+        ["Montaż lampy przedniej", "USL-LAM", "Oświetlenie", "service", 0, 0, 0, "active", 1],
+        [
+          "Nakrętka samohamowna M8",
+          "NAK-M8",
+          "Elementy mocujące",
+          "stocked",
+          72,
+          64,
+          30,
+          "active",
+          1,
+        ],
+        [
+          "Uchwyt zderzaka — lewy",
+          "UCH-ZDR-L",
+          "Części blacharskie",
+          "stocked",
+          9,
+          8,
+          4,
+          "active",
+          1,
+        ],
+      ];
+      const PRODUCTS = RAW.map((p, i) => ({
+        id: "prd-" + String(i + 1).padStart(3, "0"),
+        name: p[0],
+        sku: p[1],
+        category: p[2],
+        photo:
+          p[2] === "Elementy mocujące"
+            ? 2
+            : p[2] === "Lakiernia"
+              ? p[0].includes("Taśma")
+                ? 0
+                : 3
+              : 1,
+        type: p[3],
+        stock: p[4],
+        available: p[5],
+        minimum: p[6],
+        status: p[7],
+        variants: p[8],
+        unit:
+          p[3] === "service" ? "usł." : p[2] === "Lakiernia" && p[0].includes("1 l") ? "l" : "szt.",
+        brand: i % 3 === 0 ? "Ambra Parts" : i % 3 === 1 ? "AutoPro" : "Warsztat Plus",
+        location: i % 2 === 0 ? "MC / R01 / Półka A" : "LAK / Szafa A",
+        price: [0.85, 640, 890, 16.5, 1.2, 89, 420, 19.9][i % 8],
+      }));
+      const PATH = "/dashboard/magazyn/produkty";
+      let selectedChecks = new Set(),
+        expanded = new Set(),
+        lastSelected = null,
+        listScroll = 0,
+        toastTimer;
+      let columns;
+      try {
+        columns = JSON.parse(localStorage.getItem("ambra-prototype:columns:v1")) ?? {
+          type: true,
+          status: true,
+          stock: true,
+        };
+      } catch {
+        columns = { type: true, status: true, stock: true };
+      }
+      const icon = (name) => {
+        const paths = {
+          search: '<circle cx="10" cy="10" r="6.5"/><path d="m15 15 5 5"/>',
+          filter: '<path d="M3 5h18M6 12h12M10 19h4"/>',
+          box: '<path d="m12 3 9 5v9l-9 5-9-5V8l9-5Z"/><path d="m3 8 9 5 9-5M12 13v9M7 5l9 5"/>',
+          down: '<path d="m6 9 6 6 6-6"/>',
+          left: '<path d="m14 5-7 7 7 7"/>',
+          right: '<path d="m9 5 7 7-7 7"/>',
+          plus: '<path d="M12 4v16M4 12h16"/>',
+          close: '<path d="m5 5 14 14M19 5 5 19"/>',
+          columns: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
+          refresh:
+            '<path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 11-2l3 7M4 12l3 7a7 7 0 0 0 11-2"/>',
+          menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+          grid: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
+          link: '<path d="m10 14 4-4M9 16l-2 2a4 4 0 0 1-5-5l4-4a4 4 0 0 1 5 0M15 8l2-2a4 4 0 0 1 5 5l-4 4a4 4 0 0 1-5 0"/>',
+          clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/>',
+          bell: '<path d="M5 17h14l-2-3V9a5 5 0 0 0-10 0v5l-2 3M10 21h4"/>',
+          more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+        };
+        return (
+          '<svg viewBox="0 0 24 24" aria-hidden="true">' + (paths[name] ?? paths.box) + "</svg>"
+        );
+      };
+      const esc = (value) =>
+        String(value ?? "").replace(
+          /[&<>"']/g,
+          (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
+        );
+      function read() {
+        const p = new URLSearchParams(location.search);
+        const v = Object.hasOwn(THEMES, p.get("variant")) ? p.get("variant") : "F";
+        return {
+          variant: v,
+          device: p.get("device") === "mobile" ? "mobile" : "desktop",
+          selected: PRODUCTS.some((x) => x.id === p.get("selected")) ? p.get("selected") : null,
+          search: p.get("search") ?? "",
+          status: p.get("status") ?? "",
+          type: p.get("type") ?? "",
+          stock: p.get("stock") ?? "",
+          category: p.get("category") ?? "",
+          sort: p.get("sort") ?? "name.asc",
+          page: Math.max(1, Number(p.get("page")) || 1),
+          size: [8, 12, 18].includes(Number(p.get("size"))) ? Number(p.get("size")) : 12,
+          tab: ["info", "stock", "history"].includes(p.get("tab")) ? p.get("tab") : "info",
+          branch: p.get("branch") ?? "komorniki",
+          capture: p.get("capture") === "1",
+        };
+      }
+      function href(patch = {}) {
+        const p = new URLSearchParams(location.search);
+        for (const [k, v] of Object.entries(patch))
+          if (v === null || v === "") p.delete(k);
+          else p.set(k, v);
+        return PATH + "?" + p.toString();
+      }
+      function update(patch, push = false) {
+        history[push ? "pushState" : "replaceState"](
+          { prototype: true, fromList: push && !!patch.selected },
+          "",
+          href(patch)
+        );
+        render();
+      }
+      function filtered(s) {
+        const q = s.search.toLocaleLowerCase("pl");
+        let rows = PRODUCTS.filter(
+          (p) =>
+            (!q || (p.name + " " + p.sku).toLocaleLowerCase("pl").includes(q)) &&
+            (!s.status || s.status.split(",").includes(p.status)) &&
+            (!s.type || s.type.split(",").includes(p.type)) &&
+            (!s.category || s.category.split(",").includes(p.category)) &&
+            (!s.stock ||
+              s.stock
+                .split(",")
+                .some((value) =>
+                  value === "low"
+                    ? p.type !== "service" && p.available < p.minimum
+                    : value === "available"
+                      ? p.available > 0
+                      : p.stock === 0
+                ))
+        );
+        const [field, dir] = s.sort.split(".");
+        rows.sort(
+          (a, b) =>
+            (typeof a[field] === "number"
+              ? a[field] - b[field]
+              : String(a[field]).localeCompare(String(b[field]), "pl")) * (dir === "desc" ? -1 : 1)
+        );
+        return rows;
+      }
+      const typeLabel = (p) =>
+        ({ stocked: "Magazynowy", consumable: "Eksploatacyjny", service: "Usługa" })[p.type];
+      const pill = (p) =>
+        '<span class="status-pill ' +
+        (p.status === "archived" ? "archived" : "") +
+        '"><i class="dot"></i>' +
+        (p.status === "archived" ? "Archiwalny" : "Aktywny") +
+        "</span>";
+      function btn(label, ico, attrs = "", className = "") {
+        return (
+          '<button type="button" class="btn ' +
+          className +
+          '" ' +
+          attrs +
+          ">" +
+          (ico ? icon(ico) : "") +
+          label +
+          "</button>"
+        );
+      }
+      let kolorMenu = null,
+        kolorAnchor = null,
+        kolorSearchOpen = false,
+        kolorSearchTimer;
+      const KOLOR_FIELDS = [
+        {
+          id: "type",
+          label: "Typ",
+          options: [
+            ["stocked", "Magazynowy"],
+            ["consumable", "Eksploatacyjny"],
+            ["service", "Usługa"],
+          ],
+        },
+        {
+          id: "status",
+          label: "Status",
+          options: [
+            ["active", "Aktywny"],
+            ["archived", "Archiwalny"],
+          ],
+        },
+        {
+          id: "stock",
+          label: "Zapas",
+          options: [
+            ["low", "Poniżej minimum"],
+            ["available", "Dostępny"],
+            ["zero", "Brak zapasu"],
+          ],
+        },
+        {
+          id: "category",
+          label: "Kategoria",
+          options: ["Elementy mocujące", "Oświetlenie", "Części blacharskie", "Lakiernia"].map(
+            (x) => [x, x]
+          ),
+        },
+      ];
+      const kolorValues = (s, key) => (s[key] ? s[key].split(",") : []);
+      function kolorToolbar(s) {
+        const chips = KOLOR_FIELDS.filter((f) => s[f.id])
+          .map((f) => {
+            const labels = kolorValues(s, f.id).map(
+              (v) => f.options.find((o) => o[0] === v)?.[1] ?? v
+            );
+            const value =
+              labels.length > 2
+                ? labels[0] + " i " + (labels.length - 1) + " inne"
+                : labels.join(", ");
+            return (
+              '<span class="ks-chip"><button data-ks-edit="' +
+              f.id +
+              '"><span>' +
+              f.label +
+              " jest</span> <strong>" +
+              esc(value) +
+              '</strong></button><button data-ks-remove="' +
+              f.id +
+              '" aria-label="Usuń filtr ' +
+              f.label +
+              '">' +
+              icon("close") +
+              "</button></span>"
+            );
+          })
+          .join("");
+        return (
+          '<div class="toolbar ks-toolbar">' +
+          btn(
+            "",
+            "filter",
+            'data-action="filters" aria-label="Filtry' +
+              (activeFilters(s) ? ", ustawione: " + activeFilters(s) : "") +
+              '" aria-expanded="' +
+              (kolorMenu !== null) +
+              '"',
+            "icon ks-filter-trigger"
+          ) +
+          (activeFilters(s)
+            ? '<span class="ks-filter-badge">' + activeFilters(s) + "</span>"
+            : "") +
+          '<label class="ks-search ' +
+          (kolorSearchOpen || s.search ? "is-open" : "") +
+          '" title="Szukaj (/)">' +
+          icon("search") +
+          '<input id="search" type="search" aria-label="Szukaj produktów po nazwie lub SKU" placeholder="Szukaj nazwy lub SKU…" value="' +
+          esc(s.search) +
+          '"></label>' +
+          (s.search
+            ? btn(
+                "",
+                "close",
+                'data-action="ks-search-clear" aria-label="Wyczyść wyszukiwanie"',
+                "icon"
+              )
+            : "") +
+          '<div class="ks-active" role="group" aria-label="Ustawione filtry">' +
+          chips +
+          "</div>" +
+          btn("Kolumny", "columns", 'data-action="columns"', "desktop-control") +
+          "</div>"
+        );
+      }
+      function renderKolorMenu() {
+        const pop = document.getElementById("ksFilterPopover");
+        document
+          .querySelector(".ks-filter-trigger")
+          ?.setAttribute("aria-expanded", String(kolorMenu !== null));
+        pop.hidden = kolorMenu === null || read().variant !== "F";
+        if (pop.hidden) return;
+        const s = read(),
+          field = KOLOR_FIELDS.find((f) => f.id === kolorMenu);
+        pop.innerHTML = field
+          ? '<button class="ks-option ks-back" data-ks-back>' +
+            icon("left") +
+            esc(field.label) +
+            '</button><div class="ks-divider"></div><div role="group" aria-label="Wartości: ' +
+            esc(field.label) +
+            '">' +
+            field.options
+              .map(([value, label]) => {
+                const checked = kolorValues(s, field.id).includes(value);
+                return (
+                  '<button class="ks-option" role="menuitemcheckbox" aria-checked="' +
+                  checked +
+                  '" data-ks-value="' +
+                  esc(value) +
+                  '" data-ks-field="' +
+                  field.id +
+                  '"><span class="ks-box ' +
+                  (checked ? "checked" : "") +
+                  '">' +
+                  (checked ? "✓" : "") +
+                  "</span>" +
+                  esc(label) +
+                  "</button>"
+                );
+              })
+              .join("") +
+            "</div>"
+          : '<div class="ks-menu-title">Filtruj według' +
+            (activeFilters(s) ? "<button data-ks-clear>Wyczyść wszystkie</button>" : "") +
+            "</div>" +
+            KOLOR_FIELDS.map(
+              (f) =>
+                '<button class="ks-option ' +
+                (s[f.id] ? "chosen" : "") +
+                '" data-ks-edit="' +
+                f.id +
+                '"><span class="ks-check">' +
+                (s[f.id] ? "✓" : "") +
+                "</span>" +
+                f.label +
+                '<span class="ks-value-count">' +
+                (kolorValues(s, f.id).length || "") +
+                "</span></button>"
+            ).join("");
+        const r =
+          kolorAnchor ?? document.querySelector(".ks-filter-trigger")?.getBoundingClientRect();
+        if (r) {
+          const w = Math.min(256, innerWidth - 16);
+          pop.style.width = w + "px";
+          pop.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px";
+          pop.style.top =
+            Math.max(8, Math.min(r.bottom + 5, innerHeight - pop.offsetHeight - 8)) + "px";
+        }
+      }
+      function kolorChange(patch) {
+        listScroll = 0;
+        lastSelected = null;
+        selectedChecks.clear();
+        update({ ...patch, page: null, selected: null, tab: null });
+        renderKolorMenu();
+      }
+      function toolbar(s, count) {
+        if (s.variant === "F") return kolorToolbar(s);
+        return (
+          '<div class="toolbar"><label class="search">' +
+          icon("search") +
+          '<input id="search" aria-label="Szukaj produktów po nazwie lub SKU" placeholder="Szukaj nazwy lub SKU…" value="' +
+          esc(s.search) +
+          '"></label>' +
+          btn(
+            "Filtry" + (activeFilters(s) ? " · " + activeFilters(s) : ""),
+            "filter",
+            'data-action="filters"'
+          ) +
+          '<div class="spacer"></div><span class="count">' +
+          count +
+          " produktów</span>" +
+          btn("Kolumny", "columns", 'data-action="columns"', "desktop-control") +
+          btn(
+            "",
+            "refresh",
+            'data-action="refresh" aria-label="Odśwież podgląd"',
+            "icon desktop-control"
+          ) +
+          "</div>"
+        );
+      }
+      function activeFilters(s) {
+        return ["status", "type", "stock", "category"].filter((k) => s[k]).length;
+      }
+      function chips(s) {
+        if (s.variant === "F") return "";
+        const names = {
+          status: s.status === "active" ? "Aktywne" : "Archiwalne",
+          type: typeLabel({ type: s.type }),
+          stock: { low: "Poniżej minimum", available: "Dostępne", zero: "Brak zapasu" }[s.stock],
+          category: s.category,
+        };
+        for (const f of KOLOR_FIELDS)
+          if (s[f.id])
+            names[f.id] = kolorValues(s, f.id)
+              .map((v) => f.options.find((o) => o[0] === v)?.[1] ?? v)
+              .join(", ");
+        const active = ["status", "type", "stock", "category"].filter((k) => s[k]);
+        return (
+          '<div class="chips">' +
+          (active.length
+            ? active
+                .map(
+                  (k) =>
+                    '<button class="chip active" data-remove="' +
+                    k +
+                    '">' +
+                    esc(names[k]) +
+                    icon("close") +
+                    "</button>"
+                )
+                .join("") + btn("Wyczyść", null, 'data-action="clear"', "ghost")
+            : '<button class="chip ' +
+              (!s.status ? "active" : "") +
+              '" data-quick="all">Wszystkie</button><button class="chip" data-quick="active">Aktywne</button><button class="chip" data-quick="low">Poniżej minimum</button>') +
+          "</div>"
+        );
+      }
+      function table(rows, s) {
+        const rowLink = (p) => href({ selected: p.id, tab: null });
+        return (
+          '<table class="table" aria-label="Lista produktów"><thead><tr><th class="check"><input type="checkbox" data-select-all aria-label="Zaznacz widoczne produkty" ' +
+          (rows.length && rows.every((p) => selectedChecks.has(p.id)) ? "checked" : "") +
+          '></th><th class="product"><button data-sort="name">Produkt ' +
+          (s.sort.startsWith("name") ? "↕" : "") +
+          '</button></th><th class="sku"><button data-sort="sku">SKU</button></th>' +
+          (columns.type ? '<th class="type">Typ</th>' : "") +
+          (columns.status ? '<th class="status">Status</th>' : "") +
+          (columns.stock
+            ? '<th class="num qty"><button data-sort="stock">Na stanie</button></th><th class="num qty"><button data-sort="available">Dostępne</button></th>'
+            : "") +
+          "</tr></thead><tbody>" +
+          rows
+            .map(
+              (p) =>
+                '<tr data-id="' +
+                p.id +
+                '" class="' +
+                (s.selected === p.id || lastSelected === p.id ? "selected" : "") +
+                '"><td class="check"><input type="checkbox" data-select="' +
+                p.id +
+                '" aria-label="Zaznacz ' +
+                esc(p.name) +
+                '" ' +
+                (selectedChecks.has(p.id) ? "checked" : "") +
+                '></td><td><a class="product-link" href="' +
+                rowLink(p) +
+                '" data-open="' +
+                p.id +
+                '"><span class="thumb">' +
+                productPhoto(p) +
+                '</span><span style="min-width:0;overflow:hidden"><strong>' +
+                esc(p.name) +
+                "</strong><small>" +
+                esc(p.category) +
+                (p.variants > 1 ? " · " + p.variants + " warianty" : "") +
+                '</small></span></a></td><td style="font-size:10px;color:var(--muted)">' +
+                p.sku +
+                "</td>" +
+                (columns.type ? "<td>" + typeLabel(p) + "</td>" : "") +
+                (columns.status ? "<td>" + pill(p) + "</td>" : "") +
+                (columns.stock
+                  ? '<td class="num">' +
+                    p.stock +
+                    ' <small class="muted">' +
+                    p.unit +
+                    '</small></td><td class="num ' +
+                    (p.available < p.minimum ? "stocklow" : "") +
+                    '">' +
+                    p.available +
+                    ' <small class="muted">' +
+                    p.unit +
+                    "</small></td>"
+                  : "") +
+                "</tr>"
+            )
+            .join("") +
+          "</tbody></table>"
+        );
+      }
+      function mobileRows(rows, s) {
+        return (
+          '<div class="mobile-list">' +
+          rows
+            .map(
+              (p) =>
+                '<a class="mobile-row" href="' +
+                href({ selected: p.id, tab: null }) +
+                '" data-open="' +
+                p.id +
+                '"><span class="thumb">' +
+                productPhoto(p) +
+                '</span><span class="info"><strong>' +
+                esc(p.name) +
+                '</strong><span class="sub"><span>' +
+                p.sku +
+                "</span>" +
+                pill(p) +
+                '</span></span><span class="quantity ' +
+                (p.available < p.minimum ? "stocklow" : "") +
+                '"><b>' +
+                p.available +
+                "</b><small>" +
+                p.unit +
+                " dostępne</small></span>" +
+                icon("right") +
+                "</a>"
+            )
+            .join("") +
+          "</div>"
+        );
+      }
+      function footer(s, count, page) {
+        const pages = Math.max(1, Math.ceil(count / s.size)),
+          start = count ? (page - 1) * s.size + 1 : 0;
+        return (
+          '<footer class="foot"><span>' +
+          start +
+          "–" +
+          Math.min(page * s.size, count) +
+          " z " +
+          count +
+          '</span><div class="right"><label>Wierszy <select id="pageSize" aria-label="Liczba wierszy">' +
+          [8, 12, 18]
+            .map((n) => "<option " + (s.size === n ? "selected" : "") + ">" + n + "</option>")
+            .join("") +
+          "</select></label>" +
+          btn(
+            "",
+            "left",
+            'data-page="' +
+              (page - 1) +
+              '" aria-label="Poprzednia strona" ' +
+              (page === 1 ? "disabled" : ""),
+            "icon"
+          ) +
+          "<span>" +
+          page +
+          " / " +
+          pages +
+          "</span>" +
+          btn(
+            "",
+            "right",
+            'data-page="' +
+              (page + 1) +
+              '" aria-label="Następna strona" ' +
+              (page >= pages ? "disabled" : ""),
+            "icon"
+          ) +
+          "</div></footer>"
+        );
+      }
+      function mini(rows, s) {
+        return (
+          '<aside class="mini-list" aria-label="Produkty w bieżącym kontekście"><div class="mini-head">PRODUKTY · ' +
+          rows.length +
+          "</div>" +
+          rows
+            .map(
+              (p) =>
+                '<a class="mini-item ' +
+                (s.selected === p.id ? "selected" : "") +
+                '" href="' +
+                href({ selected: p.id, tab: null }) +
+                '" data-open="' +
+                p.id +
+                '">' +
+                productPhoto(p, "mini-photo") +
+                '<span class="mini-copy"><strong>' +
+                esc(p.name) +
+                "</strong><small>" +
+                p.sku +
+                ' <span style="float:right">' +
+                p.available +
+                " " +
+                p.unit +
+                "</span></small></span></a>"
+            )
+            .join("") +
+          "</aside>"
+        );
+      }
+      function productPhoto(p, className = "product-photo") {
+        return (
+          '<img class="' +
+          className +
+          '" src="' +
+          DEMO_PHOTOS[p.photo].src +
+          '" alt="Przykładowe zdjęcie: ' +
+          esc(p.category) +
+          '" width="160" height="160">'
+        );
+      }
+      const props = (rows) =>
+        '<dl class="props">' +
+        rows.map(([k, v]) => "<div><dt>" + k + "</dt><dd>" + esc(v) + "</dd></div>").join("") +
+        "</dl>";
+      function detail(p, s) {
+        const reserved = p.stock - p.available;
+        let content;
+        if (s.tab === "stock") {
+          const stockK = Math.ceil(p.stock * 0.6),
+            availableK = Math.min(stockK, Math.ceil(p.available * 0.6));
+          content =
+            '<section class="section"><h4>Rozmieszczenie zapasu · dane przykładowe</h4><table class="table stock-table"><thead><tr><th>Lokalizacja / oddział</th><th class="num">Stan</th><th class="num">Dostępne</th></tr></thead><tbody><tr><td>Komorniki<br><small class="muted">MC / R01 / Półka A</small></td><td class="num">' +
+            stockK +
+            '</td><td class="num">' +
+            availableK +
+            '</td></tr><tr><td>Wysogotowo<br><small class="muted">MC / R02 / Półka B</small></td><td class="num">' +
+            (p.stock - stockK) +
+            '</td><td class="num">' +
+            (p.available - availableK) +
+            "</td></tr></tbody></table></section>";
+        } else if (s.tab === "history")
+          content =
+            '<section class="section"><h4>Historia przykładowego produktu</h4><div class="history-row">Przyjęcie dostawy <strong style="float:right">+40 ' +
+            p.unit +
+            '</strong><small>11.11.2026, 09:42 · PZ/2026/0142 · Anna Demo</small></div><div class="history-row">Rezerwacja na zlecenie<small>10.11.2026, 14:18 · ZLC/2026/0087 · Piotr Demo</small></div><div class="history-row">Aktualizacja karty produktu<small>09.11.2026, 11:05 · Marta Demo</small></div></section>';
+        else
+          content =
+            '<div class="props-grid"><section class="section"><h4>Dane podstawowe</h4>' +
+            props([
+              ["SKU", p.sku],
+              ["Kategoria", p.category],
+              ["Typ", typeLabel(p)],
+              ["Jednostka", p.unit],
+              ["Marka", p.brand],
+            ]) +
+            '</section><section class="section"><h4>Zakup i magazyn</h4>' +
+            props([
+              ["Dostawca", "Auto Partner — demo"],
+              [
+                "Cena zakupu",
+                p.price.toLocaleString("pl-PL", { style: "currency", currency: "PLN" }),
+              ],
+              ["Stan minimalny", p.minimum + " " + p.unit],
+              ["Lokalizacja", p.location],
+              ["Zwrotny", "Tak"],
+            ]) +
+            '</section></div><p class="desc">Kartoteka materiału do obsługi warsztatu i magazynu części. Dane oraz historia w tym prototypie są fikcyjne i służą porównaniu układów.</p>' +
+            (p.variants > 1
+              ? '<div class="variant-box">' +
+                icon("box") +
+                '<span class="grow"><strong>' +
+                p.variants +
+                ' warianty produktu</strong><br><span class="muted">Rozmiar / strona / wykończenie</span></span>' +
+                btn(
+                  expanded.has(p.id) ? "Zwiń" : "Pokaż",
+                  expanded.has(p.id) ? "down" : "right",
+                  'data-expand="' + p.id + '"'
+                ) +
+                "</div>" +
+                (expanded.has(p.id)
+                  ? '<div class="variant-box">Wariant podstawowy · ' +
+                    p.sku +
+                    "<br>Wariant alternatywny · " +
+                    p.sku +
+                    "-02</div>"
+                  : "")
+              : "");
+        return (
+          '<section class="detail" aria-label="Szczegóły produktu"><header class="detail-top">' +
+          btn("Produkty", "left", 'data-action="close"') +
+          '<span class="context">Karta produktu</span><span class="grow"></span>' +
+          btn("", "filter", 'data-action="filters" aria-label="Filtry listy"', "icon") +
+          btn("", "link", 'data-action="copy" aria-label="Kopiuj adres produktu"', "icon") +
+          '</header><div class="detail-content"><div class="object-head"><div class="object-icon">' +
+          icon("box") +
+          "</div><div><h3>" +
+          esc(p.name) +
+          '</h3><div class="meta"><span>' +
+          p.sku +
+          "</span>" +
+          pill(p) +
+          '</div></div></div><div class="stats"><div class="stat"><span>Na stanie</span><strong>' +
+          p.stock +
+          " <small>" +
+          p.unit +
+          '</small></strong></div><div class="stat"><span>Dostępne</span><strong>' +
+          p.available +
+          " <small>" +
+          p.unit +
+          '</small></strong></div><div class="stat"><span>Rezerwacje</span><strong>' +
+          reserved +
+          " <small>" +
+          p.unit +
+          '</small></strong></div></div><nav class="tabs" aria-label="Zakładki produktu">' +
+          [
+            ["info", "Informacje"],
+            ["stock", "Stany"],
+            ["history", "Historia"],
+          ]
+            .map(
+              ([key, label]) =>
+                '<button data-tab="' +
+                key +
+                '" class="' +
+                (s.tab === key ? "active" : "") +
+                '" aria-selected="' +
+                (s.tab === key) +
+                '">' +
+                label +
+                "</button>"
+            )
+            .join("") +
+          "</nav>" +
+          content +
+          "</div></section>"
+        );
+      }
+      function render() {
+        const active = document.activeElement,
+          focusId = active?.id,
+          caret = active?.selectionStart;
+        const s = read(),
+          all = filtered(s),
+          page = Math.min(s.page, Math.max(1, Math.ceil(all.length / s.size))),
+          rows = all.slice((page - 1) * s.size, page * s.size),
+          p = PRODUCTS.find((p) => p.id === s.selected),
+          phone = s.device === "mobile";
+        document.body.classList.toggle("capture", s.capture);
+        const stage = document.getElementById("stage");
+        stage.className = "stage theme-" + s.variant + (phone ? " phone" : "");
+        stage.dataset.variant = s.variant;
+        stage.dataset.device = s.device;
+        stage.dataset.view = p ? "detail" : "list";
+        document.getElementById("url").textContent =
+          PATH + "?" + new URLSearchParams(location.search).toString();
+        document.getElementById("variantDescription").textContent =
+          s.variant + " — " + THEMES[s.variant].description;
+        document.getElementById("themes").innerHTML = Object.entries(THEMES)
+          .map(
+            ([id, v]) =>
+              '<button data-theme="' +
+              id +
+              '" class="' +
+              (id === s.variant ? "active" : "") +
+              '">' +
+              v.label +
+              "</button>"
+          )
+          .join("");
+        document
+          .querySelectorAll("[data-device]")
+          .forEach((b) => b.classList.toggle("active", b.dataset.device === s.device));
+        document
+          .querySelectorAll("[data-view]")
+          .forEach((b) => b.classList.toggle("active", (b.dataset.view === "detail") === !!p));
+        const nav =
+          '<aside class="nav"><div class="brand"><span class="crystal">◇</span>ambra<span style="font-size:9px;align-self:flex-end;color:var(--muted)">SYSTEM</span></div><div class="org">Ambra · UI demo<br><strong>Poznań ' +
+          (s.branch === "komorniki" ? "Komorniki" : "Wysogotowo") +
+          "</strong></div><button disabled>" +
+          icon("grid") +
+          'Pulpit</button><span class="label">Magazyn</span><button class="selected">' +
+          icon("box") +
+          "Produkty</button><button disabled>" +
+          icon("grid") +
+          "Stany magazynowe</button><button disabled>" +
+          icon("menu") +
+          "Lokalizacje</button><button disabled>" +
+          icon("clock") +
+          'Dokumenty</button><span class="label">Współpraca</span><button disabled>' +
+          icon("grid") +
+          "CRM</button><button disabled>" +
+          icon("clock") +
+          'Planowanie</button><div class="account"><span class="avatar">AD</span><span>Anna Demo<br><span class="muted">Właściciel organizacji</span></span></div></aside>';
+        const appbar =
+          '<header class="appbar">' +
+          (phone ? icon("menu") : '<span class="muted">Magazyn /</span>') +
+          '<strong>Produkty</strong><div class="right"><button class="btn ghost" style="font-size:10px;min-height:26px;padding:0 4px" data-action="branch" aria-label="Zmień oddział">Poznań ' +
+          (s.branch === "komorniki" ? "Komorniki" : "Wysogotowo") +
+          icon("down") +
+          "</button>" +
+          icon("bell") +
+          "</div></header>";
+        const head = !(phone && p)
+          ? '<div class="pagehead"><div><h2>Produkty <small style="color:var(--muted);font-size:12px;font-weight:400">' +
+            all.length +
+            '</small></h2><p>Kartoteka produktów i materiałów</p></div><div class="head-actions">' +
+            btn("Eksport", null, 'data-action="export"', "secondary") +
+            btn(phone ? "Nowy" : "Nowy produkt", "plus", 'data-action="new"', "primary") +
+            "</div></div>"
+          : "";
+        const ribbon =
+          '<div class="ribbon"><span style="color:var(--accent);font-weight:650">Strona główna</span><span>Produkt</span><span>Ceny i rabaty</span><span>Raporty</span></div>';
+        let body = "";
+        if (p && ["B", "F"].includes(s.variant) && !phone) {
+          body =
+            '<div class="listarea"><div class="scroll" id="listScroll">' +
+            table(rows, s) +
+            "</div>" +
+            footer(s, all.length, page) +
+            "</div>" +
+            detail(p, s);
+        } else if (p) body = (!phone ? mini(all, s) : "") + detail(p, s);
+        else
+          body =
+            '<div class="listarea"><div class="scroll" id="listScroll">' +
+            (rows.length
+              ? table(rows, s) + mobileRows(rows, s)
+              : '<div class="empty"><h3>Brak pasujących produktów</h3><p>Zmień wyszukiwanie lub usuń wybrane filtry.</p>' +
+                btn("Wyczyść filtry", null, 'data-action="clear"') +
+                "</div>") +
+            "</div>" +
+            footer(s, all.length, page) +
+            "</div>";
+        document.getElementById("workspace").innerHTML =
+          nav +
+          '<div class="main">' +
+          appbar +
+          head +
+          (!p || !phone ? ribbon + toolbar(s, all.length) + chips(s) : "") +
+          (selectedChecks.size && !p
+            ? '<div class="selectionbar">Zaznaczono ' +
+              selectedChecks.size +
+              " " +
+              btn("Wyczyść zaznaczenie", null, 'data-action="deselect"') +
+              "</div>"
+            : "") +
+          '<div class="body ' +
+          (p ? "has-detail" : "") +
+          '">' +
+          body +
+          "</div>" +
+          (!p
+            ? '<nav class="bottomnav"><span>' +
+              icon("grid") +
+              'Pulpit</span><span class="current">' +
+              icon("box") +
+              "Produkty</span><span>" +
+              icon("menu") +
+              "Więcej</span></nav>"
+            : "") +
+          "</div>";
+        renderKolorMenu();
+        if (!p && document.getElementById("listScroll"))
+          document.getElementById("listScroll").scrollTop = listScroll;
+        if (focusId) {
+          const next = document.getElementById(focusId);
+          if (next) {
+            next.focus({ preventScroll: true });
+            if (typeof caret === "number" && next.setSelectionRange)
+              next.setSelectionRange(caret, caret);
+          }
+        }
+      }
+      function toast(text) {
+        document.getElementById("toast").textContent = text;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => (document.getElementById("toast").textContent = ""), 2600);
+      }
+      document.addEventListener("click", async (e) => {
+        const el = e.target.closest("button,a,input");
+        if (!el) return;
+        const s = read();
+        if (el.hasAttribute("data-ks-back")) {
+          kolorMenu = "fields";
+          renderKolorMenu();
+          return;
+        }
+        if (el.dataset.ksEdit) {
+          if (!el.closest("#ksFilterPopover")) kolorAnchor = el.getBoundingClientRect();
+          kolorMenu = el.dataset.ksEdit;
+          renderKolorMenu();
+          return;
+        }
+        if (el.dataset.ksValue) {
+          const key = el.dataset.ksField,
+            values = kolorValues(s, key),
+            value = el.dataset.ksValue;
+          const next = values.includes(value)
+            ? values.filter((v) => v !== value)
+            : [...values, value];
+          kolorChange({ [key]: next.join(",") || null });
+          document
+            .querySelector('#ksFilterPopover [data-ks-value="' + CSS.escape(value) + '"]')
+            ?.focus();
+          return;
+        }
+        if (el.dataset.ksRemove) {
+          kolorChange({ [el.dataset.ksRemove]: null });
+          return;
+        }
+        if (el.hasAttribute("data-ks-clear")) {
+          kolorChange({ status: null, type: null, stock: null, category: null });
+          return;
+        }
+        if (el.dataset.theme) {
+          kolorMenu = null;
+          update({ variant: el.dataset.theme });
+          return;
+        }
+        if (el.dataset.device) {
+          update({ device: el.dataset.device });
+          return;
+        }
+        if (el.dataset.view) {
+          if (el.dataset.view === "list") closeDetail();
+          else openProduct(filtered(s)[0]?.id ?? PRODUCTS[0].id);
+          return;
+        }
+        if (el.dataset.open) {
+          if (e.metaKey || e.ctrlKey) return;
+          e.preventDefault();
+          openProduct(el.dataset.open);
+          return;
+        }
+        if (el.dataset.tab) {
+          update({ tab: el.dataset.tab }, true);
+          return;
+        }
+        if (el.dataset.sort) {
+          const field = el.dataset.sort;
+          update({ sort: field + "." + (s.sort === field + ".asc" ? "desc" : "asc"), page: null });
+          return;
+        }
+        if (el.dataset.page) {
+          listScroll = 0;
+          update({ page: el.dataset.page });
+          return;
+        }
+        if (el.dataset.remove) {
+          update({ [el.dataset.remove]: null, page: null });
+          return;
+        }
+        if (el.dataset.quick) {
+          update({
+            status: el.dataset.quick === "active" ? "active" : null,
+            stock: el.dataset.quick === "low" ? "low" : null,
+            page: null,
+          });
+          return;
+        }
+        if (el.dataset.expand) {
+          expanded.has(el.dataset.expand)
+            ? expanded.delete(el.dataset.expand)
+            : expanded.add(el.dataset.expand);
+          render();
+          return;
+        }
+        if (el.hasAttribute("data-close-dialog")) {
+          el.closest("dialog").close();
+          return;
+        }
+        switch (el.dataset.action) {
+          case "photo-credits":
+            document.getElementById("photoCredits").showModal();
+            break;
+          case "close":
+            closeDetail();
+            break;
+          case "ks-search-clear":
+            clearTimeout(kolorSearchTimer);
+            kolorSearchOpen = true;
+            kolorChange({ search: null });
+            document.getElementById("search")?.focus();
+            break;
+          case "filters": {
+            if (s.variant === "F") {
+              kolorMenu = kolorMenu === null ? "fields" : null;
+              kolorAnchor = el.getBoundingClientRect();
+              renderKolorMenu();
+              break;
+            }
+            const d = document.getElementById("filterDialog");
+            d.classList.toggle("mobile-dialog", s.device === "mobile");
+            for (const k of ["status", "type", "stock", "category"])
+              document.forms.filtersForm.elements[k].value = s[k];
+            d.showModal();
+            break;
+          }
+          case "columns":
+            for (const k of ["type", "status", "stock"])
+              document.forms.columnsForm.elements[k].checked = columns[k] !== false;
+            document.getElementById("columnsDialog").showModal();
+            break;
+          case "clear":
+            update({
+              search: null,
+              status: null,
+              type: null,
+              stock: null,
+              category: null,
+              page: null,
+            });
+            break;
+          case "deselect":
+            selectedChecks.clear();
+            render();
+            break;
+          case "copy":
+            try {
+              await navigator.clipboard.writeText(location.href);
+              toast("Skopiowano adres prototypu z wybranym produktem.");
+            } catch {
+              toast("Adres wybranego produktu jest w pasku przeglądarki.");
+            }
+            break;
+          case "branch":
+            selectedChecks.clear();
+            listScroll = 0;
+            update({
+              branch: s.branch === "komorniki" ? "wysogotowo" : "komorniki",
+              selected: null,
+              page: null,
+            });
+            toast("Zmieniono kontekst oddziału. Dane demonstracyjne są wspólne.");
+            break;
+          case "refresh":
+            toast("Prototyp: dane lokalne są gotowe. To nie jest pomiar API.");
+            break;
+          case "export":
+            toast("Eksport jest poza zakresem prototypu układu.");
+            break;
+          case "new":
+            toast("Tworzenie produktu pokażemy po wyborze kierunku. Brak zapisu do bazy.");
+            break;
+        }
+      });
+      function openProduct(id) {
+        const scroll = document.getElementById("listScroll");
+        if (scroll) listScroll = scroll.scrollTop;
+        lastSelected = id;
+        update({ selected: id, tab: null }, true);
+      }
+      function closeDetail() {
+        if (!read().selected) {
+          render();
+          return;
+        }
+        lastSelected = read().selected;
+        if (history.state?.fromList) history.back();
+        else update({ selected: null, tab: null }, true);
+      }
+      document.addEventListener("input", (e) => {
+        if (e.target.id === "search") {
+          listScroll = 0;
+          if (read().variant === "F") {
+            clearTimeout(kolorSearchTimer);
+            const value = e.target.value;
+            if (!value) kolorChange({ search: null });
+            else kolorSearchTimer = setTimeout(() => kolorChange({ search: value }), 300);
+            return;
+          }
+          update({ search: e.target.value, page: null });
+        }
+      });
+      document.addEventListener("change", (e) => {
+        if (e.target.id === "pageSize") {
+          listScroll = 0;
+          update({ size: e.target.value, page: null });
+        }
+        if (e.target.dataset.select) {
+          e.target.checked
+            ? selectedChecks.add(e.target.dataset.select)
+            : selectedChecks.delete(e.target.dataset.select);
+          render();
+        }
+        if (e.target.hasAttribute("data-select-all")) {
+          const s = read(),
+            all = filtered(s),
+            page = Math.min(s.page, Math.max(1, Math.ceil(all.length / s.size)));
+          all
+            .slice((page - 1) * s.size, page * s.size)
+            .forEach((p) =>
+              e.target.checked ? selectedChecks.add(p.id) : selectedChecks.delete(p.id)
+            );
+          render();
+        }
+      });
+      document.getElementById("filtersForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const d = new FormData(e.target);
+        selectedChecks.clear();
+        listScroll = 0;
+        update({
+          status: d.get("status"),
+          type: d.get("type"),
+          stock: d.get("stock"),
+          category: d.get("category"),
+          selected: null,
+          tab: null,
+          page: null,
+        });
+        document.getElementById("filterDialog").close();
+      });
+      document.getElementById("resetFilters").addEventListener("click", () => {
+        for (const k of ["status", "type", "stock", "category"])
+          document.forms.filtersForm.elements[k].value = "";
+      });
+      document.getElementById("columnsForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        columns = Object.fromEntries(
+          ["type", "status", "stock"].map((k) => [k, e.target.elements[k].checked])
+        );
+        try {
+          localStorage.setItem("ambra-prototype:columns:v1", JSON.stringify(columns));
+        } catch {}
+        document.getElementById("columnsDialog").close();
+        render();
+      });
+      document.addEventListener("pointerdown", (e) => {
+        if (
+          kolorMenu !== null &&
+          !e.target.closest('#ksFilterPopover,[data-action="filters"],[data-ks-edit]')
+        ) {
+          kolorMenu = null;
+          renderKolorMenu();
+        }
+      });
+      document.addEventListener("focusin", (e) => {
+        if (e.target.id === "search" && read().variant === "F") {
+          kolorSearchOpen = true;
+          e.target.closest(".ks-search")?.classList.add("is-open");
+        }
+      });
+      document.addEventListener("focusout", (e) => {
+        if (e.target.id === "search" && read().variant === "F" && !e.target.value) {
+          kolorSearchOpen = false;
+          e.target.closest(".ks-search")?.classList.remove("is-open");
+        }
+      });
+      document.addEventListener("keydown", (e) => {
+        if (read().variant !== "F") return;
+        if (e.key === "/" && !e.target.closest("input,textarea,select,[contenteditable]")) {
+          e.preventDefault();
+          document.getElementById("search")?.focus();
+        }
+        if (e.key === "Escape") {
+          if (kolorMenu !== null) {
+            kolorMenu = null;
+            renderKolorMenu();
+            document.querySelector(".ks-filter-trigger")?.focus();
+          } else if (e.target.id === "search") {
+            clearTimeout(kolorSearchTimer);
+            kolorChange({ search: null });
+            document.getElementById("search")?.focus();
+          }
+        }
+        if (["ArrowDown", "ArrowUp"].includes(e.key) && e.target.closest("#ksFilterPopover")) {
+          e.preventDefault();
+          const opts = [...document.querySelectorAll("#ksFilterPopover button")],
+            i = opts.indexOf(document.activeElement);
+          opts[(i + (e.key === "ArrowDown" ? 1 : -1) + opts.length) % opts.length]?.focus();
+        }
+      });
+      window.addEventListener("resize", renderKolorMenu);
+      window.addEventListener("popstate", () => {
+        clearTimeout(kolorSearchTimer);
+        render();
+        renderKolorMenu();
+      });
+      render();
+    </script>
+  </body>
+</html>

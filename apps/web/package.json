@@ -41,6 +41,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@google/gemini-cli": "^0.1.22",
+    "@gsap/react": "2.1.2",
     "@hookform/resolvers": "^5.2.2",
     "@lexical/code": "^0.34.0",
     "@lexical/history": "^0.34.0",
@@ -153,9 +154,9 @@
     "zxing-wasm": "^2.2.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "@playwright/test": "^1.61.1",
     "@supabase/mcp-server-supabase": "^0.5.10",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",

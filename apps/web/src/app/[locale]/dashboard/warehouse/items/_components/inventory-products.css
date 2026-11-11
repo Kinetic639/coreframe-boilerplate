@@ -1,0 +1,112 @@
+/* Kolor Sensu's semantic tokens are aliases of the active Ambra theme.
+   The body scope also reaches Radix portals without changing other pages. */
+body:has(.inventory-products-view) {
+  --surface: var(--background);
+  --surface-muted: var(--muted);
+  --surface-subtle: color-mix(in srgb, var(--muted) 65%, var(--background));
+  --text: var(--foreground);
+  --text-muted: var(--muted-foreground);
+  --text-subtle: var(--muted-foreground);
+  --primary-soft: color-mix(in srgb, var(--primary) 12%, var(--background));
+  --primary-hover: color-mix(in srgb, var(--primary) 85%, var(--foreground));
+  --border-strong: color-mix(in srgb, var(--border) 70%, var(--foreground));
+  --danger: var(--destructive);
+  --danger-soft: color-mix(in srgb, var(--destructive) 12%, var(--background));
+  --radius-control: var(--radius);
+  --radius-surface: var(--radius);
+  --shadow-raised: 0 8px 28px color-mix(in srgb, var(--foreground) 12%, transparent);
+  --shadow-overlay: 0 18px 48px color-mix(in srgb, var(--foreground) 18%, transparent);
+}
+.inventory-products-view {
+  min-height: 400px;
+  height: calc(100dvh - 9rem);
+}
+.products-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--background);
+}
+.products-filter-row > div:first-child {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
+}
+.products-filter-extras {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 10px;
+}
+.products-desktop-table {
+  display: flex;
+}
+.products-mobile-list {
+  display: none;
+}
+/* Zoho direction: photographic identity, quiet horizontal rules, clear headings. */
+.products-desktop-table table > thead th {
+  height: 38px;
+  border-right: 0;
+  background: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+.products-desktop-table table > tbody td,
+.products-desktop-table table > tbody th {
+  height: 46px;
+  border-right: 0;
+}
+.products-desktop-table table > tbody tr {
+  transition: background-color 0.1s;
+}
+.products-desktop-table table > tbody tr:hover {
+  background: var(--surface-subtle);
+}
+.products-desktop-table table > tbody tr[data-selected] {
+  background: var(--primary-soft);
+}
+.products-panel .product-panel-summary {
+  background: var(--surface-subtle);
+}
+@media (max-width: 767px) {
+  .inventory-products-view {
+    height: calc(100dvh - 8rem);
+    min-height: 320px;
+  }
+  .products-desktop-table {
+    display: none;
+  }
+  .products-mobile-list {
+    display: flex;
+  }
+  .products-filter-extras {
+    padding: 6px 10px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .products-mobile-list > div:last-child {
+    height: auto;
+    min-height: 40px;
+    padding: 6px;
+  }
+  .products-mobile-list > div:last-child > div {
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+  .inventory-products-view [aria-label^="Filtry"],
+  .products-mobile-list [aria-label="Kolumny"],
+  .products-mobile-list [aria-label^="Akcje:"] {
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .products-filter-row div:has(> label > input[type="search"]) {
+    height: 40px;
+  }
+  body:has(.inventory-products-view) [data-radix-popper-content-wrapper] button {
+    min-height: 36px;
+  }
+}

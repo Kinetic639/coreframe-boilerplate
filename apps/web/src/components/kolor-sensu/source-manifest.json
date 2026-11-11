@@ -1,0 +1,85 @@
+{
+  "source": "D:/dev/kolor-sensu-review/packages/ui/src",
+  "files": [
+    {
+      "file": "data-table/data-table.tsx",
+      "sourceSha256": "e9cf71ad01251ebd6e8a6aabd1380d78f0e3bb406b9ccc7876227c8ebcbaa7ac",
+      "localSha256": "5e52ef8bf700524201355a46c94dcb30cb2ecd3cc63d49b1b4d25bb002dad92f"
+    },
+    {
+      "file": "data-table/filter-bar.tsx",
+      "sourceSha256": "203eee1db0205cb7371926a5b0a5a20b8599b20039b10b7b7eacf7c9c6f7e25a",
+      "localSha256": "e9bbe50ce98108ad6752445216fed6a982eac24754e40e9a77dee5551180f4b0"
+    },
+    {
+      "file": "data-table/columns.ts",
+      "sourceSha256": "6d46246cad620e88e662adfb01b2accdf045094f27b6373e93c00a69036772b6",
+      "localSha256": "a62b1bca474225286b33e8dcaada9c75600bf2a8fa4b5d4df12af572ae85de8d"
+    },
+    {
+      "file": "data-table/columns-menu.tsx",
+      "sourceSha256": "4743e2694b269cc10bf9c7b7cd285642d8cfc257b1723969f1281914e5552e7f",
+      "localSha256": "7be68f5b93d7dab7850bce01e6a0aba5cdbbeca8b19eaba1ef690c020ca82580"
+    },
+    {
+      "file": "data-table/column-resizer.tsx",
+      "sourceSha256": "2ff66be02d3ecdfbb35f35a275cc2da512c8c3d66f55f79b0fc48b2522b4e2bd",
+      "localSha256": "bc7c749f92ab2ca85ddeda6a5385c43be3214ba6f98165aec5ee9325ace3c7af"
+    },
+    {
+      "file": "data-table/table-row.tsx",
+      "sourceSha256": "e028fde94ca8ed5349da1dff4a6833ed55f371fa8067dfcde0acab859beb8df0",
+      "localSha256": "a47825e90e686bc40d9238783b5fb9a517b8c6ad670f5f577c0f552cd94b58e2"
+    },
+    {
+      "file": "lib/utils.ts",
+      "sourceSha256": "5f27f27894d1c3ff4d99bc807301fbee232b26c0d472078e064471e82be78558",
+      "localSha256": "efdff4f739fd56dec247d59f48bfb573f13d696edc0c8d0ebb7550aa33d4fc65"
+    },
+    {
+      "file": "popover.tsx",
+      "sourceSha256": "6a0ce258106f48d9403aed7525e062756424a95a853fb48eff88490e480340f7",
+      "localSha256": "fe164a23b471d6dac1ba0bb7bb31447f273246cf8db219bed10dadf478cedfd3"
+    },
+    {
+      "file": "tooltip.tsx",
+      "sourceSha256": "488ebad480178431d62a88338c81ea53735ac244d1361b78063fe5874b3d0a2b",
+      "localSha256": "cafdc20817cb796157eeac6b03c160b90b8dc415bd4489a99d76b87b513c7f99"
+    },
+    {
+      "file": "dropdown-menu.tsx",
+      "sourceSha256": "99cc2f2e57a67d645eb11d94c86e986fc734ce0513045d965e9c0961a62afa9f",
+      "localSha256": "97f8212b98133d394c537ff02ea96bd8067aef1b7ee3fbacda22b43c66785d20"
+    },
+    {
+      "file": "row-actions.tsx",
+      "sourceSha256": "d871c7bf3de1cfe649cc29fb2d21cc3d5bcadb0d369a704e894e4ea8550bfa39",
+      "localSha256": "15b59c1f743bac3ca5e9b4be9a02080ac9f8f4f0e816bdff50d633ffbbb72480"
+    },
+    {
+      "file": "public-site/page-link.tsx",
+      "sourceSha256": "450e8b22d3a353f1059b5dc7370885849bbf84667b95dde2943a0417b3d4f4d6",
+      "localSha256": "450e8b22d3a353f1059b5dc7370885849bbf84667b95dde2943a0417b3d4f4d6"
+    },
+    {
+      "file": "visit-table/visit-panel-motion.tsx",
+      "sourceSha256": "e0244ba88a15aec79ae34888423deffe40e3af086c704e1380cb1b51f2df060f",
+      "localSha256": "172905ec552af695d74ec97a9eb94f0d4c7f426efa93f0208a5ef35816005116"
+    },
+    {
+      "file": "visit-table/visit-panel-tabs.tsx",
+      "sourceSha256": "5a0135bb6e69cde881c93ec0c4f2917ce9f3985a55767e4504d2693d85b4ce24",
+      "localSha256": "454454046980f1df2839ed60e867ccfb6e9a9208805043e629390aa8caed3a05"
+    },
+    {
+      "file": "detail-page/detail-page.tsx",
+      "sourceSha256": "d2df690c4a8ff5692d35978ca14e690497ecdc1ca86723e27040004119fc9d8d",
+      "localSha256": "fc7ca9cb9e5d305710a2fa66adb84a0ba8ff6038674336ba0716447894e07a8d"
+    }
+  ],
+  "revision": "b337b32faa790386c2ad45aa9d0bb308aca1eb22",
+  "localChanges": [
+    "Prettier formatting",
+    "Removed redundant eslint-disable directive from filter-bar.tsx"
+  ]
+}

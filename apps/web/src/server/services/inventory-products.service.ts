@@ -132,7 +132,7 @@ function applyProductSort(query: any, sort: DataViewListParams["sort"]) {
   };
   const field = sort?.field ? sortMap[sort.field] : "updated_at";
   const ascending = sort?.direction === "asc";
-  return query.order(field ?? "updated_at", { ascending });
+  return query.order(field ?? "updated_at", { ascending }).order("id", { ascending: true });
 }
 
 function toNumber(value: number | string | null | undefined): number {
@@ -189,18 +189,34 @@ export class InventoryProductsService {
       .eq("organization_id", orgId)
       .is("deleted_at", null);
 
-    if (params.search) {
-      query = query.ilike("name", `%${params.search}%`);
+    if (params.search && groupVariants) {
+      // Match the name or any live variant SKU, while retaining tenant scoping.
+      const pattern = `%${params.search.replace(/[\\%_]/g, "\\$&")}%`;
+      const { data: matches, error: searchError } = await supabase
+        .from("inventory_variants")
+        .select("product_id")
+        .eq("organization_id", orgId)
+        .is("deleted_at", null)
+        .ilike("sku", pattern);
+      if (searchError) return { success: false, error: searchError.message };
+      const ids = [...new Set((matches ?? []).map((row) => row.product_id))];
+      query = ids.length
+        ? query.or(`name.ilike.${JSON.stringify(pattern)},id.in.(${ids.join(",")})`)
+        : query.ilike("name", pattern);
     }
 
     const status = params.filters.status;
     if (typeof status === "string" && status) {
       query = query.eq("status", status);
+    } else if (Array.isArray(status) && status.length) {
+      query = query.in("status", status);
     }
 
     const productType = params.filters.product_type;
     if (typeof productType === "string" && productType) {
       query = query.eq("product_type", productType);
+    } else if (Array.isArray(productType) && productType.length) {
+      query = query.in("product_type", productType);
     }
 
     const filteredProductIds = await InventoryProductsService.resolveProductListFilterProductIds(
@@ -279,17 +295,22 @@ export class InventoryProductsService {
       .eq("organization_id", orgId);
 
     if (params.search) {
-      indexQuery = indexQuery.ilike("product_name", `%${params.search}%`);
+      const pattern = JSON.stringify(`%${params.search.replace(/[\\%_]/g, "\\$&")}%`);
+      indexQuery = indexQuery.or(`product_name.ilike.${pattern},variant_sku.ilike.${pattern}`);
     }
 
     const status = params.filters.status;
     if (typeof status === "string" && status) {
       indexQuery = indexQuery.eq("status", status);
+    } else if (Array.isArray(status) && status.length) {
+      indexQuery = indexQuery.in("status", status);
     }
 
     const productType = params.filters.product_type;
     if (typeof productType === "string" && productType) {
       indexQuery = indexQuery.eq("product_type", productType);
+    } else if (Array.isArray(productType) && productType.length) {
+      indexQuery = indexQuery.in("product_type", productType);
     }
 
     if (filteredProductIds) {
