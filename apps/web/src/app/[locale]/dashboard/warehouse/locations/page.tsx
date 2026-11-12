@@ -1,5 +1,7 @@
-import { redirect } from "@/i18n/navigation";
-import { getLocale } from "next-intl/server";
+import { cookies } from "next/headers";
+import { redirect as redirectUrl } from "next/navigation";
+import { getPathname, redirect } from "@/i18n/navigation";
+import { getLocale, getTranslations } from "next-intl/server";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
   WAREHOUSE_LOCATIONS_MANAGE,
@@ -13,15 +15,29 @@ import { InventoryProductsService } from "@/server/services/inventory-products.s
 import { createClient } from "@/utils/supabase/server";
 import { AmbraLocationsClient } from "./_components/ambra-locations-client";
 import { createAmbraBranch, warehouseLocationsToAmbra } from "./_lib/warehouse-location-adapter";
-import { parseDataViewSearchParams } from "@/components/data-view/data-view-search-params";
+import { parseLayout, parseWidths } from "@/components/kolor-sensu/data-table/columns";
+import { locationColumnSet, migrateLocationSearch } from "./_components/list/locations-list-state";
+import "@/components/kolor-sensu/data-table/ambra-list.css";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
+function cookieValue(value: string | undefined) {
+  try {
+    return value ? decodeURIComponent(value) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function AmbraWarehouseLocationsPage({ searchParams }: PageProps) {
-  const locale = await getLocale();
-  const context = await loadDashboardContextV2();
+  const [locale, context, t, tAmbra] = await Promise.all([
+    getLocale(),
+    loadDashboardContextV2(),
+    getTranslations("warehouseLocations.listView"),
+    getTranslations("ambraLocations.actions"),
+  ]);
 
   if (!context?.app.activeOrgId) {
     return redirect({ href: "/sign-in", locale });
@@ -45,6 +61,20 @@ export default async function AmbraWarehouseLocationsPage({ searchParams }: Page
     WAREHOUSE_LOCATIONS_MANAGE
   );
 
+  const path = getPathname({ locale, href: "/dashboard/warehouse/locations" });
+  // Old DataView links of the list view become this list's address.
+  const raw = searchParams ? await searchParams : {};
+  if (raw.view === "list") {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(raw)) {
+      for (const item of Array.isArray(value) ? value : value === undefined ? [] : [value]) {
+        query.append(key, item);
+      }
+    }
+    const migrated = migrateLocationSearch(query.toString());
+    if (migrated !== null) return redirectUrl(`${path}?${migrated}`);
+  }
+
   const branchId = context.app.activeBranchId;
   const supabase = await createClient();
   const locationsResult = branchId
@@ -64,23 +94,45 @@ export default async function AmbraWarehouseLocationsPage({ searchParams }: Page
     ? await InventoryProductsService.listVariantOptions(supabase, context.app.activeOrgId, branchId)
     : { success: true as const, data: [] };
 
-  const dvParams = parseDataViewSearchParams(searchParams ? await searchParams : {});
-  const listResult = branchId
-    ? await WarehouseLocationsService.listPaginated(
-        supabase,
-        context.app.activeOrgId,
-        branchId,
-        dvParams
-      )
-    : {
-        success: true as const,
-        data: {
-          rows: [] as import("@/server/services/warehouse-locations.service").LocationListRow[],
-          totalCount: 0,
-          page: dvParams.page,
-          pageSize: dvParams.pageSize,
-        },
-      };
+  const pl = locale === "pl";
+  const labels: Record<string, string> = {
+    locale,
+    title: pl ? "Lokalizacje" : "Locations",
+    code: t("code"),
+    name: t("name"),
+    path: t("path"),
+    level: t("level"),
+    storageMode: t("storageMode"),
+    canStoreInventory: t("canStoreInventory"),
+    created: t("created"),
+    yes: t("yes"),
+    no: pl ? "Nie" : "No",
+    preview: pl ? "Podgląd" : "Preview",
+    showInTree: pl ? "Pokaż w drzewie" : "Show in tree",
+    printLabel: pl ? "Drukuj etykietę" : "Print label",
+    auditLocation: tAmbra("auditLocation"),
+    bentoView: tAmbra("bentoView"),
+    streamlinedView: tAmbra("streamlinedView"),
+    selection: pl ? "Zaznaczone lokalizacje" : "Selected locations",
+    selectedCount: pl ? "Zaznaczono: {count}" : "Selected: {count}",
+    printSelected: pl ? "Drukuj etykiety ({count})" : "Print labels ({count})",
+    auditSelected: tAmbra("auditSelected", { count: "{count}" }),
+    clearSelection: pl ? "Odznacz" : "Clear selection",
+    selectAll: pl ? "Zaznacz wszystkie na stronie" : "Select all on this page",
+    selectRow: pl ? "Zaznacz" : "Select",
+    search: pl ? "Szukaj kodu, nazwy, ścieżki…" : "Search code, name, path…",
+    empty: pl
+      ? "Brak lokalizacji pasujących do wyszukiwania i filtrów."
+      : "No locations match the search and filters.",
+    notFound: pl
+      ? "Lokalizacja nie istnieje w tym oddziale."
+      : "This location is not in this branch.",
+    close: pl ? "Zamknij szczegóły" : "Close details",
+    countSuffix: pl ? "lokalizacji" : "locations",
+  };
+  const set = locationColumnSet(labels);
+  const cookie = `ambra_locations_${context.user.user.id}_${context.app.activeOrgId}`;
+  const jar = await cookies();
 
   return (
     <AmbraLocationsClient
@@ -109,9 +161,14 @@ export default async function AmbraWarehouseLocationsPage({ searchParams }: Page
           ? variantOptionsResult.data.filter((v) => (v.on_hand_quantity ?? 0) > 0)
           : []
       }
-      initialListData={
-        listResult.success ? listResult.data : { rows: [], totalCount: 0, page: 1, pageSize: 25 }
-      }
+      list={{
+        path,
+        set,
+        layout: parseLayout(set, cookieValue(jar.get(cookie)?.value)),
+        widths: parseWidths(cookieValue(jar.get(`${cookie}_widths`)?.value), set),
+        cookie,
+        labels,
+      }}
       canCreateLocation={canManageLocations}
     />
   );
