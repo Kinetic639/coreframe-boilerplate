@@ -24,7 +24,7 @@ describe("MobileMenu", () => {
     expect(screen.getByText("Rozwiązania")).toBeInTheDocument();
     expect(screen.getByText("Materiały edukacyjne")).toBeInTheDocument();
     expect(screen.getByText("Aplikacja mobilna")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /zaloguj się/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /rozpocznij za darmo/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /logowanie ambra erp/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /logowanie vmi/i })).toBeInTheDocument();
   }, 15000);
 });

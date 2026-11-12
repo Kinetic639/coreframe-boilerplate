@@ -81,13 +81,18 @@ describe("PublicHeaderAuth", () => {
     vi.clearAllMocks();
   });
 
-  it("renders sign-in and sign-up buttons for guests", () => {
+  it("renders the sign-in menu for guests", () => {
     render(<PublicHeaderAuth userContext={null} />);
 
-    expect(screen.getByRole("link", { name: /zaloguj się/i })).toHaveAttribute("href", "/sign-in");
-    expect(screen.getByRole("link", { name: /rozpocznij za darmo/i })).toHaveAttribute(
+    // One sign-in button opens a menu with both portals.
+    fireEvent.click(screen.getByRole("button", { name: /signIn/ }));
+    expect(screen.getByRole("menuitem", { name: "Ambra ERP" })).toHaveAttribute(
       "href",
-      "/sign-up"
+      "https://app.ambra-system.com/sign-in"
+    );
+    expect(screen.getByRole("menuitem", { name: "VMI portal" })).toHaveAttribute(
+      "href",
+      "https://vmi.ambra-system.com/sign-in"
     );
   });
 
@@ -98,7 +103,7 @@ describe("PublicHeaderAuth", () => {
 
     expect(screen.getByRole("link", { name: /dashboard/i })).toHaveAttribute(
       "href",
-      "/dashboard/start"
+      "https://app.ambra-system.com/dashboard/start"
     );
 
     fireEvent.click(screen.getByRole("button", { name: /log out/i }));

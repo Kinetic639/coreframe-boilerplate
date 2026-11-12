@@ -19,6 +19,10 @@ vi.mock("@/utils/supabase/server", () => ({
   }),
 }));
 
+vi.mock("next/headers", () => ({
+  headers: vi.fn().mockResolvedValue(new Headers()),
+}));
+
 vi.mock("next-intl/server", () => ({
   getLocale: vi.fn().mockResolvedValue("pl"),
 }));

@@ -59,7 +59,7 @@ describe("MobileMenu", () => {
     expect(screen.getByText("Rozwiązania")).toBeInTheDocument();
     expect(screen.getByText("Materiały edukacyjne")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /zaloguj się/i })).toHaveAttribute("href", "/sign-in");
-    expect(screen.getByRole("link", { name: /rozpocznij za darmo/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /zarejestruj się/i })).toHaveAttribute(
       "href",
       "/sign-up"
     );

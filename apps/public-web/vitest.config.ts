@@ -7,14 +7,15 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
-      "server-only": path.resolve(__dirname, "src/__mocks__/server-only.ts")
-    }
+      "server-only": path.resolve(__dirname, "src/__mocks__/server-only.ts"),
+      "@supabase/service": path.resolve(__dirname, "src/utils/supabase/service.ts"),
+    },
   },
   test: {
     globals: true,
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
-    exclude: ["node_modules", ".next", "dist", "build", "coverage", "test-results"]
-  }
+    exclude: ["node_modules", ".next", "dist", "build", "coverage", "test-results"],
+  },
 });

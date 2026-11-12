@@ -241,6 +241,7 @@ describe("ALL_PERMISSION_SLUGS registry", () => {
       "planning.*",
       "qr.*",
       "superadmin.*",
+      "vmi.*",
       "warehouse.*",
       "workshop.*",
     ]);

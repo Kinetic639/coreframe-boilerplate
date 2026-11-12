@@ -25,6 +25,6 @@ describe("MobileMenu", () => {
     expect(screen.getByText("Materiały edukacyjne")).toBeInTheDocument();
     expect(screen.getByText("Aplikacja mobilna")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /zaloguj się/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /rozpocznij za darmo/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /zarejestruj się/i })).toBeInTheDocument();
   }, 15000);
 });
