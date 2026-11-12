@@ -1,7 +1,7 @@
 import Image from "next/image";
-import { Package, Pencil, ExternalLink } from "lucide-react";
-import type { ReactNode } from "react";
-import { PageLink } from "@/components/kolor-sensu/public-site/page-link";
+import { ArrowDown, ArrowUp, ChevronsUpDown, Package, Pencil, ExternalLink } from "lucide-react";
+import type { MouseEvent, ReactNode } from "react";
+import { TableLink as PageLink } from "@/components/kolor-sensu/data-table/table-navigation";
 import {
   DataTable,
   TablePagination,
@@ -22,8 +22,22 @@ import type {
 } from "@/lib/warehouse/inventory-types";
 import type { PaginatedResult } from "@/lib/data-view/types";
 import { cn } from "@/lib/utils";
-import { productHref, PAGE_SIZES, type ProductState } from "./inventory-products-state";
-import { ProductFilters } from "./inventory-products-controls";
+import { ProductsBulkBar, rowsToCsv } from "./inventory-products-bulk-bar";
+import {
+  productHref,
+  PAGE_SIZES,
+  type ProductSort,
+  type ProductState,
+} from "./inventory-products-state";
+
+/** Columns the list sorts by (the stock sums only for the grouped list). */
+const SORTABLE = new Set<string>(["product_type", "status", "updated_at"]);
+const STOCK_SORTABLE = new Set<string>([
+  "on_hand_quantity",
+  "available_quantity",
+  "reserved_total_quantity",
+  "blocked_quantity",
+]);
 
 export function productColumnSet(
   customFields: InventoryCustomFieldDefinition[],
@@ -71,6 +85,7 @@ export function productColumnSet(
 export function ProductThumbnail({ src, size = 32 }: { src: string | null; size?: number }) {
   return (
     <span
+      data-product-thumbnail=""
       className="inline-grid shrink-0 place-items-center overflow-hidden rounded border bg-muted/40"
       style={{ width: size, height: size }}
     >
@@ -114,12 +129,24 @@ export function InventoryProductsTable({
   layout,
   widths,
   cookie,
-  customFields,
   labels,
   canManageProducts,
   productPath,
   error,
+  loading,
+  refreshing,
+  onRetry,
+  onLayoutChange,
+  onPreview,
+  onPrefetch,
+  ticked,
+  onTickedChange,
+  canArchive,
 }: {
+  /** The rows ticked (row ids), for actions on several at once. */
+  ticked: string[];
+  onTickedChange: (rowIds: string[]) => void;
+  canArchive: boolean;
   data: PaginatedResult<InventoryProductListRow>;
   state: ProductState;
   path: string;
@@ -127,11 +154,19 @@ export function InventoryProductsTable({
   layout: ColumnLayout;
   widths: ColumnWidths;
   cookie: string;
-  customFields: InventoryCustomFieldDefinition[];
   labels: Record<string, string>;
   canManageProducts: boolean;
   productPath: (id: string, edit?: boolean) => string;
   error: string | null;
+  /** No rows yet (nothing cached for this address). */
+  loading: boolean;
+  /** Rows shown are the previous ones (or stale) while new ones come. */
+  refreshing: boolean;
+  onRetry: () => void;
+  onLayoutChange: (layout: ColumnLayout) => void;
+  onPreview: (selectionId: string | null) => void;
+  /** A row the pointer rests on (null: it left), for its card's prefetch. */
+  onPrefetch: (selectionId: string | null) => void;
 }) {
   const shown = layout.filter((c) => c.shown).map((c) => c.id);
   const { page, pages, range } = pageState(
@@ -142,7 +177,13 @@ export function InventoryProductsTable({
   const href = (patch: Partial<ProductState>) => productHref(path, state, patch);
   const rowHref = (row: InventoryProductListRow) =>
     href({ selected: state.selected === row.row_id ? null : row.row_id, tab: "info" });
-  const sortOf = (field: "name" | "product_type" | "status" | "updated_at") => ({
+  const openPreview = (event: MouseEvent, row: InventoryProductListRow) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+      return;
+    event.preventDefault();
+    onPreview(state.selected === row.row_id ? null : row.row_id);
+  };
+  const sortOf = (field: ProductSort) => ({
     href: href({
       sort: field,
       direction: state.sort === field && state.direction === "asc" ? "desc" : "asc",
@@ -157,6 +198,7 @@ export function InventoryProductsTable({
       defaults={defaultLayout(set)}
       labels={set.labels}
       layout={layout}
+      onChange={onLayoutChange}
       pinnedLabel={set.pinned.label}
     />
   );
@@ -218,6 +260,46 @@ export function InventoryProductsTable({
         return row.custom_field_values[id.replace("custom_field:", "")] || "—";
     }
   };
+  // Plain values, for the CSV of the ticked rows.
+  const plain = (row: InventoryProductListRow, id: string): unknown => {
+    switch (id) {
+      case "name":
+        return row.name;
+      case "product_type":
+        return labels[row.product_type] ?? row.product_type;
+      case "status":
+        return labels[row.status] ?? row.status;
+      case "updated_at":
+        return new Date(row.updated_at).toLocaleString(labels.locale);
+      case "sku":
+      case "on_hand_quantity":
+      case "available_quantity":
+      case "reserved_total_quantity":
+      case "blocked_quantity":
+        return row[id];
+      default:
+        return row.custom_field_values[id.replace("custom_field:", "")] ?? "";
+    }
+  };
+  const tickedSet = new Set(ticked);
+  const tickedRows = data.rows.filter((row) => tickedSet.has(row.row_id));
+  const selection = {
+    isSelected: (row: InventoryProductListRow) => tickedSet.has(row.row_id),
+    toggle: (row: InventoryProductListRow) =>
+      onTickedChange(
+        tickedSet.has(row.row_id)
+          ? ticked.filter((id) => id !== row.row_id)
+          : [...ticked, row.row_id]
+      ),
+    all: data.rows.length > 0 && tickedRows.length === data.rows.length,
+    some: tickedRows.length > 0,
+    toggleAll: () =>
+      onTickedChange(
+        tickedRows.length === data.rows.length ? [] : data.rows.map((row) => row.row_id)
+      ),
+    allLabel: labels.bulkSelectAll,
+    rowLabel: (row: InventoryProductListRow) => `${labels.bulkSelectRow}: ${row.name}`,
+  };
   const pagination = (
     <TablePagination
       sizes={PAGE_SIZES.map((size) => ({
@@ -230,74 +312,175 @@ export function InventoryProductsTable({
       nextHref={page < pages ? href({ strona: page + 1, selected: null }) : null}
     />
   );
+  const nameSort = sortOf("name");
+  const NameSortIcon =
+    nameSort.direction === "asc"
+      ? ArrowUp
+      : nameSort.direction === "desc"
+        ? ArrowDown
+        : ChevronsUpDown;
+  const productIdentity = (row: InventoryProductListRow) => (
+    <>
+      <ProductThumbnail src={row.thumbnail_url} size={32} />
+      <span className="min-w-0">
+        <span data-product-name="" className="block truncate text-[13px] font-medium">
+          {row.name}
+        </span>
+        <span
+          data-product-sku=""
+          className="block truncate font-mono text-[11px] leading-4 font-normal text-muted-foreground"
+        >
+          {row.sku || labels.noSku}
+        </span>
+      </span>
+    </>
+  );
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <ProductFilters order={layout.map((c) => c.id)} customFields={customFields} labels={labels} />
+    <div
+      className={cn(
+        "products-list-pane relative flex min-h-0 min-w-0 flex-1 flex-col",
+        state.selected && "products-list-pane--preview"
+      )}
+      aria-busy={loading || refreshing}
+      data-refreshing={refreshing ? "" : undefined}
+    >
+      {/* The rows stay while new ones come: a thin bar says so, not a skeleton. */}
+      {loading || refreshing ? (
+        <div className="products-progress" role="progressbar" aria-label={labels.loading} />
+      ) : null}
       {error ? (
         <div role="alert" className="border-b bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {labels.loadError} <span className="block text-xs">{error}</span>
-          <PageLink href={href({})} className="underline">
+          <button type="button" onClick={onRetry} className="underline">
             {labels.retry}
-          </PageLink>
+          </button>
         </div>
       ) : null}
-      <div className="products-desktop-table min-h-0 flex-1 flex-col">
-        <DataTable
-          caption={labels.title}
-          set={set}
-          columns={shown.map((id) => ({
-            id,
-            label: set.labels[id],
-            sort: ["product_type", "status", "updated_at"].includes(id)
-              ? sortOf(id as "product_type" | "status" | "updated_at")
-              : undefined,
-          }))}
-          rows={data.rows}
-          rowKey={(row) => row.row_id}
-          rowHref={rowHref}
-          selected={(row) => row.row_id === state.selected}
-          pinnedSort={sortOf("name")}
-          pinned={(row, url) => (
-            <PageLink href={url} scroll={false} className="flex min-w-0 items-center gap-2.5 py-1">
-              <ProductThumbnail src={row.thumbnail_url} />
-              <span className="min-w-0">
-                <span className="block truncate text-[13px] font-medium">{row.name}</span>
-                <span className="block truncate text-[11px] font-normal text-muted-foreground">
-                  {row.is_variant_row
-                    ? row.parent_product_name
-                    : row.variant_count > 1
-                      ? `${row.variant_count} ${labels.variants.toLowerCase()}`
-                      : row.sku || labels.noSku}
-                </span>
-              </span>
-            </PageLink>
-          )}
-          cell={(row, id) => (
-            <td
-              key={id}
+      {state.selected ? (
+        <aside
+          className="products-desktop-mini-list min-h-0 flex-1 overflow-y-auto border-r bg-background"
+          aria-label={labels.title}
+        >
+          <header className="sticky top-0 z-10 flex h-[34px] items-center border-b bg-muted/70 px-3 text-[10px] font-medium text-muted-foreground backdrop-blur-sm">
+            <PageLink
+              href={nameSort.href}
+              scroll={false}
               className={cn(
-                TD,
-                [
-                  "on_hand_quantity",
-                  "available_quantity",
-                  "reserved_total_quantity",
-                  "blocked_quantity",
-                ].includes(id)
-                  ? "text-right"
-                  : "text-muted-foreground"
+                "inline-flex items-center gap-1 rounded hover:text-foreground",
+                nameSort.direction && "text-foreground"
               )}
             >
-              {value(row, id)}
-            </td>
-          )}
-          actions={actions}
-          menu={menu}
-          widths={widths}
-          widthsCookie={`${cookie}_widths`}
-          empty={error ? labels.loadError : labels.empty}
-          pagination={pagination}
-        />
-      </div>
+              {set.pinned.label}
+              <NameSortIcon
+                className={cn("size-3", !nameSort.direction && "opacity-40")}
+                aria-hidden="true"
+              />
+            </PageLink>
+          </header>
+          <ul>
+            {data.rows.map((row) => {
+              const selected = row.row_id === state.selected;
+              return (
+                <li key={row.row_id} data-row-id={row.row_id}>
+                  <PageLink
+                    href={rowHref(row)}
+                    scroll={false}
+                    onClick={(event) => openPreview(event, row)}
+                    onMouseEnter={() => onPrefetch(row.row_id)}
+                    onMouseLeave={() => onPrefetch(null)}
+                    onFocus={() => onPrefetch(row.row_id)}
+                    className={cn(
+                      "group flex h-[49px] items-center gap-2.5 border-b px-3 py-1 hover:bg-muted/50",
+                      selected &&
+                        "border-l-[3px] border-l-primary bg-primary/10 pl-[9px] hover:bg-primary/10"
+                    )}
+                    aria-current={selected ? "true" : undefined}
+                  >
+                    {productIdentity(row)}
+                  </PageLink>
+                </li>
+              );
+            })}
+          </ul>
+        </aside>
+      ) : (
+        <div className="products-desktop-table min-h-0 flex-1 flex-col">
+          {tickedRows.length ? (
+            <ProductsBulkBar
+              rows={tickedRows}
+              canArchive={canArchive}
+              labels={labels}
+              onClear={() => onTickedChange([])}
+              csv={() =>
+                rowsToCsv(
+                  tickedRows,
+                  [
+                    { id: "name", label: set.pinned.label },
+                    ...shown.map((id) => ({ id, label: set.labels[id] })),
+                  ],
+                  plain
+                )
+              }
+            />
+          ) : null}
+          <DataTable
+            caption={labels.title}
+            set={set}
+            columns={shown.map((id) => ({
+              id,
+              label: set.labels[id],
+              sort:
+                SORTABLE.has(id) || (state.grouped && STOCK_SORTABLE.has(id))
+                  ? sortOf(id as ProductSort)
+                  : undefined,
+            }))}
+            rows={data.rows}
+            rowKey={(row) => row.row_id}
+            rowHref={rowHref}
+            selected={(row) => row.row_id === state.selected}
+            pinnedSort={nameSort}
+            onRowIntent={(row) => onPrefetch(row ? row.row_id : null)}
+            selection={selection}
+            pinned={(row, url) => (
+              <PageLink
+                href={url}
+                scroll={false}
+                onClick={(event) => openPreview(event, row)}
+                onMouseEnter={() => onPrefetch(row.row_id)}
+                onMouseLeave={() => onPrefetch(null)}
+                onFocus={() => onPrefetch(row.row_id)}
+                className="flex min-w-0 items-center gap-2.5 py-1"
+              >
+                {productIdentity(row)}
+              </PageLink>
+            )}
+            cell={(row, id) => (
+              <td
+                key={id}
+                className={cn(
+                  TD,
+                  [
+                    "on_hand_quantity",
+                    "available_quantity",
+                    "reserved_total_quantity",
+                    "blocked_quantity",
+                  ].includes(id)
+                    ? "text-right"
+                    : "text-muted-foreground"
+                )}
+              >
+                {value(row, id)}
+              </td>
+            )}
+            actions={actions}
+            menu={menu}
+            widths={widths}
+            widthsCookie={`${cookie}_widths`}
+            empty={loading ? labels.loading : error ? labels.loadError : labels.empty}
+            pagination={pagination}
+          />
+        </div>
+      )}
       <div className="products-mobile-list min-h-0 flex-1 flex-col">
         <header className="flex h-10 shrink-0 items-center justify-between border-b px-3 text-xs text-muted-foreground">
           <span>
@@ -327,6 +510,10 @@ export function InventoryProductsTable({
               <PageLink
                 href={rowHref(row)}
                 scroll={false}
+                onClick={(event) => openPreview(event, row)}
+                onMouseEnter={() => onPrefetch(row.row_id)}
+                onMouseLeave={() => onPrefetch(null)}
+                onFocus={() => onPrefetch(row.row_id)}
                 className="flex min-w-0 flex-1 items-start gap-2.5"
               >
                 <ProductThumbnail src={row.thumbnail_url} size={42} />
@@ -354,7 +541,7 @@ export function InventoryProductsTable({
           ))}
           {!data.rows.length ? (
             <li className="px-4 py-12 text-center text-sm text-muted-foreground">
-              {error ? labels.loadError : labels.empty}
+              {loading ? labels.loading : error ? labels.loadError : labels.empty}
             </li>
           ) : null}
         </ul>

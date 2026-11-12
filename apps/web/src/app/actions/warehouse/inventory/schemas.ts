@@ -186,6 +186,11 @@ export const archiveInventoryProductSchema = z.object({
   id: uuidSchema,
 });
 
+/** Archiving the products ticked in the list (one page at most). */
+export const archiveInventoryProductsSchema = z.object({
+  ids: z.array(uuidSchema).min(1).max(100),
+});
+
 const movementLineSchema = z.object({
   variant_id: uuidSchema,
   source_location_id: nullableUuidSchema,

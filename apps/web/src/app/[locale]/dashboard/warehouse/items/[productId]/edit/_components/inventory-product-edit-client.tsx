@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ImageIcon, Plus, Save, Star, Trash2, X } from "lucide-react";
 import { Link, useRouter } from "@/i18n/navigation";
 import {
@@ -18,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InventoryRichTextFormField } from "../../../_components/inventory-rich-text";
+import { inventoryProductKeys } from "../../../_components/inventory-product-query";
 import type {
   InventoryCustomFieldDefinition,
   InventoryMasterDataRow,
@@ -196,6 +198,7 @@ export function InventoryProductEditClient({
   const tc = useTranslations("warehouseInventory.common");
   const tCreate = useTranslations("warehouseInventory.create");
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [tags, setTags] = useState(product.tags);
@@ -369,6 +372,7 @@ export function InventoryProductEditClient({
         }
       }
 
+      await queryClient.invalidateQueries({ queryKey: inventoryProductKeys.all });
       router.refresh();
     });
   };
@@ -420,6 +424,7 @@ export function InventoryProductEditClient({
           return;
         }
       }
+      await queryClient.invalidateQueries({ queryKey: inventoryProductKeys.all });
       router.refresh();
     });
   };
@@ -456,6 +461,7 @@ export function InventoryProductEditClient({
             ...result.data,
           } as InventoryProductImageRow,
         ]);
+        await queryClient.invalidateQueries({ queryKey: inventoryProductKeys.all });
       }
     });
   };
@@ -478,6 +484,7 @@ export function InventoryProductEditClient({
         })),
       });
       if (!result.success) setMessage("error" in result ? result.error : t("imageUpdateFailed"));
+      else await queryClient.invalidateQueries({ queryKey: inventoryProductKeys.all });
     });
   };
 
@@ -490,6 +497,7 @@ export function InventoryProductEditClient({
         images: [{ id: imageId, is_primary: true }],
       });
       if (!result.success) setMessage("error" in result ? result.error : t("imageUpdateFailed"));
+      else await queryClient.invalidateQueries({ queryKey: inventoryProductKeys.all });
     });
   };
 

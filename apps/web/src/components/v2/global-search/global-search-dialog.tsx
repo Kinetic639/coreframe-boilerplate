@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useParams } from "next/navigation";
+import { useLocaleSwitch } from "@/i18n/use-locale-switch";
 import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { useQuery } from "@tanstack/react-query";
@@ -28,7 +28,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
-import { getPathname, usePathname, useRouter } from "@/i18n/navigation";
+import { getPathname, useRouter } from "@/i18n/navigation";
 import { toUnsafeI18nHref } from "@/lib/i18n/unsafe-href";
 import { getIconComponent } from "@/lib/sidebar/v2/icon-map";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
@@ -352,8 +352,7 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
   const tRoot = useTranslations();
   const locale = useLocale();
   const router = useRouter();
-  const pathname = usePathname();
-  const params = useParams();
+  const switchLocale = useLocaleSwitch();
   const { theme, setTheme } = useTheme();
   const setStoreTheme = useUiStoreV2((s) => s.setTheme);
   const setStoreColorTheme = useUiStoreV2((s) => s.setColorTheme);
@@ -826,11 +825,7 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
     },
     switchLocale: (next) => {
       close();
-      router.replace(
-        // @ts-expect-error -- pathname and params come from the current route
-        { pathname, params },
-        { locale: next }
-      );
+      switchLocale(next);
     },
     navigate: (href, linkQuery) => {
       close();

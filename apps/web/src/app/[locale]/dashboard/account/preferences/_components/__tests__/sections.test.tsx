@@ -8,6 +8,7 @@ import type { UserPreferences } from "@/lib/types/user-preferences";
 
 const mockMutate = vi.fn();
 const mockRouterReplace = vi.fn();
+vi.mock("@/i18n/use-locale-switch", () => ({ useLocaleSwitch: () => mockRouterReplace }));
 const mockSetTheme = vi.fn();
 const mockSetStoreTheme = vi.fn();
 
@@ -424,16 +425,16 @@ describe("RegionalSection", () => {
     expect(screen.getByTestId("radio-12h")).toBeInTheDocument();
   });
 
-  it("fires mutate and router.replace when locale changes", () => {
+  it("changes locale only after the saved preference succeeds", () => {
     render(<RegionalSection preferences={mockPreferences} />);
     // Find the first native select (language selector) and trigger a change
     const selects = screen.getAllByTestId("select-native");
     // The language select is the first one rendered
     fireEvent.change(selects[0], { target: { value: "pl" } });
-    expect(mockMutate).toHaveBeenCalledWith({ locale: "pl" });
-    expect(mockRouterReplace).toHaveBeenCalledWith("/dashboard/account/preferences", {
-      locale: "pl",
-    });
+    expect(mockMutate).toHaveBeenCalledWith({ locale: "pl" }, { onSuccess: expect.any(Function) });
+    expect(mockRouterReplace).not.toHaveBeenCalled();
+    mockMutate.mock.calls[0][1].onSuccess();
+    expect(mockRouterReplace).toHaveBeenCalledWith("pl");
   });
 
   it("fires mutate when timezone changes", () => {

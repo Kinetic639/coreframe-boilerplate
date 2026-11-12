@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { dehydrate, HydrationBoundary, QueryClient } from "@tanstack/react-query";
 import { redirect as redirectUrl } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Plus, Upload, SlidersHorizontal } from "lucide-react";
@@ -6,6 +7,7 @@ import { redirect, getPathname, Link } from "@/i18n/navigation";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
   WAREHOUSE_PRODUCTS_MANAGE,
+  WAREHOUSE_PRODUCTS_ARCHIVE,
   WAREHOUSE_PRODUCTS_READ,
   WAREHOUSE_IMPORTS_MANAGE,
   WAREHOUSE_INVENTORY_READ,
@@ -16,9 +18,14 @@ import { createClient } from "@/utils/supabase/server";
 import { InventoryProductsService } from "@/server/services/inventory-products.service";
 import { parseLayout, parseWidths } from "@/components/kolor-sensu/data-table/columns";
 import { Button } from "@/components/ui/button";
-import { ProductExport } from "./_components/inventory-products-controls";
-import { InventoryProductsTable, productColumnSet } from "./_components/inventory-products-table";
-import { ProductRecordPanel } from "./_components/inventory-product-record-panel";
+import {
+  ProductExport,
+  ProductFilters,
+  ProductsTotal,
+} from "./_components/inventory-products-controls";
+import { inventoryProductKeys, type ProductsScope } from "./_components/inventory-product-query";
+import { productColumnSet } from "./_components/inventory-products-table";
+import { InventoryProductsWorkspace } from "./_components/inventory-products-workspace";
 import {
   loadProductState,
   productListParams,
@@ -60,7 +67,7 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
   if (migration.changed || state.strona < 1)
     return redirectUrl(productHref(path, state, { strona: Math.max(1, state.strona) }));
   const supabase = await createClient();
-  const [productsResult, customFieldsResult, detailResult] = await Promise.all([
+  const [productsResult, customFieldsResult] = await Promise.all([
     InventoryProductsService.listProducts(
       supabase,
       context.app.activeOrgId,
@@ -68,14 +75,6 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
       context.app.activeBranchId
     ),
     InventoryProductsService.listCustomFields(supabase, context.app.activeOrgId, ["product"]),
-    state.selected
-      ? InventoryProductsService.getProductDetail(
-          supabase,
-          context.app.activeOrgId,
-          state.selected,
-          context.app.activeBranchId
-        )
-      : Promise.resolve({ success: true as const, data: null }),
   ]);
   const data = productsResult.success
     ? productsResult.data
@@ -131,6 +130,26 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
       : "No products match the search and filters.",
     loadError: pl ? "Nie udało się wczytać danych." : "Could not load data.",
     retry: pl ? "Spróbuj ponownie" : "Try again",
+    loading: pl ? "Wczytywanie…" : "Loading…",
+    stockFilter: pl ? "Stan" : "Stock",
+    bulkActions: pl ? "Akcje na zaznaczonych" : "Actions on selected",
+    bulkSelected: pl ? "Zaznaczono" : "Selected",
+    bulkSelectAll: pl ? "Zaznacz wszystkie na stronie" : "Select all on page",
+    bulkSelectRow: pl ? "Zaznacz" : "Select",
+    bulkExport: pl ? "Eksport CSV" : "Export CSV",
+    bulkArchive: pl ? "Archiwizuj" : "Archive",
+    bulkArchiveTitle: pl ? "Zarchiwizować zaznaczone produkty?" : "Archive the selected products?",
+    bulkArchiveHint: pl
+      ? "Produkty znikną z list i wyszukiwania. Historia ruchów i dokumentów zostaje bez zmian."
+      : "The products leave lists and search. Movement and document history stays unchanged.",
+    bulkArchived: pl ? "Zarchiwizowano" : "Archived",
+    bulkArchiveFailed: pl ? "Nie udało się zarchiwizować" : "Could not archive",
+    bulkClear: pl ? "Odznacz" : "Clear",
+    cancel: pl ? "Anuluj" : "Cancel",
+    stock_available: pl ? "Dostępne > 0" : "Available > 0",
+    stock_unavailable: pl ? "Brak dostępnych" : "None available",
+    stock_reserved: pl ? "Zarezerwowane (R)" : "Reserved (R)",
+    stock_blocked: pl ? "Zablokowane (B)" : "Blocked (B)",
     notFound: pl
       ? "Produkt nie istnieje lub nie jest dostępny."
       : "Product not found or unavailable.",
@@ -145,6 +164,16 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
     bundle: pl ? "Zestaw" : "Bundle",
   };
   const set = productColumnSet(customFields, labels);
+  // The first page goes straight into the list's cache (the client renders it
+  // with no request); a failed read is left to the client, which retries.
+  const scope: ProductsScope = {
+    organizationId: context.app.activeOrgId,
+    branchId: context.app.activeBranchId ?? null,
+  };
+  const queryClient = new QueryClient();
+  if (productsResult.success) {
+    queryClient.setQueryData(inventoryProductKeys.list(scope, state), productsResult.data);
+  }
   const cookie = `ambra_products_${context.user.user.id}_${context.app.activeOrgId}`;
   const jar = await cookies();
   const layout = parseLayout(set, cookieValue(jar.get(cookie)?.value));
@@ -164,54 +193,60 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
       },
     });
   return (
-    <section className="inventory-products-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2.5 md:px-4">
-        <div className="flex items-baseline gap-2">
-          <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
-          <span className="text-xs tabular-nums text-muted-foreground">{data.totalCount}</span>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          <ProductExport label={tc("exportCsv")} />
-          {checkPermission(context.user.permissionSnapshot, WAREHOUSE_IMPORTS_MANAGE) ||
-          canManageProducts ? (
-            <Button asChild size="sm" variant="outline">
-              <Link
-                href="/dashboard/warehouse/items/import"
-                aria-label={tc("importExcel")}
-                title={tc("importExcel")}
-              >
-                <Upload className="size-3.5 sm:mr-1.5" />
-                <span className="hidden sm:inline">{tc("importExcel")}</span>
-              </Link>
-            </Button>
-          ) : null}
-          {canManageProducts ? (
-            <>
-              <Button asChild size="sm" variant="ghost" className="hidden md:inline-flex">
-                <Link href="/dashboard/warehouse/items/custom-fields">
-                  <SlidersHorizontal className="mr-1.5 size-3.5" />
-                  {tc("customFields")}
+    // The whole view (the count in the header too) reads the hydrated first page.
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <section className="inventory-products-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2.5 md:px-4">
+          <div className="flex items-baseline gap-2">
+            <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
+            <ProductsTotal scope={scope} initial={data.totalCount} />
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <ProductExport label={tc("exportCsv")} />
+            {checkPermission(context.user.permissionSnapshot, WAREHOUSE_IMPORTS_MANAGE) ||
+            canManageProducts ? (
+              <Button asChild size="sm" variant="outline">
+                <Link
+                  href="/dashboard/warehouse/items/import"
+                  aria-label={tc("importExcel")}
+                  title={tc("importExcel")}
+                >
+                  <Upload className="size-3.5 sm:mr-1.5" />
+                  <span className="hidden sm:inline">{tc("importExcel")}</span>
                 </Link>
               </Button>
-              <Button asChild size="sm">
-                <Link href="/dashboard/warehouse/items/new">
-                  <Plus className="mr-1.5 size-3.5" />
-                  {tc("create")}
-                </Link>
-              </Button>
-            </>
-          ) : null}
-        </div>
-      </header>
-      {!customFieldsResult.success ? (
-        <p role="alert" className="border-b px-3 py-2 text-xs text-destructive">
-          {labels.customFields}: {labels.loadError}
-        </p>
-      ) : null}
-      <div className="flex min-h-0 min-w-0 flex-1">
-        <InventoryProductsTable
-          data={data}
-          state={state}
+            ) : null}
+            {canManageProducts ? (
+              <>
+                <Button asChild size="sm" variant="ghost" className="hidden md:inline-flex">
+                  <Link href="/dashboard/warehouse/items/custom-fields">
+                    <SlidersHorizontal className="mr-1.5 size-3.5" />
+                    {tc("customFields")}
+                  </Link>
+                </Button>
+                <Button asChild size="sm">
+                  <Link href="/dashboard/warehouse/items/new">
+                    <Plus className="mr-1.5 size-3.5" />
+                    {tc("create")}
+                  </Link>
+                </Button>
+              </>
+            ) : null}
+          </div>
+        </header>
+        {!customFieldsResult.success ? (
+          <p role="alert" className="border-b px-3 py-2 text-xs text-destructive">
+            {labels.customFields}: {labels.loadError}
+          </p>
+        ) : null}
+        <ProductFilters
+          scope={scope}
+          order={layout.map((column) => column.id)}
+          customFields={customFields}
+          labels={labels}
+        />
+        <InventoryProductsWorkspace
+          scope={scope}
           path={path}
           set={set}
           layout={layout}
@@ -220,27 +255,15 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
           customFields={customFields}
           labels={labels}
           canManageProducts={canManageProducts}
-          productPath={productPath}
-          error={"error" in productsResult ? productsResult.error : null}
+          canArchiveProducts={checkPermission(
+            context.user.permissionSnapshot,
+            WAREHOUSE_PRODUCTS_ARCHIVE
+          )}
+          productPathTemplate={productPath("__PRODUCT_ID__")}
+          productEditPathTemplate={productPath("__PRODUCT_ID__", true)}
+          canReadStock={checkPermission(context.user.permissionSnapshot, WAREHOUSE_INVENTORY_READ)}
         />
-        {state.selected ? (
-          <ProductRecordPanel
-            detail={detailResult.success ? detailResult.data : null}
-            error={"error" in detailResult ? detailResult.error : null}
-            state={state}
-            path={path}
-            labels={labels}
-            customFields={customFields}
-            canManageProducts={canManageProducts}
-            canReadStock={checkPermission(
-              context.user.permissionSnapshot,
-              WAREHOUSE_INVENTORY_READ
-            )}
-            fullPath={productPath(state.selected.split("::")[0])}
-            editPath={productPath(state.selected.split("::")[0], true)}
-          />
-        ) : null}
-      </div>
-    </section>
+      </section>
+    </HydrationBoundary>
   );
 }

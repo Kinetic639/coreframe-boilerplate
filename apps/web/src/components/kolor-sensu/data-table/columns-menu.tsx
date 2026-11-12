@@ -70,8 +70,14 @@ export function ColumnsMenu({
   labels,
   pinnedLabel,
   defaults,
+  onChange,
 }: {
   layout: ColumnLayout;
+  /**
+   * The table follows the layout itself (no server render): it gets each
+   * change here. None: the server renders the table again.
+   */
+  onChange?: (layout: ColumnLayout) => void;
   /** The cookie the layout is kept in. */
   cookie: string;
   /** Each column's name, by its id. */
@@ -94,7 +100,8 @@ export function ColumnsMenu({
   const apply = (next: ColumnLayout) => {
     setLayout(next);
     saveLayout(cookie, next);
-    startTransition(() => router.refresh());
+    if (onChange) onChange(next);
+    else startTransition(() => router.refresh());
   };
   const toggle = (id: string) => {
     const next = layout.map((column) =>

@@ -1,287 +1,351 @@
+"use client";
+
 import Image from "next/image";
-import { ExternalLink, Pencil, X } from "lucide-react";
-import {
-  VisitPanelMotion,
-  VisitPanelCloseLink,
-} from "@/components/kolor-sensu/visit-table/visit-panel-motion";
-import { VisitPanelTabs } from "@/components/kolor-sensu/visit-table/visit-panel-tabs";
-import {
-  DetailSection,
-  DetailProp,
-  DetailProps,
-  DETAIL_BUTTON,
-} from "@/components/kolor-sensu/detail-page/detail-page";
-import { PageLink } from "@/components/kolor-sensu/public-site/page-link";
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { ExternalLink, Package, Pencil, X } from "lucide-react";
+import { ItemStockPanel } from "@/components/warehouse/item-stock-panel";
 import type {
   InventoryCustomFieldDefinition,
-  InventoryProductDetail,
+  InventoryProductListRow,
 } from "@/lib/warehouse/inventory-types";
-import { productHref, type ProductState } from "./inventory-products-state";
-import { ProductStatus, ProductThumbnail } from "./inventory-products-table";
+import { cn } from "@/lib/utils";
 import { InventoryRichTextDisplay } from "./inventory-rich-text";
-import { ItemStockPanel } from "@/components/warehouse/item-stock-panel";
+import { productDetailQuery, type ProductsScope } from "./inventory-product-query";
+import type { ProductState } from "./inventory-products-state";
+import { ProductStatus, ProductThumbnail } from "./inventory-products-table";
+
+function DetailProperty({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[minmax(8rem,0.8fr)_minmax(0,1.2fr)] gap-4 border-b py-2.5 text-sm last:border-b-0">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 break-words font-medium">{children}</dd>
+    </div>
+  );
+}
+
+/**
+ * While the card comes: what the list's row already knows (name, SKU,
+ * quantities) at once, the rest as placeholders.
+ */
+function PanelLoading({
+  labels,
+  row,
+}: {
+  labels: Record<string, string>;
+  row: InventoryProductListRow | null;
+}) {
+  if (row) {
+    return (
+      <div className="flex flex-1 flex-col" aria-label={labels.preview} aria-busy="true">
+        <div className="flex items-start gap-4 px-5 py-5">
+          <ProductThumbnail src={row.thumbnail_url} size={64} />
+          <div className="min-w-0 pt-0.5">
+            <h2 id="inventory-product-panel-title" className="text-xl font-semibold tracking-tight">
+              {row.name}
+            </h2>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span className="font-mono">{row.sku || labels.noSku}</span>
+              <ProductStatus value={row.status} label={labels[row.status] ?? row.status} />
+            </div>
+          </div>
+        </div>
+        <dl className="grid grid-cols-3 border-y bg-border">
+          {[
+            [labels.onHand, row.on_hand_quantity],
+            [labels.available, row.available_quantity],
+            [labels.reserved, row.reserved_total_quantity],
+          ].map(([label, value]) => (
+            <div key={label} className="min-w-0 bg-background px-4 py-3.5">
+              <dt className="truncate text-[11px] text-muted-foreground">{label}</dt>
+              <dd className="mt-1 text-xl font-semibold tabular-nums">
+                {value}{" "}
+                <small className="text-xs font-normal text-muted-foreground">{row.unit_code}</small>
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <div className="space-y-3 p-5">
+          {[0, 1, 2, 3].map((key) => (
+            <div key={key} className="h-4 animate-pulse rounded bg-muted" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-1 flex-col" aria-label={labels.preview} aria-busy="true">
+      <div className="flex gap-4 p-5">
+        <div className="size-16 animate-pulse rounded-lg bg-muted" />
+        <div className="flex-1 space-y-2 pt-1">
+          <div className="h-5 w-2/3 animate-pulse rounded bg-muted" />
+          <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-px border-y bg-border">
+        {[0, 1, 2].map((key) => (
+          <div key={key} className="space-y-2 bg-background p-4">
+            <div className="h-3 w-16 animate-pulse rounded bg-muted" />
+            <div className="h-7 w-20 animate-pulse rounded bg-muted" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function ProductRecordPanel({
-  detail,
-  error,
-  state,
-  path,
+  selectionId,
+  row,
+  scope,
+  tab,
   labels,
   customFields,
   canManageProducts,
   canReadStock,
   fullPath,
   editPath,
+  onClose,
+  onTabChange,
 }: {
-  detail: InventoryProductDetail | null;
-  error: string | null;
-  state: ProductState;
-  path: string;
+  selectionId: string;
+  /** The list's row of this product, shown while its card comes. */
+  row: InventoryProductListRow | null;
+  scope: ProductsScope;
+  tab: ProductState["tab"];
   labels: Record<string, string>;
   customFields: InventoryCustomFieldDefinition[];
   canManageProducts: boolean;
   canReadStock: boolean;
   fullPath: string;
   editPath: string;
+  onClose: () => void;
+  onTabChange: (tab: ProductState["tab"]) => void;
 }) {
-  const closeHref = productHref(path, state, { selected: null, tab: "info" });
+  const productId = selectionId.split("::")[0];
+  const query = useQuery(productDetailQuery(scope, productId));
+  const detail = query.data;
+  const activeTab = tab === "stock" && !canReadStock ? "info" : tab;
+  const tabs = [
+    { key: "info" as const, label: labels.info },
+    {
+      key: "variants" as const,
+      label: `${labels.variants}${detail ? ` (${detail.variants.length})` : ""}`,
+    },
+    ...(canReadStock ? [{ key: "stock" as const, label: labels.stock }] : []),
+  ];
+
   return (
-    <VisitPanelMotion
-      visitId={state.selected!}
-      closeHref={closeHref}
-      labelledBy="inventory-product-panel-title"
-      className="products-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-md flex-col overflow-hidden border-l bg-background shadow-xl xl:static xl:z-auto xl:w-[430px] xl:max-w-none xl:shrink-0 xl:shadow-none"
+    <aside
+      aria-labelledby="inventory-product-panel-title"
+      className="products-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-xl flex-col overflow-hidden border-l bg-background shadow-2xl xl:static xl:z-auto xl:min-w-0 xl:flex-1 xl:max-w-none xl:shadow-none"
     >
-      <header className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
-        <h2
-          id="inventory-product-panel-title"
-          className="min-w-0 flex-1 truncate text-sm font-semibold"
-        >
-          {detail?.name ?? labels.preview}
-        </h2>
-        <VisitPanelCloseLink
-          href={closeHref}
-          aria-label={labels.close}
-          className="inline-grid size-11 shrink-0 place-items-center rounded hover:bg-muted md:size-8"
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <X className="size-4" />
-        </VisitPanelCloseLink>
+          <span>{labels.title}</span>
+        </button>
+        <span className="text-muted-foreground/50">/</span>
+        <span className="text-sm text-muted-foreground">{labels.preview}</span>
+        <div className="ml-auto flex items-center gap-1">
+          <Link
+            href={fullPath}
+            className="inline-grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label={labels.fullCard}
+          >
+            <ExternalLink className="size-4" />
+          </Link>
+          {canManageProducts ? (
+            <Link
+              href={editPath}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium hover:bg-muted"
+            >
+              <Pencil className="size-3.5" />
+              {labels.edit}
+            </Link>
+          ) : null}
+        </div>
       </header>
+
+      {query.isPending ? <PanelLoading labels={labels} row={row} /> : null}
+      {query.isError ? (
+        <div className="grid flex-1 place-items-center p-8 text-center text-sm">
+          <div>
+            <p className="text-destructive">{query.error.message}</p>
+            <button className="mt-3 underline" type="button" onClick={() => query.refetch()}>
+              {labels.retry}
+            </button>
+          </div>
+        </div>
+      ) : null}
       {detail ? (
-        <>
-          <div className="product-panel-summary flex shrink-0 items-center gap-3 border-b p-3">
-            <ProductThumbnail src={detail.thumbnail_url} size={48} />
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-mono text-xs text-muted-foreground">
-                {detail.sku || labels.noSku}
-              </p>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="flex items-start gap-4 px-5 py-5">
+            <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-lg border bg-muted/40">
+              {detail.thumbnail_url ? (
+                <Image
+                  src={detail.thumbnail_url}
+                  alt=""
+                  width={64}
+                  height={64}
+                  unoptimized
+                  className="size-full object-contain"
+                />
+              ) : (
+                <Package className="size-7 text-muted-foreground" />
+              )}
+            </div>
+            <div className="min-w-0 pt-0.5">
+              <h2
+                id="inventory-product-panel-title"
+                className="text-xl font-semibold tracking-tight"
+              >
+                {detail.name}
+              </h2>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="font-mono">{detail.sku || labels.noSku}</span>
                 <ProductStatus
                   value={detail.status}
                   label={labels[detail.status] ?? detail.status}
                 />
-                <span className="text-xs text-muted-foreground">
-                  {labels[detail.product_type] ?? detail.product_type}
-                </span>
+                <span>{labels[detail.product_type] ?? detail.product_type}</span>
               </div>
             </div>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2 border-b px-3 py-2">
-            <PageLink href={fullPath} className={DETAIL_BUTTON}>
-              <ExternalLink />
-              {labels.fullCard}
-            </PageLink>
-            {canManageProducts ? (
-              <PageLink href={editPath} className={DETAIL_BUTTON}>
-                <Pencil />
-                {labels.edit}
-              </PageLink>
-            ) : null}
-          </div>
-          <VisitPanelTabs
-            key={detail.id + state.tab}
-            initial={state.tab === "stock" && !canReadStock ? "info" : state.tab}
-            label={labels.sections}
-            tabs={[
-              { key: "info", label: labels.info, href: productHref(path, state, { tab: "info" }) },
-              {
-                key: "variants",
-                label: `${labels.variants} (${detail.variants.length})`,
-                href: productHref(path, state, { tab: "variants" }),
-              },
-              ...(canReadStock
-                ? [
-                    {
-                      key: "stock",
-                      label: labels.stock,
-                      href: productHref(path, state, { tab: "stock" }),
-                    },
-                  ]
-                : []),
-            ]}
-            panes={{
-              info: (
-                <>
-                  <DetailSection title={labels.info}>
-                    <DetailProps>
-                      <DetailProp label={labels.sku}>{detail.sku || "—"}</DetailProp>
-                      <DetailProp label={labels.type}>
-                        {labels[detail.product_type] ?? detail.product_type}
-                      </DetailProp>
-                      <DetailProp label={labels.unit}>{detail.unit_code}</DetailProp>
-                      <DetailProp label={labels.brand}>{detail.brand_name || "—"}</DetailProp>
-                      <DetailProp label={labels.manufacturer}>
-                        {detail.manufacturer_name || "—"}
-                      </DetailProp>
-                      <DetailProp label={labels.returnable}>
-                        {detail.returnable ? labels.yes : labels.no}
-                      </DetailProp>
-                      <DetailProp label={labels.updated}>
-                        {new Date(detail.updated_at).toLocaleString(labels.locale)}
-                      </DetailProp>
-                      {customFields
-                        .filter((f) => detail.custom_field_values[f.id])
-                        .map((f) => (
-                          <DetailProp key={f.id} label={f.name}>
-                            {detail.custom_field_values[f.id]}
-                          </DetailProp>
-                        ))}
-                    </DetailProps>
-                  </DetailSection>
-                  <DetailSection title={labels.description}>
-                    <div className="p-3 text-sm text-muted-foreground">
-                      <InventoryRichTextDisplay value={detail.description} emptyText="—" />
-                    </div>
-                  </DetailSection>
-                  {detail.tags.length ? (
-                    <DetailSection title={labels.tags}>
-                      <div className="flex flex-wrap gap-1 p-3">
-                        {detail.tags.map((tag) => (
-                          <span key={tag} className="rounded bg-muted px-2 py-1 text-xs">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </DetailSection>
-                  ) : null}
-                  {detail.images.some((i) => i.public_url) ? (
-                    <DetailSection title={labels.images}>
-                      <div className="grid grid-cols-3 gap-2 p-3">
-                        {detail.images
-                          .filter((i) => i.public_url)
-                          .map((i) => (
-                            <a
-                              key={i.id}
-                              href={i.public_url!}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="overflow-hidden rounded border"
-                            >
-                              <Image
-                                src={i.public_url!}
-                                alt={i.file_name ?? detail.name}
-                                width={120}
-                                height={120}
-                                unoptimized
-                                className="aspect-square w-full object-contain"
-                              />
-                            </a>
-                          ))}
-                      </div>
-                    </DetailSection>
-                  ) : null}
-                </>
-              ),
-              variants: (
-                <>
-                  {detail.variants.map((v) => (
-                    <details key={v.id} className="border-b">
-                      <summary className="flex cursor-pointer items-center gap-2 p-3 text-sm">
-                        <ProductThumbnail src={v.thumbnail_url} />
-                        <span className="min-w-0">
-                          <strong className="block truncate font-medium">{v.name}</strong>
-                          <span className="font-mono text-xs text-muted-foreground">{v.sku}</span>
-                        </span>
-                      </summary>
-                      <DetailProps>
-                        <DetailProp label={labels.status}>
-                          {labels[v.status] ?? v.status}
-                        </DetailProp>
-                        <DetailProp label={labels.barcode}>{v.barcode || "—"}</DetailProp>
-                        <DetailProp label={labels.purchase}>
-                          {v.purchase_price == null
-                            ? "—"
-                            : `${v.purchase_price} ${v.price_currency}`}
-                        </DetailProp>
-                        <DetailProp label={labels.sales}>
-                          {v.sales_price == null ? "—" : `${v.sales_price} ${v.price_currency}`}
-                        </DetailProp>
-                        {v.option_values.map((o) => (
-                          <DetailProp key={o.option_value_id} label={o.option_group_name}>
-                            {o.value}
-                          </DetailProp>
-                        ))}
-                        {customFields
-                          .filter((f) => v.custom_field_values[f.id])
-                          .map((f) => (
-                            <DetailProp key={f.id} label={f.name}>
-                              {v.custom_field_values[f.id]}
-                            </DetailProp>
-                          ))}
-                      </DetailProps>
-                    </details>
-                  ))}
-                </>
-              ),
-              stock: canReadStock ? (
-                <>
-                  <DetailSection title={labels.stock}>
-                    <DetailProps>
-                      <DetailProp label={labels.onHand}>
-                        {detail.on_hand_quantity} {detail.unit_code}
-                      </DetailProp>
-                      <DetailProp label={labels.available}>
-                        {detail.available_quantity} {detail.unit_code}
-                      </DetailProp>
-                      <DetailProp label={labels.reserved}>
-                        {detail.reserved_total_quantity || "—"}
-                      </DetailProp>
-                      <DetailProp label={labels.blocked}>
-                        {detail.blocked_quantity || "—"}
-                      </DetailProp>
-                    </DetailProps>
-                  </DetailSection>
-                  <ItemStockPanel productId={detail.id} showSku={detail.variant_count > 1} />
-                  {detail.variants.map((v) => (
-                    <DetailSection key={v.id} title={v.name} note={v.sku}>
-                      <DetailProps>
-                        <DetailProp label={labels.onHand}>
-                          {v.on_hand_quantity} {detail.unit_code}
-                        </DetailProp>
-                        <DetailProp label={labels.available}>
-                          {v.available_quantity} {detail.unit_code}
-                        </DetailProp>
-                        <DetailProp label={labels.reorderPoint}>
-                          {v.reorder_point ?? "—"}
-                        </DetailProp>
-                      </DetailProps>
-                    </DetailSection>
-                  ))}
-                </>
-              ) : null,
-            }}
-          />
-        </>
-      ) : (
-        <div className="p-4 text-sm" role={error ? "alert" : "status"}>
-          <p>{error ? labels.loadError : labels.notFound}</p>
-          {error ? (
-            <PageLink href={productHref(path, state)} className="text-primary underline">
-              {labels.retry}
-            </PageLink>
+
+          <dl className="grid grid-cols-3 border-y bg-border">
+            {[
+              [labels.onHand, detail.on_hand_quantity],
+              [labels.available, detail.available_quantity],
+              [labels.reserved, detail.reserved_total_quantity],
+            ].map(([label, value]) => (
+              <div key={label} className="min-w-0 bg-background px-4 py-3.5">
+                <dt className="truncate text-[11px] text-muted-foreground">{label}</dt>
+                <dd className="mt-1 text-xl font-semibold tabular-nums">
+                  {value}{" "}
+                  <small className="text-xs font-normal text-muted-foreground">
+                    {detail.unit_code}
+                  </small>
+                </dd>
+              </div>
+            ))}
+          </dl>
+
+          <nav className="flex gap-6 border-b px-5" aria-label={labels.sections}>
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => onTabChange(tab.key)}
+                className={cn(
+                  "border-b-2 px-0 py-3 text-sm",
+                  activeTab === tab.key
+                    ? "border-primary font-medium text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+
+          {activeTab === "info" ? (
+            <div className="grid gap-6 p-5 2xl:grid-cols-2">
+              <section>
+                <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                  {labels.info}
+                </h3>
+                <dl>
+                  <DetailProperty label={labels.sku}>{detail.sku || "—"}</DetailProperty>
+                  <DetailProperty label={labels.type}>
+                    {labels[detail.product_type] ?? detail.product_type}
+                  </DetailProperty>
+                  <DetailProperty label={labels.unit}>{detail.unit_code}</DetailProperty>
+                  <DetailProperty label={labels.brand}>{detail.brand_name || "—"}</DetailProperty>
+                  <DetailProperty label={labels.manufacturer}>
+                    {detail.manufacturer_name || "—"}
+                  </DetailProperty>
+                  <DetailProperty label={labels.returnable}>
+                    {detail.returnable ? labels.yes : labels.no}
+                  </DetailProperty>
+                  {customFields
+                    .filter((field) => detail.custom_field_values[field.id])
+                    .map((field) => (
+                      <DetailProperty key={field.id} label={field.name}>
+                        {detail.custom_field_values[field.id]}
+                      </DetailProperty>
+                    ))}
+                </dl>
+              </section>
+              <section>
+                <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                  {labels.description}
+                </h3>
+                <div className="rounded-md border p-3 text-sm text-muted-foreground">
+                  <InventoryRichTextDisplay value={detail.description} emptyText="—" />
+                </div>
+                {detail.images.some((image) => image.public_url) ? (
+                  <div className="mt-5 grid grid-cols-4 gap-2">
+                    {detail.images
+                      .filter((image) => image.public_url)
+                      .map((image) => (
+                        <a
+                          key={image.id}
+                          href={image.public_url!}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="overflow-hidden rounded-md border"
+                        >
+                          <Image
+                            src={image.public_url!}
+                            alt={image.file_name ?? detail.name}
+                            width={120}
+                            height={120}
+                            unoptimized
+                            className="aspect-square w-full object-contain"
+                          />
+                        </a>
+                      ))}
+                  </div>
+                ) : null}
+              </section>
+            </div>
+          ) : null}
+
+          {activeTab === "variants" ? (
+            <div className="divide-y">
+              {detail.variants.map((variant) => (
+                <div
+                  key={variant.id}
+                  className="grid grid-cols-[1fr_auto_auto] items-center gap-4 px-5 py-3 text-sm"
+                >
+                  <div className="min-w-0">
+                    <strong className="block truncate font-medium">{variant.name}</strong>
+                    <span className="font-mono text-xs text-muted-foreground">{variant.sku}</span>
+                  </div>
+                  <ProductStatus
+                    value={variant.status}
+                    label={labels[variant.status] ?? variant.status}
+                  />
+                  <span className="tabular-nums">
+                    {variant.available_quantity} {detail.unit_code}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {activeTab === "stock" && canReadStock ? (
+            <div className="space-y-4 p-5">
+              <ItemStockPanel productId={detail.id} showSku={detail.variant_count > 1} />
+            </div>
           ) : null}
         </div>
-      )}
-    </VisitPanelMotion>
+      ) : null}
+    </aside>
   );
 }

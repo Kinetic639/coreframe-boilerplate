@@ -34,6 +34,7 @@ vi.mock("@/lib/constants/color-themes", () => ({
 }));
 
 const mockRegionalMutate = vi.fn();
+vi.mock("@/i18n/use-locale-switch", () => ({ useLocaleSwitch: () => vi.fn() }));
 const mockNotifMutate = vi.fn();
 
 vi.mock("@/hooks/queries/user-preferences", () => ({

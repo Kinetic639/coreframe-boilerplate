@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { useRouter } from "@/i18n/navigation";
+import { useLocaleSwitch } from "@/i18n/use-locale-switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -56,7 +56,7 @@ const TIMEZONE_GROUPS: Record<string, readonly string[]> = {
 export function RegionalSection({ preferences }: RegionalSectionProps) {
   const t = useTranslations("PreferencesPage");
   const locale = useLocale();
-  const router = useRouter();
+  const switchLocale = useLocaleSwitch();
   const updateRegional = useUpdateRegionalSettingsMutation();
 
   const [timezone, setTimezone] = useState(preferences?.timezone ?? "UTC");
@@ -103,8 +103,7 @@ export function RegionalSection({ preferences }: RegionalSectionProps) {
   }, [timeFormat]);
 
   const handleLocaleChange = (newLocale: string) => {
-    updateRegional.mutate({ locale: newLocale });
-    router.replace("/dashboard/account/preferences", { locale: newLocale });
+    updateRegional.mutate({ locale: newLocale }, { onSuccess: () => switchLocale(newLocale) });
   };
 
   const handleTimezoneChange = (value: string) => {
