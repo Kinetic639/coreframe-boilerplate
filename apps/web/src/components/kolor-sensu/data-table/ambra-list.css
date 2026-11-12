@@ -1,0 +1,198 @@
+/* Shared look of the Kolor Sensu lists (copied from the products list, which
+   keeps its own copy until it moves onto these classes).
+
+   Kolor Sensu's semantic tokens are aliases of the active Ambra theme.
+   The body scope also reaches Radix portals without changing other pages. */
+body:has(.ks-list-view) {
+  --surface: var(--background);
+  --surface-muted: var(--muted);
+  --surface-subtle: color-mix(in srgb, var(--muted) 65%, var(--background));
+  --text: var(--foreground);
+  --text-muted: var(--muted-foreground);
+  --text-subtle: var(--muted-foreground);
+  --primary-soft: color-mix(in srgb, var(--primary) 12%, var(--background));
+  --primary-hover: color-mix(in srgb, var(--primary) 85%, var(--foreground));
+  --border-strong: color-mix(in srgb, var(--border) 70%, var(--foreground));
+  --danger: var(--destructive);
+  --danger-soft: color-mix(in srgb, var(--destructive) 12%, var(--background));
+  --radius-control: var(--radius);
+  --radius-surface: var(--radius);
+  --shadow-raised: 0 8px 28px color-mix(in srgb, var(--foreground) 12%, transparent);
+  --shadow-overlay: 0 18px 48px color-mix(in srgb, var(--foreground) 18%, transparent);
+}
+.ks-list-view {
+  min-height: 400px;
+  height: calc(100dvh - 9rem);
+}
+.ks-list-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--background);
+}
+.ks-list-filter-row > div:first-child {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
+}
+.ks-list-filter-extras {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 10px;
+}
+.ks-list-desktop-table {
+  display: flex;
+}
+.ks-list-mini-list {
+  display: block;
+}
+.ks-list-mobile {
+  display: none;
+}
+@media (min-width: 1280px) {
+  .ks-list-pane--preview {
+    width: 260px;
+    min-width: 260px;
+    flex: 0 0 260px;
+  }
+}
+/* An operational list, not the spreadsheet-like Kolor Sensu grid. */
+.ks-list-desktop-table table {
+  font-size: 12px;
+}
+.ks-list-desktop-table table > thead th {
+  height: 34px !important;
+  border-right: 0 !important;
+  background: color-mix(in srgb, var(--muted) 72%, var(--background)) !important;
+  padding-inline: 12px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+.ks-list-desktop-table table > tbody td,
+.ks-list-desktop-table table > tbody th {
+  height: 49px !important;
+  border-right: 0 !important;
+  padding-inline: 12px;
+}
+.ks-list-desktop-table table > tbody tr {
+  transition: background-color 0.1s;
+}
+.ks-list-desktop-table table > tbody tr:hover {
+  background: var(--surface-subtle);
+}
+.ks-list-desktop-table table > tbody tr[data-selected] {
+  background: var(--primary-soft);
+}
+.ks-list-desktop-table table > thead th:first-child,
+.ks-list-desktop-table table > tbody th {
+  box-shadow: inset -1px 0 0 var(--border) !important;
+}
+.ks-list-desktop-table table > thead th:last-child,
+.ks-list-desktop-table table > tbody td:last-child {
+  box-shadow: inset 1px 0 0 var(--border) !important;
+}
+.ks-list-desktop-table table > tbody a:has(img),
+.ks-list-desktop-table table > tbody a:has(svg) {
+  min-height: 38px;
+}
+.ks-list-panel {
+  animation: ks-list-panel-in 160ms ease-out;
+}
+@keyframes ks-list-panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@media (max-width: 767px) {
+  .ks-list-view {
+    height: calc(100dvh - 8rem);
+    min-height: 320px;
+  }
+  .ks-list-desktop-table {
+    display: none;
+  }
+  .ks-list-mini-list {
+    display: none;
+  }
+  .ks-list-mobile {
+    display: flex;
+  }
+  .ks-list-filter-extras {
+    padding: 6px 10px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .ks-list-mobile > div:last-child {
+    height: auto;
+    min-height: 40px;
+    padding: 6px;
+  }
+  .ks-list-mobile > div:last-child > div {
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+  .ks-list-view [aria-label^="Filtry"],
+  .ks-list-mobile [aria-label="Kolumny"],
+  .ks-list-mobile [aria-label^="Akcje:"] {
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .ks-list-filter-row div:has(> label > input[type="search"]) {
+    height: 40px;
+  }
+  body:has(.ks-list-view) [data-radix-popper-content-wrapper] button {
+    min-height: 36px;
+  }
+}
+/* The list keeps its rows while new ones come: a thin running bar on top,
+   and the old rows fade a little only if the wait is noticeable. */
+.ks-list-progress {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 40;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.ks-list-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: var(--primary);
+  animation: ks-list-progress 1s ease-in-out infinite;
+}
+@keyframes ks-list-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+.ks-list-pane tbody,
+.ks-list-pane ul {
+  transition: opacity 0.15s;
+}
+.ks-list-pane[data-refreshing] tbody,
+.ks-list-pane[data-refreshing] ul {
+  opacity: 0.6;
+  transition-delay: 0.2s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ks-list-progress::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+}

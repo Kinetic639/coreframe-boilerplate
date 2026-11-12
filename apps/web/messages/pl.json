@@ -7253,6 +7253,8 @@
       "statusInTransit": "W transporcie",
       "statusAccepted": "Zaakceptowany",
       "statusDeclined": "Odrzucony",
+      "sender": "Nadawca",
+      "recipient": "Odbiorca",
       "actionCreated": "Utworzono",
       "actionPosted": "Zaksięgowano",
       "actionCancelled": "Anulowano",

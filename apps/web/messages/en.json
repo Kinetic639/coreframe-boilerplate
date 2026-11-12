@@ -7170,6 +7170,8 @@
       "statusInTransit": "In Transit",
       "statusAccepted": "Accepted",
       "statusDeclined": "Declined",
+      "sender": "Sender",
+      "recipient": "Recipient",
       "actionCreated": "Created",
       "actionPosted": "Posted",
       "actionCancelled": "Cancelled",

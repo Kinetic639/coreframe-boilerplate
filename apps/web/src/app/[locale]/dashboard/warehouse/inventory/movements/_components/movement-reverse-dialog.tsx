@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { reverseMovementAction } from "@/app/actions/warehouse/inventory";
+import { notifyMovementsChanged } from "./inventory-movements-query";
 
 type Props = {
   movementId: string;
@@ -47,6 +48,7 @@ export function MovementReverseDialog({ movementId, documentNumber }: Props) {
       setOpen(false);
       setReason("");
       router.refresh();
+      notifyMovementsChanged();
     });
   };
 
