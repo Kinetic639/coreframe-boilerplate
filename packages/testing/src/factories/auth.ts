@@ -109,9 +109,12 @@ export interface LegacyRawRole {
 }
 
 function base64url(obj: unknown): string {
-  const json = JSON.stringify(obj);
-  // Buffer is available in Node.js (used in test environments only)
-  return Buffer.from(json).toString("base64url");
+  // btoa + TextEncoder: in Node.js and browsers alike, no Node types needed.
+  const bytes = new TextEncoder().encode(JSON.stringify(obj));
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
 const FAKE_HEADER = base64url({ alg: "HS256", typ: "JWT" });

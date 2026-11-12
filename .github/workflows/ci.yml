@@ -8,6 +8,9 @@
 #   NEXT_PUBLIC_SITE_URL           - e.g. https://app.ambra-system.com
 #   NEXT_PUBLIC_MARKETING_SITE_URL - e.g. https://www.ambra-system.com
 #   RESEND_API_KEY                 - only needed for the `build` job (email templates)
+#   SUPABASE_SERVICE_ROLE_KEY      - `build` and `e2e`: public pages read site
+#                                    settings and VMI data with the service client
+#                                    while they prerender and render
 # Optional, unlocks the authenticated e2e specs in apps/web/e2e (they self-skip
 # without these rather than failing):
 #   E2E_TEST_EMAIL, E2E_TEST_PASSWORD
@@ -62,6 +65,7 @@ jobs:
       NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
       NEXT_PUBLIC_MARKETING_SITE_URL: ${{ secrets.NEXT_PUBLIC_MARKETING_SITE_URL }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -87,6 +91,7 @@ jobs:
       NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
       NEXT_PUBLIC_MARKETING_SITE_URL: ${{ secrets.NEXT_PUBLIC_MARKETING_SITE_URL }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       # Optional -- authenticated specs in apps/web/e2e self-skip without these.
       E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
       E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}

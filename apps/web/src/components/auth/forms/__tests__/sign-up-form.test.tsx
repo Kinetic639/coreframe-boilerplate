@@ -14,6 +14,12 @@ vi.mock("@/lib/api/invitations", () => ({
   fetchInvitationByToken: fetchInvitationByTokenMock,
 }));
 
+vi.mock("@/i18n/navigation", () => ({
+  Link: ({ children, href }: { children: React.ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
+}));
+
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));

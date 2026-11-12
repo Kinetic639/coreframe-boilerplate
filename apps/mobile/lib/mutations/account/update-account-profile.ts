@@ -58,7 +58,7 @@ export async function updateAccountProfile(
 
   const hasNameChange = input.firstName !== undefined || input.lastName !== undefined;
   if (hasNameChange) {
-    const userUpdate: Record<string, string | null> = {};
+    const userUpdate: { first_name?: string | null; last_name?: string | null } = {};
     if (input.firstName !== undefined) userUpdate.first_name = input.firstName ?? null;
     if (input.lastName !== undefined) userUpdate.last_name = input.lastName ?? null;
 

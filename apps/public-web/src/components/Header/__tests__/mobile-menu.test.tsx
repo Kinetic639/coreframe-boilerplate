@@ -58,10 +58,13 @@ describe("MobileMenu", () => {
     expect(screen.getByText("Funkcje")).toBeInTheDocument();
     expect(screen.getByText("Rozwiązania")).toBeInTheDocument();
     expect(screen.getByText("Materiały edukacyjne")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /zaloguj się/i })).toHaveAttribute("href", "/sign-in");
-    expect(screen.getByRole("link", { name: /rozpocznij za darmo/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /logowanie ambra erp/i })).toHaveAttribute(
       "href",
-      "/sign-up"
+      "https://app.ambra-system.com/sign-in"
+    );
+    expect(screen.getByRole("link", { name: /logowanie vmi/i })).toHaveAttribute(
+      "href",
+      "https://vmi.ambra-system.com/sign-in"
     );
   });
 

@@ -5,8 +5,8 @@ vi.mock("react-dom", () => ({
   useFormStatus: vi.fn(),
 }));
 
-vi.mock("@/components/ui/FancySpinner", () => ({
-  default: ({ className }: { className?: string }) => (
+vi.mock("lucide-react", () => ({
+  Loader2: ({ className }: { className?: string }) => (
     <div data-testid="spinner" className={className} />
   ),
 }));

@@ -39,6 +39,7 @@ const ALL_CATEGORIES: EventCategory[] = [
   "STATE",
   "AUTOMATION",
   "WAREHOUSE",
+  "QR",
 ];
 
 const ALL_INTENTS: EventIntent[] = [

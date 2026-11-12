@@ -40,9 +40,23 @@ describe("PublicHeaderClient", () => {
   it("toggles the mobile menu", () => {
     render(<PublicHeaderClient />);
 
+    // The mobile menu repeats each dropdown's trigger below the desktop one.
+    const featureTriggers = () =>
+      screen.getAllByRole("button", { name: /dropdowns\.features\.label/i });
+    expect(featureTriggers()).toHaveLength(1);
+
     fireEvent.click(screen.getByRole("button", { name: "openMenu" }));
-    expect(screen.getByText(/allPrefix/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "closeMenu" })).toHaveAttribute(
+      "aria-expanded",
+      "true"
+    );
+    expect(featureTriggers()).toHaveLength(2);
+
     fireEvent.click(screen.getByRole("button", { name: "closeMenu" }));
-    expect(screen.queryByText(/allPrefix/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "openMenu" })).toHaveAttribute(
+      "aria-expanded",
+      "false"
+    );
+    expect(featureTriggers()).toHaveLength(1);
   });
 });

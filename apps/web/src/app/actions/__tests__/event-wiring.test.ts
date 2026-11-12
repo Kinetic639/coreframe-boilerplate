@@ -112,6 +112,10 @@ vi.mock("@/server/services/email.service", () => {
   return { EmailService: MockEmailService };
 });
 
+vi.mock("next/headers", () => ({
+  headers: vi.fn().mockResolvedValue(new Headers()),
+}));
+
 vi.mock("next-intl/server", () => ({
   getLocale: vi.fn().mockResolvedValue("en"),
   getTranslations: vi.fn().mockResolvedValue((k: string) => k),
