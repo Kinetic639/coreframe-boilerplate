@@ -1,4 +1,4 @@
-import { test as baseTest, expect } from "@playwright/test";
+import { test as baseTest, expect, type Page } from "@playwright/test";
 
 /**
  * E2E test account credentials. Set in .env.local (gitignored) as
@@ -28,5 +28,19 @@ export const test = baseTest.extend({
     await use(page);
   },
 });
+
+/**
+ * On a phone the sidebar lives in a closed sheet. Open it so its contents
+ * (branch switcher, user menu) can be asserted on every project.
+ */
+export async function openSidebar(page: Page, isMobile: boolean | undefined) {
+  if (!isMobile) return;
+  await page
+    .getByRole("button", { name: "Toggle Sidebar" })
+    .filter({ visible: true })
+    .first()
+    .click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+}
 
 export { expect };

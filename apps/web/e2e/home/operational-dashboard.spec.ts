@@ -51,7 +51,8 @@ test.describe("operational home", () => {
     await page.keyboard.press("Tab");
     await expect(home.getByRole("link").first()).toBeFocused();
     await refresh.click();
-    await expect(refresh).toBeEnabled();
+    // The refresh re-renders the dashboard on the server; give it time on a slow backend.
+    await expect(refresh).toBeEnabled({ timeout: 30_000 });
     expect(fatal).toEqual([]);
   });
 
@@ -122,6 +123,7 @@ test.describe("operational home", () => {
     const home = page.getByTestId("home-dashboard");
     await expect(home.getByRole("heading", { level: 1, includeHidden: true })).toBeAttached();
     const actions = home.getByRole("region", { name: "Przejdź do pracy" }).getByRole("link");
+    await expect(actions.first()).toBeVisible({ timeout: 30_000 });
     const hrefs = await actions.evaluateAll((elements) =>
       elements.map((element) => element.getAttribute("href")!)
     );
@@ -129,6 +131,7 @@ test.describe("operational home", () => {
     expect(hrefs).toEqual([
       "/dashboard/narzedzia",
       "/dashboard/magazyn/lokalizacje",
+      "/dashboard/magazyn/rozlokowanie",
       "/dashboard/help-desk/zgloszenia",
       "/dashboard/planowanie/zadania",
     ]);

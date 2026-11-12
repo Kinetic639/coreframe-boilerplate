@@ -72,7 +72,7 @@ export async function PlanningWidget({
   return (
     <section
       aria-label={copy.workPlanning}
-      className="grid gap-px overflow-hidden rounded-md border bg-border lg:grid-cols-3"
+      className="grid grid-cols-1 gap-px overflow-hidden rounded-md border bg-border lg:grid-cols-3"
     >
       <Card className="rounded-none border-0 shadow-none">
         <PanelHeader icon={CalendarDays} title={copy.today} />

@@ -9,6 +9,7 @@ import {
   Fragment,
   createContext,
   useContext,
+  useRef,
 } from "react";
 import {
   FloatingPortal,
@@ -239,6 +240,12 @@ type FlyoutRowRadiusRole = "title" | "item";
 type FlyoutController = {
   openId: string | null;
   setOpenId: (update: (current: string | null) => string | null) => void;
+  /**
+   * The flyout that Escape or a window blur closed. The flyout covers its icon,
+   * so once it is gone the still pointer "enters" the icon again: hover may not
+   * reopen it until the pointer leaves the icon (or the window gets focus back).
+   */
+  dismissedId: React.MutableRefObject<string | null>;
 };
 
 const FlyoutControllerContext = createContext<FlyoutController | null>(null);
@@ -246,6 +253,7 @@ const FlyoutControllerContext = createContext<FlyoutController | null>(null);
 /** The single source of truth of which collapsed-sidebar flyout is open. */
 function FlyoutControllerProvider({ children }: { children: React.ReactNode }) {
   const [openId, setOpenIdState] = useState<string | null>(null);
+  const dismissedId = useRef<string | null>(null);
   const pathname = usePathname();
   const { state: sidebarState } = useSidebar();
 
@@ -260,15 +268,25 @@ function FlyoutControllerProvider({ children }: { children: React.ReactNode }) {
   }, [pathname, sidebarState]);
   useEffect(() => {
     const close = () => setOpenIdState(null);
-    window.addEventListener("blur", close);
+    const blur = () =>
+      setOpenIdState((current) => {
+        dismissedId.current = current;
+        return null;
+      });
+    const focus = () => {
+      dismissedId.current = null;
+    };
+    window.addEventListener("blur", blur);
+    window.addEventListener("focus", focus);
     window.addEventListener("resize", close);
     return () => {
-      window.removeEventListener("blur", close);
+      window.removeEventListener("blur", blur);
+      window.removeEventListener("focus", focus);
       window.removeEventListener("resize", close);
     };
   }, []);
 
-  const value = useMemo(() => ({ openId, setOpenId }), [openId, setOpenId]);
+  const value = useMemo(() => ({ openId, setOpenId, dismissedId }), [openId, setOpenId]);
   return (
     <FlyoutControllerContext.Provider value={value}>{children}</FlyoutControllerContext.Provider>
   );
@@ -505,7 +523,7 @@ function NavL1Flyout({
   pathname: string;
   getLabel: (item: SidebarItem) => string;
 }) {
-  const { openId, setOpenId } = useFlyoutController();
+  const { openId, setOpenId, dismissedId } = useFlyoutController();
   const open = openId === item.id;
   // Another flyout took over: this one leaves without its exit animation.
   const replaced = !open && openId !== null;
@@ -518,9 +536,13 @@ function NavL1Flyout({
   const rootChildren = item.children ?? [];
 
   const onOpenChange = useCallback(
-    (next: boolean) =>
-      setOpenId((current) => (next ? item.id : current === item.id ? null : current)),
-    [item.id, setOpenId]
+    (next: boolean, _event?: Event, reason?: string) => {
+      if (next && reason === "hover" && dismissedId.current === item.id) return;
+      if (next) dismissedId.current = null;
+      else if (reason === "escape-key") dismissedId.current = item.id;
+      setOpenId((current) => (next ? item.id : current === item.id ? null : current));
+    },
+    [item.id, setOpenId, dismissedId]
   );
   const close = useCallback(() => onOpenChange(false), [onOpenChange]);
 
@@ -566,7 +588,11 @@ function NavL1Flyout({
         animate="rest"
         whileHover="hover"
         transition={iconHoverSpring}
-        {...getReferenceProps()}
+        {...getReferenceProps({
+          onMouseLeave: () => {
+            if (dismissedId.current === item.id) dismissedId.current = null;
+          },
+        })}
         className={cn(
           "relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-sm outline-none",
           "text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
