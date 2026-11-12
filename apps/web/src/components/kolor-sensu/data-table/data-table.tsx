@@ -319,6 +319,7 @@ export function DataTable<Row>({
                   <TableRow
                     href={href}
                     key={rowKey(row)}
+                    rowId={rowKey(row)}
                     selected={isSelected}
                     onIntent={
                       onRowIntent ? (active) => onRowIntent(active ? row : null) : undefined

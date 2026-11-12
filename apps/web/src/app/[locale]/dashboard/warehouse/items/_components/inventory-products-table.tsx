@@ -333,7 +333,7 @@ export function InventoryProductsTable({
             {data.rows.map((row) => {
               const selected = row.row_id === state.selected;
               return (
-                <li key={row.row_id}>
+                <li key={row.row_id} data-row-id={row.row_id}>
                   <PageLink
                     href={rowHref(row)}
                     scroll={false}

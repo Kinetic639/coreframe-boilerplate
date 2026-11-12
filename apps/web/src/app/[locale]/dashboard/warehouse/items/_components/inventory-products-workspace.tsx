@@ -138,6 +138,47 @@ export function InventoryProductsWorkspace({
     [data.rows, state.selected]
   );
 
+  // The keyboard, as in a mail client: ↓ / ↑ open the next / previous product
+  // (↓ with no panel open opens the first), Esc closes the panel. Keys typed
+  // into a field, or with a modifier, stay the field's.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest(
+          "input, textarea, select, [contenteditable='true'], [role='menu'], [role='dialog'], [role='listbox']"
+        )
+      ) {
+        return;
+      }
+      if (event.key === "Escape" && state.selected) {
+        event.preventDefault();
+        preview(null);
+        return;
+      }
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+      if (!data.rows.length) return;
+      const at = data.rows.findIndex((row) => row.row_id === state.selected);
+      if (at < 0 && event.key === "ArrowUp") return;
+      const next =
+        at < 0
+          ? 0
+          : Math.min(data.rows.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)));
+      if (next === at) return;
+      event.preventDefault();
+      preview(data.rows[next].row_id, state.tab);
+      // Keep the product in view in the list beside the panel.
+      requestAnimationFrame(() =>
+        document
+          .querySelector(`[data-row-id="${CSS.escape(data.rows[next].row_id)}"]`)
+          ?.scrollIntoView({ block: "nearest" })
+      );
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [data.rows, preview, state.selected, state.tab]);
+
   return (
     <TableNavigationProvider navigate={navigate}>
       <div className="flex min-h-0 min-w-0 flex-1">

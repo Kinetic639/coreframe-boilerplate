@@ -14,9 +14,12 @@ import { isSamePage, useTableNavigate } from "./table-navigation";
 export function TableRow({
   href,
   selected,
+  rowId,
   onIntent,
   children,
 }: {
+  /** The row's key, as data-row-id (to find it, e.g. to scroll it into view). */
+  rowId?: string;
   /** The pointer rests on the row or it has focus (false: it left). */
   onIntent?: (active: boolean) => void;
   /** The table's address with this visit open (or closed, if it is). */
@@ -44,6 +47,7 @@ export function TableRow({
         selected ? "bg-[var(--primary-soft)]" : "hover:bg-[var(--surface-subtle)]"
       )}
       data-selected={selected ? "" : undefined}
+      data-row-id={rowId}
       onClick={open}
       onMouseEnter={onIntent ? () => onIntent(true) : undefined}
       onMouseLeave={onIntent ? () => onIntent(false) : undefined}
