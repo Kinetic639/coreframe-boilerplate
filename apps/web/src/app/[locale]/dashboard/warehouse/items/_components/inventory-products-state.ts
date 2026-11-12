@@ -39,13 +39,24 @@ export const PRODUCT_TYPES = [
 ] as const;
 export const PRODUCT_STATUSES = ["active", "archived", "discontinued"] as const;
 export const PAGE_SIZES = [20, 50, 100] as const;
+export const PRODUCT_SORTS = [
+  "name",
+  "product_type",
+  "status",
+  "updated_at",
+  "on_hand_quantity",
+  "available_quantity",
+  "reserved_total_quantity",
+  "blocked_quantity",
+] as const;
+export type ProductSort = (typeof PRODUCT_SORTS)[number];
+/** Stock conditions (any of them keeps a product): with stock, none free, R > 0, B > 0. */
+export const STOCK_FILTERS = ["available", "unavailable", "reserved", "blocked"] as const;
 export const productParsers = {
   q: parseAsString.withDefault(""),
   strona: parseAsInteger.withDefault(1),
   wierszy: parseAsNumberLiteral(PAGE_SIZES).withDefault(50),
-  sort: parseAsStringLiteral(["name", "product_type", "status", "updated_at"] as const).withDefault(
-    "updated_at"
-  ),
+  sort: parseAsStringLiteral(PRODUCT_SORTS).withDefault("updated_at"),
   direction: parseAsStringLiteral(["asc", "desc"] as const).withDefault("desc"),
   selected: createParser({
     parse: (value) => (/^[\da-f-]{36}(::[\da-f-]{36})?$/i.test(value) ? value : null),
@@ -55,6 +66,7 @@ export const productParsers = {
   status: parseAsArrayOf(parseAsStringLiteral(PRODUCT_STATUSES)).withDefault([]),
   product_type: parseAsArrayOf(parseAsStringLiteral(PRODUCT_TYPES)).withDefault([]),
   grouped: parseAsBoolean.withDefault(true),
+  stan: parseAsArrayOf(parseAsStringLiteral(STOCK_FILTERS)).withDefault([]),
   is_variant: parseAsArrayOf(parseAsStringLiteral(["true", "false"] as const)).withDefault([]),
   filters: parseFilters.withDefault({}),
 };
@@ -75,6 +87,8 @@ export function productListParams(state: ProductState): DataViewListParams {
       status: state.status.length ? state.status : null,
       product_type: state.product_type.length ? state.product_type : null,
       __group_variants: state.grouped,
+      // Stock sums are per product: the filter applies to the grouped list.
+      stock: state.grouped && state.stan.length ? state.stan : null,
       is_variant:
         !state.grouped && state.is_variant.length === 1 ? state.is_variant[0] === "true" : null,
     },

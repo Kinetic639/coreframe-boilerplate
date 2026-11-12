@@ -130,6 +130,11 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
     loadError: pl ? "Nie udało się wczytać danych." : "Could not load data.",
     retry: pl ? "Spróbuj ponownie" : "Try again",
     loading: pl ? "Wczytywanie…" : "Loading…",
+    stockFilter: pl ? "Stan" : "Stock",
+    stock_available: pl ? "Dostępne > 0" : "Available > 0",
+    stock_unavailable: pl ? "Brak dostępnych" : "None available",
+    stock_reserved: pl ? "Zarezerwowane (R)" : "Reserved (R)",
+    stock_blocked: pl ? "Zablokowane (B)" : "Blocked (B)",
     notFound: pl
       ? "Produkt nie istnieje lub nie jest dostępny."
       : "Product not found or unavailable.",

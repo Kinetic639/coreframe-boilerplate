@@ -9,7 +9,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/kolor-sens
 import { Button } from "@/components/ui/button";
 import { exportInventoryProductsCsvAction } from "@/app/actions/warehouse/inventory";
 import type { InventoryCustomFieldDefinition } from "@/lib/warehouse/inventory-types";
-import { productParsers, PRODUCT_TYPES, PRODUCT_STATUSES } from "./inventory-products-state";
+import {
+  productParsers,
+  PRODUCT_TYPES,
+  PRODUCT_STATUSES,
+  STOCK_FILTERS,
+} from "./inventory-products-state";
 import { productListQuery, type ProductsScope } from "./inventory-product-query";
 
 /** How many products the address finds (from the list's cache, no request of its own). */
@@ -57,6 +62,19 @@ export function ProductFilters({
       label: labels.status,
       options: PRODUCT_STATUSES.map((value) => ({ value, label: labels[value] ?? value })),
     },
+    ...(state.grouped
+      ? [
+          {
+            kind: "list" as const,
+            id: "stan",
+            label: labels.stockFilter,
+            options: STOCK_FILTERS.map((value) => ({
+              value,
+              label: labels[`stock_${value}`] ?? value,
+            })),
+          },
+        ]
+      : []),
     ...(!state.grouped
       ? [
           {
@@ -91,6 +109,7 @@ export function ProductFilters({
               void setState({
                 grouped: e.target.checked,
                 is_variant: [],
+                stan: [],
                 strona: 1,
                 selected: null,
                 tab: null,

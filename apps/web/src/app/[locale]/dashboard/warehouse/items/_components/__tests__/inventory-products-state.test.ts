@@ -26,12 +26,22 @@ describe("product table URL contract", () => {
   it("rejects unknown statuses and unsupported sort fields", () => {
     const state = loadProductState({
       status: "invalid",
-      sort: "available_quantity",
+      sort: "unit_cost",
       selected: "not-an-id",
     });
     expect(state.status).toEqual([]);
     expect(state.sort).toBe("updated_at");
     expect(state.selected).toBeNull();
+  });
+  it("sorts by stock sums and filters by stock, for the grouped list only", () => {
+    const grouped = loadProductState({
+      sort: "available_quantity",
+      stan: "reserved,blocked,bogus",
+    });
+    expect(grouped.sort).toBe("available_quantity");
+    expect(productListParams(grouped).filters.stock).toEqual(["reserved", "blocked"]);
+    const flat = loadProductState({ stan: "reserved", grouped: "false" });
+    expect(productListParams(flat).filters.stock).toBeNull();
   });
   it("migrates legacy deep links without losing the selected record or custom filter", () => {
     const id = "22222222-2222-4222-8222-222222222222";

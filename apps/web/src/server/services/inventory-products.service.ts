@@ -141,6 +141,13 @@ const VARIANT_COLUMNS =
   "id, product_id, sku, name, status, is_default, barcode, purchase_price, sales_price, price_currency, default_supplier_id" as const;
 const UNIT_COLUMNS = "id, code, name" as const;
 
+const STOCK_SORT_FIELDS = new Set([
+  "on_hand_quantity",
+  "available_quantity",
+  "reserved_total_quantity",
+  "blocked_quantity",
+]);
+
 function applyProductSort(query: any, sort: DataViewListParams["sort"]) {
   const sortMap: Record<string, string> = {
     name: "name",
@@ -296,6 +303,24 @@ export class InventoryProductsService {
       );
     }
 
+    // Stock sorts and the stock filter need the per-product sums of the
+    // balances: the database orders and pages them.
+    const stockFilter = Array.isArray(params.filters.stock)
+      ? params.filters.stock.join(",")
+      : typeof params.filters.stock === "string" && params.filters.stock
+        ? params.filters.stock
+        : null;
+    if (STOCK_SORT_FIELDS.has(params.sort?.field ?? "") || stockFilter) {
+      return InventoryProductsService.listProductsByStock(
+        supabase,
+        orgId,
+        params,
+        branchId ?? null,
+        filteredProductIds.data,
+        stockFilter
+      );
+    }
+
     const sortedQuery = applyProductSort(query, params.sort);
     const { data, error, count } = await sortedQuery.range(from, to);
 
@@ -311,6 +336,71 @@ export class InventoryProductsService {
       data: {
         rows: rows.data,
         totalCount: count ?? rows.data.length,
+        page: params.page,
+        pageSize: params.pageSize,
+      },
+    };
+  }
+
+  /** One page in stock order (or with a stock filter): ids from the database, then rows. */
+  private static async listProductsByStock(
+    supabase: SupabaseClient,
+    orgId: string,
+    params: DataViewListParams,
+    branchId: string | null,
+    onlyIds: string[] | null,
+    stockFilter: string | null
+  ): Promise<ServiceResult<PaginatedResult<InventoryProductListRow>>> {
+    const list = (value: unknown) =>
+      Array.isArray(value) && value.length
+        ? (value as string[])
+        : typeof value === "string" && value
+          ? [value]
+          : null;
+    const { data: page, error } = await (supabase as any).rpc("inventory_product_page_by_stock", {
+      p_org_id: orgId,
+      p_branch_id: branchId,
+      p_sort_field: params.sort?.field ?? null,
+      p_ascending: params.sort?.direction === "asc",
+      p_search: params.search ? searchPattern(params.search) : null,
+      p_statuses: list(params.filters.status),
+      p_types: list(params.filters.product_type),
+      p_only_ids: onlyIds,
+      p_stock: stockFilter,
+      p_limit: params.pageSize,
+      p_offset: (params.page - 1) * params.pageSize,
+    });
+    if (error) return { success: false, error: error.message };
+    const ordered = (page ?? []) as Array<{ product_id: string; total_count: number }>;
+    const totalCount = Number(ordered[0]?.total_count ?? 0);
+    if (ordered.length === 0) {
+      return {
+        success: true,
+        data: { rows: [], totalCount, page: params.page, pageSize: params.pageSize },
+      };
+    }
+
+    const ids = ordered.map((row) => row.product_id);
+    const { data, error: productsError } = await supabase
+      .from("inventory_products")
+      .select(PRODUCT_COLUMNS)
+      .eq("organization_id", orgId)
+      .in("id", ids)
+      .is("deleted_at", null);
+    if (productsError) return { success: false, error: productsError.message };
+    const rows = await InventoryProductsService.enrichProducts(
+      supabase,
+      orgId,
+      (data ?? []) as ProductRow[],
+      branchId
+    );
+    if (!rows.success) return { success: false, error: serviceError(rows) };
+    const position = new Map(ids.map((id, index) => [id, index]));
+    return {
+      success: true,
+      data: {
+        rows: [...rows.data].sort((a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0)),
+        totalCount,
         page: params.page,
         pageSize: params.pageSize,
       },

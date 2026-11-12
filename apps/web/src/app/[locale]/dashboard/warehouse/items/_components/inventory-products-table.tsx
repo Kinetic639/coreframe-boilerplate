@@ -22,7 +22,21 @@ import type {
 } from "@/lib/warehouse/inventory-types";
 import type { PaginatedResult } from "@/lib/data-view/types";
 import { cn } from "@/lib/utils";
-import { productHref, PAGE_SIZES, type ProductState } from "./inventory-products-state";
+import {
+  productHref,
+  PAGE_SIZES,
+  type ProductSort,
+  type ProductState,
+} from "./inventory-products-state";
+
+/** Columns the list sorts by (the stock sums only for the grouped list). */
+const SORTABLE = new Set<string>(["product_type", "status", "updated_at"]);
+const STOCK_SORTABLE = new Set<string>([
+  "on_hand_quantity",
+  "available_quantity",
+  "reserved_total_quantity",
+  "blocked_quantity",
+]);
 
 export function productColumnSet(
   customFields: InventoryCustomFieldDefinition[],
@@ -161,7 +175,7 @@ export function InventoryProductsTable({
     event.preventDefault();
     onPreview(state.selected === row.row_id ? null : row.row_id);
   };
-  const sortOf = (field: "name" | "product_type" | "status" | "updated_at") => ({
+  const sortOf = (field: ProductSort) => ({
     href: href({
       sort: field,
       direction: state.sort === field && state.direction === "asc" ? "desc" : "asc",
@@ -349,9 +363,10 @@ export function InventoryProductsTable({
             columns={shown.map((id) => ({
               id,
               label: set.labels[id],
-              sort: ["product_type", "status", "updated_at"].includes(id)
-                ? sortOf(id as "product_type" | "status" | "updated_at")
-                : undefined,
+              sort:
+                SORTABLE.has(id) || (state.grouped && STOCK_SORTABLE.has(id))
+                  ? sortOf(id as ProductSort)
+                  : undefined,
             }))}
             rows={data.rows}
             rowKey={(row) => row.row_id}
