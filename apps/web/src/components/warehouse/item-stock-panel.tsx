@@ -4,9 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import {
-  getItemStockBreakdownAction,
+  fetchItemStockBreakdown,
   type ItemStockBreakdown,
-} from "@/app/actions/warehouse/item-stock";
+} from "@/lib/warehouse/item-stock-client";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { ItemStockActions, STOCK_CHANGED_EVENT } from "./stock-commitments";
 import { StockByLocationTable } from "./stock-by-location-table";
 
@@ -34,12 +35,14 @@ export function ItemStockPanel({ productId, showSku }: { productId: string; show
   // operation); a call that throws or never answers ends in the error state
   // with a retry, never in an endless spinner.
   const call = useRef(0);
+  const organizationId = useAppStoreV2((store) => store.activeOrgId);
+  const branchId = useAppStoreV2((store) => store.activeBranchId);
   const load = useCallback(async () => {
     const id = ++call.current;
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const result = await Promise.race([
-        getItemStockBreakdownAction({ productId }),
+        fetchItemStockBreakdown({ productId, organizationId, branchId }),
         new Promise<never>((_, reject) => {
           timer = setTimeout(() => reject(new Error("timeout")), LOAD_TIMEOUT_MS);
         }),
@@ -56,7 +59,7 @@ export function ItemStockPanel({ productId, showSku }: { productId: string; show
     } finally {
       clearTimeout(timer);
     }
-  }, [productId]);
+  }, [productId, organizationId, branchId]);
 
   useEffect(() => {
     setState({ status: "loading" });

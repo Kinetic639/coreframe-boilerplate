@@ -25,8 +25,12 @@ vi.mock("@/i18n/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
   Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
 }));
-vi.mock("@/app/actions/warehouse/item-stock", () => ({
-  getItemStockBreakdownAction: (...a: unknown[]) => h.load(...a),
+vi.mock("@/lib/warehouse/item-stock-client", () => ({
+  fetchItemStockBreakdown: (...a: unknown[]) => h.load(...a),
+}));
+vi.mock("@/lib/stores/v2/app-store", () => ({
+  useAppStoreV2: (select: (s: { activeOrgId: string; activeBranchId: string }) => unknown) =>
+    select({ activeOrgId: "org", activeBranchId: "br" }),
 }));
 vi.mock("@/app/actions/warehouse/reservations", () => ({}));
 vi.mock("@/app/actions/warehouse/blocks", () => ({}));
@@ -69,7 +73,11 @@ describe("ItemStockPanel", () => {
     });
     render(<ItemStockPanel productId="p1" showSku={false} />);
     expect(await screen.findByTestId("stock-location-row")).toBeTruthy();
-    expect(h.load).toHaveBeenCalledWith({ productId: "p1" });
+    expect(h.load).toHaveBeenCalledWith({
+      productId: "p1",
+      organizationId: "org",
+      branchId: "br",
+    });
   });
 
   it("says when the stock cannot be read (never 'not in any location')", async () => {
