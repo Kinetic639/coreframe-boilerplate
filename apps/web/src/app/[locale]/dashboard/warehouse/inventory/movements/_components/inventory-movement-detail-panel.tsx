@@ -17,6 +17,7 @@ import {
   finalizePostingAction,
 } from "@/app/actions/warehouse/inventory";
 import { MovementReverseDialog } from "./movement-reverse-dialog";
+import { notifyMovementsChanged } from "./inventory-movements-query";
 
 // Inter-branch transfers have their own accept/decline flow; a storno
 // cannot itself be reversed.
@@ -115,7 +116,10 @@ export function InventoryMovementDetailPanel({
       setMessage(
         result.success ? tt("accepted") : "error" in result ? result.error : tc("unexpectedError")
       );
-      if (result.success) router.refresh();
+      if (result.success) {
+        router.refresh();
+        notifyMovementsChanged();
+      }
     });
   };
 
@@ -205,6 +209,7 @@ export function InventoryMovementDetailPanel({
                     td("documentPosted", { number: result.data?.document_number ?? "" })
                   );
                   router.refresh();
+                  notifyMovementsChanged();
                 } else {
                   toast.error(result.error ?? td("failedToPost"));
                 }
@@ -228,6 +233,7 @@ export function InventoryMovementDetailPanel({
                 if (result.success) {
                   toast.info(td("movementCancelled"));
                   router.refresh();
+                  notifyMovementsChanged();
                 } else {
                   toast.error(result.error ?? td("failedToCancel"));
                 }

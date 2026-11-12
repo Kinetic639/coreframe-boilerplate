@@ -131,6 +131,15 @@ function mapCorrectionError(error: { code?: string; message?: string }): Correct
   return "unexpected";
 }
 
+/** Columns the movements list sorts by (the rest: newest first). */
+const MOVEMENT_SORT_FIELDS = new Set([
+  "document_number",
+  "movement_type_code",
+  "status",
+  "posted_at",
+  "created_at",
+]);
+
 export class InventoryMovementsService {
   private static async _saveRouteKey(
     supabase: SupabaseClient,
@@ -583,6 +592,13 @@ export class InventoryMovementsService {
     const pageSize = params.pageSize ?? 25;
     const offset = (page - 1) * pageSize;
 
+    // Sortable header columns; anything else keeps the newest first.
+    const sortField =
+      params.sort?.field && MOVEMENT_SORT_FIELDS.has(params.sort.field)
+        ? params.sort.field
+        : "created_at";
+    const ascending = sortField !== "created_at" && params.sort?.direction === "asc";
+
     let query = supabase
       .from("inventory_movement_headers")
       .select(
@@ -592,40 +608,61 @@ export class InventoryMovementsService {
       .eq("organization_id", orgId)
       .eq("branch_id", branchId)
       .is("deleted_at", null)
-      .order("created_at", { ascending: false })
-      .range(offset, offset + pageSize - 1);
+      .order(sortField, { ascending, nullsFirst: false });
+    if (sortField !== "created_at") query = query.order("created_at", { ascending: false });
+    query = query.range(offset, offset + pageSize - 1);
 
-    if (params.search) {
+    // Quoted for PostgREST's or(), so numbers like PZ(115)/1/26 match as typed.
+    const search = (params.search ?? "").trim().replace(/[\\"]/g, "");
+    if (search) {
+      const like = `"%${search}%"`;
       query = query.or(
-        `draft_number.ilike.%${params.search}%,document_number.ilike.%${params.search}%,sender_name.ilike.%${params.search}%,recipient_name.ilike.%${params.search}%,counterparty_name.ilike.%${params.search}%`
+        [
+          "draft_number",
+          "document_number",
+          "sender_name",
+          "recipient_name",
+          "counterparty_name",
+          "external_reference",
+        ]
+          .map((column) => `${column}.ilike.${like}`)
+          .join(",")
       );
     }
 
-    const statusFilter = params.filters?.status;
-    if (statusFilter && typeof statusFilter === "string") {
-      query = query.eq("status", statusFilter);
-    }
-    const typeFilter = params.filters?.movement_type_code;
-    if (typeFilter && typeof typeFilter === "string") {
-      query = query.eq("movement_type_code", typeFilter);
-    }
+    // Each filter takes one value (the older list) or several (the new one).
+    const values = (value: unknown) =>
+      (Array.isArray(value) ? value : typeof value === "string" ? [value] : []).filter(
+        (v): v is string => typeof v === "string" && v.length > 0
+      );
+    const statuses = values(params.filters?.status);
+    if (statuses.length) query = query.in("status", statuses);
+    const types = values(params.filters?.movement_type_code);
+    if (types.length) query = query.in("movement_type_code", types);
     // U5: by AutoStacja magazyn or jednostka of the document
-    const warehouseFilter = params.filters?.warehouse_id;
-    if (warehouseFilter && typeof warehouseFilter === "string") {
-      query = query.eq("warehouse_id", warehouseFilter);
-    }
-    const unitFilter = params.filters?.unit_id;
-    if (unitFilter && typeof unitFilter === "string") {
+    const warehouses = values(params.filters?.warehouse_id);
+    if (warehouses.length) query = query.in("warehouse_id", warehouses);
+    const units = values(params.filters?.unit_id);
+    if (units.length) {
       const { data: unitWarehouses } = await supabase
         .from("unit_warehouses")
         .select("id")
         .eq("organization_id", orgId)
-        .eq("unit_id", unitFilter);
+        .in("unit_id", units);
       const ids = ((unitWarehouses ?? []) as Array<{ id: string }>).map((w) => w.id);
       query = query.in(
         "warehouse_id",
         ids.length > 0 ? ids : ["00000000-0000-0000-0000-000000000000"]
       );
+    }
+    // Posted between two days (inclusive, UTC).
+    const postedFrom = values(params.filters?.posted_from)[0];
+    if (postedFrom && /^\d{4}-\d{2}-\d{2}$/.test(postedFrom)) {
+      query = query.gte("posted_at", `${postedFrom}T00:00:00Z`);
+    }
+    const postedTo = values(params.filters?.posted_to)[0];
+    if (postedTo && /^\d{4}-\d{2}-\d{2}$/.test(postedTo)) {
+      query = query.lte("posted_at", `${postedTo}T23:59:59.999Z`);
     }
 
     const { data, error, count } = await query;
