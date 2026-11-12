@@ -49,6 +49,7 @@ export function InventoryProductsWorkspace({
   customFields,
   labels,
   canManageProducts,
+  canArchiveProducts,
   canReadStock,
   productPathTemplate,
   productEditPathTemplate,
@@ -62,6 +63,7 @@ export function InventoryProductsWorkspace({
   customFields: InventoryCustomFieldDefinition[];
   labels: Record<string, string>;
   canManageProducts: boolean;
+  canArchiveProducts: boolean;
   canReadStock: boolean;
   productPathTemplate: string;
   productEditPathTemplate: string;
@@ -73,6 +75,12 @@ export function InventoryProductsWorkspace({
     placeholderData: keepPreviousData,
   });
   const data = list.data ?? EMPTY_LIST;
+
+  // Rows ticked for actions on several at once: of this page of this list
+  // only (a new search, filter, sort or page unticks them).
+  const [ticked, setTicked] = useState<string[]>([]);
+  const listKey = JSON.stringify(productListQuery(scope, state).queryKey);
+  useEffect(() => setTicked([]), [listKey]);
 
   // The columns follow the menu at once; the cookie keeps them for the server.
   const [layout, setLayout] = useState(savedLayout);
@@ -200,6 +208,9 @@ export function InventoryProductsWorkspace({
           onRetry={() => void list.refetch()}
           onPreview={(selected) => preview(selected)}
           onPrefetch={prefetchPreview}
+          ticked={ticked}
+          onTickedChange={setTicked}
+          canArchive={canArchiveProducts}
         />
         {state.selected ? (
           <ProductRecordPanel

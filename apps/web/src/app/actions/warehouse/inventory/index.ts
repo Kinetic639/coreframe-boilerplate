@@ -58,6 +58,7 @@ import {
   archiveCustomFieldSchema,
   createDraftMovementSchema,
   createEnhancedInventoryProductSchema,
+  archiveInventoryProductsSchema,
   createInventoryExportJobSchema,
   createInventoryImportJobSchema,
   createMovementImportProductsSchema,
@@ -1141,6 +1142,55 @@ export async function updateInventoryProductAction(rawInput: unknown) {
     }
 
     return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+/**
+ * Archives the products ticked in the list, one by one (each with its own
+ * audit event); says how many went and which did not.
+ */
+export async function archiveInventoryProductsAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_ARCHIVE)) {
+      return { success: false as const, error: "Unauthorized" };
+    }
+    const parsed = archiveInventoryProductsSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false as const, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const failed: Array<{ id: string; error: string }> = [];
+    let archived = 0;
+    for (const id of [...new Set(parsed.data.ids)]) {
+      const result = await InventoryProductsService.archiveProduct(
+        supabase,
+        auth.context.app.activeOrgId,
+        id,
+        userId
+      );
+      if (!result.success) {
+        failed.push({ id, error: (result as { error: string }).error });
+        continue;
+      }
+      archived += 1;
+      await eventService.emit({
+        actionKey: "warehouse.inventory.product.archived",
+        actorType: "user",
+        actorUserId: userId,
+        organizationId: auth.context.app.activeOrgId,
+        branchId: auth.context.app.activeBranchId ?? null,
+        entityType: "inventory_product",
+        entityId: id,
+        eventTier: "enhanced",
+        metadata: { product_id: id, bulk: true },
+      });
+    }
+    return { success: true as const, data: { archived, failed } };
   } catch (error) {
     return mapUnexpected(error);
   }

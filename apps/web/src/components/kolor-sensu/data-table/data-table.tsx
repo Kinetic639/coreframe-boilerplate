@@ -42,7 +42,10 @@ export function SortHead({
   sort,
   resizer,
   className,
+  leading,
 }: {
+  /** Before the name (the select-all box of a table with selection). */
+  leading?: ReactNode;
   label: string;
   sort?: SortState;
   /** The edge that sets the column's width, if widths are kept. */
@@ -52,6 +55,7 @@ export function SortHead({
   if (!sort) {
     return (
       <th className={cn(TH, className)} scope="col">
+        {leading}
         {label}
         {resizer}
       </th>
@@ -65,6 +69,7 @@ export function SortHead({
       className={cn(TH, className)}
       scope="col"
     >
+      {leading}
       <Link
         className={cn(
           "inline-flex items-center gap-1 rounded hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none",
@@ -182,7 +187,48 @@ export interface DataColumn {
   sort?: SortState;
 }
 
+/** Rows the person ticks, for actions on several at once. */
+export interface TableSelection<Row> {
+  isSelected: (row: Row) => boolean;
+  toggle: (row: Row) => void;
+  /** Every row of the page is ticked / some are. */
+  all: boolean;
+  some: boolean;
+  toggleAll: () => void;
+  /** The boxes' names: "Zaznacz wszystkie", "Zaznacz: <row>". */
+  allLabel: string;
+  rowLabel: (row: Row) => string;
+}
+
+function SelectBox({
+  checked,
+  indeterminate = false,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  indeterminate?: boolean;
+  label: string;
+  onChange: () => void;
+}) {
+  return (
+    <input
+      type="checkbox"
+      aria-label={label}
+      checked={checked}
+      ref={(element) => {
+        if (element) element.indeterminate = indeterminate;
+      }}
+      onChange={onChange}
+      onClick={(event) => event.stopPropagation()}
+      className="mr-2 size-3.5 shrink-0 cursor-pointer align-middle accent-[var(--primary)]"
+    />
+  );
+}
+
 export interface DataTableProps<Row> {
+  /** Ticking rows (none: the table has no boxes). */
+  selection?: TableSelection<Row>;
   caption: string;
   /** The bar above: the view, the search and the filters. */
   toolbar?: ReactNode;
@@ -231,6 +277,7 @@ export function DataTable<Row>({
   pinned,
   pinnedSort,
   onRowIntent,
+  selection,
   cell,
   actions,
   menu,
@@ -286,6 +333,16 @@ export function DataTable<Row>({
                 label={set.pinned.label}
                 resizer={resizer(pin, set.pinned.label)}
                 sort={pinnedSort}
+                leading={
+                  selection ? (
+                    <SelectBox
+                      checked={selection.all}
+                      indeterminate={!selection.all && selection.some}
+                      label={selection.allLabel}
+                      onChange={selection.toggleAll}
+                    />
+                  ) : null
+                }
               />
               {columns.map((column) => (
                 <SortHead
@@ -329,7 +386,18 @@ export function DataTable<Row>({
                       className={cn(TD, PIN_LEFT, PIN_BG, "pl-3 text-left font-medium")}
                       scope="row"
                     >
-                      {pinned(row, href, isSelected)}
+                      {selection ? (
+                        <span className="flex min-w-0 items-center">
+                          <SelectBox
+                            checked={selection.isSelected(row)}
+                            label={selection.rowLabel(row)}
+                            onChange={() => selection.toggle(row)}
+                          />
+                          <span className="min-w-0 flex-1">{pinned(row, href, isSelected)}</span>
+                        </span>
+                      ) : (
+                        pinned(row, href, isSelected)
+                      )}
                     </th>
                     {columns.map((column) => cell(row, column.id))}
                     <td aria-hidden="true" className={cn(TD, "px-0")} />

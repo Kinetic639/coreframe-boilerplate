@@ -22,6 +22,7 @@ import type {
 } from "@/lib/warehouse/inventory-types";
 import type { PaginatedResult } from "@/lib/data-view/types";
 import { cn } from "@/lib/utils";
+import { ProductsBulkBar, rowsToCsv } from "./inventory-products-bulk-bar";
 import {
   productHref,
   PAGE_SIZES,
@@ -138,7 +139,14 @@ export function InventoryProductsTable({
   onLayoutChange,
   onPreview,
   onPrefetch,
+  ticked,
+  onTickedChange,
+  canArchive,
 }: {
+  /** The rows ticked (row ids), for actions on several at once. */
+  ticked: string[];
+  onTickedChange: (rowIds: string[]) => void;
+  canArchive: boolean;
   data: PaginatedResult<InventoryProductListRow>;
   state: ProductState;
   path: string;
@@ -252,6 +260,46 @@ export function InventoryProductsTable({
         return row.custom_field_values[id.replace("custom_field:", "")] || "—";
     }
   };
+  // Plain values, for the CSV of the ticked rows.
+  const plain = (row: InventoryProductListRow, id: string): unknown => {
+    switch (id) {
+      case "name":
+        return row.name;
+      case "product_type":
+        return labels[row.product_type] ?? row.product_type;
+      case "status":
+        return labels[row.status] ?? row.status;
+      case "updated_at":
+        return new Date(row.updated_at).toLocaleString(labels.locale);
+      case "sku":
+      case "on_hand_quantity":
+      case "available_quantity":
+      case "reserved_total_quantity":
+      case "blocked_quantity":
+        return row[id];
+      default:
+        return row.custom_field_values[id.replace("custom_field:", "")] ?? "";
+    }
+  };
+  const tickedSet = new Set(ticked);
+  const tickedRows = data.rows.filter((row) => tickedSet.has(row.row_id));
+  const selection = {
+    isSelected: (row: InventoryProductListRow) => tickedSet.has(row.row_id),
+    toggle: (row: InventoryProductListRow) =>
+      onTickedChange(
+        tickedSet.has(row.row_id)
+          ? ticked.filter((id) => id !== row.row_id)
+          : [...ticked, row.row_id]
+      ),
+    all: data.rows.length > 0 && tickedRows.length === data.rows.length,
+    some: tickedRows.length > 0,
+    toggleAll: () =>
+      onTickedChange(
+        tickedRows.length === data.rows.length ? [] : data.rows.map((row) => row.row_id)
+      ),
+    allLabel: labels.bulkSelectAll,
+    rowLabel: (row: InventoryProductListRow) => `${labels.bulkSelectRow}: ${row.name}`,
+  };
   const pagination = (
     <TablePagination
       sizes={PAGE_SIZES.map((size) => ({
@@ -357,6 +405,24 @@ export function InventoryProductsTable({
         </aside>
       ) : (
         <div className="products-desktop-table min-h-0 flex-1 flex-col">
+          {tickedRows.length ? (
+            <ProductsBulkBar
+              rows={tickedRows}
+              canArchive={canArchive}
+              labels={labels}
+              onClear={() => onTickedChange([])}
+              csv={() =>
+                rowsToCsv(
+                  tickedRows,
+                  [
+                    { id: "name", label: set.pinned.label },
+                    ...shown.map((id) => ({ id, label: set.labels[id] })),
+                  ],
+                  plain
+                )
+              }
+            />
+          ) : null}
           <DataTable
             caption={labels.title}
             set={set}
@@ -374,6 +440,7 @@ export function InventoryProductsTable({
             selected={(row) => row.row_id === state.selected}
             pinnedSort={nameSort}
             onRowIntent={(row) => onPrefetch(row ? row.row_id : null)}
+            selection={selection}
             pinned={(row, url) => (
               <PageLink
                 href={url}

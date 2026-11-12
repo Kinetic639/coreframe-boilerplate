@@ -7,6 +7,7 @@ import { redirect, getPathname, Link } from "@/i18n/navigation";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
   WAREHOUSE_PRODUCTS_MANAGE,
+  WAREHOUSE_PRODUCTS_ARCHIVE,
   WAREHOUSE_PRODUCTS_READ,
   WAREHOUSE_IMPORTS_MANAGE,
   WAREHOUSE_INVENTORY_READ,
@@ -131,6 +132,20 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
     retry: pl ? "Spróbuj ponownie" : "Try again",
     loading: pl ? "Wczytywanie…" : "Loading…",
     stockFilter: pl ? "Stan" : "Stock",
+    bulkActions: pl ? "Akcje na zaznaczonych" : "Actions on selected",
+    bulkSelected: pl ? "Zaznaczono" : "Selected",
+    bulkSelectAll: pl ? "Zaznacz wszystkie na stronie" : "Select all on page",
+    bulkSelectRow: pl ? "Zaznacz" : "Select",
+    bulkExport: pl ? "Eksport CSV" : "Export CSV",
+    bulkArchive: pl ? "Archiwizuj" : "Archive",
+    bulkArchiveTitle: pl ? "Zarchiwizować zaznaczone produkty?" : "Archive the selected products?",
+    bulkArchiveHint: pl
+      ? "Produkty znikną z list i wyszukiwania. Historia ruchów i dokumentów zostaje bez zmian."
+      : "The products leave lists and search. Movement and document history stays unchanged.",
+    bulkArchived: pl ? "Zarchiwizowano" : "Archived",
+    bulkArchiveFailed: pl ? "Nie udało się zarchiwizować" : "Could not archive",
+    bulkClear: pl ? "Odznacz" : "Clear",
+    cancel: pl ? "Anuluj" : "Cancel",
     stock_available: pl ? "Dostępne > 0" : "Available > 0",
     stock_unavailable: pl ? "Brak dostępnych" : "None available",
     stock_reserved: pl ? "Zarezerwowane (R)" : "Reserved (R)",
@@ -240,6 +255,10 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
           customFields={customFields}
           labels={labels}
           canManageProducts={canManageProducts}
+          canArchiveProducts={checkPermission(
+            context.user.permissionSnapshot,
+            WAREHOUSE_PRODUCTS_ARCHIVE
+          )}
           productPathTemplate={productPath("__PRODUCT_ID__")}
           productEditPathTemplate={productPath("__PRODUCT_ID__", true)}
           canReadStock={checkPermission(context.user.permissionSnapshot, WAREHOUSE_INVENTORY_READ)}
