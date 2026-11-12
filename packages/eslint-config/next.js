@@ -36,20 +36,28 @@ export const nextJsConfig = [
   },
   {
     plugins: {
-      "@next/next": pluginNext,
+      // Its legacy `configs` (string plugin lists) do not fit the flat Plugin type.
+      "@next/next": /** @type {import("eslint").ESLint.Plugin} */ (
+        /** @type {unknown} */ (pluginNext)
+      ),
     },
-    rules: {
+    // The plugin types its rule levels as plain strings.
+    rules: /** @type {import("eslint").Linter.RulesRecord} */ ({
       ...pluginNext.configs.recommended.rules,
       ...pluginNext.configs["core-web-vitals"].rules,
-    },
+    }),
   },
   {
     plugins: {
-      "react-hooks": pluginReactHooks,
+      "react-hooks": /** @type {import("eslint").ESLint.Plugin} */ (
+        /** @type {unknown} */ (pluginReactHooks)
+      ),
     },
     settings: { react: { version: "detect" } },
     rules: {
-      ...pluginReactHooks.configs.recommended.rules,
+      .../** @type {import("eslint").Linter.RulesRecord} */ (
+        pluginReactHooks.configs.recommended.rules
+      ),
       // React scope no longer necessary with new JSX transform.
       "react/react-in-jsx-scope": "off",
     },
