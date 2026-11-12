@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../lib/utils";
-import { PageLink as Link } from "../public-site/page-link";
+import { TableLink as Link } from "./table-navigation";
 import { ColumnResizer } from "./column-resizer";
 import { usualWidth, widthOf, type ColumnSet, type ColumnWidths } from "./columns";
 import { TableRow } from "./table-row";
@@ -71,7 +71,6 @@ export function SortHead({
           sorted && "text-[var(--text)]"
         )}
         href={sort.href}
-        scroll={false}
       >
         {label}
         <Icon aria-hidden="true" className={cn("size-3", !sorted && "opacity-40")} />
@@ -121,7 +120,6 @@ export function TablePagination({
         aria-label={label}
         className="inline-grid size-6 place-items-center rounded-[4px] hover:bg-[var(--surface-subtle)] hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none"
         href={href}
-        scroll={false}
       >
         {icon}
       </Link>
@@ -151,7 +149,6 @@ export function TablePagination({
               )}
               href={option.href}
               key={option.size}
-              scroll={false}
             >
               {option.size}
             </Link>
@@ -198,6 +195,11 @@ export interface DataTableProps<Row> {
   /** Where a click on the row leads (its panel; open: closes it). */
   rowHref: (row: Row) => string;
   selected: (row: Row) => boolean;
+  /**
+   * The pointer rests on a row (null: it left), e.g. to prefetch what its
+   * click opens.
+   */
+  onRowIntent?: (row: Row | null) => void;
   /** The pinned first column sorts: its link and state. */
   pinnedSort?: SortState;
   /** The pinned first cell's content (the row's name or number). */
@@ -228,6 +230,7 @@ export function DataTable<Row>({
   selected,
   pinned,
   pinnedSort,
+  onRowIntent,
   cell,
   actions,
   menu,
@@ -313,7 +316,14 @@ export function DataTable<Row>({
                 const isSelected = selected(row);
                 const href = rowHref(row);
                 return (
-                  <TableRow href={href} key={rowKey(row)} selected={isSelected}>
+                  <TableRow
+                    href={href}
+                    key={rowKey(row)}
+                    selected={isSelected}
+                    onIntent={
+                      onRowIntent ? (active) => onRowIntent(active ? row : null) : undefined
+                    }
+                  >
                     <th
                       className={cn(TD, PIN_LEFT, PIN_BG, "pl-3 text-left font-medium")}
                       scope="row"

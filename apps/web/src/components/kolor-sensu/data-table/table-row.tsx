@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { MouseEvent, ReactNode } from "react";
 import { cn } from "../lib/utils";
 import { requestVisitPanelClose } from "../visit-table/visit-panel-motion";
+import { isSamePage, useTableNavigate } from "./table-navigation";
 
 // A row of a portal table that opens it in the side panel when
 // clicked anywhere (the link in its first cell is the same, for
@@ -13,14 +14,18 @@ import { requestVisitPanelClose } from "../visit-table/visit-panel-motion";
 export function TableRow({
   href,
   selected,
+  onIntent,
   children,
 }: {
+  /** The pointer rests on the row or it has focus (false: it left). */
+  onIntent?: (active: boolean) => void;
   /** The table's address with this visit open (or closed, if it is). */
   href: string;
   selected: boolean;
   children: ReactNode;
 }) {
   const router = useRouter();
+  const navigate = useTableNavigate();
   const open = (event: MouseEvent<HTMLTableRowElement>) => {
     const target = event.target as HTMLElement;
     if (target.closest("a, button, input, [role='menu'], [role='menuitem']")) {
@@ -29,7 +34,8 @@ export function TableRow({
     if (window.getSelection()?.toString()) return;
     // Its own row closes the panel (sliding it out).
     if (selected && requestVisitPanelClose(href)) return;
-    router.push(href as Route, { scroll: false });
+    if (navigate && isSamePage(href)) navigate(href);
+    else router.push(href as Route, { scroll: false });
   };
   return (
     <tr
@@ -39,6 +45,9 @@ export function TableRow({
       )}
       data-selected={selected ? "" : undefined}
       onClick={open}
+      onMouseEnter={onIntent ? () => onIntent(true) : undefined}
+      onMouseLeave={onIntent ? () => onIntent(false) : undefined}
+      onFocus={onIntent ? () => onIntent(true) : undefined}
     >
       {children}
     </tr>

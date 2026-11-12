@@ -60,6 +60,14 @@ export interface FilterBarProps {
   order?: readonly string[];
   /** The search box's name and hint. */
   search: { label: string; placeholder: string };
+  /**
+   * The list fetches its own rows (a client cache keyed by the address):
+   * the address changes without a server render. Default: the server
+   * renders the page again for every change.
+   */
+  shallow?: boolean;
+  /** The list's own wait (with shallow), for the search box's spinner. */
+  pending?: boolean;
 }
 
 // The parsers are nuqs's, of any value.
@@ -112,10 +120,13 @@ export function FilterBar({
   resetOnChange,
   order = [],
   search,
+  shallow = false,
+  pending: listPending,
 }: FilterBarProps) {
-  const [pending, startTransition] = useTransition();
+  const [transitionPending, startTransition] = useTransition();
+  const pending = listPending ?? transitionPending;
   const [params, setParams] = useQueryStates(parsers, {
-    shallow: false,
+    shallow,
     startTransition,
     clearOnDefault: true,
   });
@@ -347,6 +358,7 @@ export function FilterBar({
         parsers={parsers.strona ? { q: parsers.q, strona: parsers.strona } : { q: parsers.q }}
         pending={pending}
         placeholder={search.placeholder}
+        shallow={shallow}
       />
       {/* The filters set, on the bar's right, where it is empty. */}
       {active.length ? (
@@ -479,9 +491,12 @@ export function TableSearch({
   parsers,
   label,
   placeholder,
+  shallow = false,
 }: {
   /** The bar's wait for the server (none: no spinner). */
   pending?: boolean;
+  /** The address changes without a server render (see FilterBarProps). */
+  shallow?: boolean;
   /** The search, and the page when the list has pages. */
   parsers: { q: Parser; strona?: Parser };
   label: string;
@@ -491,7 +506,7 @@ export function TableSearch({
   // The box answers at once; the bar shows the server's wait, if any.
   const pending = outer ?? false;
   const [{ q }, setParams] = useQueryStates(parsers, {
-    shallow: false,
+    shallow,
     clearOnDefault: true,
   });
   const [focused, setFocused] = useState(false);

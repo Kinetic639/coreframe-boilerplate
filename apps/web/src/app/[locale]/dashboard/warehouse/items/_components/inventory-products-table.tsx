@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { ArrowDown, ArrowUp, ChevronsUpDown, Package, Pencil, ExternalLink } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
-import { PageLink } from "@/components/kolor-sensu/public-site/page-link";
+import { TableLink as PageLink } from "@/components/kolor-sensu/data-table/table-navigation";
 import {
   DataTable,
   TablePagination,
@@ -118,6 +118,10 @@ export function InventoryProductsTable({
   canManageProducts,
   productPath,
   error,
+  loading,
+  refreshing,
+  onRetry,
+  onLayoutChange,
   onPreview,
   onPrefetch,
 }: {
@@ -132,8 +136,15 @@ export function InventoryProductsTable({
   canManageProducts: boolean;
   productPath: (id: string, edit?: boolean) => string;
   error: string | null;
+  /** No rows yet (nothing cached for this address). */
+  loading: boolean;
+  /** Rows shown are the previous ones (or stale) while new ones come. */
+  refreshing: boolean;
+  onRetry: () => void;
+  onLayoutChange: (layout: ColumnLayout) => void;
   onPreview: (selectionId: string | null) => void;
-  onPrefetch: (selectionId: string) => void;
+  /** A row the pointer rests on (null: it left), for its card's prefetch. */
+  onPrefetch: (selectionId: string | null) => void;
 }) {
   const shown = layout.filter((c) => c.shown).map((c) => c.id);
   const { page, pages, range } = pageState(
@@ -165,6 +176,7 @@ export function InventoryProductsTable({
       defaults={defaultLayout(set)}
       labels={set.labels}
       layout={layout}
+      onChange={onLayoutChange}
       pinnedLabel={set.pinned.label}
     />
   );
@@ -264,16 +276,22 @@ export function InventoryProductsTable({
   return (
     <div
       className={cn(
-        "products-list-pane flex min-h-0 min-w-0 flex-1 flex-col",
+        "products-list-pane relative flex min-h-0 min-w-0 flex-1 flex-col",
         state.selected && "products-list-pane--preview"
       )}
+      aria-busy={loading || refreshing}
+      data-refreshing={refreshing ? "" : undefined}
     >
+      {/* The rows stay while new ones come: a thin bar says so, not a skeleton. */}
+      {loading || refreshing ? (
+        <div className="products-progress" role="progressbar" aria-label={labels.loading} />
+      ) : null}
       {error ? (
         <div role="alert" className="border-b bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {labels.loadError} <span className="block text-xs">{error}</span>
-          <PageLink href={href({})} className="underline">
+          <button type="button" onClick={onRetry} className="underline">
             {labels.retry}
-          </PageLink>
+          </button>
         </div>
       ) : null}
       {state.selected ? (
@@ -307,6 +325,7 @@ export function InventoryProductsTable({
                     scroll={false}
                     onClick={(event) => openPreview(event, row)}
                     onMouseEnter={() => onPrefetch(row.row_id)}
+                    onMouseLeave={() => onPrefetch(null)}
                     onFocus={() => onPrefetch(row.row_id)}
                     className={cn(
                       "group flex h-[49px] items-center gap-2.5 border-b px-3 py-1 hover:bg-muted/50",
@@ -339,12 +358,14 @@ export function InventoryProductsTable({
             rowHref={rowHref}
             selected={(row) => row.row_id === state.selected}
             pinnedSort={nameSort}
+            onRowIntent={(row) => onPrefetch(row ? row.row_id : null)}
             pinned={(row, url) => (
               <PageLink
                 href={url}
                 scroll={false}
                 onClick={(event) => openPreview(event, row)}
                 onMouseEnter={() => onPrefetch(row.row_id)}
+                onMouseLeave={() => onPrefetch(null)}
                 onFocus={() => onPrefetch(row.row_id)}
                 className="flex min-w-0 items-center gap-2.5 py-1"
               >
@@ -373,7 +394,7 @@ export function InventoryProductsTable({
             menu={menu}
             widths={widths}
             widthsCookie={`${cookie}_widths`}
-            empty={error ? labels.loadError : labels.empty}
+            empty={loading ? labels.loading : error ? labels.loadError : labels.empty}
             pagination={pagination}
           />
         </div>
@@ -409,6 +430,7 @@ export function InventoryProductsTable({
                 scroll={false}
                 onClick={(event) => openPreview(event, row)}
                 onMouseEnter={() => onPrefetch(row.row_id)}
+                onMouseLeave={() => onPrefetch(null)}
                 onFocus={() => onPrefetch(row.row_id)}
                 className="flex min-w-0 flex-1 items-start gap-2.5"
               >
@@ -437,7 +459,7 @@ export function InventoryProductsTable({
           ))}
           {!data.rows.length ? (
             <li className="px-4 py-12 text-center text-sm text-muted-foreground">
-              {error ? labels.loadError : labels.empty}
+              {loading ? labels.loading : error ? labels.loadError : labels.empty}
             </li>
           ) : null}
         </ul>

@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "./dropdown-menu";
 import { cn } from "./lib/utils";
+import { TableLink } from "./data-table/table-navigation";
 
 // A table row's "⋮" menu: its actions in one place, reachable from the
 // keyboard. Items are links (tel:, mailto:, pages) or buttons opening a
@@ -49,11 +50,19 @@ export function RowActionLink({
   children: ReactNode;
 }) {
   return (
+    // The app's own pages move without a reload (and without prefetch).
     <DropdownMenuItem asChild>
-      <a href={href}>
-        {icon}
-        {children}
-      </a>
+      {href.startsWith("/") ? (
+        <TableLink href={href} scroll>
+          {icon}
+          {children}
+        </TableLink>
+      ) : (
+        <a href={href}>
+          {icon}
+          {children}
+        </a>
+      )}
     </DropdownMenuItem>
   );
 }

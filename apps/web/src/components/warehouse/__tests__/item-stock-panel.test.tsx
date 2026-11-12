@@ -75,9 +75,25 @@ describe("ItemStockPanel", () => {
   it("says when the stock cannot be read (never 'not in any location')", async () => {
     h.load.mockResolvedValue({ success: false, error: "failed" });
     render(<ItemStockPanel productId="p1" showSku={false} />);
-    expect((await screen.findByTestId("item-stock-panel-error")).textContent).toBe(
+    expect((await screen.findByTestId("item-stock-panel-error")).textContent).toContain(
       "pages.loadError"
     );
+  });
+
+  it("ends a call that throws in the error state, with a retry (never an endless spinner)", async () => {
+    h.load.mockRejectedValueOnce(new Error("network"));
+    h.load.mockResolvedValue({
+      success: true,
+      data: { branchId: "br", canOperate: false, rows: [row], reservations: [], blocks: [] },
+    });
+    render(<ItemStockPanel productId="p1" showSku={false} />);
+    const error = await screen.findByTestId("item-stock-panel-error");
+    expect(error.textContent).toContain("pages.loadError");
+    act(() => {
+      error.querySelector("button")!.click();
+    });
+    expect(await screen.findByTestId("stock-location-row")).toBeTruthy();
+    expect(h.load).toHaveBeenCalledTimes(2);
   });
 
   it("reloads after a reservation / block operation", async () => {

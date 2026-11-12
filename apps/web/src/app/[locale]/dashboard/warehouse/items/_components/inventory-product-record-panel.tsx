@@ -4,17 +4,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink, Package, Pencil, X } from "lucide-react";
-import { getInventoryProductAction } from "@/app/actions/warehouse/inventory";
 import { ItemStockPanel } from "@/components/warehouse/item-stock-panel";
-import type { InventoryCustomFieldDefinition } from "@/lib/warehouse/inventory-types";
+import type {
+  InventoryCustomFieldDefinition,
+  InventoryProductListRow,
+} from "@/lib/warehouse/inventory-types";
 import { cn } from "@/lib/utils";
 import { InventoryRichTextDisplay } from "./inventory-rich-text";
-import { inventoryProductKeys } from "./inventory-product-query";
+import { productDetailQuery, type ProductsScope } from "./inventory-product-query";
 import type { ProductState } from "./inventory-products-state";
-import { ProductStatus } from "./inventory-products-table";
-
-const DETAIL_STALE_TIME = 5 * 60 * 1000;
-const DETAIL_GC_TIME = 30 * 60 * 1000;
+import { ProductStatus, ProductThumbnail } from "./inventory-products-table";
 
 function DetailProperty({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -25,7 +24,55 @@ function DetailProperty({ label, children }: { label: string; children: React.Re
   );
 }
 
-function PanelLoading({ labels }: { labels: Record<string, string> }) {
+/**
+ * While the card comes: what the list's row already knows (name, SKU,
+ * quantities) at once, the rest as placeholders.
+ */
+function PanelLoading({
+  labels,
+  row,
+}: {
+  labels: Record<string, string>;
+  row: InventoryProductListRow | null;
+}) {
+  if (row) {
+    return (
+      <div className="flex flex-1 flex-col" aria-label={labels.preview} aria-busy="true">
+        <div className="flex items-start gap-4 px-5 py-5">
+          <ProductThumbnail src={row.thumbnail_url} size={64} />
+          <div className="min-w-0 pt-0.5">
+            <h2 id="inventory-product-panel-title" className="text-xl font-semibold tracking-tight">
+              {row.name}
+            </h2>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span className="font-mono">{row.sku || labels.noSku}</span>
+              <ProductStatus value={row.status} label={labels[row.status] ?? row.status} />
+            </div>
+          </div>
+        </div>
+        <dl className="grid grid-cols-3 border-y bg-border">
+          {[
+            [labels.onHand, row.on_hand_quantity],
+            [labels.available, row.available_quantity],
+            [labels.reserved, row.reserved_total_quantity],
+          ].map(([label, value]) => (
+            <div key={label} className="min-w-0 bg-background px-4 py-3.5">
+              <dt className="truncate text-[11px] text-muted-foreground">{label}</dt>
+              <dd className="mt-1 text-xl font-semibold tabular-nums">
+                {value}{" "}
+                <small className="text-xs font-normal text-muted-foreground">{row.unit_code}</small>
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <div className="space-y-3 p-5">
+          {[0, 1, 2, 3].map((key) => (
+            <div key={key} className="h-4 animate-pulse rounded bg-muted" />
+          ))}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-1 flex-col" aria-label={labels.preview} aria-busy="true">
       <div className="flex gap-4 p-5">
@@ -49,8 +96,9 @@ function PanelLoading({ labels }: { labels: Record<string, string> }) {
 
 export function ProductRecordPanel({
   selectionId,
+  row,
   scope,
-  state,
+  tab,
   labels,
   customFields,
   canManageProducts,
@@ -61,9 +109,10 @@ export function ProductRecordPanel({
   onTabChange,
 }: {
   selectionId: string;
-  scope: string;
-  state: ProductState;
-  path: string;
+  /** The list's row of this product, shown while its card comes. */
+  row: InventoryProductListRow | null;
+  scope: ProductsScope;
+  tab: ProductState["tab"];
   labels: Record<string, string>;
   customFields: InventoryCustomFieldDefinition[];
   canManageProducts: boolean;
@@ -74,20 +123,9 @@ export function ProductRecordPanel({
   onTabChange: (tab: ProductState["tab"]) => void;
 }) {
   const productId = selectionId.split("::")[0];
-  const query = useQuery({
-    queryKey: inventoryProductKeys.detail(scope, productId),
-    queryFn: async () => {
-      const result = await getInventoryProductAction({ id: productId });
-      if (!result.success || !("data" in result)) {
-        throw new Error("error" in result ? result.error : labels.loadError);
-      }
-      return result.data;
-    },
-    staleTime: DETAIL_STALE_TIME,
-    gcTime: DETAIL_GC_TIME,
-  });
+  const query = useQuery(productDetailQuery(scope, productId));
   const detail = query.data;
-  const activeTab = state.tab === "stock" && !canReadStock ? "info" : state.tab;
+  const activeTab = tab === "stock" && !canReadStock ? "info" : tab;
   const tabs = [
     { key: "info" as const, label: labels.info },
     {
@@ -133,7 +171,7 @@ export function ProductRecordPanel({
         </div>
       </header>
 
-      {query.isPending ? <PanelLoading labels={labels} /> : null}
+      {query.isPending ? <PanelLoading labels={labels} row={row} /> : null}
       {query.isError ? (
         <div className="grid flex-1 place-items-center p-8 text-center text-sm">
           <div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQueryStates } from "nuqs";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Download, SlidersHorizontal } from "lucide-react";
 import { FilterBar, type FilterField } from "@/components/kolor-sensu/data-table/filter-bar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/kolor-sensu/popover";
@@ -9,17 +10,40 @@ import { Button } from "@/components/ui/button";
 import { exportInventoryProductsCsvAction } from "@/app/actions/warehouse/inventory";
 import type { InventoryCustomFieldDefinition } from "@/lib/warehouse/inventory-types";
 import { productParsers, PRODUCT_TYPES, PRODUCT_STATUSES } from "./inventory-products-state";
+import { productListQuery, type ProductsScope } from "./inventory-product-query";
+
+/** How many products the address finds (from the list's cache, no request of its own). */
+export function ProductsTotal({ scope, initial }: { scope: ProductsScope; initial: number }) {
+  const [state] = useQueryStates(productParsers);
+  const { data } = useQuery({
+    ...productListQuery(scope, state),
+    placeholderData: keepPreviousData,
+  });
+  return (
+    <span className="text-xs tabular-nums text-muted-foreground">
+      {data?.totalCount ?? initial}
+    </span>
+  );
+}
 
 export function ProductFilters({
+  scope,
   order,
   customFields,
   labels,
 }: {
+  scope: ProductsScope;
   order: string[];
   customFields: InventoryCustomFieldDefinition[];
   labels: Record<string, string>;
 }) {
-  const [state, setState] = useQueryStates(productParsers, { shallow: false });
+  // The list fetches its own rows: the address changes without a server render.
+  const [state, setState] = useQueryStates(productParsers, { shallow: true, history: "push" });
+  // The search box spins while this address's rows come (not for prefetches).
+  const fetching = useQuery({
+    ...productListQuery(scope, state),
+    placeholderData: keepPreviousData,
+  }).isFetching;
   const fields: FilterField[] = [
     {
       kind: "list",
@@ -53,6 +77,8 @@ export function ProductFilters({
         parsers={productParsers}
         fields={fields}
         resetOnChange={["strona", "selected", "tab"]}
+        shallow
+        pending={fetching}
         order={order}
         search={{ label: labels.search, placeholder: labels.search }}
       />

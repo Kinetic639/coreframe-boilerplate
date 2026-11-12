@@ -52,6 +52,8 @@ import {
 } from "./product-create-controls";
 import { labelClass, requiredLabelClass, selectClass } from "./product-create-styles";
 import { InventoryRichTextFormField } from "../../_components/inventory-rich-text";
+import { invalidateInventoryProducts } from "../../_components/inventory-product-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   MAX_ITEM_IMAGE_BYTES,
   customFieldValue,
@@ -161,6 +163,7 @@ export function InventoryProductCreateClient({
   const tc = useTranslations("warehouseInventory.common");
   const tCrmSuppliers = useTranslations("warehouseInventory.create.crmSuppliers");
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
   const [validationIssues, setValidationIssues] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
@@ -951,6 +954,7 @@ export function InventoryProductCreateClient({
         setMessage(error instanceof Error ? error.message : t("crmSuppliersSaveFailed"));
         return;
       }
+      void invalidateInventoryProducts(queryClient);
       router.push("/dashboard/warehouse/items");
     });
   };

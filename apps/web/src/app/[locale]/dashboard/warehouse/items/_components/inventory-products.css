@@ -151,3 +151,45 @@ body:has(.inventory-products-view) {
     min-height: 36px;
   }
 }
+/* The list keeps its rows while new ones come: a thin running bar on top,
+   and the old rows fade a little only if the wait is noticeable. */
+.products-progress {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 40;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.products-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: var(--primary);
+  animation: products-progress 1s ease-in-out infinite;
+}
+@keyframes products-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+.products-list-pane tbody,
+.products-list-pane ul {
+  transition: opacity 0.15s;
+}
+.products-list-pane[data-refreshing] tbody,
+.products-list-pane[data-refreshing] ul {
+  opacity: 0.6;
+  transition-delay: 0.2s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .products-progress::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+}

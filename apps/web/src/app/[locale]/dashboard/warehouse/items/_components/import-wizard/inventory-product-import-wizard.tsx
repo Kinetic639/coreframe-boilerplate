@@ -22,6 +22,8 @@ import {
   previewInventoryProductsCsvImportAction,
 } from "@/app/actions/warehouse/inventory";
 import { ImportMultiSelectCell } from "./import-multi-select-cell";
+import { invalidateInventoryProducts } from "../inventory-product-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   autoMapHeaders,
   csvLines,
@@ -74,6 +76,7 @@ export function InventoryProductImportWizard({
   const tFieldTypes = useTranslations("warehouseInventory.fieldTypes");
   const tSettings = useTranslations("warehouseInventory.settings");
   const router = useRouter();
+  const queryClient = useQueryClient();
   const setFlushContent = useUiStoreV2((state) => state.setFlushContent);
   const importOnly = true;
   const [importMessage, setImportMessage] = useState<string | null>(null);
@@ -390,6 +393,7 @@ export function InventoryProductImportWizard({
             : t("importFailed")
       );
       if (imported.success) {
+        void invalidateInventoryProducts(queryClient);
         if (importOnly) {
           router.push("/dashboard/warehouse/items");
         } else {
@@ -406,7 +410,16 @@ export function InventoryProductImportWizard({
         }
       }
     });
-  }, [importMode, importOnly, importRows, importStructure, mappedCustomFields, router, t]);
+  }, [
+    importMode,
+    importOnly,
+    importRows,
+    importStructure,
+    mappedCustomFields,
+    queryClient,
+    router,
+    t,
+  ]);
 
   const createUnitFromDraft = useCallback(() => {
     const code = unitDraft.code.trim();
