@@ -39,6 +39,8 @@ export const inventoryProductKeys = {
   // for the same rows share an entry; the panel (selected, tab) is not in it.
   list: (scope: ProductsScope, state: ProductState) =>
     [...inventoryProductKeys.lists(scope), productListParams(state)] as const,
+  /** The saved views of the list (the person's own and the shared ones). */
+  views: (scope: ProductsScope) => [...inventoryProductKeys.all, scopeKey(scope), "views"] as const,
   detail: (scope: ProductsScope, productId: string) =>
     [...inventoryProductKeys.all, scopeKey(scope), "detail", productId] as const,
 };

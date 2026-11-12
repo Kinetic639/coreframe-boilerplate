@@ -16,6 +16,7 @@ import {
   STOCK_FILTERS,
 } from "./inventory-products-state";
 import { productListQuery, type ProductsScope } from "./inventory-product-query";
+import { ProductViews } from "./inventory-products-views";
 
 /** How many products the address finds (from the list's cache, no request of its own). */
 export function ProductsTotal({ scope, initial }: { scope: ProductsScope; initial: number }) {
@@ -33,11 +34,17 @@ export function ProductsTotal({ scope, initial }: { scope: ProductsScope; initia
 
 export function ProductFilters({
   scope,
+  path,
+  userId,
+  canShareViews,
   order,
   customFields,
   labels,
 }: {
   scope: ProductsScope;
+  path: string;
+  userId: string;
+  canShareViews: boolean;
   order: string[];
   customFields: InventoryCustomFieldDefinition[];
   labels: Record<string, string>;
@@ -101,6 +108,13 @@ export function ProductFilters({
         search={{ label: labels.search, placeholder: labels.search }}
       />
       <div className="products-filter-extras">
+        <ProductViews
+          scope={scope}
+          path={path}
+          userId={userId}
+          canShare={canShareViews}
+          labels={labels}
+        />
         <label className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
           <input
             type="checkbox"
