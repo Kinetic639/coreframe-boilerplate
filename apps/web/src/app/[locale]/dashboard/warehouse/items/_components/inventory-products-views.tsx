@@ -37,23 +37,9 @@ export function viewQuery(state: Partial<ProductState>) {
   return serializeProductState({ ...state, strona: null, selected: null, tab: null });
 }
 
-/** The views every list has, as in Zoho's "All / Active / …". */
-function presets(labels: Record<string, string>) {
-  return [
-    { id: "all", name: labels.viewAll, query: viewQuery({}) },
-    { id: "active", name: labels.viewActive, query: viewQuery({ status: ["active"] }) },
-    {
-      id: "unavailable",
-      name: labels.stock_unavailable,
-      query: viewQuery({ stan: ["unavailable"] }),
-    },
-    { id: "reserved", name: labels.stock_reserved, query: viewQuery({ stan: ["reserved"] }) },
-    { id: "blocked", name: labels.stock_blocked, query: viewQuery({ stan: ["blocked"] }) },
-  ];
-}
-
 /**
- * The "Widoki" menu: ready views, the person's own and the shared ones;
+ * The "Widoki" menu: saved views only (the filters are all in the bar) --
+ * the person's own and the shared ones;
  * one click applies a view (the address changes, the list follows), and the
  * current search, filters and sort can be saved under a name.
  */
@@ -89,15 +75,11 @@ export function ProductViews({
   });
 
   const current = viewQuery(state);
-  const ready = presets(labels);
   const own = (views.data ?? []).filter((view) => !view.is_shared);
   const common = (views.data ?? []).filter((view) => view.is_shared);
   const queryOf = (view: SavedView) =>
     typeof view.config.query === "string" ? view.config.query : "";
-  const active =
-    ready.find((view) => view.query === current)?.name ??
-    (views.data ?? []).find((view) => queryOf(view) === current)?.name ??
-    null;
+  const active = (views.data ?? []).find((view) => queryOf(view) === current)?.name ?? null;
 
   const apply = (query: string) => {
     window.history.pushState(null, "", `${path}${query}`);
@@ -183,12 +165,12 @@ export function ProductViews({
         <ChevronDown className="size-3 shrink-0 opacity-60" />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 p-1 text-[0.8125rem]">
-        <ul>{ready.map((view) => item(view.id, view.name, view.query))}</ul>
+        {!own.length && !common.length ? (
+          <p className="px-2 py-2 text-xs text-muted-foreground">{labels.viewsEmpty}</p>
+        ) : null}
         {own.length ? (
           <>
-            <p className="mt-1 border-t px-2 pt-2 pb-1 text-[0.7rem] text-muted-foreground">
-              {labels.viewsMine}
-            </p>
+            <p className="px-2 pt-1 pb-1 text-[0.7rem] text-muted-foreground">{labels.viewsMine}</p>
             <ul>{own.map((view) => item(view.id, view.name, queryOf(view), view))}</ul>
           </>
         ) : null}

@@ -3,17 +3,17 @@
 import { useState } from "react";
 import { useQueryStates } from "nuqs";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Download, SlidersHorizontal } from "lucide-react";
+import { Download } from "lucide-react";
 import { FilterBar, type FilterField } from "@/components/kolor-sensu/data-table/filter-bar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/kolor-sensu/popover";
 import { Button } from "@/components/ui/button";
 import { exportInventoryProductsCsvAction } from "@/app/actions/warehouse/inventory";
 import type { InventoryCustomFieldDefinition } from "@/lib/warehouse/inventory-types";
 import {
+  CHANGED_WITHIN,
   productParsers,
   PRODUCT_TYPES,
   PRODUCT_STATUSES,
-  STOCK_FILTERS,
+  QUANTITY_RANGES,
 } from "./inventory-products-state";
 import { productListQuery, type ProductsScope } from "./inventory-product-query";
 import { ProductViews } from "./inventory-products-views";
@@ -56,7 +56,17 @@ export function ProductFilters({
     ...productListQuery(scope, state),
     placeholderData: keepPreviousData,
   }).isFetching;
+  const quantityLabels: Record<string, string> = {
+    on_hand_quantity: labels.onHand,
+    available_quantity: labels.available,
+    reserved_total_quantity: labels.reserved,
+    blocked_quantity: labels.blocked,
+  };
+  // A filter for every column of the list (in the columns' order), each of
+  // its kind: text contains, values to tick, a range of numbers or of days.
   const fields: FilterField[] = [
+    { kind: "text", id: "nazwa", label: labels.productColumn },
+    { kind: "text", id: "sku", label: labels.sku },
     {
       kind: "list",
       id: "product_type",
@@ -69,19 +79,28 @@ export function ProductFilters({
       label: labels.status,
       options: PRODUCT_STATUSES.map((value) => ({ value, label: labels[value] ?? value })),
     },
+    // Quantities are sums per product: they filter the grouped list.
     ...(state.grouped
-      ? [
-          {
-            kind: "list" as const,
-            id: "stan",
-            label: labels.stockFilter,
-            options: STOCK_FILTERS.map((value) => ({
-              value,
-              label: labels[`stock_${value}`] ?? value,
-            })),
-          },
-        ]
+      ? QUANTITY_RANGES.map((range) => ({
+          kind: "range" as const,
+          id: range.column,
+          label: quantityLabels[range.column],
+          keys: { min: range.min, max: range.max },
+        }))
       : []),
+    {
+      kind: "dates",
+      id: "updated_at",
+      label: labels.updated,
+      options: CHANGED_WITHIN.map((value) => ({ value, label: labels[`changed_${value}`] })),
+      keys: { scope: "zmiana", from: "zmiana_od", to: "zmiana_do" },
+    },
+    ...customFields.map((field) => ({
+      kind: "text" as const,
+      id: `custom_field:${field.id}`,
+      label: field.name,
+      within: "filters",
+    })),
     ...(!state.grouped
       ? [
           {
@@ -104,17 +123,10 @@ export function ProductFilters({
         resetOnChange={["strona", "selected", "tab"]}
         shallow
         pending={fetching}
-        order={order}
+        order={["nazwa", ...order]}
         search={{ label: labels.search, placeholder: labels.search }}
       />
       <div className="products-filter-extras">
-        <ProductViews
-          scope={scope}
-          path={path}
-          userId={userId}
-          canShare={canShareViews}
-          labels={labels}
-        />
         <label className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
           <input
             type="checkbox"
@@ -124,6 +136,12 @@ export function ProductFilters({
                 grouped: e.target.checked,
                 is_variant: [],
                 stan: [],
+                ...Object.fromEntries(
+                  QUANTITY_RANGES.flatMap((range) => [
+                    [range.min, null],
+                    [range.max, null],
+                  ])
+                ),
                 strona: 1,
                 selected: null,
                 tab: null,
@@ -133,55 +151,14 @@ export function ProductFilters({
           />
           {labels.groupVariants}
         </label>
-        {customFields.length > 0 ? (
-          <Popover>
-            <PopoverTrigger
-              aria-label={labels.customFields}
-              className="inline-flex h-7 items-center gap-1 rounded px-1.5 text-xs hover:bg-muted"
-            >
-              <SlidersHorizontal className="size-3.5" />
-              {labels.customFields}
-              {Object.values(state.filters).filter(Boolean).length
-                ? ` · ${Object.values(state.filters).filter(Boolean).length}`
-                : ""}
-            </PopoverTrigger>
-            <PopoverContent align="end" className="grid max-h-96 gap-3 overflow-auto p-3">
-              {customFields.map((field) => (
-                <form
-                  key={field.id}
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const value = String(new FormData(e.currentTarget).get("value") ?? "");
-                    void setState({
-                      filters: { ...state.filters, [`custom_field:${field.id}`]: value || null },
-                      strona: 1,
-                      selected: null,
-                    });
-                  }}
-                >
-                  <label className="grid gap-1 text-xs">
-                    {field.name}
-                    <input
-                      name="value"
-                      key={String(state.filters[`custom_field:${field.id}`] ?? "")}
-                      defaultValue={String(state.filters[`custom_field:${field.id}`] ?? "")}
-                      className="h-8 rounded border bg-background px-2 text-foreground"
-                    />
-                  </label>
-                  <button type="submit" className="mt-1 text-xs text-primary">
-                    {labels.apply}
-                  </button>
-                </form>
-              ))}
-              <button
-                className="text-left text-xs text-primary"
-                onClick={() => void setState({ filters: {}, strona: 1, selected: null })}
-              >
-                {labels.clear}
-              </button>
-            </PopoverContent>
-          </Popover>
-        ) : null}
+        {/* Saved views only: the filters themselves are all in the bar. */}
+        <ProductViews
+          scope={scope}
+          path={path}
+          userId={userId}
+          canShare={canShareViews}
+          labels={labels}
+        />
       </div>
     </div>
   );

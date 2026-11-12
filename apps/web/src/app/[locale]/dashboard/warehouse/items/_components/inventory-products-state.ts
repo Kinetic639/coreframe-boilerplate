@@ -4,6 +4,7 @@ import {
   createSerializer,
   parseAsArrayOf,
   parseAsBoolean,
+  parseAsFloat,
   parseAsInteger,
   parseAsNumberLiteral,
   parseAsString,
@@ -52,6 +53,24 @@ export const PRODUCT_SORTS = [
 export type ProductSort = (typeof PRODUCT_SORTS)[number];
 /** Stock conditions (any of them keeps a product): with stock, none free, R > 0, B > 0. */
 export const STOCK_FILTERS = ["available", "unavailable", "reserved", "blocked"] as const;
+/** A day, `2026-11-12` (anything else is dropped). */
+const parseAsDay = createParser({
+  parse: (value) => (/^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null),
+  serialize: (value: string) => value,
+});
+/** Ready ranges of the "last change" filter. */
+export const CHANGED_WITHIN = ["7d", "30d", "90d"] as const;
+/**
+ * The quantity columns' ranges: the address keys of each bound and the
+ * service's filter keys (`on_hand_min`, ...).
+ */
+export const QUANTITY_RANGES = [
+  { column: "on_hand_quantity", filter: "on_hand", min: "nastanie_od", max: "nastanie_do" },
+  { column: "available_quantity", filter: "available", min: "dostepne_od", max: "dostepne_do" },
+  { column: "reserved_total_quantity", filter: "reserved", min: "r_od", max: "r_do" },
+  { column: "blocked_quantity", filter: "blocked", min: "b_od", max: "b_do" },
+] as const;
+
 export const productParsers = {
   q: parseAsString.withDefault(""),
   strona: parseAsInteger.withDefault(1),
@@ -69,7 +88,29 @@ export const productParsers = {
   stan: parseAsArrayOf(parseAsStringLiteral(STOCK_FILTERS)).withDefault([]),
   is_variant: parseAsArrayOf(parseAsStringLiteral(["true", "false"] as const)).withDefault([]),
   filters: parseFilters.withDefault({}),
+  // A filter per column: name and SKU contain, the last change, the quantities.
+  nazwa: parseAsString.withDefault(""),
+  sku: parseAsString.withDefault(""),
+  zmiana: parseAsStringLiteral(CHANGED_WITHIN),
+  zmiana_od: parseAsDay,
+  zmiana_do: parseAsDay,
+  nastanie_od: parseAsFloat,
+  nastanie_do: parseAsFloat,
+  dostepne_od: parseAsFloat,
+  dostepne_do: parseAsFloat,
+  r_od: parseAsFloat,
+  r_do: parseAsFloat,
+  b_od: parseAsFloat,
+  b_do: parseAsFloat,
 };
+
+/** The first day of a ready "last change" range (days back from today, UTC). */
+function changedSince(within: (typeof CHANGED_WITHIN)[number], today = new Date()) {
+  const days = Number.parseInt(within, 10);
+  const since = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  since.setUTCDate(since.getUTCDate() - days);
+  return since.toISOString().slice(0, 10);
+}
 export type ProductState = inferParserType<typeof productParsers>;
 export const loadProductState = createLoader(productParsers);
 export const serializeProductState = createSerializer(productParsers);
@@ -91,6 +132,27 @@ export function productListParams(state: ProductState): DataViewListParams {
       stock: state.grouped && state.stan.length ? state.stan : null,
       is_variant:
         !state.grouped && state.is_variant.length === 1 ? state.is_variant[0] === "true" : null,
+      name: state.nazwa.trim() ? state.nazwa.trim().slice(0, 100) : null,
+      sku: state.sku.trim() ? state.sku.trim().slice(0, 100) : null,
+      updated_from: state.zmiana_od ?? (state.zmiana ? changedSince(state.zmiana) : null),
+      updated_to: state.zmiana_do ?? null,
+      // Quantity sums are per product: their ranges apply to the grouped list.
+      ...Object.fromEntries(
+        QUANTITY_RANGES.flatMap((range) =>
+          state.grouped
+            ? [
+                [
+                  `${range.filter}_min`,
+                  state[range.min] !== null ? String(state[range.min]) : null,
+                ],
+                [
+                  `${range.filter}_max`,
+                  state[range.max] !== null ? String(state[range.max]) : null,
+                ],
+              ]
+            : []
+        )
+      ),
     },
   };
 }
