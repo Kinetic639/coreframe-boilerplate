@@ -148,6 +148,47 @@ const STOCK_SORT_FIELDS = new Set([
   "blocked_quantity",
 ]);
 
+const QUANTITY_RANGE_KEYS = ["on_hand", "available", "reserved", "blocked"] as const;
+
+/**
+ * The list's column filters, from its params: name contains, the last
+ * change between two days (to: the whole day included) and the quantity
+ * ranges (`on_hand_min`, `available_max`, ...), as the database takes them.
+ */
+export function productColumnFilters(filters: DataViewListParams["filters"]) {
+  const text = (value: unknown) =>
+    typeof value === "string" && value.trim() ? value.trim() : null;
+  const day = (value: unknown) =>
+    typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+  const number = (value: unknown) => {
+    if (typeof value !== "string" || !value.trim()) return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const ranges: Record<string, { min?: number; max?: number }> = {};
+  for (const key of QUANTITY_RANGE_KEYS) {
+    const min = number(filters[`${key}_min`]);
+    const max = number(filters[`${key}_max`]);
+    if (min !== null || max !== null) {
+      ranges[key] = { ...(min !== null ? { min } : {}), ...(max !== null ? { max } : {}) };
+    }
+  }
+  const updatedTo = day(filters.updated_to);
+  let updatedToExclusive: string | null = null;
+  if (updatedTo) {
+    const next = new Date(`${updatedTo}T00:00:00Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
+    updatedToExclusive = next.toISOString();
+  }
+  const updatedFrom = day(filters.updated_from);
+  return {
+    name: text(filters.name),
+    updatedFrom: updatedFrom ? `${updatedFrom}T00:00:00Z` : null,
+    updatedTo: updatedToExclusive,
+    ranges: Object.keys(ranges).length ? ranges : null,
+  };
+}
+
 function applyProductSort(query: any, sort: DataViewListParams["sort"]) {
   const sortMap: Record<string, string> = {
     name: "name",
@@ -269,6 +310,11 @@ export class InventoryProductsService {
       query = query.in("product_type", productType);
     }
 
+    const columnFilters = productColumnFilters(params.filters);
+    if (columnFilters.name) query = query.ilike("name", searchPattern(columnFilters.name));
+    if (columnFilters.updatedFrom) query = query.gte("updated_at", columnFilters.updatedFrom);
+    if (columnFilters.updatedTo) query = query.lt("updated_at", columnFilters.updatedTo);
+
     const filteredProductIds = await filteredProductIdsPromise;
     if (!filteredProductIds.success)
       return { success: false, error: serviceError(filteredProductIds) };
@@ -310,7 +356,7 @@ export class InventoryProductsService {
       : typeof params.filters.stock === "string" && params.filters.stock
         ? params.filters.stock
         : null;
-    if (STOCK_SORT_FIELDS.has(params.sort?.field ?? "") || stockFilter) {
+    if (STOCK_SORT_FIELDS.has(params.sort?.field ?? "") || stockFilter || columnFilters.ranges) {
       return InventoryProductsService.listProductsByStock(
         supabase,
         orgId,
@@ -357,19 +403,27 @@ export class InventoryProductsService {
         : typeof value === "string" && value
           ? [value]
           : null;
-    const { data: page, error } = await (supabase as any).rpc("inventory_product_page_by_stock", {
-      p_org_id: orgId,
-      p_branch_id: branchId,
-      p_sort_field: params.sort?.field ?? null,
-      p_ascending: params.sort?.direction === "asc",
-      p_search: params.search ? searchPattern(params.search) : null,
-      p_statuses: list(params.filters.status),
-      p_types: list(params.filters.product_type),
-      p_only_ids: onlyIds,
-      p_stock: stockFilter,
-      p_limit: params.pageSize,
-      p_offset: (params.page - 1) * params.pageSize,
-    });
+    const columns = productColumnFilters(params.filters);
+    const { data: page, error } = await (supabase as any).rpc(
+      "inventory_product_page_by_stock_v2",
+      {
+        p_org_id: orgId,
+        p_branch_id: branchId,
+        p_sort_field: params.sort?.field ?? null,
+        p_ascending: params.sort?.direction === "asc",
+        p_search: params.search ? searchPattern(params.search) : null,
+        p_name: columns.name ? searchPattern(columns.name) : null,
+        p_statuses: list(params.filters.status),
+        p_types: list(params.filters.product_type),
+        p_only_ids: onlyIds,
+        p_stock: stockFilter,
+        p_ranges: columns.ranges,
+        p_updated_from: columns.updatedFrom,
+        p_updated_to: columns.updatedTo,
+        p_limit: params.pageSize,
+        p_offset: (params.page - 1) * params.pageSize,
+      }
+    );
     if (error) return { success: false, error: error.message };
     const ordered = (page ?? []) as Array<{ product_id: string; total_count: number }>;
     const totalCount = Number(ordered[0]?.total_count ?? 0);
@@ -451,6 +505,13 @@ export class InventoryProductsService {
     if (isVariantFilter !== null) {
       indexQuery = indexQuery.eq("is_variant_row", isVariantFilter);
     }
+    const columnFilters = productColumnFilters(params.filters);
+    if (columnFilters.name) {
+      indexQuery = indexQuery.ilike("product_name", searchPattern(columnFilters.name));
+    }
+    if (columnFilters.updatedFrom)
+      indexQuery = indexQuery.gte("updated_at", columnFilters.updatedFrom);
+    if (columnFilters.updatedTo) indexQuery = indexQuery.lt("updated_at", columnFilters.updatedTo);
 
     const sortMap: Record<string, string> = {
       name: "variant_name",
@@ -3141,6 +3202,22 @@ export class InventoryProductsService {
         .filter(([, values]) => tagIds.every((tagId) => values.has(tagId)))
         .map(([productId]) => productId);
       scopedIds = intersectProductIds(scopedIds, matchedIds);
+    }
+
+    // SKU contains: the products with a live variant whose part number matches.
+    const skuFilter = typeof filters.sku === "string" ? filters.sku.trim() : "";
+    if (skuFilter) {
+      const { data: skuHits, error: skuError } = await client
+        .from("inventory_variants")
+        .select("product_id")
+        .eq("organization_id", orgId)
+        .is("deleted_at", null)
+        .ilike("sku", searchPattern(skuFilter))
+        .limit(5000);
+      if (skuError) return { success: false, error: skuError.message };
+      scopedIds = intersectProductIds(scopedIds, [
+        ...new Set(((skuHits ?? []) as Array<{ product_id: string }>).map((row) => row.product_id)),
+      ]);
     }
 
     for (const [key, rawValue] of Object.entries(filters)) {

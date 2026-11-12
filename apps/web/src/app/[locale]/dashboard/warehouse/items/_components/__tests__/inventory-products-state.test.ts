@@ -121,3 +121,32 @@ describe("saved product views", () => {
     expect(viewQuery(loadProductState({}))).toBe("");
   });
 });
+
+describe("a filter for every column", () => {
+  it("turns column params into the service's filters", () => {
+    const filters = productListParams(
+      loadProductState({
+        nazwa: " szyba ",
+        sku: "5Q0",
+        nastanie_od: "1",
+        dostepne_do: "0",
+        zmiana_od: "2026-11-01",
+        zmiana_do: "2026-11-10",
+      })
+    ).filters;
+    expect(filters.name).toBe("szyba");
+    expect(filters.sku).toBe("5Q0");
+    expect(filters.on_hand_min).toBe("1");
+    expect(filters.available_max).toBe("0");
+    expect(filters.reserved_min).toBeNull();
+    expect(filters.updated_from).toBe("2026-11-01");
+    expect(filters.updated_to).toBe("2026-11-10");
+  });
+  it("drops quantity ranges for the ungrouped list and bad days", () => {
+    const filters = productListParams(
+      loadProductState({ grouped: "false", nastanie_od: "5", zmiana_od: "jutro" })
+    ).filters;
+    expect(filters.on_hand_min).toBeUndefined();
+    expect(filters.updated_from).toBeNull();
+  });
+});

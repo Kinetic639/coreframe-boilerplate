@@ -134,7 +134,6 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
     loadError: pl ? "Nie udało się wczytać danych." : "Could not load data.",
     retry: pl ? "Spróbuj ponownie" : "Try again",
     loading: pl ? "Wczytywanie…" : "Loading…",
-    stockFilter: pl ? "Stan" : "Stock",
     bulkActions: pl ? "Akcje na zaznaczonych" : "Actions on selected",
     bulkSelected: pl ? "Zaznaczono" : "Selected",
     bulkSelectAll: pl ? "Zaznacz wszystkie na stronie" : "Select all on page",
@@ -150,9 +149,13 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
     bulkClear: pl ? "Odznacz" : "Clear",
     cancel: pl ? "Anuluj" : "Cancel",
     views: pl ? "Widoki" : "Views",
-    viewAll: pl ? "Wszystkie produkty" : "All products",
-    viewActive: pl ? "Aktywne" : "Active",
     viewsMine: pl ? "Moje widoki" : "My views",
+    viewsEmpty: pl
+      ? "Brak zapisanych widoków. Ustaw filtry w pasku i zapisz je poniżej."
+      : "No saved views yet. Set filters in the bar and save them below.",
+    changed_7d: pl ? "Ostatnie 7 dni" : "Last 7 days",
+    changed_30d: pl ? "Ostatnie 30 dni" : "Last 30 days",
+    changed_90d: pl ? "Ostatnie 90 dni" : "Last 90 days",
     viewsShared: pl ? "Wspólne widoki" : "Shared views",
     viewSaveCurrent: pl
       ? "Zapisz bieżące wyszukiwanie, filtry i sortowanie"
@@ -162,10 +165,6 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
     viewSave: pl ? "Zapisz widok" : "Save view",
     viewSaved: pl ? "Zapisano widok" : "View saved",
     viewDelete: pl ? "Usuń widok" : "Delete view",
-    stock_available: pl ? "Dostępne > 0" : "Available > 0",
-    stock_unavailable: pl ? "Brak dostępnych" : "None available",
-    stock_reserved: pl ? "Zarezerwowane (R)" : "Reserved (R)",
-    stock_blocked: pl ? "Zablokowane (B)" : "Blocked (B)",
     notFound: pl
       ? "Produkt nie istnieje lub nie jest dostępny."
       : "Product not found or unavailable.",

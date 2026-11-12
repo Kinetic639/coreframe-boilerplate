@@ -45,7 +45,28 @@ export interface DateFilterField {
   none?: string;
 }
 
-export type FilterField = ListFilterField | DateFilterField;
+/** A filter of text a column's value contains (SKU, a custom field), one param. */
+export interface TextFilterField {
+  kind: "text";
+  id: string;
+  label: string;
+  placeholder?: string;
+  /**
+   * The text lives in an object param under `id` (e.g. `filters`, for
+   * fields known only at run time, such as custom fields); none: its own param.
+   */
+  within?: string;
+}
+
+/** A filter of numbers between two bounds (either may be left open), two params. */
+export interface RangeFilterField {
+  kind: "range";
+  id: string;
+  label: string;
+  keys: { min: string; max: string };
+}
+
+export type FilterField = ListFilterField | DateFilterField | TextFilterField | RangeFilterField;
 
 export interface FilterBarProps {
   /**
@@ -83,8 +104,15 @@ interface Field {
   chosen: string[];
   /** A date field's own days. */
   own?: { from: string | null; to: string | null };
+  /** A text field's text. */
+  text?: string | null;
+  /** A range field's bounds. */
+  range?: { min: number | null; max: number | null };
   config: FilterField;
 }
+
+/** `1 250,5` */
+const shortNumber = (value: number) => value.toLocaleString("pl-PL");
 
 /** `01.10.2026` */
 const shortDate = (date: string) => date.split("-").reverse().join(".");
@@ -134,6 +162,35 @@ export function FilterBar({
   const [editing, setEditing] = useState<string | null>(null);
 
   const unordered: Field[] = configs.map((config) => {
+    if (config.kind === "text") {
+      const text = config.within
+        ? ((params[config.within] as Record<string, unknown> | null)?.[config.id] as
+            | string
+            | undefined) || null
+        : ((params[config.id] as string | null) ?? null);
+      return {
+        id: config.id,
+        label: config.label,
+        dates: false,
+        options: [],
+        chosen: text ? [text] : [],
+        text,
+        config,
+      };
+    }
+    if (config.kind === "range") {
+      const min = (params[config.keys.min] as number | null) ?? null;
+      const max = (params[config.keys.max] as number | null) ?? null;
+      return {
+        id: config.id,
+        label: config.label,
+        dates: false,
+        options: [],
+        chosen: min !== null || max !== null ? ["range"] : [],
+        range: { min, max },
+        config,
+      };
+    }
     if (config.kind === "list") {
       return {
         id: config.id,
@@ -186,8 +243,25 @@ export function FilterBar({
       [config.keys.to]: value.to ?? null,
     });
 
+  const setText = (field: Field, text: string | null) => {
+    const config = field.config;
+    if (config.kind !== "text") return;
+    const value = text?.trim() ? text.trim() : null;
+    if (!config.within) return change({ [config.id]: value });
+    const object = { ...((params[config.within] as Record<string, unknown> | null) ?? {}) };
+    if (value) object[config.id] = value;
+    else delete object[config.id];
+    change({ [config.within]: Object.keys(object).length ? object : null });
+  };
+  const setRange = (field: Field, min: number | null, max: number | null) => {
+    if (field.config.kind !== "range") return;
+    const [low, high] = min !== null && max !== null && min > max ? [max, min] : [min, max];
+    change({ [field.config.keys.min]: low, [field.config.keys.max]: high });
+  };
+
   const choose = (field: Field, value: string) => {
     const config = field.config;
+    if (config.kind === "text" || config.kind === "range") return;
     if (config.kind === "dates") return setDates(config, { scope: value });
     const now = field.chosen;
     const next = now.includes(value) ? now.filter((one) => one !== value) : [...now, value];
@@ -202,25 +276,40 @@ export function FilterBar({
     });
   };
   const remove = (field: Field) =>
-    field.config.kind === "dates"
-      ? setDates(field.config, { scope: field.config.removed ?? null })
-      : change({ [field.config.id]: null });
+    field.config.kind === "text"
+      ? setText(field, null)
+      : field.config.kind === "dates"
+        ? setDates(field.config, { scope: field.config.removed ?? null })
+        : field.config.kind === "range"
+          ? change({ [field.config.keys.min]: null, [field.config.keys.max]: null })
+          : change({ [field.config.id]: null });
   const clearAll = () =>
     change(
       Object.fromEntries(
         configs.flatMap((config) =>
-          config.kind === "list"
-            ? [[config.id, null]]
-            : [
-                [config.keys.scope, config.removed ?? null],
-                [config.keys.from, null],
-                [config.keys.to, null],
-              ]
+          config.kind === "list" || config.kind === "text"
+            ? [[config.kind === "text" && config.within ? config.within : config.id, null]]
+            : config.kind === "range"
+              ? [
+                  [config.keys.min, null],
+                  [config.keys.max, null],
+                ]
+              : [
+                  [config.keys.scope, config.removed ?? null],
+                  [config.keys.from, null],
+                  [config.keys.to, null],
+                ]
         )
       )
     );
 
   const chipValue = (field: Field) => {
+    if (field.config.kind === "text") return `„${field.text ?? ""}”`;
+    if (field.range) {
+      const { min, max } = field.range;
+      if (min !== null && max !== null) return `${shortNumber(min)} – ${shortNumber(max)}`;
+      return min !== null ? `≥ ${shortNumber(min)}` : `≤ ${shortNumber(max ?? 0)}`;
+    }
     if (field.own && (field.own.from || field.own.to)) {
       const { from, to } = field.own;
       return `${from ? shortDate(from) : "…"} – ${to ? shortDate(to) : "…"}`;
@@ -280,6 +369,14 @@ export function FilterBar({
                 onChoose={(value) => choose(editingField, value)}
                 onOwnRange={(from, to) => {
                   ownDays(editingField, from, to);
+                  setOpen(false);
+                }}
+                onText={(text) => {
+                  setText(editingField, text);
+                  setOpen(false);
+                }}
+                onRange={(min, max) => {
+                  setRange(editingField, min, max);
                   setOpen(false);
                 }}
               />
@@ -373,7 +470,11 @@ export function FilterBar({
                 <PopoverTrigger className={CHIP_PART}>
                   <span className="text-[var(--text-muted)]">
                     {field.label}
-                    {field.dates ? ":" : " jest"}
+                    {field.config.kind === "text"
+                      ? " zawiera"
+                      : field.dates || field.config.kind === "range"
+                        ? ":"
+                        : " jest"}
                   </span>
                   <span className="font-semibold text-[var(--text)]">{chipValue(field)}</span>
                 </PopoverTrigger>
@@ -382,6 +483,8 @@ export function FilterBar({
                     field={field}
                     onChoose={(value) => choose(field, value)}
                     onOwnRange={(from, to) => ownDays(field, from, to)}
+                    onText={(text) => setText(field, text)}
+                    onRange={(min, max) => setRange(field, min, max)}
                   />
                 </PopoverContent>
               </Popover>
@@ -405,15 +508,96 @@ export function FilterBar({
 }
 
 /** A field's values: tick several, or (dates) a range or days of its own. */
+const INPUT =
+  "h-7 rounded-[5px] border border-[var(--border)] bg-[var(--surface)] px-1.5 text-[0.78rem] text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none";
+const SUBMIT =
+  "h-7 rounded-[5px] bg-[var(--primary)] px-2 text-[0.78rem] font-semibold text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none";
+
 function FieldValues({
   field,
   onChoose,
   onOwnRange,
+  onText,
+  onRange,
 }: {
   field: Field;
   onChoose: (value: string) => void;
   onOwnRange: (from: string | null, to: string | null) => void;
+  onText: (text: string | null) => void;
+  onRange: (min: number | null, max: number | null) => void;
 }) {
+  if (field.config.kind === "text") {
+    return (
+      <form
+        className="grid gap-1.5 px-2 py-1"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onText(String(new FormData(event.currentTarget).get("text") ?? "") || null);
+        }}
+      >
+        <label className="grid gap-0.5 text-[0.7rem] text-[var(--text-muted)]">
+          {field.label} zawiera
+          <input
+            autoFocus
+            className={INPUT}
+            defaultValue={field.text ?? ""}
+            maxLength={100}
+            name="text"
+            placeholder={field.config.placeholder}
+          />
+        </label>
+        <button className={SUBMIT} type="submit">
+          Pokaż
+        </button>
+      </form>
+    );
+  }
+  if (field.config.kind === "range") {
+    const number = (value: FormDataEntryValue | null) => {
+      const text = String(value ?? "")
+        .trim()
+        .replace(",", ".");
+      if (!text) return null;
+      const parsed = Number(text);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+    return (
+      <form
+        className="grid gap-1.5 px-2 py-1"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const form = new FormData(event.currentTarget);
+          onRange(number(form.get("min")), number(form.get("max")));
+        }}
+      >
+        <p className="text-[0.7rem] text-[var(--text-muted)]">{field.label}</p>
+        <div className="grid grid-cols-2 gap-1.5">
+          <label className="grid gap-0.5 text-[0.7rem] text-[var(--text-muted)]">
+            Od
+            <input
+              autoFocus
+              className={INPUT}
+              defaultValue={field.range?.min ?? ""}
+              inputMode="decimal"
+              name="min"
+            />
+          </label>
+          <label className="grid gap-0.5 text-[0.7rem] text-[var(--text-muted)]">
+            Do
+            <input
+              className={INPUT}
+              defaultValue={field.range?.max ?? ""}
+              inputMode="decimal"
+              name="max"
+            />
+          </label>
+        </div>
+        <button className={SUBMIT} type="submit">
+          Pokaż
+        </button>
+      </form>
+    );
+  }
   const ownRange = field.own;
   const apply = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
