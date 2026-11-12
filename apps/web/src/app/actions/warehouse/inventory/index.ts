@@ -96,6 +96,8 @@ import {
   releaseReservationSchema,
   reverseMovementSchema,
   saveInventoryViewSchema,
+  listInventoryViewsSchema,
+  deleteInventoryViewSchema,
   setCustomFieldValueSchema,
   transferStockSchema,
   previewMovementImportFromSourceSchema,
@@ -3133,6 +3135,46 @@ export async function saveInventoryViewAction(rawInput: unknown) {
       config: parsed.data.config!,
       is_shared: parsed.data.is_shared,
     });
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+/** The saved views of a list (one's own and the shared ones). */
+export async function listInventoryViewsAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_READ))
+      return { success: false as const, error: "Unauthorized" };
+    const parsed = listInventoryViewsSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
+    const supabase = await createClient();
+    return InventoryEnterpriseService.listViews(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.entity
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+/** Removes a saved view (RLS decides whose: one's own, shared with manage). */
+export async function deleteInventoryViewAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_READ))
+      return { success: false as const, error: "Unauthorized" };
+    const parsed = deleteInventoryViewSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
+    const supabase = await createClient();
+    return InventoryEnterpriseService.deleteView(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.id
+    );
   } catch (error) {
     return mapUnexpected(error);
   }

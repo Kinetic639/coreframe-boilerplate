@@ -24,6 +24,8 @@ import {
   ProductsTotal,
 } from "./_components/inventory-products-controls";
 import { inventoryProductKeys, type ProductsScope } from "./_components/inventory-product-query";
+import { PRODUCT_VIEWS_ENTITY } from "./_components/inventory-products-views";
+import { InventoryEnterpriseService } from "@/server/services/inventory-enterprise.service";
 import { productColumnSet } from "./_components/inventory-products-table";
 import { InventoryProductsWorkspace } from "./_components/inventory-products-workspace";
 import {
@@ -67,7 +69,7 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
   if (migration.changed || state.strona < 1)
     return redirectUrl(productHref(path, state, { strona: Math.max(1, state.strona) }));
   const supabase = await createClient();
-  const [productsResult, customFieldsResult] = await Promise.all([
+  const [productsResult, customFieldsResult, viewsResult] = await Promise.all([
     InventoryProductsService.listProducts(
       supabase,
       context.app.activeOrgId,
@@ -75,6 +77,7 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
       context.app.activeBranchId
     ),
     InventoryProductsService.listCustomFields(supabase, context.app.activeOrgId, ["product"]),
+    InventoryEnterpriseService.listViews(supabase, context.app.activeOrgId, PRODUCT_VIEWS_ENTITY),
   ]);
   const data = productsResult.success
     ? productsResult.data
@@ -146,6 +149,19 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
     bulkArchiveFailed: pl ? "Nie udało się zarchiwizować" : "Could not archive",
     bulkClear: pl ? "Odznacz" : "Clear",
     cancel: pl ? "Anuluj" : "Cancel",
+    views: pl ? "Widoki" : "Views",
+    viewAll: pl ? "Wszystkie produkty" : "All products",
+    viewActive: pl ? "Aktywne" : "Active",
+    viewsMine: pl ? "Moje widoki" : "My views",
+    viewsShared: pl ? "Wspólne widoki" : "Shared views",
+    viewSaveCurrent: pl
+      ? "Zapisz bieżące wyszukiwanie, filtry i sortowanie"
+      : "Save the current search, filters and sort",
+    viewName: pl ? "Nazwa widoku" : "View name",
+    viewShare: pl ? "Widoczny dla całej organizacji" : "Visible to the whole organization",
+    viewSave: pl ? "Zapisz widok" : "Save view",
+    viewSaved: pl ? "Zapisano widok" : "View saved",
+    viewDelete: pl ? "Usuń widok" : "Delete view",
     stock_available: pl ? "Dostępne > 0" : "Available > 0",
     stock_unavailable: pl ? "Brak dostępnych" : "None available",
     stock_reserved: pl ? "Zarezerwowane (R)" : "Reserved (R)",
@@ -173,6 +189,9 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
   const queryClient = new QueryClient();
   if (productsResult.success) {
     queryClient.setQueryData(inventoryProductKeys.list(scope, state), productsResult.data);
+  }
+  if (viewsResult.success) {
+    queryClient.setQueryData(inventoryProductKeys.views(scope), viewsResult.data);
   }
   const cookie = `ambra_products_${context.user.user.id}_${context.app.activeOrgId}`;
   const jar = await cookies();
@@ -241,6 +260,9 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
         ) : null}
         <ProductFilters
           scope={scope}
+          path={path}
+          userId={context.user.user.id}
+          canShareViews={canManageProducts}
           order={layout.map((column) => column.id)}
           customFields={customFields}
           labels={labels}

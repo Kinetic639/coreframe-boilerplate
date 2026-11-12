@@ -432,6 +432,53 @@ export class InventoryEnterpriseService {
     return { success: true, data: data as { collection_id: string; product_id: string } };
   }
 
+  /** The views of a list the person sees: their own and the shared ones. */
+  static async listViews(
+    supabase: SupabaseClient,
+    orgId: string,
+    entity: string
+  ): Promise<
+    ServiceResult<
+      Array<{
+        id: string;
+        name: string;
+        config: Record<string, unknown>;
+        is_shared: boolean;
+        user_id: string | null;
+      }>
+    >
+  > {
+    const { data, error } = await supabase
+      .from("inventory_saved_views")
+      .select("id, name, config, is_shared, user_id")
+      .eq("organization_id", orgId)
+      .eq("entity", entity)
+      .is("deleted_at", null)
+      .order("name", { ascending: true })
+      .limit(200);
+    if (error) return { success: false, error: errorMessage(error) };
+    return { success: true, data: (data ?? []) as any };
+  }
+
+  /** Removes a view (RLS: one's own, or a shared one with products.manage). */
+  static async deleteView(
+    supabase: SupabaseClient,
+    orgId: string,
+    viewId: string
+  ): Promise<ServiceResult<{ id: string }>> {
+    const { data, error } = await supabase
+      .from("inventory_saved_views")
+      .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("organization_id", orgId)
+      .eq("id", viewId)
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
+    if (error) return { success: false, error: errorMessage(error) };
+    if (!data) return { success: false, error: "not_found" };
+    return { success: true, data: data as { id: string } };
+  }
+
   static async saveView(
     supabase: SupabaseClient,
     orgId: string,
