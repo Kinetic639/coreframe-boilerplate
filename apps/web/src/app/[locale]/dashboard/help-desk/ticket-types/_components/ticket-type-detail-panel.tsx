@@ -1,15 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import {
-  Pencil,
-  Trash2,
-  ExternalLink,
-  GitBranch,
-  Building2,
-  Users,
-  ShieldCheck,
-} from "lucide-react";
+import { Pencil, Trash2, GitBranch, Building2, Users, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -21,6 +13,8 @@ interface TicketTypeDetailPanelProps {
   priorityConfigs: Record<string, PriorityBadgeConfig> | null;
   onEdit: (type: HelpdeskTicketTypeWithDetails) => void;
   onDeleteRequest: (id: string) => void;
+  /** Texts in the page's language: `priority_<value>`, `tak`, `nie`. */
+  labels?: Record<string, string>;
 }
 
 export function TicketTypeDetailPanel({
@@ -28,6 +22,7 @@ export function TicketTypeDetailPanel({
   priorityConfigs,
   onEdit,
   onDeleteRequest,
+  labels,
 }: TicketTypeDetailPanelProps) {
   const t = useTranslations("modules.helpDesk");
 
@@ -48,14 +43,6 @@ export function TicketTypeDetailPanel({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.location.assign(`/dashboard/help-desk/ticket-types/${type.id}`)}
-          >
-            <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-            {t("ticketTypes.viewType")}
-          </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(type)}>
             <Pencil className="h-4 w-4" />
           </Button>
@@ -106,14 +93,18 @@ export function TicketTypeDetailPanel({
             {t("tickets.fields.priority")}
           </p>
           <p className="mt-0.5 font-medium">
-            {priorityConfigs?.[type.default_priority]?.label ?? type.default_priority}
+            {priorityConfigs?.[type.default_priority]?.label ??
+              labels?.[`priority_${type.default_priority}`] ??
+              type.default_priority}
           </p>
         </div>
         <div>
           <p className="text-muted-foreground text-xs uppercase tracking-wide">
             {t("ticketTypes.allowsManualAssignees")}
           </p>
-          <p className="mt-0.5 font-medium">{type.allows_manual_assignees ? "Yes" : "No"}</p>
+          <p className="mt-0.5 font-medium">
+            {type.allows_manual_assignees ? (labels?.tak ?? "Yes") : (labels?.nie ?? "No")}
+          </p>
         </div>
       </div>
 

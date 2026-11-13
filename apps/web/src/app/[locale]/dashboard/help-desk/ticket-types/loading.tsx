@@ -1,5 +1,5 @@
-import { DataViewLoading } from "@/components/v2/feedback/data-view-loading";
+import { ListLoading } from "@/components/kolor-sensu/data-table/list-loading";
 
 export default function HelpDeskTicketTypesLoading() {
-  return <DataViewLoading columns={5} />;
+  return <ListLoading actions={1} columns={5} rows={8} />;
 }
