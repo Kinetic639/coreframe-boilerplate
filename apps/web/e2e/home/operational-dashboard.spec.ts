@@ -157,15 +157,15 @@ test.describe("operational home", () => {
     }
     const queue = page.getByRole("link", { name: "Otwórz kolejkę", exact: true });
     if (await queue.count()) {
-      const filters = JSON.parse(
-        new URL((await queue.getAttribute("href")) as string, page.url()).searchParams.get(
-          "filters"
-        )!
-      );
-      expect(filters.branchId).toBeTruthy();
+      const expected = new URL((await queue.getAttribute("href")) as string, page.url())
+        .searchParams;
+      expect(expected.get("oddzial")).toBeTruthy();
       await queue.click();
-      await expect(page).toHaveURL(/filters=/);
-      expect(JSON.parse(new URL(page.url()).searchParams.get("filters")!)).toEqual(filters);
+      await expect(page).toHaveURL(/oddzial=/);
+      const opened = new URL(page.url()).searchParams;
+      for (const key of ["oddzial", "status", "priorytet"]) {
+        expect(opened.get(key)).toBe(expected.get(key));
+      }
     }
   });
 

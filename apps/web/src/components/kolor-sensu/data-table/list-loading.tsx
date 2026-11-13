@@ -13,6 +13,8 @@ export interface ListLoadingProps {
   selectable?: boolean;
   /** Controls on the right of the filter row (e.g. "Group variants", "Views"). */
   extras?: number;
+  /** Tabs between the title bar and the filter row (e.g. the help desk's queues). */
+  tabs?: number;
   /** Something above the list, e.g. view tabs. */
   above?: React.ReactNode;
   className?: string;
@@ -34,6 +36,7 @@ export function ListLoading({
   rows = 12,
   selectable = false,
   extras = 0,
+  tabs = 0,
   above,
   className,
 }: ListLoadingProps) {
@@ -66,6 +69,15 @@ export function ListLoading({
             ))}
           </div>
         </div>
+
+        {/* Tabs (queues) */}
+        {tabs > 0 ? (
+          <div className="flex h-10 shrink-0 items-center gap-5 overflow-hidden border-b px-4">
+            {Array.from({ length: tabs }).map((_, index) => (
+              <Skeleton key={index} className={cn("h-3 shrink-0", index % 2 ? "w-14" : "w-28")} />
+            ))}
+          </div>
+        ) : null}
 
         {/* Filter row: filter and search buttons, extras on the right */}
         <div className="flex min-h-9 shrink-0 items-center gap-1.5 border-b px-2 py-1.5">

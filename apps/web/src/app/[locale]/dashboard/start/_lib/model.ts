@@ -79,8 +79,15 @@ export const ATTENTION_PRIORITIES = ["high", "urgent"];
 export function attentionFilters(branchId: string) {
   return { branchId, status: ATTENTION_STATUSES, priority: ATTENTION_PRIORITIES };
 }
+/** The tickets list's address for the same scope (its own filter params). */
 export function ticketListQuery(branchId: string) {
-  return { filters: JSON.stringify(attentionFilters(branchId)), sort: "updated_at.desc" };
+  return {
+    oddzial: branchId,
+    status: ATTENTION_STATUSES.join(","),
+    priorytet: ATTENTION_PRIORITIES.join(","),
+    sort: "updated_at",
+    direction: "desc",
+  };
 }
 /** Bounded personal preview, not a complete branch activity feed. */
 export function activityForBranch(events: ProjectedEvent[], branchId: string | null) {

@@ -74,7 +74,11 @@ describe("home data semantics", () => {
     expect(filters.branchId).toBe("branch-a");
     expect(filters.status).toEqual(["open", "in_progress", "waiting", "waiting_response"]);
     expect(filters.priority).toEqual(["high", "urgent"]);
-    expect(JSON.parse(ticketListQuery("branch-a").filters)).toEqual(filters);
+    const query = ticketListQuery("branch-a");
+    expect(query.oddzial).toBe(filters.branchId);
+    expect(query.status.split(",")).toEqual(filters.status);
+    expect(query.priorytet.split(",")).toEqual(filters.priority);
+    expect([query.sort, query.direction]).toEqual(["updated_at", "desc"]);
   });
   it("removes other branches before limiting the personal preview", () => {
     const events = ["other", null, "a", "a", "a", "a", "a"].map(
