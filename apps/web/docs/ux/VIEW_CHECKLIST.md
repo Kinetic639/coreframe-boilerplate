@@ -161,13 +161,7 @@ Stan inwentaryzacji: **11 listopada 2026**. Zakres: wyłącznie `apps/web`.
 
 ### R034 — Demo DataView w dashboardzie
 
-- Wejście: `/dashboard/data-view-demo`.
-- PL: `/dashboard/data-view-demo` · EN: `/en/dashboard/data-view-demo`.
-- Status: demo / diagnostyka — niższy priorytet; dostęp: sesja + organizacja + uprawnienia modułu.
-- Źródło: [page.tsx](../../src/app/[locale]/dashboard/data-view-demo/page.tsx).
-- [ ] Desktop — zaprojektowany, wdrożony i zweryfikowany.
-- [ ] Mobile — zaprojektowany, wdrożony i zweryfikowany.
-- Dowód odbioru: do uzupełnienia po wykonaniu.
+- Usunięty razem z DataView (11.2026): wszystkie listy działają na tabeli Kolor Sensu.
 
 ### R035 — Diagnostyka kontekstu i uprawnień
 
@@ -596,7 +590,7 @@ Stan inwentaryzacji: **11 listopada 2026**. Zakres: wyłącznie `apps/web`.
 ### V062 — Produkt: szczegóły w panelu listy
 
 - Wejście: `/dashboard/warehouse/items` — wariant wewnątrz widoku / wskazany kontekst.
-- Źródło: [inventory-products-client.tsx](../../src/app/[locale]/dashboard/warehouse/items/_components/inventory-products-client.tsx).
+- Źródło: [inventory-product-record-panel.tsx](../../src/app/[locale]/dashboard/warehouse/items/_components/inventory-product-record-panel.tsx).
 - [ ] Desktop — zaprojektowany, wdrożony i zweryfikowany.
 - [ ] Mobile — zaprojektowany, wdrożony i zweryfikowany.
 - Dowód odbioru: do uzupełnienia po wykonaniu.
@@ -1785,13 +1779,7 @@ Stan inwentaryzacji: **11 listopada 2026**. Zakres: wyłącznie `apps/web`.
 
 ### R009 — Demo list i szczegółów DataView
 
-- Wejście: `/admin/data-view-demo`.
-- PL: `/admin/data-view-demo` · EN: `/en/admin/data-view-demo`.
-- Status: demo / diagnostyka — niższy priorytet; dostęp: administrator platformy; odrębne uprawnienia.
-- Źródło: [page.tsx](../../src/app/[locale]/admin/data-view-demo/page.tsx).
-- [ ] Desktop — zaprojektowany, wdrożony i zweryfikowany.
-- [ ] Mobile — zaprojektowany, wdrożony i zweryfikowany.
-- Dowód odbioru: do uzupełnienia po wykonaniu.
+- Usunięty razem z DataView (11.2026): wszystkie listy działają na tabeli Kolor Sensu.
 
 ### R010 — Dostęp do funkcji i limity organizacji
 

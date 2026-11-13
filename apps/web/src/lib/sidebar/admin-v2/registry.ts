@@ -79,16 +79,6 @@ export const ADMIN_MAIN_NAV_ITEMS: SidebarItem[] = [
     },
   },
   {
-    id: "admin.data-view-demo",
-    title: "DataView Demo",
-    iconKey: "development",
-    href: "/admin/data-view-demo",
-    match: { startsWith: "/admin/data-view-demo" },
-    visibility: {
-      requiresPermissions: [SUPERADMIN_ADMIN_READ],
-    },
-  },
-  {
     id: "admin.rich-text-demo",
     title: "Rich Text Demo",
     iconKey: "documentation",

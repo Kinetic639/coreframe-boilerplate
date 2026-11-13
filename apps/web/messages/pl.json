@@ -330,59 +330,6 @@
       "loadingAria": "Ładowanie wierszy"
     }
   },
-  "dataViewDemo": {
-    "page": {
-      "title": "Demo DataView",
-      "description": "Generyczny obszar master-detail. Stan sterowany przez URL z nuqs, cache przez TanStack Query i animacje przejścia szczegółów przez Framer Motion."
-    },
-    "columns": {
-      "product": "Produkt",
-      "category": "Kategoria",
-      "supplier": "Dostawca",
-      "status": "Status",
-      "stock": "Stan",
-      "location": "Lokalizacja",
-      "price": "Cena",
-      "updatedAt": "Aktualizacja"
-    },
-    "filters": {
-      "catalog": "Katalog",
-      "category": "Kategoria",
-      "supplier": "Dostawca",
-      "status": "Status",
-      "price": "Cena",
-      "updatedAt": "Aktualizacja",
-      "inStock": "Na stanie"
-    },
-    "detail": {
-      "category": "Kategoria",
-      "supplier": "Dostawca",
-      "location": "Lokalizacja",
-      "price": "Cena",
-      "stock": "Stan",
-      "stockUnits": "{count} szt.",
-      "barcode": "Kod kreskowy",
-      "receivedAt": "Przyjęto",
-      "updatedAt": "Aktualizacja"
-    },
-    "status": {
-      "active": "Aktywny",
-      "draft": "Szkic",
-      "discontinued": "Wycofany"
-    },
-    "categories": {
-      "powerTools": "Elektronarzędzia",
-      "storage": "Przechowywanie",
-      "furniture": "Meble",
-      "measurement": "Pomiary",
-      "handTools": "Narzędzia ręczne",
-      "safetyEquipment": "BHP",
-      "electrical": "Elektryka",
-      "fasteners": "Elementy złączne",
-      "warehouse": "Magazyn",
-      "lighting": "Oświetlenie"
-    }
-  },
   "PreferencesPage": {
     "title": "Preferencje",
     "description": "Zarządzaj preferencjami konta i ustawieniami",
