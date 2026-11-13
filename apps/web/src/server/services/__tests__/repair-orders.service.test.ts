@@ -275,7 +275,20 @@ describe("RepairOrdersService.materializeFromSession", () => {
 function makeChainableQueryMock(result: { data: unknown; error: unknown }) {
   const calls: { method: string; args: unknown[] }[] = [];
   const q: Record<string, unknown> = {};
-  for (const m of ["select", "eq", "is", "order", "or", "not", "insert", "update"]) {
+  for (const m of [
+    "select",
+    "eq",
+    "is",
+    "in",
+    "gte",
+    "lte",
+    "range",
+    "order",
+    "or",
+    "not",
+    "insert",
+    "update",
+  ]) {
     q[m] = vi.fn().mockImplementation((...args: unknown[]) => {
       calls.push({ method: m, args });
       return q;
@@ -286,6 +299,111 @@ function makeChainableQueryMock(result: { data: unknown; error: unknown }) {
   q["then"] = (onFulfilled: (v: unknown) => unknown) => Promise.resolve(result).then(onFulfilled);
   return { from: vi.fn().mockReturnValue(q), calls, query: q };
 }
+
+describe("RepairOrdersService.listPageForWorkshop", () => {
+  const PARAMS = {
+    search: null,
+    page: 2,
+    pageSize: 20,
+    sort: { field: "created_at" as const, direction: "desc" as const },
+    statuses: [],
+    warehouseCodes: [],
+    advisorIds: [],
+    withoutAdvisor: false,
+    createdFrom: null,
+    createdTo: null,
+  };
+  const ADVISOR = "11111111-2222-3333-4444-555555555555";
+
+  it("returns one page with the whole count, scoped by organization and branch", async () => {
+    const mock = makeChainableQueryMock({ data: [], error: null });
+    (mock.query as Record<string, unknown>).then = (onFulfilled: (v: unknown) => unknown) =>
+      Promise.resolve({ data: [], error: null, count: 45 }).then(onFulfilled);
+
+    const result = await RepairOrdersService.listPageForWorkshop(
+      mock as never,
+      "org-1",
+      "branch-1",
+      PARAMS
+    );
+
+    expect(result).toEqual({
+      success: true,
+      data: { rows: [], totalCount: 45, page: 2, pageSize: 20 },
+    });
+    const eqCalls = mock.calls.filter((c) => c.method === "eq").map((c) => c.args);
+    expect(eqCalls).toContainEqual(["organization_id", "org-1"]);
+    expect(eqCalls).toContainEqual(["branch_id", "branch-1"]);
+    expect(mock.calls.find((c) => c.method === "range")?.args).toEqual([20, 39]);
+    expect(mock.calls.find((c) => c.method === "order")?.args).toEqual([
+      "created_at",
+      { ascending: false, nullsFirst: false },
+    ]);
+  });
+
+  it("applies the filters and searches the header's fields", async () => {
+    const mock = makeChainableQueryMock({ data: [], error: null });
+
+    await RepairOrdersService.listPageForWorkshop(mock as never, "org-1", null, {
+      ...PARAMS,
+      search: "Kowal",
+      statuses: ["open"],
+      warehouseCodes: ["3112"],
+      advisorIds: [ADVISOR, "not-a-uuid"],
+      createdFrom: "2026-11-01T00:00:00.000Z",
+      createdTo: "2026-11-12T23:59:59.999Z",
+    });
+
+    const inCalls = mock.calls.filter((c) => c.method === "in").map((c) => c.args);
+    expect(inCalls).toContainEqual(["status", ["open"]]);
+    expect(inCalls).toContainEqual(["warehouse_code", ["3112"]]);
+    expect(inCalls).toContainEqual(["advisor_contact_id", [ADVISOR]]);
+    expect(mock.calls.find((c) => c.method === "gte")?.args).toEqual([
+      "created_at",
+      "2026-11-01T00:00:00.000Z",
+    ]);
+    expect(mock.calls.find((c) => c.method === "lte")?.args).toEqual([
+      "created_at",
+      "2026-11-12T23:59:59.999Z",
+    ]);
+    const search = mock.calls.find((c) => c.method === "or")?.args[0] as string;
+    expect(search).toContain('client_name.ilike."%Kowal%"');
+    expect(search).toContain('zl_number.ilike."%Kowal%"');
+  });
+
+  it("finds orders without an advisor, alone or with chosen advisors", async () => {
+    const alone = makeChainableQueryMock({ data: [], error: null });
+    await RepairOrdersService.listPageForWorkshop(alone as never, "org-1", null, {
+      ...PARAMS,
+      withoutAdvisor: true,
+    });
+    expect(alone.calls.filter((c) => c.method === "is").map((c) => c.args)).toContainEqual([
+      "advisor_contact_id",
+      null,
+    ]);
+
+    const either = makeChainableQueryMock({ data: [], error: null });
+    await RepairOrdersService.listPageForWorkshop(either as never, "org-1", null, {
+      ...PARAMS,
+      withoutAdvisor: true,
+      advisorIds: [ADVISOR],
+    });
+    expect(either.calls.find((c) => c.method === "or")?.args[0]).toBe(
+      `advisor_contact_id.is.null,advisor_contact_id.in.(${ADVISOR})`
+    );
+  });
+
+  it("returns the database error", async () => {
+    const mock = makeChainableQueryMock({ data: null, error: { message: "boom" } });
+    const result = await RepairOrdersService.listPageForWorkshop(
+      mock as never,
+      "org-1",
+      null,
+      PARAMS
+    );
+    expect(result).toEqual({ success: false, error: "boom" });
+  });
+});
 
 describe("RepairOrdersService.listForWorkshop", () => {
   const DB_ROW = {

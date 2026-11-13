@@ -12,7 +12,9 @@ import {
   RepairOrdersService,
   type RepairOrderHeader,
   type RepairOrderAdvisorCandidate,
+  type RepairOrderListParams,
 } from "@/server/services/repair-orders.service";
+import type { PaginatedResult } from "@/lib/data-view/types";
 import { canTransitionRepairOrderStatus } from "@/lib/types/repair-orders";
 import {
   createRepairOrderSchema,
@@ -222,6 +224,38 @@ export async function changeRepairOrderStatusAction(
       fromStatus as "open" | "closed" | "archived",
       toStatus as "open" | "closed" | "archived"
     );
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// List
+// ---------------------------------------------------------------------------
+
+/**
+ * One page of the workshop's repair order list. The scope is the caller's
+ * active organization and branch, read on the server; the one the list
+ * sends must be it (a tab left on another branch gets an error, not that
+ * branch's orders under the wrong key).
+ */
+export async function listRepairOrdersPageAction(
+  scope: { organizationId: string; branchId: string | null },
+  params: RepairOrderListParams
+): Promise<ActionResult<PaginatedResult<RepairOrderHeader>>> {
+  try {
+    const { supabase, user, context } = await getAuthedContext();
+    if (!user) return { success: false, error: "Unauthenticated" };
+    const orgId = context?.app.activeOrgId;
+    if (!orgId) return { success: false, error: "No active organisation" };
+    const branchId = context.app.activeBranchId ?? null;
+    if (scope.organizationId !== orgId || scope.branchId !== branchId) {
+      return { success: false, error: "The active branch has changed: reload the page" };
+    }
+    if (!checkPermission(context.user.permissionSnapshot, WORKSHOP_REPAIR_ORDERS_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    return RepairOrdersService.listPageForWorkshop(supabase, orgId, branchId, params);
   } catch {
     return { success: false, error: "Unexpected error" };
   }
