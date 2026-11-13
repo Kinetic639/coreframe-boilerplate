@@ -96,14 +96,14 @@ Activity types: `task_created`, `title_changed`, `description_changed`, `assigne
 
 ## Components
 
-| File                                                       | Purpose                 |
-| ---------------------------------------------------------- | ----------------------- |
-| `src/components/planning/planning-task-status-badge.tsx`   | Status badge            |
-| `src/components/planning/planning-task-priority-badge.tsx` | Priority badge          |
-| `src/components/planning/planning-task-activity-list.tsx`  | Activity timeline       |
-| `tasks/_components/planning-task-create-dialog.tsx`        | Create task dialog      |
-| `tasks/_components/planning-task-detail-panel.tsx`         | Detail panel (DataView) |
-| `tasks/_components/tasks-client.tsx`                       | DataView client wrapper |
+| File                                                       | Purpose                        |
+| ---------------------------------------------------------- | ------------------------------ |
+| `src/components/planning/planning-task-status-badge.tsx`   | Status badge                   |
+| `src/components/planning/planning-task-priority-badge.tsx` | Priority badge                 |
+| `src/components/planning/planning-task-activity-list.tsx`  | Activity timeline              |
+| `tasks/_components/planning-task-create-dialog.tsx`        | Create task dialog             |
+| `tasks/_components/planning-task-detail-panel.tsx`         | Detail panel (DataView)        |
+| `tasks/_components/tasks-workspace.tsx`                    | Kolor Sensu list, board, panel |
 
 ## Migrations
 

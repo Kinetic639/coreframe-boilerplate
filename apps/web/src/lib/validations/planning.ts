@@ -77,4 +77,13 @@ export interface TaskListFilters {
   /** Organization-wide tasks plus tasks scoped to this branch. */
   branch_id_or_global?: string;
   assigned_to?: string | null;
+  /** Any of these people (with `unassigned`: or nobody). */
+  assignees?: string[];
+  unassigned?: boolean;
+  /** Any of these branches (with `org_wide`: or organization-wide tasks). */
+  branch_ids?: string[];
+  org_wide?: boolean;
+  /** ISO timestamps, both ends included. */
+  due_from?: string;
+  due_to?: string;
 }

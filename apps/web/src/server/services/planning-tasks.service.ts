@@ -251,6 +251,12 @@ function normalizeFilters(params: DataViewListParams, filters: TaskListFilters):
     branch_id: filters.branch_id ?? nullableStringFilter(rawFilters.branch_id),
     branch_id_or_global: filters.branch_id_or_global,
     assigned_to: filters.assigned_to ?? nullableStringFilter(rawFilters.assigned_to),
+    assignees: filters.assignees?.filter(looksLikeUuid),
+    unassigned: filters.unassigned,
+    branch_ids: filters.branch_ids?.filter(looksLikeUuid),
+    org_wide: filters.org_wide,
+    due_from: filters.due_from,
+    due_to: filters.due_to,
   };
 }
 
@@ -377,15 +383,40 @@ export const PlanningTasksService = {
         if (resolvedFilters.assigned_to === null) query = query.is("assigned_to", null);
         else query = query.eq("assigned_to", resolvedFilters.assigned_to);
       }
+      const assignees = resolvedFilters.assignees ?? [];
+      if (resolvedFilters.unassigned && assignees.length) {
+        query = query.or(`assigned_to.is.null,assigned_to.in.(${assignees.join(",")})`);
+      } else if (resolvedFilters.unassigned) {
+        query = query.is("assigned_to", null);
+      } else if (assignees.length) {
+        query = query.in("assigned_to", assignees);
+      }
+      const branchIds = resolvedFilters.branch_ids ?? [];
+      if (resolvedFilters.org_wide && branchIds.length) {
+        query = query.or(`branch_id.is.null,branch_id.in.(${branchIds.join(",")})`);
+      } else if (resolvedFilters.org_wide) {
+        query = query.is("branch_id", null);
+      } else if (branchIds.length) {
+        query = query.in("branch_id", branchIds);
+      }
+      if (resolvedFilters.due_from) query = query.gte("due_at", resolvedFilters.due_from);
+      if (resolvedFilters.due_to) query = query.lte("due_at", resolvedFilters.due_to);
       if (resolvedFilters.search) {
-        query = query.or(
-          `title.ilike.%${resolvedFilters.search}%,task_number.ilike.%${resolvedFilters.search}%`
-        );
+        // Quoted, so , ( ) in the text stay text; then the ilike wildcards.
+        const escaped = resolvedFilters.search
+          .replace(/\\/g, "\\\\")
+          .replace(/"/g, '\\"')
+          .replace(/[%_]/g, (c) => `\\${c}`);
+        query = query.or(`title.ilike."%${escaped}%",task_number.ilike."%${escaped}%"`);
       }
 
       const sortField = resolveSortField(params.sort?.field);
       const sortAsc = params.sort?.direction === "asc";
-      query = query.order(sortField, { ascending: sortAsc }).range(offset, offset + pageSize - 1);
+      query = query
+        .order(sortField, { ascending: sortAsc, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(offset, offset + pageSize - 1);
 
       const { data, error, count } = await query;
       if (error) return { success: false, error: error.message };
