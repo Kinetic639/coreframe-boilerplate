@@ -1,7 +1,9 @@
-import { parseDataViewSearchParams } from "@/components/data-view/data-view-search-params";
-import { createClient } from "@/utils/supabase/server";
-import { PlatformFeedbackService } from "@/server/services/platform-feedback.service";
+import { getLocale } from "next-intl/server";
+import { getPathname } from "@/i18n/navigation";
+import { loadAdminContextV2 } from "@/server/loaders/v2/load-admin-context.v2";
+import { loadFeedbackPage } from "@/components/platform-feedback/feedback-page-data";
 import { AdminFeedbackClient } from "./_components/admin-feedback-client";
+import "@/components/kolor-sensu/data-table/ambra-list.css";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -12,21 +14,14 @@ type PageProps = {
  * platform admin; the database checks it again for every read and write.
  */
 export default async function AdminFeedbackPage({ searchParams }: PageProps = {}) {
-  const params = parseDataViewSearchParams(searchParams ? await searchParams : {});
-  const supabase = await createClient();
-  const result = await PlatformFeedbackService.list(supabase, {
-    scope: "all",
-    search: params.search || undefined,
-    page: params.page,
-    pageSize: params.pageSize,
-  });
-  const initialData = result.success
-    ? result.data
-    : { rows: [], totalCount: 0, page: params.page, pageSize: params.pageSize };
-
-  return (
-    <div className="h-[calc(100vh-8rem)] min-h-[520px]">
-      <AdminFeedbackClient initialData={initialData} />
-    </div>
+  const [locale, context] = await Promise.all([getLocale(), loadAdminContextV2()]);
+  const path = getPathname({ locale, href: "/admin/feedback" });
+  const page = await loadFeedbackPage(
+    "all",
+    path,
+    searchParams ? await searchParams : {},
+    context?.user.id ?? ""
   );
+
+  return <AdminFeedbackClient path={path} {...page} />;
 }
