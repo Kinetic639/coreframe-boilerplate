@@ -1,63 +1,47 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { QrManagementClient } from "@/app/[locale]/dashboard/qr/_components/qr-management-client";
+import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { ListLoading } from "@/components/kolor-sensu/data-table/list-loading";
+import { QrWorkspace } from "@/app/[locale]/dashboard/qr/_components/qr-workspace";
 import { listQrCodesAction } from "@/app/actions/qr/list";
-import { paginateQrCodes } from "@/app/[locale]/dashboard/qr/_utils/data-view";
 import type { QrCodeWithStatus } from "@/server/services/qr.service";
-import type { PaginatedResult } from "@/components/data-view/data-view.types";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
-
-interface LoadedState {
-  initialData: PaginatedResult<QrCodeWithStatus>;
-  allCodes: QrCodeWithStatus[];
-}
+import "@/components/kolor-sensu/data-table/ambra-list.css";
 
 /**
  * QR Generator Tool — registered in the tool registry under "qr-generator".
  *
- * Fetches QR codes on mount then renders QrManagementClient.
- * Permissions are resolved internally via usePermissions (no snapshot prop needed).
+ * Fetches the QR codes once per organization, then renders the QR list on
+ * the tool page's own address. Permissions are resolved inside the list.
  */
 export function QrGeneratorTool() {
   const activeOrgId = useAppStoreV2((state) => state.activeOrgId);
-  const [state, setState] = useState<LoadedState | null>(null);
-  const fetchedOrgId = useRef<string | null>(null);
+  const pathname = usePathname();
+  const [loaded, setLoaded] = useState<{ orgId: string; codes: QrCodeWithStatus[] } | null>(null);
 
   useEffect(() => {
     if (!activeOrgId) return;
-    if (fetchedOrgId.current === activeOrgId) return;
-    fetchedOrgId.current = activeOrgId;
-    setState(null);
-
+    let live = true;
     listQrCodesAction().then((result) => {
-      const codes = result.success
-        ? (result as { success: true; data: QrCodeWithStatus[] }).data
-        : [];
-      setState({
-        allCodes: codes,
-        initialData: paginateQrCodes(codes, 1, 50),
-      });
+      if (live) setLoaded({ orgId: activeOrgId, codes: result.success ? result.data : [] });
     });
+    return () => {
+      live = false;
+    };
   }, [activeOrgId]);
 
-  if (!state) {
-    return (
-      <div className="space-y-3 p-1">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
+  if (!activeOrgId || loaded?.orgId !== activeOrgId) {
+    return <ListLoading actions={2} columns={4} tabs={0} selectable />;
   }
 
   return (
-    <div className="h-[calc(100vh-12rem)]">
-      <QrManagementClient
-        orgId={activeOrgId!}
-        initialData={state.initialData}
-        allCodes={state.allCodes}
+    <div className="flex h-[calc(100vh-12rem)] min-h-0 flex-col">
+      <QrWorkspace
+        orgId={activeOrgId}
+        initialCodes={loaded.codes}
+        path={pathname}
+        cookie={`ambra_qr_codes_tool_${activeOrgId}`}
       />
     </div>
   );
