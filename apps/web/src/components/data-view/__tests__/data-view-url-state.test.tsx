@@ -36,15 +36,24 @@ describe("DataView real nuqs adapter contract", () => {
     );
     const { result } = renderHook(() => useDataViewUrlState("test"), { wrapper });
 
+    // Each step waits for its own address: the next one starts from it, as a
+    // person's next click does. (A step taken before nuqs has written the
+    // previous one is overwritten when the adapter syncs that earlier address.)
+    const urlIs = (queryString: string) =>
+      waitFor(() => expect(updates.at(-1)?.queryString).toBe(queryString));
+
     await act(async () => result.current.setSelected("A"));
-    await waitFor(() => expect(result.current.selected).toBe("A"));
+    await urlIs("?selected=A");
+    expect(result.current.selected).toBe("A");
     expect(updates.at(-1)?.options.history).toBe("push");
 
     await act(async () => result.current.setSelected("B"));
-    await waitFor(() => expect(result.current.selected).toBe("B"));
+    await urlIs("?selected=B");
+    expect(result.current.selected).toBe("B");
     expect(updates.at(-1)?.options.history).toBe("replace");
 
     await act(async () => result.current.closeDetail());
+    await urlIs("");
     await waitFor(() => expect(result.current.selected).toBeNull());
     expect(updates.at(-1)?.options.history).toBe("replace");
   });
