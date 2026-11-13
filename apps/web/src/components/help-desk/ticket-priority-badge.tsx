@@ -33,9 +33,16 @@ interface TicketPriorityBadgeProps {
   priority: TicketPriority;
   className?: string;
   config?: PriorityBadgeConfig;
+  /** The default badge's text in the page's language (without a config). */
+  label?: string;
 }
 
-export function TicketPriorityBadge({ priority, className, config }: TicketPriorityBadgeProps) {
+export function TicketPriorityBadge({
+  priority,
+  className,
+  config,
+  label,
+}: TicketPriorityBadgeProps) {
   if (config) {
     return (
       <Badge
@@ -67,10 +74,10 @@ export function TicketPriorityBadge({ priority, className, config }: TicketPrior
         defaults.className,
         className
       )}
-      title={defaults.label}
+      title={label ?? defaults.label}
     >
       <Flag className="h-3 w-3 shrink-0 fill-current opacity-70" />
-      <span className="min-w-0 truncate">{defaults.label}</span>
+      <span className="min-w-0 truncate">{label ?? defaults.label}</span>
     </Badge>
   );
 }

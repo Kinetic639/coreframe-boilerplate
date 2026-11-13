@@ -44,9 +44,11 @@ interface TicketStatusBadgeProps {
   status: TicketStatus;
   className?: string;
   config?: StatusBadgeConfig;
+  /** The default badge's text in the page's language (without a config). */
+  label?: string;
 }
 
-export function TicketStatusBadge({ status, className, config }: TicketStatusBadgeProps) {
+export function TicketStatusBadge({ status, className, config, label }: TicketStatusBadgeProps) {
   if (config) {
     return (
       <Badge
@@ -78,10 +80,10 @@ export function TicketStatusBadge({ status, className, config }: TicketStatusBad
         defaults.className,
         className
       )}
-      title={defaults.label}
+      title={label ?? defaults.label}
     >
       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-80" />
-      <span className="min-w-0 truncate">{defaults.label}</span>
+      <span className="min-w-0 truncate">{label ?? defaults.label}</span>
     </Badge>
   );
 }

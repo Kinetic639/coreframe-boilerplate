@@ -1,11 +1,8 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "@/i18n/navigation";
 import {
-  Plus,
-  Ticket,
   Calendar,
   Clock,
   Tag,
@@ -26,21 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TICKET_STATUSES, type TicketStatus } from "@/lib/validations/helpdesk";
-import { DataView } from "@/components/data-view/data-view";
-import { QueueTabs } from "./queue-tabs";
-import { useHelpdeskRealtime } from "@/hooks/queries/help-desk/use-helpdesk-realtime";
-import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
-import type {
-  DataViewColumnDef,
-  DataViewFilterDef,
-  DataViewListParams,
-  PaginatedResult,
-} from "@/components/data-view/data-view.types";
-import {
-  canManageTicketBranchAction,
-  getTicketDetailAction,
-  listTicketsForDataViewAction,
-} from "@/app/actions/help-desk";
+import { canManageTicketBranchAction, getTicketDetailAction } from "@/app/actions/help-desk";
 import { getQrAssignmentForTicketAction } from "@/app/actions/qr/assign";
 import { revokeQrAction } from "@/app/actions/qr/revoke";
 import { AssignQrDialog } from "../[ticketId]/_components/assign-qr-dialog";
@@ -50,11 +33,9 @@ import {
   useTakeTicketMutation,
 } from "@/hooks/queries/help-desk";
 import type {
-  HelpdeskTicketListRow,
   HelpdeskTicketDetail,
   HelpdeskTicketActivity,
 } from "@/server/services/helpdesk-tickets.service";
-import type { HelpdeskTicketType } from "@/server/services/helpdesk-ticket-types.service";
 import {
   TicketStatusBadge,
   type StatusBadgeConfig,
@@ -63,8 +44,6 @@ import {
   TicketPriorityBadge,
   type PriorityBadgeConfig,
 } from "@/components/help-desk/ticket-priority-badge";
-import { UserAvatarGroup } from "@/components/primitives/avatar/user-avatar-group";
-import type { UserAvatarGroupItem } from "@/components/primitives/avatar/user-avatar-group";
 import { UserAvatar } from "@/components/primitives/avatar/user-avatar";
 import { AttachmentsPanel } from "@/components/features/attachments";
 import { CommentsThread } from "@/components/features/comments";
@@ -72,24 +51,7 @@ import { helpdeskTicketTypingTopic } from "@repo/rich-text/comments";
 import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-renderer";
 import { normalizeRichText } from "@/components/primitives/rich-text/rich-text-utils";
 
-const HELPDESK_TICKETS_QUERY_KEY = ["helpdesk-tickets-dataview"];
-
-interface TicketsClientProps {
-  initialData: PaginatedResult<HelpdeskTicketListRow>;
-  initialDataUpdatedAt?: number;
-  ticketTypes: HelpdeskTicketType[];
-  members: Array<{ user_id: string; name: string | null; email: string | null }>;
-  branches: Array<{ id: string; name: string }>;
-  canCreate: boolean;
-  canManage: boolean;
-  currentUserId: string;
-  activeBranchId: string | null;
-  orgId: string;
-  statusConfigs: Record<string, StatusBadgeConfig> | null;
-  priorityConfigs: Record<string, PriorityBadgeConfig> | null;
-}
-
-function TicketDetailPanel({
+export function TicketDetailPanel({
   detail,
   canManage: canManageAnyBranch,
   currentUserId,
@@ -271,20 +233,8 @@ function TicketDetailPanel({
           />
         </div>
 
-        {/* Sidebar: view button + details */}
+        {/* Sidebar: handling + details (the panel header opens the full page) */}
         <div className="w-full shrink-0 space-y-3 self-start lg:w-52">
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full"
-            onClick={() =>
-              (window.location.href = `/dashboard/help-desk/tickets/${detail.ticket_number}`)
-            }
-          >
-            <Ticket className="mr-1.5 h-3.5 w-3.5" />
-            {t("tickets.viewFull")}
-          </Button>
-
           {/* Handling: take + status (helpdesk.tickets.manage on the ticket's branch) */}
           {canManage && (
             <div className="rounded-lg border p-3 space-y-2">
@@ -542,407 +492,6 @@ function TicketDetailPanel({
         ticketNumber={detail.ticket_number}
         onAssigned={(a) => setQrAssignment(a)}
       />
-    </div>
-  );
-}
-
-function AssigneeAvatars({ assignees }: { assignees: HelpdeskTicketListRow["assignees"] }) {
-  if (assignees.length === 0) return <span className="text-muted-foreground text-xs">—</span>;
-  const users: UserAvatarGroupItem[] = assignees.map((a) => ({
-    id: a.user_id,
-    fullName: a.name ?? undefined,
-    email: a.email ?? undefined,
-    src: a.avatar_url ?? undefined,
-    profileHref: a.profile_href ?? undefined,
-  }));
-  return <UserAvatarGroup users={users} max={3} size="sm" popoverSide="top" />;
-}
-
-export function TicketsClient({
-  initialData,
-  initialDataUpdatedAt,
-  ticketTypes,
-  members,
-  branches,
-  canCreate,
-  canManage,
-  currentUserId,
-  activeBranchId,
-  orgId,
-  statusConfigs,
-  priorityConfigs,
-}: TicketsClientProps) {
-  const t = useTranslations("modules.helpDesk");
-  const router = useRouter();
-  useHelpdeskRealtime(orgId);
-
-  const listFetcher = useCallback(
-    async (params: DataViewListParams): Promise<PaginatedResult<HelpdeskTicketListRow>> => {
-      const result = await listTicketsForDataViewAction(params, orgId);
-      if (result.success) return result.data;
-      throw new Error((result as { success: false; error: string }).error);
-    },
-    [orgId]
-  );
-
-  const detailFetcher = useCallback(
-    async (ticketNumber: string): Promise<HelpdeskTicketDetail | null> => {
-      const result = await getTicketDetailAction(ticketNumber, orgId);
-      if (!result.success) throw new Error((result as { success: false; error: string }).error);
-      return result.data;
-    },
-    [orgId]
-  );
-
-  const typeOptions = useMemo(
-    () => ticketTypes.map((tt) => ({ label: tt.name, value: tt.id })),
-    [ticketTypes]
-  );
-
-  const memberOptions = useMemo(
-    () =>
-      members.map((m) => ({
-        label: m.name || m.email || m.user_id,
-        value: m.user_id,
-      })),
-    [members]
-  );
-
-  const branchOptions = useMemo(
-    () => branches.map((b) => ({ label: b.name, value: b.id })),
-    [branches]
-  );
-
-  const branchNameMap = useMemo(() => new Map(branches.map((b) => [b.id, b.name])), [branches]);
-
-  const columns = useMemo<DataViewColumnDef<HelpdeskTicketListRow>[]>(
-    () => [
-      {
-        key: "ticket_number",
-        header: t("tickets.columns.number"),
-        accessor: (row) => (
-          <span className="text-muted-foreground font-mono text-xs">{row.ticket_number}</span>
-        ),
-        sortable: true,
-        defaultVisible: true,
-      },
-      {
-        key: "title",
-        header: t("tickets.columns.title"),
-        accessor: (row) => (
-          <button
-            onClick={() =>
-              router.push({
-                pathname: "/dashboard/help-desk/tickets/[ticketId]",
-                params: { ticketId: row.ticket_number },
-              })
-            }
-            className="hover:text-primary max-w-[28ch] truncate text-left font-medium transition-colors"
-            title={row.title}
-          >
-            {row.title}
-          </button>
-        ),
-        sortable: true,
-        defaultVisible: true,
-      },
-      {
-        key: "ticket_type",
-        header: t("tickets.columns.type"),
-        accessor: (row) =>
-          row.ticket_type_name ? (
-            <span
-              className="inline-flex items-center gap-1 text-xs"
-              style={{ color: row.ticket_type_color ?? undefined }}
-            >
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: row.ticket_type_color ?? "#6366f1" }}
-              />
-              {row.ticket_type_name}
-            </span>
-          ) : (
-            <span className="text-muted-foreground text-xs">—</span>
-          ),
-        sortable: false,
-        defaultVisible: true,
-      },
-      {
-        key: "branch",
-        header: t("tickets.columns.branch"),
-        accessor: (row) =>
-          row.branch_id ? (
-            <span className="text-sm">{branchNameMap.get(row.branch_id) ?? "—"}</span>
-          ) : (
-            <span className="text-muted-foreground text-xs">—</span>
-          ),
-        sortable: false,
-        defaultVisible: branchOptions.length > 0,
-      },
-      {
-        key: "status",
-        header: t("tickets.columns.status"),
-        accessor: (row) => (
-          <TicketStatusBadge status={row.status} config={statusConfigs?.[row.status]} />
-        ),
-        sortable: true,
-        defaultVisible: true,
-      },
-      {
-        key: "priority",
-        header: t("tickets.columns.priority"),
-        accessor: (row) => (
-          <TicketPriorityBadge priority={row.priority} config={priorityConfigs?.[row.priority]} />
-        ),
-        sortable: true,
-        defaultVisible: true,
-      },
-      {
-        key: "acceptance",
-        header: t("tickets.columns.acceptance"),
-        accessor: (row) =>
-          row.requires_acceptance ? (
-            row.accepted_at ? (
-              <span className="inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                {t("tickets.acceptance.accepted")}
-              </span>
-            ) : (
-              <span className="inline-block rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-                {t("tickets.acceptance.pending")}
-              </span>
-            )
-          ) : (
-            <span className="text-muted-foreground text-xs">—</span>
-          ),
-        sortable: false,
-        defaultVisible: true,
-      },
-      {
-        key: "creator",
-        header: t("tickets.columns.createdBy"),
-        accessor: (row) =>
-          row.creator_name || row.creator_email ? (
-            <div className="flex justify-center">
-              <UserAvatar
-                className="h-6 w-6"
-                fullName={row.creator_name}
-                email={row.creator_email}
-                src={row.creator_avatar_url}
-                profileHref={row.creator_profile_href ?? undefined}
-              />
-            </div>
-          ) : (
-            <div className="flex justify-center">
-              <span className="text-muted-foreground text-xs">—</span>
-            </div>
-          ),
-        sortable: false,
-        defaultVisible: true,
-      },
-      {
-        key: "assignees",
-        header: t("tickets.columns.responders"),
-        accessor: (row) => (
-          <div className="flex justify-center">
-            <AssigneeAvatars assignees={row.assignees} />
-          </div>
-        ),
-        sortable: false,
-        defaultVisible: true,
-      },
-      {
-        key: "created_at",
-        header: t("tickets.columns.createdAt"),
-        accessor: (row) => (
-          <span className="text-muted-foreground text-xs">
-            {new Date(row.created_at).toLocaleDateString()}
-          </span>
-        ),
-        sortable: true,
-        defaultVisible: true,
-      },
-      {
-        key: "updated_at",
-        header: t("tickets.columns.updatedAt"),
-        accessor: (row) => (
-          <span className="text-muted-foreground text-xs">
-            {new Date(row.updated_at).toLocaleDateString()}
-          </span>
-        ),
-        sortable: true,
-        defaultVisible: false,
-      },
-    ],
-    [t, router, branchNameMap, branchOptions.length, statusConfigs, priorityConfigs]
-  );
-
-  const filters = useMemo<DataViewFilterDef[]>(
-    () => [
-      {
-        type: "date-range",
-        key: "createdAt",
-        label: t("tickets.filters.createdAt"),
-        fromKey: "createdAtFrom",
-        toKey: "createdAtTo",
-      },
-      {
-        type: "multi-select",
-        key: "createdBy",
-        label: t("tickets.filters.createdBy"),
-        options: memberOptions,
-      },
-      {
-        type: "multi-select",
-        key: "assignedTo",
-        label: t("tickets.filters.assignedTo"),
-        options: memberOptions,
-      },
-      {
-        type: "multi-select",
-        key: "status",
-        label: t("tickets.filters.status"),
-        options: [
-          { label: statusConfigs?.["open"]?.label ?? t("tickets.status.open"), value: "open" },
-          {
-            label: statusConfigs?.["in_progress"]?.label ?? t("tickets.status.in_progress"),
-            value: "in_progress",
-          },
-          {
-            label:
-              statusConfigs?.["waiting_response"]?.label ?? t("tickets.status.waiting_response"),
-            value: "waiting_response",
-          },
-          {
-            label: statusConfigs?.["waiting"]?.label ?? t("tickets.status.waiting"),
-            value: "waiting",
-          },
-          {
-            label: statusConfigs?.["resolved"]?.label ?? t("tickets.status.resolved"),
-            value: "resolved",
-          },
-          {
-            label: statusConfigs?.["closed"]?.label ?? t("tickets.status.closed"),
-            value: "closed",
-          },
-          {
-            label: statusConfigs?.["cancelled"]?.label ?? t("tickets.status.cancelled"),
-            value: "cancelled",
-          },
-        ],
-      },
-      {
-        type: "multi-select",
-        key: "priority",
-        label: t("tickets.filters.priority"),
-        options: [
-          { label: priorityConfigs?.["low"]?.label ?? t("tickets.priority.low"), value: "low" },
-          {
-            label: priorityConfigs?.["medium"]?.label ?? t("tickets.priority.medium"),
-            value: "medium",
-          },
-          { label: priorityConfigs?.["high"]?.label ?? t("tickets.priority.high"), value: "high" },
-          {
-            label: priorityConfigs?.["urgent"]?.label ?? t("tickets.priority.urgent"),
-            value: "urgent",
-          },
-        ],
-      },
-      ...(typeOptions.length > 0
-        ? [
-            {
-              type: "multi-select" as const,
-              key: "ticketTypeId",
-              label: t("tickets.filters.ticketType"),
-              options: typeOptions,
-            },
-          ]
-        : []),
-      ...(branchOptions.length > 0
-        ? [
-            {
-              type: "multi-select" as const,
-              key: "branchId",
-              label: t("tickets.filters.branch"),
-              options: branchOptions,
-            },
-          ]
-        : []),
-    ],
-    [t, memberOptions, typeOptions, branchOptions, statusConfigs, priorityConfigs]
-  );
-
-  return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col gap-4 p-4 md:p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t("pages.tickets.title")}</h1>
-          <p className="text-muted-foreground mt-1 text-sm">{t("pages.tickets.subtitle")}</p>
-        </div>
-        {canCreate && (
-          <Button onClick={() => router.push("/dashboard/help-desk/tickets/new")} size="sm">
-            <Plus className="mr-2 h-4 w-4" />
-            {t("tickets.createTicket")}
-          </Button>
-        )}
-      </div>
-
-      {canManage && <QueueTabs currentUserId={currentUserId} activeBranchId={activeBranchId} />}
-
-      <div className="min-h-0 flex-1">
-        <DataView<HelpdeskTicketListRow, HelpdeskTicketDetail>
-          entity="helpdesk-tickets"
-          scope={dataViewScope.organization(orgId)}
-          columns={columns}
-          filters={filters}
-          initialData={initialData}
-          initialDataUpdatedAt={initialDataUpdatedAt}
-          queryKey={HELPDESK_TICKETS_QUERY_KEY}
-          listFetcher={listFetcher}
-          detailFetcher={detailFetcher}
-          getRowId={(row) => row.ticket_number}
-          renderCompactItem={(row) => (
-            <div className="flex min-w-0 flex-col gap-1 overflow-hidden">
-              <div className="flex min-w-0 items-center justify-between gap-2">
-                <span className="text-muted-foreground shrink-0 font-mono text-xs">
-                  {row.ticket_number}
-                </span>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <TicketPriorityBadge
-                    priority={row.priority}
-                    config={priorityConfigs?.[row.priority]}
-                  />
-                  <TicketStatusBadge status={row.status} config={statusConfigs?.[row.status]} />
-                </div>
-              </div>
-              <span
-                className="block min-w-0 max-w-full truncate text-sm font-medium"
-                title={row.title}
-              >
-                {row.title}
-              </span>
-            </div>
-          )}
-          renderDetail={(detail) => (
-            <TicketDetailPanel
-              key={detail.id}
-              detail={detail}
-              canManage={canManage}
-              currentUserId={currentUserId}
-              statusConfigs={statusConfigs}
-              priorityConfigs={priorityConfigs}
-            />
-          )}
-          renderToolbarControls={() =>
-            canCreate ? (
-              <Button size="sm" onClick={() => router.push("/dashboard/help-desk/tickets/new")}>
-                <Plus className="mr-2 h-4 w-4" />
-                {t("tickets.createTicket")}
-              </Button>
-            ) : null
-          }
-          className="min-h-0 flex-1"
-        />
-      </div>
     </div>
   );
 }
