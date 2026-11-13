@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PaginatedResult } from "@/lib/data-view/types";
 import { eventService } from "./event.service";
 import type {
   CreateRepairOrderInput,
@@ -335,6 +336,37 @@ interface RepairOrderListDbRow {
    * types this as an array; both shapes are handled defensively below. */
   advisor?: { display_name: string | null } | { display_name: string | null }[] | null;
 }
+
+/** Columns the workshop list sorts by. */
+export const REPAIR_ORDER_SORT_FIELDS = [
+  "created_at",
+  "updated_at",
+  "warehouse_code",
+  "order_number",
+  "vin",
+  "vehicle_brand",
+  "client_name",
+  "status",
+] as const;
+export type RepairOrderSortField = (typeof REPAIR_ORDER_SORT_FIELDS)[number];
+
+/** What one page of the workshop list asks for. */
+export interface RepairOrderListParams {
+  search: string | null;
+  page: number;
+  pageSize: number;
+  sort: { field: RepairOrderSortField; direction: "asc" | "desc" };
+  statuses: string[];
+  warehouseCodes: string[];
+  advisorIds: string[];
+  /** Orders with no advisor (with advisorIds: either). */
+  withoutAdvisor: boolean;
+  /** ISO timestamps, both ends included. */
+  createdFrom: string | null;
+  createdTo: string | null;
+}
+
+const UUID_PATTERN = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 
 /** Phase 7: candidate advisor for the assignment picker -- a crm_contacts
  * row already linked to a real platform user (the only kind of contact
@@ -1163,6 +1195,77 @@ export class RepairOrdersService {
     return {
       success: true,
       data: (data ?? []).map((row) => mapRepairOrderListRow(row as RepairOrderListDbRow)),
+    };
+  }
+
+  /**
+   * One page of the workshop's repair order list (the Kolor Sensu list): the
+   * same scope and search as listForWorkshop, plus the list's filters, its
+   * sort and the page, with the whole count. Rows carry the full header.
+   */
+  static async listPageForWorkshop(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string | null,
+    params: RepairOrderListParams
+  ): Promise<ServiceResult<PaginatedResult<RepairOrderHeader>>> {
+    const page = Math.max(1, Math.floor(params.page));
+    const pageSize = Math.min(200, Math.max(1, Math.floor(params.pageSize)));
+    let query = supabase
+      .from("repair_orders")
+      .select(HEADER_COLUMNS, { count: "exact" })
+      .eq("organization_id", orgId)
+      .is("deleted_at", null);
+
+    if (branchId) query = query.eq("branch_id", branchId);
+    if (params.statuses.length) query = query.in("status", params.statuses);
+    if (params.warehouseCodes.length) query = query.in("warehouse_code", params.warehouseCodes);
+    const advisorIds = params.advisorIds.filter((id) => UUID_PATTERN.test(id));
+    if (params.withoutAdvisor && advisorIds.length) {
+      query = query.or(
+        `advisor_contact_id.is.null,advisor_contact_id.in.(${advisorIds.join(",")})`
+      );
+    } else if (params.withoutAdvisor) {
+      query = query.is("advisor_contact_id", null);
+    } else if (advisorIds.length) {
+      query = query.in("advisor_contact_id", advisorIds);
+    }
+    if (params.createdFrom) query = query.gte("created_at", params.createdFrom);
+    if (params.createdTo) query = query.lte("created_at", params.createdTo);
+
+    const trimmed = params.search?.trim();
+    if (trimmed) {
+      // The same quoting as listForWorkshop (see its note), over the header's
+      // descriptive fields as well.
+      const escaped = trimmed
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"')
+        .replace(/[%_]/g, (c) => `\\${c}`);
+      query = query.or(
+        ["zl_number", "vin", "order_number", "client_name", "vehicle_brand", "dealer_name"]
+          .map((column) => `${column}.ilike."%${escaped}%"`)
+          .join(",")
+      );
+    }
+
+    const ascending = params.sort.direction === "asc";
+    query = query
+      .order(params.sort.field, { ascending, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range((page - 1) * pageSize, page * pageSize - 1);
+
+    const { data, error, count } = await query;
+    if (error) return { success: false, error: error.message };
+
+    return {
+      success: true,
+      data: {
+        rows: (data ?? []).map((row) => mapRepairOrderHeader(row as RepairOrderHeaderDbRow)),
+        totalCount: count ?? 0,
+        page,
+        pageSize,
+      },
     };
   }
 
