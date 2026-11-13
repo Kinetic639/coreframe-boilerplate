@@ -16,11 +16,11 @@ The Tools module gives every org member access to a personal catalog of producti
 
 ## Routes
 
-| Route                     | File                                               | Description                                                                                              |
-| ------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `/dashboard/tools`        | `src/app/[locale]/dashboard/tools/page.tsx`        | Unified page — shadcn Tabs switching between "My Tools" and "All Tools"                                  |
-| `/dashboard/tools/all`    | `src/app/[locale]/dashboard/tools/all/page.tsx`    | **Dedicated catalog page** — renders `ToolsCatalogClient` directly (no tabs). Always shows catalog view. |
-| `/dashboard/tools/[slug]` | `src/app/[locale]/dashboard/tools/[slug]/page.tsx` | Tool detail — preview (disabled) or active tool UI (enabled)                                             |
+| Route                     | File                                                   | Description                                                                                              |
+| ------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `/dashboard/tools`        | `src/app/[locale]/dashboard/tools/(overview)/page.tsx` | Unified page — shadcn Tabs switching between "My Tools" and "All Tools"                                  |
+| `/dashboard/tools/all`    | `src/app/[locale]/dashboard/tools/all/page.tsx`        | **Dedicated catalog page** — renders `ToolsCatalogClient` directly (no tabs). Always shows catalog view. |
+| `/dashboard/tools/[slug]` | `src/app/[locale]/dashboard/tools/[slug]/page.tsx`     | Tool detail — preview (disabled) or active tool UI (enabled)                                             |
 
 All routes are registered in `src/i18n/routing.ts`:
 
@@ -131,10 +131,10 @@ Migration `20260305120000` contains:
 | React Query hooks    | `src/hooks/queries/tools/index.ts`                                                      |
 | Tool registry        | `src/lib/tools/registry.tsx`                                                            |
 | Layout (SSR gate)    | `src/app/[locale]/dashboard/tools/layout.tsx`                                           |
-| Unified page         | `src/app/[locale]/dashboard/tools/page.tsx`                                             |
+| Unified page         | `src/app/[locale]/dashboard/tools/(overview)/page.tsx`                                  |
 | Catalog page         | `src/app/[locale]/dashboard/tools/all/page.tsx`                                         |
 | Detail page          | `src/app/[locale]/dashboard/tools/[slug]/page.tsx`                                      |
-| Loading              | `src/app/[locale]/dashboard/tools/loading.tsx`                                          |
+| Loading              | `src/app/[locale]/dashboard/tools/(overview)/loading.tsx`                               |
 | Error                | `src/app/[locale]/dashboard/tools/error.tsx`                                            |
 | Unified client       | `src/app/[locale]/dashboard/tools/_components/tools-unified-client.tsx`                 |
 | My Tools client      | `src/app/[locale]/dashboard/tools/_components/tools-my-tools-client.tsx`                |

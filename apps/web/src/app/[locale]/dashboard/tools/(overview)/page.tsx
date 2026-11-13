@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { ToolsCatalogService, UserToolsService } from "@/server/services/tools.service";
-import { ToolsUnifiedClient } from "./_components/tools-unified-client";
+import { ToolsUnifiedClient } from "../_components/tools-unified-client";
 
 /**
  * /dashboard/tools — Unified tools page with My Tools / All Tools tabs.
