@@ -92,6 +92,8 @@ function makeSupabaseMock() {
   const orMock = vi.fn().mockReturnThis();
   const orderMock = vi.fn().mockReturnThis();
   const rangeMock = vi.fn().mockReturnThis();
+  const gteMock = vi.fn().mockReturnThis();
+  const lteMock = vi.fn().mockReturnThis();
   const singleMock = vi.fn();
   const maybeSingleMock = vi.fn().mockResolvedValue({
     data: { user_id: ASSIGNEE_ID },
@@ -108,6 +110,8 @@ function makeSupabaseMock() {
     or: orMock,
     order: orderMock,
     range: rangeMock,
+    gte: gteMock,
+    lte: lteMock,
     single: singleMock,
     maybeSingle: maybeSingleMock,
   }));
@@ -123,6 +127,8 @@ function makeSupabaseMock() {
     or: orMock,
     order: orderMock,
     range: rangeMock,
+    gte: gteMock,
+    lte: lteMock,
     single: singleMock,
     maybeSingle: maybeSingleMock,
   };
@@ -210,6 +216,43 @@ describe("PlanningTasksService", () => {
 
       expect(supabase._chain.or).toHaveBeenCalledWith(`branch_id.is.null,branch_id.eq.${branchId}`);
       expect(supabase._chain.in).toHaveBeenCalledWith("status", ["open", "in_progress"]);
+    });
+
+    it("filters by several people, branches and a due window", async () => {
+      const supabase = makeSupabaseMock();
+      const personA = "22222222-2222-4222-8222-222222222222";
+      const branchA = "33333333-3333-4333-8333-333333333333";
+      supabase._chain.range.mockResolvedValueOnce({ data: [], error: null, count: 0 });
+
+      await PlanningTasksService.listForDataView(supabase as any, ORG_ID, DEFAULT_PARAMS, {
+        assignees: [personA, "not-an-id"],
+        unassigned: true,
+        branch_ids: [branchA],
+        due_from: "2026-11-13T00:00:00.000Z",
+        due_to: "2026-11-20T23:59:59.999Z",
+      });
+
+      expect(supabase._chain.or).toHaveBeenCalledWith(
+        `assigned_to.is.null,assigned_to.in.(${personA})`
+      );
+      expect(supabase._chain.in).toHaveBeenCalledWith("branch_id", [branchA]);
+      expect(supabase._chain.gte).toHaveBeenCalledWith("due_at", "2026-11-13T00:00:00.000Z");
+      expect(supabase._chain.lte).toHaveBeenCalledWith("due_at", "2026-11-20T23:59:59.999Z");
+    });
+
+    it("finds organization-wide tasks alone, and quotes the search", async () => {
+      const supabase = makeSupabaseMock();
+      supabase._chain.range.mockResolvedValueOnce({ data: [], error: null, count: 0 });
+
+      await PlanningTasksService.listForDataView(supabase as any, ORG_ID, DEFAULT_PARAMS, {
+        org_wide: true,
+        search: "a,b(c)",
+      });
+
+      expect(supabase._chain.is).toHaveBeenCalledWith("branch_id", null);
+      expect(supabase._chain.or).toHaveBeenCalledWith(
+        'title.ilike."%a,b(c)%",task_number.ilike."%a,b(c)%"'
+      );
     });
 
     it("rejects an invalid combined branch scope before building a PostgREST filter", async () => {
