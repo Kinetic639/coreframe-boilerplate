@@ -335,12 +335,12 @@ Invitation Acceptance Flow (applied 2026-03-06):
   - `organization/profile/_components/org-profile-client.tsx` — profile form + logo upload
   - `organization/billing/_components/billing-client.tsx` — billing overview display
   - `organization/users/_components/users-layout-client.tsx` — tab navigation (Members/Invitations/Roles/Positions)
-  - `organization/users/members/_components/members-client.tsx` — member list + activate/deactivate/remove, scope-aware role management dialog (branch multiselect for branch/both roles), position assignment dialog, view detail link
+  - `organization/users/members/_components/members-workspace.tsx` (+ `members-state.ts`, Kolor Sensu list, state in the address) — member list + activate/deactivate/remove, scope-aware role management dialog (branch multiselect for branch/both roles), position assignment dialog, view detail link
   - `organization/users/members/[memberId]/_components/member-detail-client.tsx` — member detail (Info + Access tabs): displays all role assignments with scope badges; add role dialog with scope selection; remove assignment
-  - `organization/users/invitations/_components/invitations-client.tsx` — invitation list + create/resend/cancel dialog
-  - `organization/users/roles/_components/roles-client.tsx` — role list + create/edit/delete dialog; create includes scope selector (`org`|`branch`); scope badge on rows; scope read-only in edit dialog; **both create and edit dialogs filter PERMISSION_GROUPS by role scope_type** (`allowedScopes` metadata); openEdit sanitizes pre-selected slugs against the role's scope; server enforces ORG_ONLY_SLUGS in both `createRoleAction` and `updateRoleAction`
-  - `organization/users/positions/_components/positions-client.tsx` — position list + create/edit/delete dialog
-  - `organization/branches/_components/branches-client.tsx` — branch list + create/edit/delete dialog
+  - `organization/users/invitations/_components/invitations-workspace.tsx` (+ `invitations-state.ts`, Kolor Sensu list) — invitation list + create/resend/cancel dialog
+  - `organization/users/roles/_components/roles-workspace.tsx` (+ `roles-state.ts`, Kolor Sensu list) — role list + create/edit/delete dialog; create includes scope selector (`org`|`branch`); scope badge on rows; scope read-only in edit dialog; **both create and edit dialogs filter PERMISSION_GROUPS by role scope_type** (`allowedScopes` metadata); openEdit sanitizes pre-selected slugs against the role's scope; server enforces ORG_ONLY_SLUGS in both `createRoleAction` and `updateRoleAction`
+  - `organization/users/positions/_components/positions-workspace.tsx` (+ `positions-state.ts`, Kolor Sensu list) — position list + create/edit/delete dialog
+  - `organization/branches/_components/branches-workspace.tsx` (+ `branches-state.ts`, Kolor Sensu list) — branch list + create/edit/delete dialog
 
 ### Routing
 
@@ -580,13 +580,13 @@ All 7 org pages now use **SSR-first** pattern. Initial data is server-rendered a
 
 - `src/app/[locale]/dashboard/organization/profile/_components/org-profile-client.tsx`
 - `src/app/[locale]/dashboard/organization/billing/_components/billing-client.tsx`
-- `src/app/[locale]/dashboard/organization/users/members/_components/members-client.tsx`
+- `src/app/[locale]/dashboard/organization/users/members/_components/members-workspace.tsx`
 - `src/app/[locale]/dashboard/organization/users/members/[memberId]/page.tsx`
 - `src/app/[locale]/dashboard/organization/users/members/[memberId]/_components/member-detail-client.tsx`
-- `src/app/[locale]/dashboard/organization/users/invitations/_components/invitations-client.tsx`
-- `src/app/[locale]/dashboard/organization/users/roles/_components/roles-client.tsx`
-- `src/app/[locale]/dashboard/organization/users/positions/_components/positions-client.tsx`
-- `src/app/[locale]/dashboard/organization/branches/_components/branches-client.tsx`
+- `src/app/[locale]/dashboard/organization/users/invitations/_components/invitations-workspace.tsx`
+- `src/app/[locale]/dashboard/organization/users/roles/_components/roles-workspace.tsx`
+- `src/app/[locale]/dashboard/organization/users/positions/_components/positions-workspace.tsx`
+- `src/app/[locale]/dashboard/organization/branches/_components/branches-workspace.tsx`
 
 ### Configuration
 
@@ -609,3 +609,7 @@ All 7 org pages now use **SSR-first** pattern. Initial data is server-rendered a
 - 2026-02-27 (security fix — Gap #6) — Closed invitations UPDATE privilege escalation. Applied `20260227200000_fix_invitations_update_self_cancel.sql`: dropped combined UPDATE policy, created `invitations_update_org_cancel` (full UPDATE for org members) and `invitations_update_self_cancel` (email-match restricted to `status='cancelled'` via WITH CHECK). Added 3 T1 RLS tests. MODULE.md + MODULE_CHECKLIST.md updated. Verified via MCP post-apply.
 - 2026-02-27 (regression fix) — Restored invite acceptance path broken by Gap #6 fix. Applied `20260227200001_fix_invitations_self_accept_regression.sql`: adds `invitations_update_self_accept` (email-match, WITH CHECK `status='accepted' AND accepted_at IS NOT NULL`). Gap #6 security property confirmed intact (no policy permits `status='pending'` for invitees). +5 T1 tests (23 total). Verified via MCP post-apply.
 - 2026-02-27 (Phase 2 — Scoped RBAC UX + Member Detail) — Service layer: `OrgRolesService` generalized with `scope_type` on create, `scope`/`scopeId` on assign/remove, new `getMemberAccess` and `getMember`. Actions: `createRoleAction` accepts `scope_type`, assign/remove accept `scope`+`scopeId`, new `getMemberAccessAction`. Hooks: mutations updated, `useMemberAccessQuery` added. UI: `roles-client.tsx` — scope selector in create dialog, scope badge on rows, read-only scope in edit. `members-client.tsx` — View link (Eye icon) per row, scope-aware Manage Roles dialog (branch multiselect, both-toggle). New `members/[memberId]/page.tsx` + `member-detail-client.tsx` (Info + Access tabs). Routing: `/dashboard/organization/users/members/[memberId]` registered. RTL tests: roles 5→10, members 3→7, +10 member-detail. All 976 tests pass.
+
+## Kolor Sensu lists (2026-11)
+
+Branches, members, roles, positions and invitations moved from DataView to the Kolor Sensu list (`components/kolor-sensu/data-table/list-pane.tsx`). Each list loads all its rows once and keeps its whole state in the address (`q`, `strona`, `wierszy`, `sort`, `direction`, `selected` and its filters); old DataView links are translated on the server. The `*-client.tsx` components, their `_utils/data-view.ts` files and their RTL tests listed above are gone; the address logic is covered by `_components/__tests__/*-state.test.ts`. The members list lives in `users/members/(overview)/` so its `loading.tsx` does not cover the member page.

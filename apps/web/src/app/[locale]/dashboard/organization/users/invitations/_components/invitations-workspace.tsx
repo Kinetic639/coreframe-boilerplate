@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQueryStates } from "nuqs";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,10 +16,15 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Mail, Send, X, RefreshCw, Plus, GitBranch, AlertCircle } from "lucide-react";
-import { useRouter } from "@/i18n/navigation";
-import { useQueryClient } from "@tanstack/react-query";
-import { usePermissions } from "@/hooks/v2/use-permissions";
-import { INVITES_CREATE, INVITES_CANCEL } from "@/lib/constants/permissions";
+import { FilterBar, type FilterField } from "@/components/kolor-sensu/data-table/filter-bar";
+import type {
+  ColumnLayout,
+  ColumnSet,
+  ColumnWidths,
+} from "@/components/kolor-sensu/data-table/columns";
+import { TableNavigationProvider } from "@/components/kolor-sensu/data-table/table-navigation";
+import { ListPane, ListSidePanel } from "@/components/kolor-sensu/data-table/list-pane";
+import { useListKeys } from "@/components/kolor-sensu/data-table/use-list-keys";
 import {
   useInvitationsQuery,
   useCreateInvitationMutation,
@@ -30,17 +36,15 @@ import {
 } from "@/hooks/queries/organization";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import type { OrgInvitation, OrgRole, OrgBranch } from "@/server/services/organization.service";
-import { DataView } from "@/components/data-view/data-view";
-import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
-import type {
-  DataViewColumnDef,
-  DataViewFilterDef,
-  DataViewListParams,
-  PaginatedResult,
-} from "@/components/data-view/data-view.types";
-import { filterSortInvitations, paginateInvitations } from "../_utils/data-view";
-
-const INVITATIONS_DV_KEY = ["org-invitations-dataview"];
+import {
+  invitationHref,
+  invitationPage,
+  invitationParsers,
+  invitedName,
+  INVITATION_PAGE_SIZES,
+  INVITATION_STATUSES,
+  type InvitationState,
+} from "./invitations-state";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   pending: "outline",
@@ -50,50 +54,69 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
   declined: "secondary",
 };
 
-interface InvitationsClientProps {
-  orgId: string;
-  initialData: PaginatedResult<OrgInvitation>;
-  allInvitations: OrgInvitation[];
+interface InvitationsWorkspaceProps {
+  initialInvitations: OrgInvitation[];
   initialRoles: OrgRole[];
   initialBranches: OrgBranch[];
+  path: string;
+  set: ColumnSet<string>;
+  layout: ColumnLayout;
+  widths: ColumnWidths;
+  cookie: string;
+  labels: Record<string, string>;
+  canCreate: boolean;
+  canCancel: boolean;
 }
 
 type RoleScopeConfig = { scope: "org" | "branch"; branchIds: string[] };
 
-export function InvitationsClient({
-  orgId,
-  initialData,
-  allInvitations: initialAllInvitations,
+/**
+ * The invitations: all of them, filtered by status, sorted and paged by the
+ * address, kept live by the realtime sync, with the open one beside the list.
+ */
+export function InvitationsWorkspace({
+  initialInvitations,
   initialRoles,
   initialBranches,
-}: InvitationsClientProps) {
+  path,
+  set,
+  layout: savedLayout,
+  widths,
+  cookie,
+  labels,
+  canCreate,
+  canCancel,
+}: InvitationsWorkspaceProps) {
   const t = useTranslations("adminInvitations");
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const { can } = usePermissions();
 
   const activeOrgId = useAppStoreV2((s) => s.activeOrgId);
   useInvitationsRealtimeSync(activeOrgId);
 
-  const allRef = useRef(initialAllInvitations);
-  allRef.current = initialAllInvitations;
+  const [state] = useQueryStates(invitationParsers);
+  const invitations = useInvitationsQuery(initialInvitations);
+  const all = useMemo(() => invitations.data ?? [], [invitations.data]);
+  const page = useMemo(() => invitationPage(all, state), [all, state]);
+  const [layout, setLayout] = useState(savedLayout);
 
-  const listFetcher = useCallback(
-    async (params: DataViewListParams): Promise<PaginatedResult<OrgInvitation>> => {
-      const filtered = filterSortInvitations(allRef.current, params);
-      return paginateInvitations(filtered, params.page, params.pageSize);
-    },
-    []
+  const navigate = useCallback((href: string) => {
+    window.history.pushState(null, "", href);
+  }, []);
+  const href = useCallback(
+    (patch: Partial<InvitationState>) => invitationHref(path, state, patch),
+    [path, state]
   );
-
-  const detailFetcher = useCallback(
-    async (id: string): Promise<OrgInvitation | null> =>
-      allRef.current.find((i) => i.id === id) ?? null,
-    []
+  const preview = useCallback(
+    (selected: string | null) => navigate(href({ selected })),
+    [navigate, href]
   );
+  const keys = useMemo(() => page.rows.map((row) => row.id), [page.rows]);
+  useListKeys(keys, state.selected, preview);
+  useEffect(() => {
+    if (state.strona !== page.page) {
+      window.history.replaceState(null, "", href({ strona: page.page }));
+    }
+  }, [href, page.page, state.strona]);
 
-  // Seed React Query cache for realtime sync
-  useInvitationsQuery(initialAllInvitations);
   const { data: roles } = useRolesQuery(initialRoles);
   const { data: branches } = useBranchesQuery(initialBranches);
 
@@ -103,8 +126,6 @@ export function InvitationsClient({
 
   const isPending =
     createMutation.isPending || cancelMutation.isPending || resendMutation.isPending;
-  const canCreate = can(INVITES_CREATE);
-  const canCancel = can(INVITES_CANCEL);
 
   const assignableRoles = roles.filter((r) => !r.is_basic && !r.deleted_at);
   const activeBranches = branches.filter((b) => !b.deleted_at);
@@ -196,235 +217,247 @@ export function InvitationsClient({
         onSuccess: () => {
           resetDialog();
           setShowInviteDialog(false);
-          void refreshAfterMutation();
         },
         onError: (err: Error) => setDialogError(mapInviteError(err.message)),
       }
     );
   };
 
-  const refreshAfterMutation = async () => {
-    await queryClient.invalidateQueries({ queryKey: INVITATIONS_DV_KEY });
-    router.refresh();
-  };
-
   const handleCancel = (inv: OrgInvitation) => {
-    cancelMutation.mutate(
-      { invitationId: inv.id },
-      { onSuccess: () => void refreshAfterMutation() }
-    );
+    cancelMutation.mutate({ invitationId: inv.id }, undefined);
   };
 
   const handleResend = (inv: OrgInvitation) => {
-    resendMutation.mutate(
-      { invitationId: inv.id },
-      { onSuccess: () => void refreshAfterMutation() }
-    );
+    resendMutation.mutate({ invitationId: inv.id }, undefined);
   };
 
-  // ── DataView definitions ──────────────────────────────────────────────────────
-  const columns = useMemo<DataViewColumnDef<OrgInvitation>[]>(
-    () => [
-      {
-        key: "email",
-        header: t("columns.email"),
-        accessor: (row) => (
-          <div className="flex items-center gap-2 py-1">
-            <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <span className="truncate font-medium text-foreground">{row.email}</span>
-          </div>
-        ),
-        sortable: true,
-        defaultVisible: true,
-      },
-      {
-        key: "status",
-        header: t("columns.status"),
-        accessor: (row) => (
-          <Badge variant={STATUS_VARIANT[row.status] ?? "outline"} className="text-xs capitalize">
-            {t(`statusLabels.${row.status}` as Parameters<typeof t>[0]) ?? row.status}
+  const statusLabel = (status: string) =>
+    t.has(`statusLabels.${status}` as Parameters<typeof t>[0])
+      ? t(`statusLabels.${status}` as Parameters<typeof t>[0])
+      : status;
+  const statusBadge = (row: OrgInvitation) => (
+    <Badge variant={STATUS_VARIANT[row.status] ?? "outline"} className="font-normal">
+      {statusLabel(row.status)}
+    </Badge>
+  );
+  const fields: FilterField[] = [
+    {
+      kind: "list",
+      id: "status",
+      label: t("filters.status"),
+      options: INVITATION_STATUSES.map((value) => ({ value, label: statusLabel(value) })),
+    },
+  ];
+  const order = ["invitation", ...layout.map((column) => column.id)];
+  const sortOf = (field: InvitationState["sort"]) => ({
+    href: href({
+      sort: field,
+      direction: state.sort === field && state.direction === "asc" ? "desc" : "asc",
+      strona: 1,
+      selected: null,
+    }),
+    direction: state.sort === field ? state.direction : null,
+  });
+  const rowHref = (row: OrgInvitation) =>
+    href({ selected: state.selected === row.id ? null : row.id });
+  const day = (value: string | null) =>
+    value ? (
+      <span className="text-xs text-muted-foreground">
+        {new Date(value).toLocaleDateString(labels.locale)}
+      </span>
+    ) : (
+      "—"
+    );
+  const selected =
+    all.find((invitation) => invitation.id === state.selected && !invitation.deleted_at) ?? null;
+  const filtered = !!(state.q || state.status.length);
+
+  const renderDetail = (inv: OrgInvitation) => (
+    <div className="space-y-5">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border">
+          <Mail className="h-5 w-5 text-muted-foreground" />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold leading-tight break-all">{inv.email}</h2>
+          <Badge
+            variant={STATUS_VARIANT[inv.status] ?? "outline"}
+            className="mt-1 text-xs capitalize"
+          >
+            {t(`statusLabels.${inv.status}` as Parameters<typeof t>[0]) ?? inv.status}
           </Badge>
-        ),
-        sortable: true,
-        defaultVisible: true,
-        compactLabel: true,
-      },
-      {
-        key: "roles",
-        header: t("columns.roles"),
-        accessor: (row) =>
-          row.role_summary ? (
-            <span className="text-xs text-muted-foreground truncate">{row.role_summary}</span>
-          ) : (
-            <span className="text-xs text-muted-foreground">—</span>
-          ),
-        defaultVisible: true,
-      },
-      {
-        key: "expires_at",
-        header: t("columns.expires"),
-        accessor: (row) => (
-          <span className="text-xs text-muted-foreground">
-            {row.expires_at ? new Date(row.expires_at).toLocaleDateString() : "—"}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {t("detail.expires")}
+          </p>
+          <span>{inv.expires_at ? new Date(inv.expires_at).toLocaleDateString() : "—"}</span>
+        </div>
+        <div>
+          <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {t("detail.created")}
+          </p>
+          <span>{inv.created_at ? new Date(inv.created_at).toLocaleDateString() : "—"}</span>
+        </div>
+        <div className="col-span-2">
+          <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {t("detail.roles")}
+          </p>
+          <span className="text-sm">
+            {inv.role_summary ?? (
+              <span className="text-muted-foreground text-xs">{t("detail.noRoles")}</span>
+            )}
           </span>
-        ),
-        sortable: true,
-        defaultVisible: true,
-      },
-    ],
-    [t]
-  );
-
-  const filters = useMemo<DataViewFilterDef[]>(
-    () => [
-      {
-        type: "multi-select",
-        key: "status",
-        label: t("filters.status"),
-        options: [
-          { label: t("statusLabels.pending"), value: "pending" },
-          { label: t("statusLabels.accepted"), value: "accepted" },
-          { label: t("statusLabels.declined"), value: "declined" },
-          { label: t("statusLabels.cancelled"), value: "cancelled" },
-          { label: t("statusLabels.expired"), value: "expired" },
-        ],
-      },
-    ],
-    [t]
-  );
-
-  const renderCompactItem = useCallback(
-    (row: OrgInvitation) => (
-      <div className="flex items-center gap-2 py-0.5">
-        <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <span className="truncate text-sm font-medium">{row.email}</span>
-        <Badge variant={STATUS_VARIANT[row.status] ?? "outline"} className="shrink-0 text-xs">
-          {t(`statusLabels.${row.status}` as Parameters<typeof t>[0]) ?? row.status}
-        </Badge>
+        </div>
+        <div className="col-span-2">
+          <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {t("detail.id")}
+          </p>
+          <span className="break-all font-mono text-xs text-muted-foreground">{inv.id}</span>
+        </div>
       </div>
-    ),
-    [t]
-  );
 
-  const renderDetail = useCallback(
-    (inv: OrgInvitation) => (
-      <div className="space-y-5">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border">
-            <Mail className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold leading-tight break-all">{inv.email}</h2>
-            <Badge
-              variant={STATUS_VARIANT[inv.status] ?? "outline"}
-              className="mt-1 text-xs capitalize"
+      {inv.status === "pending" && (canCreate || canCancel) && (
+        <div className="flex gap-2 border-t pt-3">
+          {canCreate && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleResend(inv)}
+              disabled={isPending}
             >
-              {t(`statusLabels.${inv.status}` as Parameters<typeof t>[0]) ?? inv.status}
-            </Badge>
-          </div>
+              <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+              {t("actions.resend")}
+            </Button>
+          )}
+          {canCancel && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              onClick={() => handleCancel(inv)}
+              disabled={isPending}
+            >
+              <X className="mr-1.5 h-3.5 w-3.5" />
+              {t("actions.cancel")}
+            </Button>
+          )}
         </div>
-
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div>
-            <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t("detail.expires")}
-            </p>
-            <span>{inv.expires_at ? new Date(inv.expires_at).toLocaleDateString() : "—"}</span>
-          </div>
-          <div>
-            <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t("detail.created")}
-            </p>
-            <span>{inv.created_at ? new Date(inv.created_at).toLocaleDateString() : "—"}</span>
-          </div>
-          <div className="col-span-2">
-            <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t("detail.roles")}
-            </p>
-            <span className="text-sm">
-              {inv.role_summary ?? (
-                <span className="text-muted-foreground text-xs">{t("detail.noRoles")}</span>
-              )}
-            </span>
-          </div>
-          <div className="col-span-2">
-            <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t("detail.id")}
-            </p>
-            <span className="break-all font-mono text-xs text-muted-foreground">{inv.id}</span>
-          </div>
-        </div>
-
-        {inv.status === "pending" && (canCreate || canCancel) && (
-          <div className="flex gap-2 border-t pt-3">
-            {canCreate && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleResend(inv)}
-                disabled={isPending}
-              >
-                <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                {t("actions.resend")}
-              </Button>
-            )}
-            {canCancel && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-destructive hover:text-destructive"
-                onClick={() => handleCancel(inv)}
-                disabled={isPending}
-              >
-                <X className="mr-1.5 h-3.5 w-3.5" />
-                {t("actions.cancel")}
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
-    ),
-    [t, canCreate, canCancel, isPending]
+      )}
+    </div>
   );
 
   return (
-    <>
-      <div className="flex h-[calc(100vh-8rem)] flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">{t("dialogTitle")}</h2>
+    <TableNavigationProvider navigate={navigate}>
+      <section className="ks-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2.5 md:px-4">
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-lg font-semibold tracking-tight">{labels.title}</h2>
+            <span className="text-xs tabular-nums text-muted-foreground">{page.totalCount}</span>
           </div>
-          {canCreate && (
+          {canCreate ? (
             <Button
+              size="sm"
               onClick={() => {
                 resetDialog();
                 setShowInviteDialog(true);
               }}
-              size="sm"
             >
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-1.5 size-3.5" />
               {t("inviteMemberButton")}
             </Button>
-          )}
-        </div>
-
-        <div className="flex-1 overflow-hidden">
-          <DataView<OrgInvitation, OrgInvitation>
-            entity="org-invitations"
-            scope={dataViewScope.organization(orgId)}
-            columns={columns}
-            filters={filters}
-            initialData={initialData}
-            queryKey={INVITATIONS_DV_KEY}
-            listFetcher={listFetcher}
-            detailFetcher={detailFetcher}
-            getRowId={(row) => row.id}
-            renderCompactItem={renderCompactItem}
-            renderDetail={renderDetail}
-            className="h-full"
+          ) : null}
+        </header>
+        <div className="ks-list-filter-row">
+          <FilterBar
+            parsers={invitationParsers}
+            fields={fields}
+            resetOnChange={["strona", "selected"]}
+            shallow
+            pending={invitations.isFetching}
+            order={order}
+            search={{ label: labels.search, placeholder: labels.search }}
           />
         </div>
-      </div>
+        <div className="flex min-h-0 min-w-0 flex-1">
+          <ListPane
+            rows={page.rows}
+            totalCount={page.totalCount}
+            page={page.page}
+            size={state.wierszy}
+            sizes={INVITATION_PAGE_SIZES}
+            selected={state.selected}
+            rowKey={(row) => row.id}
+            rowHref={rowHref}
+            pageHref={(strona) => href({ strona, selected: null })}
+            sizeHref={(wierszy) =>
+              href({ wierszy: wierszy as InvitationState["wierszy"], strona: 1, selected: null })
+            }
+            set={set}
+            layout={layout}
+            widths={widths}
+            cookie={cookie}
+            onLayoutChange={setLayout}
+            sortOf={(id) =>
+              id === "status" || id === "created_at" || id === "expires_at" ? sortOf(id) : undefined
+            }
+            pinnedSort={sortOf("email")}
+            identity={(row) => (
+              <>
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-md border bg-muted/40">
+                  <Mail className="size-3.5 text-muted-foreground" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-[13px] font-medium" title={row.email}>
+                    {row.email}
+                  </span>
+                  {invitedName(row) ? (
+                    <span className="block truncate text-[11px] leading-4 font-normal text-muted-foreground">
+                      {invitedName(row)}
+                    </span>
+                  ) : null}
+                </span>
+              </>
+            )}
+            value={(row, id) =>
+              id === "status" ? (
+                statusBadge(row)
+              ) : id === "roles" ? (
+                <span className="text-muted-foreground">{row.role_summary || "—"}</span>
+              ) : id === "created_at" ? (
+                day(row.created_at)
+              ) : (
+                day(row.expires_at)
+              )
+            }
+            badge={statusBadge}
+            labels={labels}
+            empty={filtered ? labels.empty : labels.emptyAll}
+            loading={invitations.isPending}
+            error={invitations.isError ? invitations.error.message : null}
+            onRetry={() => void invitations.refetch()}
+            onPreview={preview}
+          />
+          {state.selected ? (
+            <ListSidePanel
+              titleId="org-invitation-panel-title"
+              title={selected?.email ?? labels.notFound}
+              backLabel={labels.title}
+              closeLabel={labels.close}
+              onClose={() => preview(null)}
+            >
+              {selected ? (
+                <div className="p-5">{renderDetail(selected)}</div>
+              ) : (
+                <p className="p-8 text-center text-sm text-muted-foreground">{labels.notFound}</p>
+              )}
+            </ListSidePanel>
+          ) : null}
+        </div>
+      </section>
 
       {/* Invite Dialog */}
       <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
@@ -579,6 +612,6 @@ export function InvitationsClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </TableNavigationProvider>
   );
 }

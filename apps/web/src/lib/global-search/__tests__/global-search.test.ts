@@ -1,4 +1,4 @@
-import { existsSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import path from "path";
 import { describe, expect, it } from "vitest";
 import pl from "../../../../messages/pl.json";
@@ -177,8 +177,15 @@ describe("search registry", () => {
   it("points every href at an existing page", () => {
     for (const entry of registry) {
       if (!entry.href) continue;
-      const pageFile = path.resolve(process.cwd(), `src/app/[locale]${entry.href}/page.tsx`);
-      expect(existsSync(pageFile), entry.href).toBe(true);
+      const dir = path.resolve(process.cwd(), `src/app/[locale]${entry.href}`);
+      // The page may sit in a route group, e.g. `(overview)/page.tsx`.
+      const groups = existsSync(dir)
+        ? readdirSync(dir).filter((name) => name.startsWith("(") && name.endsWith(")"))
+        : [];
+      const found = [dir, ...groups.map((group) => path.join(dir, group))].some((at) =>
+        existsSync(path.join(at, "page.tsx"))
+      );
+      expect(found, entry.href).toBe(true);
     }
   });
 

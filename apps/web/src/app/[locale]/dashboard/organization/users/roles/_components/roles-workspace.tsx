@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQueryStates } from "nuqs";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,10 +24,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Shield, Plus, Pencil, Trash2, Lock, Building2, GitBranch } from "lucide-react";
-import { useRouter } from "@/i18n/navigation";
-import { useQueryClient } from "@tanstack/react-query";
-import { usePermissions } from "@/hooks/v2/use-permissions";
-import { MEMBERS_MANAGE } from "@/lib/constants/permissions";
+import { FilterBar, type FilterField } from "@/components/kolor-sensu/data-table/filter-bar";
+import type {
+  ColumnLayout,
+  ColumnSet,
+  ColumnWidths,
+} from "@/components/kolor-sensu/data-table/columns";
+import { TableNavigationProvider } from "@/components/kolor-sensu/data-table/table-navigation";
+import { ListPane, ListSidePanel } from "@/components/kolor-sensu/data-table/list-pane";
+import { useListKeys } from "@/components/kolor-sensu/data-table/use-list-keys";
 import {
   allowedInScope,
   groupCatalog,
@@ -41,24 +47,27 @@ import {
   useDeleteRoleMutation,
 } from "@/hooks/queries/organization";
 import type { OrgRole } from "@/server/services/organization.service";
-import { DataView } from "@/components/data-view/data-view";
-import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
-import type {
-  DataViewColumnDef,
-  DataViewFilterDef,
-  DataViewListParams,
-  PaginatedResult,
-} from "@/components/data-view/data-view.types";
-import { filterSortRoles, paginateRoles } from "../_utils/data-view";
+import {
+  roleHref,
+  rolePage,
+  roleParsers,
+  ROLE_KINDS,
+  ROLE_PAGE_SIZES,
+  ROLE_SCOPES,
+  type RoleState,
+} from "./roles-state";
 
-const ROLES_DV_KEY = ["org-roles-dataview"];
-
-interface RolesClientProps {
-  orgId: string;
-  initialData: PaginatedResult<OrgRole>;
-  allRoles: OrgRole[];
+interface RolesWorkspaceProps {
+  initialRoles: OrgRole[];
   /** Every permission the organization may put in a role, from the database */
   permissionCatalog: CatalogPermission[];
+  path: string;
+  set: ColumnSet<string>;
+  layout: ColumnLayout;
+  widths: ColumnWidths;
+  cookie: string;
+  labels: Record<string, string>;
+  canManage: boolean;
 }
 
 type DialogMode = "create" | "edit" | null;
@@ -83,42 +92,53 @@ function ScopeBadge({ scopeType, tBadge }: { scopeType: string; tBadge: (k: stri
   return null;
 }
 
-export function RolesClient({
-  orgId,
-  initialData,
-  allRoles: initialAllRoles,
+/**
+ * The roles: system and the organization's own, filtered, sorted and paged by
+ * the address, with the open role's permissions beside the list.
+ */
+export function RolesWorkspace({
+  initialRoles,
   permissionCatalog,
-}: RolesClientProps) {
+  path,
+  set,
+  layout: savedLayout,
+  widths,
+  cookie,
+  labels,
+  canManage,
+}: RolesWorkspaceProps) {
   const t = useTranslations("modules.organizationManagement.roles");
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const { can } = usePermissions();
+  const [state] = useQueryStates(roleParsers);
+  const roles = useRolesQuery(initialRoles);
+  const all = useMemo(() => roles.data ?? [], [roles.data]);
+  const page = useMemo(() => rolePage(all, state), [all, state]);
+  const [layout, setLayout] = useState(savedLayout);
 
-  const allRef = useRef(initialAllRoles);
-  allRef.current = initialAllRoles;
-
-  const listFetcher = useCallback(
-    async (params: DataViewListParams): Promise<PaginatedResult<OrgRole>> => {
-      const filtered = filterSortRoles(allRef.current, params);
-      return paginateRoles(filtered, params.page, params.pageSize);
-    },
-    []
+  const navigate = useCallback((href: string) => {
+    window.history.pushState(null, "", href);
+  }, []);
+  const href = useCallback(
+    (patch: Partial<RoleState>) => roleHref(path, state, patch),
+    [path, state]
   );
-
-  const detailFetcher = useCallback(
-    async (id: string): Promise<OrgRole | null> => allRef.current.find((r) => r.id === id) ?? null,
-    []
+  const preview = useCallback(
+    (selected: string | null) => navigate(href({ selected })),
+    [navigate, href]
   );
+  const keys = useMemo(() => page.rows.map((row) => row.id), [page.rows]);
+  useListKeys(keys, state.selected, preview);
+  useEffect(() => {
+    if (state.strona !== page.page) {
+      window.history.replaceState(null, "", href({ strona: page.page }));
+    }
+  }, [href, page.page, state.strona]);
 
-  useRolesQuery(initialAllRoles);
   const createMutation = useCreateRoleMutation();
   const updateMutation = useUpdateRoleMutation();
   const deleteMutation = useDeleteRoleMutation();
 
   const isPending =
     createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
-
-  const canManage = can(MEMBERS_MANAGE);
 
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [editingRole, setEditingRole] = useState<OrgRole | null>(null);
@@ -151,11 +171,6 @@ export function RolesClient({
     () => new Map(permissionCatalog.map((p) => [p.slug, p])),
     [permissionCatalog]
   );
-
-  const refreshAfterMutation = async () => {
-    await queryClient.invalidateQueries({ queryKey: ROLES_DV_KEY });
-    router.refresh();
-  };
 
   const openCreate = () => {
     setEditingRole(null);
@@ -202,9 +217,9 @@ export function RolesClient({
           scope_type: scopeType,
         },
         {
-          onSuccess: () => {
+          onSuccess: (role) => {
             setDialogMode(null);
-            void refreshAfterMutation();
+            preview(role.id);
           },
         }
       );
@@ -216,254 +231,257 @@ export function RolesClient({
           description: roleDesc || null,
           permission_slugs: selectedPerms,
         },
-        {
-          onSuccess: () => {
-            setDialogMode(null);
-            void refreshAfterMutation();
-          },
-        }
+        { onSuccess: () => setDialogMode(null) }
       );
     }
   };
 
   const handleDelete = (role: OrgRole) => {
-    deleteMutation.mutate({ roleId: role.id }, { onSuccess: () => void refreshAfterMutation() });
+    if (!window.confirm(labels.confirmDelete.replace("{name}", role.name))) return;
+    deleteMutation.mutate(
+      { roleId: role.id },
+      { onSuccess: () => state.selected === role.id && preview(null) }
+    );
   };
 
-  // ── DataView definitions ──────────────────────────────────────────────────────
-  const columns = useMemo<DataViewColumnDef<OrgRole>[]>(
-    () => [
-      {
-        key: "name",
-        header: t("columns.name"),
-        accessor: (row) => (
-          <div className="flex items-center gap-2 py-1">
-            {row.is_basic ? (
-              <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
-            ) : (
-              <Shield className="h-4 w-4 shrink-0 text-muted-foreground" />
-            )}
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="truncate font-medium text-foreground">{row.name}</span>
-                {row.is_basic && (
-                  <Badge variant="secondary" className="text-xs">
-                    {t("systemBadge")}
-                  </Badge>
-                )}
-                <ScopeBadge
-                  scopeType={row.scope_type}
-                  tBadge={(k) => t(`scopeBadges.${k}` as Parameters<typeof t>[0])}
-                />
-              </div>
-            </div>
-          </div>
-        ),
-        sortable: true,
-        defaultVisible: true,
-      },
-      {
-        key: "scope_type",
-        header: t("columns.scope"),
-        accessor: (row) => (
-          <span className="text-sm text-muted-foreground capitalize">
-            {t(`filters.scopeOptions.${row.scope_type}` as Parameters<typeof t>[0]) ??
-              row.scope_type}
-          </span>
-        ),
-        sortable: true,
-        defaultVisible: true,
-        compactLabel: true,
-      },
-      {
-        key: "description",
-        header: t("columns.description"),
-        accessor: (row) =>
-          row.description ? (
-            <span className="text-sm text-muted-foreground truncate">{row.description}</span>
+  const scopeLabel = (scope: string) =>
+    t.has(`filters.scopeOptions.${scope}` as Parameters<typeof t>[0])
+      ? t(`filters.scopeOptions.${scope}` as Parameters<typeof t>[0])
+      : scope;
+  const roleIcon = (role: OrgRole) =>
+    role.is_basic ? (
+      <Lock className="size-3.5 text-muted-foreground" />
+    ) : (
+      <Shield className="size-3.5 text-muted-foreground" />
+    );
+  const fields: FilterField[] = [
+    {
+      kind: "list",
+      id: "zakres",
+      label: t("filters.scope"),
+      options: ROLE_SCOPES.map((value) => ({ value, label: scopeLabel(value) })),
+    },
+    {
+      kind: "list",
+      id: "rodzaj",
+      label: labels.column_kind,
+      options: ROLE_KINDS.map((value) => ({ value, label: labels[`kind_${value}`] })),
+    },
+  ];
+  const order = ["role", ...layout.map((column) => column.id)].map((id) =>
+    id === "scope" ? "zakres" : id
+  );
+  const sortOf = (field: RoleState["sort"]) => ({
+    href: href({
+      sort: field,
+      direction: state.sort === field && state.direction === "asc" ? "desc" : "asc",
+      strona: 1,
+      selected: null,
+    }),
+    direction: state.sort === field ? state.direction : null,
+  });
+  const rowHref = (row: OrgRole) => href({ selected: state.selected === row.id ? null : row.id });
+  const selected = all.find((role) => role.id === state.selected && !role.deleted_at) ?? null;
+  const filtered = !!(state.q || state.zakres.length || state.rodzaj.length);
+
+  const renderDetail = (role: OrgRole) => (
+    <div className="space-y-5">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border">
+          {role.is_basic ? (
+            <Lock className="h-5 w-5 text-muted-foreground" />
           ) : (
-            <span className="text-xs text-muted-foreground">—</span>
-          ),
-        defaultVisible: true,
-      },
-      {
-        key: "permission_slugs",
-        header: t("columns.permissionCount"),
-        accessor: (row) => (
-          <Badge variant="outline" className="text-xs">
-            {row.permission_slugs.length}
-          </Badge>
-        ),
-        defaultVisible: true,
-      },
-    ],
-    [t]
-  );
-
-  const filters = useMemo<DataViewFilterDef[]>(
-    () => [
-      {
-        type: "select",
-        key: "scope",
-        label: t("filters.scope"),
-        options: [
-          { label: t("filters.scopeOptions.org"), value: "org" },
-          { label: t("filters.scopeOptions.branch"), value: "branch" },
-          { label: t("filters.scopeOptions.both"), value: "both" },
-        ],
-      },
-    ],
-    [t]
-  );
-
-  const renderCompactItem = useCallback(
-    (row: OrgRole) => (
-      <div className="flex items-center gap-2 py-0.5">
-        {row.is_basic ? (
-          <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        ) : (
-          <Shield className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        )}
-        <span className="truncate text-sm font-medium">{row.name}</span>
-        <ScopeBadge
-          scopeType={row.scope_type}
-          tBadge={(k) => t(`scopeBadges.${k}` as Parameters<typeof t>[0])}
-        />
-      </div>
-    ),
-    [t]
-  );
-
-  const renderDetail = useCallback(
-    (role: OrgRole) => (
-      <div className="space-y-5">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border">
-            {role.is_basic ? (
-              <Lock className="h-5 w-5 text-muted-foreground" />
-            ) : (
-              <Shield className="h-5 w-5 text-muted-foreground" />
-            )}
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-lg font-semibold leading-tight">{role.name}</h2>
-              {role.is_basic && (
-                <Badge variant="secondary" className="text-xs">
-                  {t("systemBadge")}
-                </Badge>
-              )}
-              <ScopeBadge
-                scopeType={role.scope_type}
-                tBadge={(k) => t(`scopeBadges.${k}` as Parameters<typeof t>[0])}
-              />
-            </div>
-            {role.description && (
-              <p className="text-sm text-muted-foreground">{role.description}</p>
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div>
-            <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t("detail.scope")}
-            </p>
-            <span className="capitalize">
-              {t(`filters.scopeOptions.${role.scope_type}` as Parameters<typeof t>[0]) ??
-                role.scope_type}
-            </span>
-          </div>
-          <div>
-            <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t("detail.id")}
-            </p>
-            <span className="break-all font-mono text-xs text-muted-foreground">{role.id}</span>
-          </div>
-          <div className="col-span-2">
-            <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t("detail.description")}
-            </p>
-            <span>
-              {role.description ?? (
-                <span className="text-muted-foreground text-xs">{t("detail.noDescription")}</span>
-              )}
-            </span>
-          </div>
-        </div>
-
-        <div>
-          <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {t("detail.permissions")}
-          </p>
-          {role.permission_slugs.length === 0 ? (
-            <p className="text-xs text-muted-foreground">{t("detail.noPermissions")}</p>
-          ) : (
-            <div className="flex flex-wrap gap-1">
-              {role.permission_slugs.map((slug) => (
-                <Badge key={slug} variant="outline" className="text-xs py-0" title={slug}>
-                  {labelOf({ slug, name: catalogBySlug.get(slug)?.name ?? null })}
-                </Badge>
-              ))}
-            </div>
+            <Shield className="h-5 w-5 text-muted-foreground" />
           )}
         </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-lg font-semibold leading-tight">{role.name}</h2>
+            {role.is_basic && (
+              <Badge variant="secondary" className="text-xs">
+                {t("systemBadge")}
+              </Badge>
+            )}
+            <ScopeBadge
+              scopeType={role.scope_type}
+              tBadge={(k) => t(`scopeBadges.${k}` as Parameters<typeof t>[0])}
+            />
+          </div>
+          {role.description && <p className="text-sm text-muted-foreground">{role.description}</p>}
+        </div>
+      </div>
 
-        {canManage && !role.is_basic && (
-          <div className="flex gap-2 border-t pt-3">
-            <Button size="sm" variant="outline" onClick={() => openEdit(role)} disabled={isPending}>
-              <Pencil className="mr-1.5 h-3.5 w-3.5" />
-              {t("actions.edit")}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-destructive hover:text-destructive"
-              onClick={() => handleDelete(role)}
-              disabled={isPending}
-            >
-              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-              {t("actions.delete")}
-            </Button>
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {t("detail.scope")}
+          </p>
+          <span className="capitalize">
+            {t(`filters.scopeOptions.${role.scope_type}` as Parameters<typeof t>[0]) ??
+              role.scope_type}
+          </span>
+        </div>
+        <div>
+          <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {t("detail.id")}
+          </p>
+          <span className="break-all font-mono text-xs text-muted-foreground">{role.id}</span>
+        </div>
+        <div className="col-span-2">
+          <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {t("detail.description")}
+          </p>
+          <span>
+            {role.description ?? (
+              <span className="text-muted-foreground text-xs">{t("detail.noDescription")}</span>
+            )}
+          </span>
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {t("detail.permissions")}
+        </p>
+        {role.permission_slugs.length === 0 ? (
+          <p className="text-xs text-muted-foreground">{t("detail.noPermissions")}</p>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {role.permission_slugs.map((slug) => (
+              <Badge key={slug} variant="outline" className="text-xs py-0" title={slug}>
+                {labelOf({ slug, name: catalogBySlug.get(slug)?.name ?? null })}
+              </Badge>
+            ))}
           </div>
         )}
       </div>
-    ),
-    [t, canManage, isPending, labelOf, catalogBySlug]
+
+      {canManage && !role.is_basic && (
+        <div className="flex gap-2 border-t pt-3">
+          <Button size="sm" variant="outline" onClick={() => openEdit(role)} disabled={isPending}>
+            <Pencil className="mr-1.5 h-3.5 w-3.5" />
+            {t("actions.edit")}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-destructive hover:text-destructive"
+            onClick={() => handleDelete(role)}
+            disabled={isPending}
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+            {t("actions.delete")}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 
   return (
-    <>
-      <div className="flex h-[calc(100vh-8rem)] flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">{t("createButton").replace("Create ", "")}</h2>
+    <TableNavigationProvider navigate={navigate}>
+      <section className="ks-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2.5 md:px-4">
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-lg font-semibold tracking-tight">{labels.title}</h2>
+            <span className="text-xs tabular-nums text-muted-foreground">{page.totalCount}</span>
           </div>
-          {canManage && (
-            <Button onClick={openCreate} size="sm">
-              <Plus className="mr-2 h-4 w-4" />
+          {canManage ? (
+            <Button size="sm" onClick={openCreate}>
+              <Plus className="mr-1.5 size-3.5" />
               {t("createButton")}
             </Button>
-          )}
-        </div>
-
-        <div className="flex-1 overflow-hidden">
-          <DataView<OrgRole, OrgRole>
-            entity="org-roles"
-            scope={dataViewScope.organization(orgId)}
-            columns={columns}
-            filters={filters}
-            initialData={initialData}
-            queryKey={ROLES_DV_KEY}
-            listFetcher={listFetcher}
-            detailFetcher={detailFetcher}
-            getRowId={(row) => row.id}
-            renderCompactItem={renderCompactItem}
-            renderDetail={renderDetail}
-            className="h-full"
+          ) : null}
+        </header>
+        <div className="ks-list-filter-row">
+          <FilterBar
+            parsers={roleParsers}
+            fields={fields}
+            resetOnChange={["strona", "selected"]}
+            shallow
+            order={order}
+            search={{ label: labels.search, placeholder: labels.search }}
           />
         </div>
-      </div>
+        <div className="flex min-h-0 min-w-0 flex-1">
+          <ListPane
+            rows={page.rows}
+            totalCount={page.totalCount}
+            page={page.page}
+            size={state.wierszy}
+            sizes={ROLE_PAGE_SIZES}
+            selected={state.selected}
+            rowKey={(row) => row.id}
+            rowHref={rowHref}
+            pageHref={(strona) => href({ strona, selected: null })}
+            sizeHref={(wierszy) =>
+              href({ wierszy: wierszy as RoleState["wierszy"], strona: 1, selected: null })
+            }
+            set={set}
+            layout={layout}
+            widths={widths}
+            cookie={cookie}
+            onLayoutChange={setLayout}
+            sortOf={(id) =>
+              id === "scope"
+                ? sortOf("scope_type")
+                : id === "permissions"
+                  ? sortOf("permissions")
+                  : undefined
+            }
+            pinnedSort={sortOf("name")}
+            identity={(row) => (
+              <>
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-md border bg-muted/40">
+                  {roleIcon(row)}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-[13px] font-medium" title={row.name}>
+                    {row.name}
+                  </span>
+                  {row.is_basic ? (
+                    <span className="block truncate text-[11px] leading-4 font-normal text-muted-foreground">
+                      {t("systemBadge")}
+                    </span>
+                  ) : null}
+                </span>
+              </>
+            )}
+            value={(row, id) =>
+              id === "scope" ? (
+                <span className="flex items-center gap-1.5">{scopeLabel(row.scope_type)}</span>
+              ) : id === "permissions" ? (
+                <span className="tabular-nums">{row.permission_slugs.length}</span>
+              ) : (
+                <span className="text-muted-foreground">{row.description || "—"}</span>
+              )
+            }
+            badge={(row) => (
+              <ScopeBadge
+                scopeType={row.scope_type}
+                tBadge={(k) => t(`scopeBadges.${k}` as Parameters<typeof t>[0])}
+              />
+            )}
+            labels={labels}
+            empty={filtered ? labels.empty : t("noRoles")}
+            onPreview={preview}
+          />
+          {state.selected ? (
+            <ListSidePanel
+              titleId="org-role-panel-title"
+              title={selected?.name ?? labels.notFound}
+              backLabel={labels.title}
+              closeLabel={labels.close}
+              onClose={() => preview(null)}
+            >
+              {selected ? (
+                <div className="p-5">{renderDetail(selected)}</div>
+              ) : (
+                <p className="p-8 text-center text-sm text-muted-foreground">{labels.notFound}</p>
+              )}
+            </ListSidePanel>
+          ) : null}
+        </div>
+      </section>
 
       {/* Create / Edit Role Dialog */}
       <Dialog open={dialogMode !== null} onOpenChange={(open) => !open && setDialogMode(null)}>
@@ -644,6 +662,6 @@ export function RolesClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </TableNavigationProvider>
   );
 }
