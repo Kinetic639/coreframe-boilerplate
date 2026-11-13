@@ -11,7 +11,7 @@ import { createClient } from "@/utils/supabase/server";
 import { OrgMembersService } from "@/server/services/organization.service";
 import { PlanningSettingsService } from "@/server/services/planning-settings.service";
 import { UserPreferencesService } from "@/server/services/user-preferences.service";
-import { PlanningCalendarClient } from "./_components/planning-calendar-client";
+import { PlanningCalendarClient } from "../_components/planning-calendar-client";
 
 export default async function PlanningOverviewPage() {
   const locale = await getLocale();

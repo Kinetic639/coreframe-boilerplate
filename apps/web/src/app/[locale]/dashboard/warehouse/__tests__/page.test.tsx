@@ -16,7 +16,7 @@ vi.mock("../_components/warehouse-placeholder-page", () => ({
   ),
 }));
 
-import WarehousePage from "../page";
+import WarehousePage from "../(overview)/page";
 
 describe("WarehousePage", () => {
   it("renders translated placeholder content", async () => {

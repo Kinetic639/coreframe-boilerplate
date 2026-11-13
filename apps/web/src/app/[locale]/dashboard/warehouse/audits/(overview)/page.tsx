@@ -5,7 +5,7 @@ import { WAREHOUSE_AUDITS_MANAGE, WAREHOUSE_AUDITS_READ } from "@/lib/constants/
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { createClient } from "@/utils/supabase/server";
 import { InventoryCountSessionsService } from "@/server/services/inventory-count-sessions.service";
-import { AuditsDashboardClient } from "./_components/audits-dashboard-client";
+import { AuditsDashboardClient } from "../_components/audits-dashboard-client";
 
 export default async function WarehouseAuditsPage() {
   const locale = await getLocale();
