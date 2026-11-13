@@ -79,8 +79,8 @@ vi.mock("../../_ambra/components/locations/LocationsPage", () => ({
   },
 }));
 
-vi.mock("../locations-data-view", () => ({
-  LocationsDataView: () => <div data-testid="locations-data-view" />,
+vi.mock("../list/locations-list-workspace", () => ({
+  LocationsListWorkspace: () => <div data-testid="locations-list" />,
 }));
 
 import { AmbraLocationsClient } from "../ambra-locations-client";
@@ -96,7 +96,20 @@ const defaultProps = {
   rawLocations: [],
   initialInventorySnapshot: {} as never,
   variantOptions: [],
-  initialListData: { rows: [], totalCount: 0, page: 1, pageSize: 25 } as never,
+  list: {
+    path: "/dashboard/warehouse/locations",
+    set: {
+      ids: [],
+      labels: {},
+      widths: {},
+      shownByDefault: [],
+      pinned: { id: "code", label: "", width: 1 },
+    },
+    layout: [],
+    widths: {},
+    cookie: "c",
+    labels: {},
+  } as never,
   canCreateLocation: false,
 };
 

@@ -37,15 +37,18 @@ import type {
   VisualNode,
 } from "../_ambra/types";
 import type { InventoryVariantOption } from "@/lib/warehouse/inventory-types";
-import type { PaginatedResult } from "@/lib/data-view/types";
-import type { LocationListRow } from "@/server/services/warehouse-locations.service";
 import type { WarehouseLocation } from "@/lib/warehouse/location-tree";
 import {
   ambraLocationToCreateInput,
   ambraLocationToUpdateInput,
   warehouseLocationsToAmbra,
 } from "../_lib/warehouse-location-adapter";
-import { LocationsDataView } from "./locations-data-view";
+import type {
+  ColumnLayout,
+  ColumnSet,
+  ColumnWidths,
+} from "@/components/kolor-sensu/data-table/columns";
+import { LocationsListWorkspace } from "./list/locations-list-workspace";
 
 type AmbraLocationsClientProps = {
   organizationId: string;
@@ -54,19 +57,26 @@ type AmbraLocationsClientProps = {
   rawLocations: WarehouseLocation[];
   initialInventorySnapshot: AmbraLocationInventorySnapshot;
   variantOptions: InventoryVariantOption[];
-  initialListData: PaginatedResult<LocationListRow>;
+  /** The list view's columns, the person's layout and its labels. */
+  list: {
+    path: string;
+    set: ColumnSet<string>;
+    layout: ColumnLayout;
+    widths: ColumnWidths;
+    cookie: string;
+    labels: Record<string, string>;
+  };
   /** Whether the current user is allowed to create locations (gates the empty-state CTA). */
   canCreateLocation: boolean;
 };
 
 export function AmbraLocationsClient({
-  organizationId,
   activeBranch,
   initialLocations,
   rawLocations,
   initialInventorySnapshot,
   variantOptions,
-  initialListData,
+  list,
   canCreateLocation,
 }: AmbraLocationsClientProps) {
   const t = useTranslations("warehouseLocations.listView");
@@ -199,7 +209,28 @@ export function AmbraLocationsClient({
       });
   }, [selectedLocationId, qrCache]);
 
+  const handleQrChange = useCallback(
+    (locationId: string, assignment: QrAssignmentInfo | null) =>
+      setQrCache((prev) => new Map(prev).set(locationId, assignment)),
+    []
+  );
+
+  /** From the list: the tree, with this location open. */
+  const showInTree = useCallback(
+    (locationId: string) => {
+      setTreeSelectedId(locationId);
+      const url = new URL(window.location.href);
+      url.search = "";
+      url.searchParams.set("view", "tree");
+      window.history.replaceState(null, "", url.toString());
+      void setViewParam("tree", { history: "replace" });
+    },
+    [setViewParam]
+  );
+
   const [locations, setLocations] = useState<LogicalLocation[]>(initialLocations);
+  // The same locations as stored (the list reads their level, mode and stock flag).
+  const [storedLocations, setStoredLocations] = useState<WarehouseLocation[]>(rawLocations);
   const [layouts] = useState<Layout[]>([]);
   const [visuals] = useState<VisualNode[]>([]);
   const effectiveBranch = activeBranch;
@@ -232,6 +263,7 @@ export function AmbraLocationsClient({
     if (!createdAmbraLocation) return;
 
     setLocations((current) => [...current, createdAmbraLocation]);
+    setStoredLocations((current) => [...current, created]);
   };
 
   const handleUpdateLocation = async (location: Partial<LogicalLocation> & { id: string }) => {
@@ -242,11 +274,15 @@ export function AmbraLocationsClient({
     setLocations((current) =>
       current.map((item) => (item.id === location.id ? updatedAmbraLocation : item))
     );
+    setStoredLocations((current) =>
+      current.map((item) => (item.id === location.id ? updated : item))
+    );
   };
 
   const handleDeleteLocation = async (locationId: string) => {
     await deleteLocation.mutateAsync(locationId);
     setLocations((current) => current.filter((item) => item.id !== locationId));
+    setStoredLocations((current) => current.filter((item) => item.id !== locationId));
   };
 
   return (
@@ -273,16 +309,20 @@ export function AmbraLocationsClient({
       </div>
       <div className="flex-1 min-h-0">
         {viewMode === "list" ? (
-          <LocationsDataView
-            organizationId={organizationId}
-            branchId={activeBranch.id}
-            initialData={initialListData}
-            allLocations={rawLocations}
-            ambraLocations={branchLocations}
-            inventorySnapshot={initialInventorySnapshot}
-            variantOptions={variantOptions}
-            qrCache={qrCache}
-          />
+          <div className="h-full px-4 pb-4">
+            <LocationsListWorkspace
+              {...list}
+              locations={storedLocations.filter(
+                (location) => location.branch_id === effectiveBranch.id
+              )}
+              ambraLocations={branchLocations}
+              inventorySnapshot={initialInventorySnapshot}
+              variantOptions={variantOptions}
+              qrCache={qrCache}
+              onQrChange={handleQrChange}
+              onShowInTree={showInTree}
+            />
+          </div>
         ) : (
           <AnimatePresence mode="wait">
             <motion.div

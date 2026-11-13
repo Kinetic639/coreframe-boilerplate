@@ -1,5 +1,5 @@
-import { DataViewLoading } from "@/components/v2/feedback/data-view-loading";
+import { ListLoading } from "@/components/kolor-sensu/data-table/list-loading";
 
 export default function Loading() {
-  return <DataViewLoading />;
+  return <ListLoading actions={1} columns={6} />;
 }
