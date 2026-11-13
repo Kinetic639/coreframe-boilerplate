@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Mail, MessageSquare, Phone, Plus, Upload, Users } from "lucide-react";
+import { Mail, MessageSquare, Phone, Upload, Users } from "lucide-react";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,25 +10,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { DataView } from "@/components/data-view/data-view";
-import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
-import type {
-  DataViewColumnDef,
-  DataViewFilterDef,
-  DataViewListParams,
-  PaginatedResult,
-} from "@/components/data-view/data-view.types";
 import {
   createCrmContactAction,
   deleteCrmContactAction,
   getCrmContactAvatarSignedUrlAction,
-  getCrmContactDetailAction,
   updateCrmContactAction,
   uploadCrmContactAvatarAction,
 } from "@/app/actions/crm";
 import type { CrmContactDetail } from "@/server/services/crm-contacts.service";
-import { getContactDirectoryRowAction, listContactsDirectoryAction } from "@/app/actions/contacts";
-import { isMemberKey, type ContactDirectoryRow } from "@/lib/contacts/types";
+import type { ContactDirectoryRow } from "@/lib/contacts/types";
 import { ChatAvatar } from "@/components/v2/messages/chat-avatar";
 import { AvatarCropDialog } from "@/components/v2/media/avatar-crop-dialog";
 import { useOptionalChat } from "@/components/v2/messages/chat-provider";
@@ -36,201 +26,22 @@ import { useStartDirectChat } from "@/components/v2/messages/use-start-direct-ch
 import { memberInitials } from "@/lib/messages/display";
 import type { CrmContactVisibility } from "@/lib/validations/crm";
 
-interface CrmContactsClientProps {
-  orgId: string;
-  initialData: PaginatedResult<ContactDirectoryRow>;
-  memberOptions: ContactOrgMemberOption[];
-  canCreate: boolean;
-  canUpdate: boolean;
-  canDelete: boolean;
-}
-
-interface ContactOrgMemberOption {
+export interface ContactOrgMemberOption {
   userId: string;
   label: string;
   email: string | null;
 }
 
-const QUERY_KEY = ["crm-contacts"];
-
 /** Detail of a row: an employee (read-only, from their profile) or an external contact */
-type MemberContactDetail = ContactDirectoryRow & { kind: "member" };
-type ContactDetail = CrmContactDetail | MemberContactDetail;
+export type MemberContactDetail = ContactDirectoryRow & { kind: "member" };
+export type ContactDetail = CrmContactDetail | MemberContactDetail;
 
-function isMemberDetail(detail: ContactDetail): detail is MemberContactDetail {
+export function isMemberDetail(detail: ContactDetail): detail is MemberContactDetail {
   return "kind" in detail && detail.kind === "member";
 }
 
-export function CrmContactsClient({
-  orgId,
-  initialData,
-  memberOptions,
-  canCreate,
-  canUpdate,
-  canDelete,
-}: CrmContactsClientProps) {
-  const t = useTranslations("modules.crm");
-  const [createOpen, setCreateOpen] = useState(false);
-  const [refreshToken, setRefreshToken] = useState(0);
-
-  const listFetcher = useCallback(async (params: DataViewListParams) => {
-    const kind = params.filters?.kind;
-    const result = await listContactsDirectoryAction({
-      kind: kind === "member" || kind === "external" ? kind : "all",
-      search: params.search ?? null,
-      descending: params.sort?.field === "display_name" && params.sort.direction === "desc",
-      page: params.page,
-      pageSize: params.pageSize,
-    });
-    if (result.success === false) throw new Error(result.error);
-    return result.data;
-  }, []);
-
-  const detailFetcher = useCallback(
-    async (id: string): Promise<ContactDetail | null> => {
-      // An employee: read live from the profile, never editable here
-      if (isMemberKey(id)) {
-        const member = await getContactDirectoryRowAction(id);
-        return member.success && member.data?.kind === "member"
-          ? (member.data as MemberContactDetail)
-          : null;
-      }
-      const result = await getCrmContactDetailAction(id, orgId);
-      return result.success ? result.data : null;
-    },
-    [orgId]
-  );
-
-  const filters = useMemo<DataViewFilterDef[]>(
-    () => [
-      {
-        key: "kind",
-        label: t("directory.kindFilter.label"),
-        type: "select",
-        options: [
-          { value: "member", label: t("directory.kindFilter.member") },
-          { value: "external", label: t("directory.kindFilter.external") },
-        ],
-      },
-    ],
-    [t]
-  );
-
-  const kindBadge = useCallback(
-    (row: ContactDirectoryRow, className?: string) =>
-      row.kind === "member" ? (
-        <Badge className={`bg-primary/10 text-primary hover:bg-primary/10 ${className ?? ""}`}>
-          {t("directory.kinds.member")}
-        </Badge>
-      ) : (
-        <Badge variant="outline" className={className}>
-          {row.visibility_scope
-            ? t(`visibility.${row.visibility_scope}`)
-            : t("directory.kinds.external")}
-        </Badge>
-      ),
-    [t]
-  );
-
-  const columns = useMemo<DataViewColumnDef<ContactDirectoryRow>[]>(
-    () => [
-      {
-        key: "display_name",
-        header: t("fields.name"),
-        accessor: (row) => <span className="font-medium">{row.display_name}</span>,
-        sortable: true,
-      },
-      {
-        key: "kind",
-        header: t("directory.kindFilter.label"),
-        accessor: (row) => kindBadge(row),
-      },
-      {
-        key: "email",
-        header: t("fields.email"),
-        accessor: (row) => row.email || "—",
-      },
-      {
-        key: "phone",
-        header: t("fields.phone"),
-        accessor: (row) => row.phone || row.mobile || "—",
-      },
-      {
-        key: "job_title",
-        header: t("fields.jobTitle"),
-        accessor: (row) => row.job_title || "—",
-      },
-      {
-        key: "branch_name",
-        header: t("directory.branchField"),
-        accessor: (row) => row.branch_name || "—",
-      },
-    ],
-    [kindBadge, t]
-  );
-
-  return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-6 py-4">
-        <div className="flex items-center gap-2">
-          <Users className="h-5 w-5 text-emerald-700" />
-          <h1 className="text-lg font-semibold">{t("pages.contacts.title")}</h1>
-        </div>
-        {canCreate ? (
-          <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" />
-            {t("actions.newContact")}
-          </Button>
-        ) : null}
-      </div>
-      <div className="min-h-0 flex-1">
-        <DataView<ContactDirectoryRow, ContactDetail>
-          entity="crm-contacts"
-          scope={dataViewScope.organization(orgId)}
-          columns={columns}
-          filters={filters}
-          initialData={initialData}
-          queryKey={QUERY_KEY}
-          refreshToken={refreshToken}
-          listFetcher={listFetcher}
-          detailFetcher={detailFetcher}
-          getRowId={(row) => row.key}
-          renderCompactItem={(row) => (
-            <div className="min-w-0">
-              <div className="truncate text-sm font-medium">{row.display_name}</div>
-              <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                {kindBadge(row, "text-[10px]")}
-                <span className="truncate">{row.email}</span>
-              </div>
-            </div>
-          )}
-          renderDetail={(detail) =>
-            isMemberDetail(detail) ? (
-              <MemberContactPanel member={detail} />
-            ) : (
-              <CrmContactDetailPanel
-                detail={detail}
-                memberOptions={memberOptions}
-                canUpdate={canUpdate}
-                canDelete={canDelete}
-                onChanged={() => setRefreshToken((value) => value + 1)}
-              />
-            )
-          }
-        />
-      </div>
-      <CreateContactDialog
-        open={createOpen}
-        memberOptions={memberOptions}
-        onOpenChange={setCreateOpen}
-        onCreated={() => setRefreshToken((value) => value + 1)}
-      />
-    </div>
-  );
-}
-
 /** An employee: profile data, read-only, with "send a message" */
-function MemberContactPanel({ member }: { member: MemberContactDetail }) {
+export function MemberContactPanel({ member }: { member: MemberContactDetail }) {
   const t = useTranslations("modules.crm");
   const chat = useOptionalChat();
   const startChat = useStartDirectChat();
@@ -315,7 +126,7 @@ function MemberContactPanel({ member }: { member: MemberContactDetail }) {
   );
 }
 
-function CrmContactDetailPanel({
+export function CrmContactDetailPanel({
   detail,
   memberOptions,
   canUpdate,
@@ -676,7 +487,7 @@ function Info({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-function CreateContactDialog({
+export function CreateContactDialog({
   open,
   memberOptions,
   onOpenChange,
@@ -685,7 +496,7 @@ function CreateContactDialog({
   open: boolean;
   memberOptions: ContactOrgMemberOption[];
   onOpenChange: (open: boolean) => void;
-  onCreated: () => void;
+  onCreated: (contact: CrmContactDetail) => void;
 }) {
   const t = useTranslations("modules.crm");
   const [displayName, setDisplayName] = useState("");
@@ -731,7 +542,7 @@ function CreateContactDialog({
     setVisibility("organization");
     setLinkedUserId("");
     onOpenChange(false);
-    onCreated();
+    onCreated(result.data);
   };
 
   return (

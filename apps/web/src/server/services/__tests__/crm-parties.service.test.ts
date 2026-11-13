@@ -79,6 +79,10 @@ function createChain(table: string, operations: Operation[]) {
       operations.push({ table, action: "or", args });
       return chain;
     },
+    in(...args: unknown[]) {
+      operations.push({ table, action: "in", args });
+      return chain;
+    },
     order(...args: unknown[]) {
       operations.push({ table, action: "order", args });
       return chain;
@@ -171,6 +175,62 @@ describe("CrmPartiesService", () => {
           String(op.args?.[0]).includes("counterparty_number.eq.81")
       )
     ).toBe(true);
+  });
+
+  it("filters by several roles and statuses, keeps every role, and quotes the search", async () => {
+    const supabase = createSupabaseMock();
+
+    const result = await CrmPartiesService.listForDataView(supabase.client as never, ORG_ID, {
+      page: 2,
+      pageSize: 20,
+      search: 'a,b"%',
+      filters: { role: ["supplier", "client", "bogus"], status: ["active"] },
+      sort: { field: "display_name", direction: "asc" },
+    });
+
+    expect(result.success).toBe(true);
+    const select = supabase.operations.find(
+      (op) => op.table === "crm_parties" && op.action === "select"
+    );
+    expect(String(select?.args?.[0])).toContain("crm_party_roles(role)");
+    expect(String(select?.args?.[0])).toContain("role_match:crm_party_roles!inner(role)");
+    expect(supabase.operations).toContainEqual({
+      table: "crm_parties",
+      action: "in",
+      args: ["role_match.role", ["supplier", "client"]],
+    });
+    expect(supabase.operations).toContainEqual({
+      table: "crm_parties",
+      action: "in",
+      args: ["status", ["active"]],
+    });
+    const or = supabase.operations.find((op) => op.table === "crm_parties" && op.action === "or");
+    expect(or?.args?.[0]).toBe(
+      'display_name.ilike."%a,b\\"\\%%",legal_name.ilike."%a,b\\"\\%%",tax_id.ilike."%a,b\\"\\%%",email.ilike."%a,b\\"\\%%"'
+    );
+    expect(supabase.operations).toContainEqual({
+      table: "crm_parties",
+      action: "range",
+      args: [20, 39],
+    });
+  });
+
+  it("does not join roles again without a role filter", async () => {
+    const supabase = createSupabaseMock();
+
+    await CrmPartiesService.listForDataView(supabase.client as never, ORG_ID, {
+      page: 1,
+      pageSize: 20,
+      search: "",
+      filters: {},
+      sort: null,
+    });
+
+    const select = supabase.operations.find(
+      (op) => op.table === "crm_parties" && op.action === "select"
+    );
+    expect(String(select?.args?.[0])).not.toContain("!inner");
+    expect(supabase.operations.some((op) => op.action === "in")).toBe(false);
   });
 
   it("assigns counterparty numbers server-side through the database RPC", async () => {

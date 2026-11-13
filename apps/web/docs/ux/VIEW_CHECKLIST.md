@@ -902,7 +902,7 @@ Stan inwentaryzacji: **11 listopada 2026**. Zakres: wyłącznie `apps/web`.
 ### V001 — Kontrahenci: panel szczegółów i edycja
 
 - Wejście: `/dashboard/crm/parties` — wariant wewnątrz widoku / wskazany kontekst.
-- Źródło: [crm-parties-client.tsx](../../src/app/[locale]/dashboard/crm/parties/_components/crm-parties-client.tsx).
+- Źródło: [party-detail-panel.tsx](../../src/app/[locale]/dashboard/crm/parties/_components/party-detail-panel.tsx).
 - [ ] Desktop — zaprojektowany, wdrożony i zweryfikowany.
 - [ ] Mobile — zaprojektowany, wdrożony i zweryfikowany.
 - Dowód odbioru: do uzupełnienia po wykonaniu.
@@ -910,7 +910,7 @@ Stan inwentaryzacji: **11 listopada 2026**. Zakres: wyłącznie `apps/web`.
 ### V002 — Kontrahenci: utworzenie nowego podmiotu
 
 - Wejście: `/dashboard/crm/parties` — wariant wewnątrz widoku / wskazany kontekst.
-- Źródło: [crm-parties-client.tsx](../../src/app/[locale]/dashboard/crm/parties/_components/crm-parties-client.tsx).
+- Źródło: [party-detail-panel.tsx](../../src/app/[locale]/dashboard/crm/parties/_components/party-detail-panel.tsx).
 - [ ] Desktop — zaprojektowany, wdrożony i zweryfikowany.
 - [ ] Mobile — zaprojektowany, wdrożony i zweryfikowany.
 - Dowód odbioru: do uzupełnienia po wykonaniu.
@@ -918,7 +918,7 @@ Stan inwentaryzacji: **11 listopada 2026**. Zakres: wyłącznie `apps/web`.
 ### V003 — Kontakty: panel szczegółów i edycja
 
 - Wejście: `/dashboard/crm/contacts` — wariant wewnątrz widoku / wskazany kontekst.
-- Źródło: [crm-contacts-client.tsx](../../src/app/[locale]/dashboard/crm/contacts/_components/crm-contacts-client.tsx).
+- Źródło: [contact-detail-panel.tsx](../../src/app/[locale]/dashboard/crm/contacts/_components/contact-detail-panel.tsx).
 - [ ] Desktop — zaprojektowany, wdrożony i zweryfikowany.
 - [ ] Mobile — zaprojektowany, wdrożony i zweryfikowany.
 - Dowód odbioru: do uzupełnienia po wykonaniu.
@@ -926,7 +926,7 @@ Stan inwentaryzacji: **11 listopada 2026**. Zakres: wyłącznie `apps/web`.
 ### V004 — Kontakty: utworzenie kontaktu
 
 - Wejście: `/dashboard/crm/contacts` — wariant wewnątrz widoku / wskazany kontekst.
-- Źródło: [crm-contacts-client.tsx](../../src/app/[locale]/dashboard/crm/contacts/_components/crm-contacts-client.tsx).
+- Źródło: [contact-detail-panel.tsx](../../src/app/[locale]/dashboard/crm/contacts/_components/contact-detail-panel.tsx).
 - [ ] Desktop — zaprojektowany, wdrożony i zweryfikowany.
 - [ ] Mobile — zaprojektowany, wdrożony i zweryfikowany.
 - Dowód odbioru: do uzupełnienia po wykonaniu.
