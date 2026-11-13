@@ -89,6 +89,7 @@ export function SidebarBranchSwitcher({ branches, activeBranchId }: SidebarBranc
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:!p-1"
               disabled={isPending}
               tooltip={activeBranch.name}
+              data-testid="sidebar-branch-switcher"
             >
               <div className="flex aspect-square size-6 items-center justify-center rounded bg-sidebar-primary text-sidebar-primary-foreground shrink-0">
                 <Building2 className="size-3.5" />

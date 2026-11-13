@@ -104,7 +104,8 @@ test("closes when the window loses focus", async ({ page }) => {
   await page.mouse.move(p.x, p.y);
   await expect(flyouts(page)).toHaveCount(1);
   await page.evaluate(() => window.dispatchEvent(new Event("blur")));
-  await expect(flyouts(page)).toHaveCount(0, { timeout: 1000 });
+  // The flyout leaves with an exit animation, which can run slow on a loaded CI runner.
+  await expect(flyouts(page)).toHaveCount(0, { timeout: 3000 });
 });
 
 test("closes after choosing a page from it", async ({ page }) => {

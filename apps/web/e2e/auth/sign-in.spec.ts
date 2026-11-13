@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { test as authTest, E2E_TEST_EMAIL, E2E_TEST_PASSWORD } from "../fixtures";
+import { test as authTest, E2E_TEST_EMAIL, E2E_TEST_PASSWORD, openSidebar } from "../fixtures";
 
 test.describe("Sign-in routing", () => {
   // Regression test for a routing bug found 2026-08-07: next-intl's default-locale
@@ -47,11 +47,13 @@ test.describe("Sign-in routing", () => {
 authTest.describe("Sign-in flow", () => {
   authTest(
     "a user can sign in with valid credentials and lands on the dashboard",
-    async ({ page }) => {
+    async ({ page, isMobile }) => {
       // The `page` fixture in ../fixtures already performs sign-in and waits
       // for /dashboard/start. This test just asserts the resulting state.
       expect(new URL(page.url()).pathname).toBe("/dashboard/start");
-      await expect(page.getByText(E2E_TEST_EMAIL!)).toBeVisible();
+      // The signed-in user's email sits in the sidebar, closed on phones.
+      await openSidebar(page, isMobile);
+      await expect(page.getByText(E2E_TEST_EMAIL!).filter({ visible: true })).toBeVisible();
     }
   );
 });

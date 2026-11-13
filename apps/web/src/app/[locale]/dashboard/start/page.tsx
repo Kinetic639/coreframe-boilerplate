@@ -107,7 +107,7 @@ export default async function DashboardStartPage({
           </Suspense>
           {context.orgId ? (
             <div
-              className="grid items-start gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
+              className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
               key={`${context.orgId}:${context.branchId}`}
             >
               {planningResult ? (

@@ -1,13 +1,15 @@
-import { test, expect } from "../fixtures";
+import { test, expect, E2E_TEST_EMAIL, openSidebar } from "../fixtures";
 
 test.describe("Organization users", () => {
-  test("members list shows the signed-in user with org_owner role", async ({ page }) => {
+  test("members list shows the signed-in user with org_owner role", async ({ page, isMobile }) => {
     await page.goto("/dashboard/organizacja/uzytkownicy/czlonkowie");
 
     await expect(page.getByRole("heading", { name: "Członkowie" })).toBeVisible();
-    const table = page.getByRole("table");
-    await expect(table).toBeVisible();
-    await expect(table.getByRole("cell", { name: "org_owner" })).toBeVisible();
+    await expect(page.getByText(/Pokazano \d+.\d+ z \d+ wyników/)).toBeVisible();
+    // Phones show members as cards without the role column.
+    if (isMobile) return;
+    const ownRow = page.getByRole("table").getByRole("row").filter({ hasText: E2E_TEST_EMAIL! });
+    await expect(ownRow.getByRole("cell", { name: "org_owner" })).toBeVisible();
   });
 
   test("roles & permissions tab is reachable from the users section", async ({ page }) => {
@@ -21,17 +23,30 @@ test.describe("Organization users", () => {
 });
 
 test.describe("Organization branches (branch access)", () => {
-  test("branches list loads and shows the active branch", async ({ page }) => {
-    await page.goto("/dashboard/organizacja/oddzialy");
+  test("branches list loads and shows the active branch", async ({ page, isMobile }) => {
+    await openSidebar(page, isMobile);
+    const activeBranch = (await page.getByTestId("sidebar-branch-switcher").innerText()).trim();
+    expect(activeBranch).not.toBe("");
 
+    await page.goto("/dashboard/organizacja/oddzialy");
     await expect(page.getByRole("heading", { name: "Oddziały" })).toBeVisible();
-    const table = page.getByRole("table");
-    await expect(table).toBeVisible();
-    await expect(table.getByRole("cell", { name: "MVP komorniki" })).toBeVisible();
+    if (isMobile) {
+      await expect(page.getByText(activeBranch, { exact: true })).toBeVisible();
+    } else {
+      await expect(
+        page.getByRole("table").getByRole("cell", { name: activeBranch, exact: true })
+      ).toBeVisible();
+    }
   });
 
-  test("the branch switcher in the sidebar lists the active branch", async ({ page }) => {
+  test("the branch switcher in the sidebar lists the active branch", async ({ page, isMobile }) => {
     await page.goto("/dashboard/start");
-    await expect(page.getByRole("button", { name: "MVP komorniki" })).toBeVisible();
+    await openSidebar(page, isMobile);
+    const switcher = page.getByTestId("sidebar-branch-switcher");
+    await expect(switcher).toBeVisible();
+    const activeBranch = (await switcher.innerText()).trim();
+    expect(activeBranch).not.toBe("");
+    await switcher.click();
+    await expect(page.getByRole("menuitem").filter({ hasText: activeBranch })).toBeVisible();
   });
 });
