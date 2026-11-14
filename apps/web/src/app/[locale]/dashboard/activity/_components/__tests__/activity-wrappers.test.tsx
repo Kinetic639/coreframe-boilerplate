@@ -130,8 +130,9 @@ describe("activity wrappers", () => {
 
     await waitFor(() => {
       expect(mockGetAuditFeedAction).toHaveBeenCalledWith(15, 15);
+      // The failed fetch settles after the call, so wait for the list to return.
+      expect(screen.getByTestId("audit-events")).toHaveTextContent("Initial event");
+      expect(screen.getByTestId("audit-meta")).toHaveTextContent("6:15:0");
     });
-    expect(screen.getByTestId("audit-events")).toHaveTextContent("Initial event");
-    expect(screen.getByTestId("audit-meta")).toHaveTextContent("6:15:0");
   });
 });
