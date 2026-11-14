@@ -5,11 +5,17 @@ test.describe("Organization users", () => {
     await page.goto("/dashboard/organizacja/uzytkownicy/czlonkowie");
 
     await expect(page.getByRole("heading", { name: "Członkowie" })).toBeVisible();
-    await expect(page.getByText(/Pokazano \d+.\d+ z \d+ wyników/)).toBeVisible();
-    // Phones show members as cards without the role column.
+    // The pagination range ("1–1 z N") proves the list resolved its members.
+    await expect(
+      page
+        .getByText(/^\d+–\d+ z \d+$/)
+        .filter({ visible: true })
+        .first()
+    ).toBeVisible();
+    // Phones show members as cards; the roles column is checked on desktop.
     if (isMobile) return;
     const ownRow = page.getByRole("table").getByRole("row").filter({ hasText: E2E_TEST_EMAIL! });
-    await expect(ownRow.getByRole("cell", { name: "org_owner" })).toBeVisible();
+    await expect(ownRow.getByText("org_owner", { exact: true })).toBeVisible();
   });
 
   test("roles & permissions tab is reachable from the users section", async ({ page }) => {
@@ -30,13 +36,12 @@ test.describe("Organization branches (branch access)", () => {
 
     await page.goto("/dashboard/organizacja/oddzialy");
     await expect(page.getByRole("heading", { name: "Oddziały" })).toBeVisible();
-    if (isMobile) {
-      await expect(page.getByText(activeBranch, { exact: true })).toBeVisible();
-    } else {
-      await expect(
-        page.getByRole("table").getByRole("cell", { name: activeBranch, exact: true })
-      ).toBeVisible();
-    }
+    // Desktop shows the data table; phones show the same rows as cards (both
+    // are in the page, one hidden), so look for the visible one.
+    const list = isMobile ? page : page.getByRole("table");
+    await expect(
+      list.getByText(activeBranch, { exact: true }).filter({ visible: true }).first()
+    ).toBeVisible();
   });
 
   test("the branch switcher in the sidebar lists the active branch", async ({ page, isMobile }) => {
