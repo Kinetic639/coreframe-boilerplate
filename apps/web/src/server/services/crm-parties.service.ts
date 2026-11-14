@@ -10,6 +10,7 @@ import type {
   UnlinkCrmPartyContactInput,
   DeleteCrmPartyAddressInput,
 } from "@/lib/validations/crm";
+import { crmPartyRoleSchema, crmPartyStatusSchema } from "@/lib/validations/crm";
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
 
@@ -122,6 +123,15 @@ function resolveSortField(field: string | null | undefined): string {
   return field && SORTABLE_FIELDS.has(field) ? field : "counterparty_number";
 }
 
+const PARTY_ROLES: readonly CrmPartyRole[] = crmPartyRoleSchema.options;
+const PARTY_STATUSES = crmPartyStatusSchema.options;
+
+/** A filter's values (one or several), only the known ones. */
+function listFilter<T extends string>(value: unknown, known: readonly T[]): T[] {
+  const values = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
+  return values.filter((item): item is T => known.includes(item as T));
+}
+
 function rolesFromRow(row: { crm_party_roles?: RoleRow[] | RoleRow | null }): CrmPartyRole[] {
   const roles = row.crm_party_roles;
   if (!roles) return [];
@@ -156,10 +166,17 @@ export const CrmPartiesService = {
     const pageSize = params.pageSize ?? 50;
     const offset = (page - 1) * pageSize;
 
+    const roles = listFilter(params.filters?.role, PARTY_ROLES);
+    const statuses = listFilter(params.filters?.status, PARTY_STATUSES);
+
+    // A role filter keeps the parties that have one of the roles, and still
+    // shows all of each party's roles (a second, inner-joined embed filters).
     let query = supabase
       .from("crm_parties")
       .select(
-        "id, organization_id, counterparty_number, party_kind, display_name, legal_name, tax_id, email, phone, status, created_at, updated_at, crm_party_roles(role)",
+        `id, organization_id, counterparty_number, party_kind, display_name, legal_name, tax_id, email, phone, status, created_at, updated_at, crm_party_roles(role)${
+          roles.length ? ", role_match:crm_party_roles!inner(role)" : ""
+        }`,
         { count: "exact" }
       )
       .eq("organization_id", orgId)
@@ -167,31 +184,31 @@ export const CrmPartiesService = {
 
     const search = params.search?.trim();
     if (search) {
-      const numeric = Number(search);
+      // Quoted, so , ( ) in the text stay text; then the ilike wildcards.
+      const escaped = search
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"')
+        .replace(/[%_]/g, (c) => `\\${c}`);
       const clauses = [
-        `display_name.ilike.%${search}%`,
-        `legal_name.ilike.%${search}%`,
-        `tax_id.ilike.%${search}%`,
+        `display_name.ilike."%${escaped}%"`,
+        `legal_name.ilike."%${escaped}%"`,
+        `tax_id.ilike."%${escaped}%"`,
+        `email.ilike."%${escaped}%"`,
       ];
-      if (Number.isInteger(numeric) && numeric > 0)
+      const numeric = Number(search);
+      if (/^\d+$/.test(search) && Number.isSafeInteger(numeric) && numeric > 0)
         clauses.push(`counterparty_number.eq.${numeric}`);
       query = query.or(clauses.join(","));
     }
 
-    const roleFilter = params.filters?.role;
-    if (typeof roleFilter === "string" && roleFilter) {
-      query = query.eq("crm_party_roles.role", roleFilter);
-    }
-
-    const statusFilter = params.filters?.status;
-    if (typeof statusFilter === "string" && statusFilter) {
-      query = query.eq("status", statusFilter);
-    }
+    if (roles.length) query = query.in("role_match.role", roles);
+    if (statuses.length) query = query.in("status", statuses);
 
     const sortField = resolveSortField(params.sort?.field);
     const ascending = params.sort?.direction === "asc";
     const { data, error, count } = await query
       .order(sortField, { ascending })
+      .order("id", { ascending: true })
       .range(offset, offset + pageSize - 1);
 
     if (error) return { success: false, error: error.message };

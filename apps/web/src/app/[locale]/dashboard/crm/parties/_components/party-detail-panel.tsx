@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Building2, Plus, Search, Upload } from "lucide-react";
 import { toast } from "react-toastify";
@@ -10,199 +10,23 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { DataView } from "@/components/data-view/data-view";
-import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
-import type {
-  DataViewColumnDef,
-  DataViewFilterDef,
-  DataViewListParams,
-  PaginatedResult,
-} from "@/components/data-view/data-view.types";
 import {
   addCrmPartyAddressAction,
   createCrmPartyAction,
   deleteCrmPartyAction,
   deleteCrmPartyAddressAction,
-  getCrmPartyDetailAction,
   getCrmPartyLogoSignedUrlAction,
   linkCrmPartyContactAction,
-  listCrmPartiesForDataViewAction,
   listCrmContactsForDataViewAction,
   updateCrmPartyAction,
   unlinkCrmPartyContactAction,
   uploadCrmPartyLogoAction,
 } from "@/app/actions/crm";
-import type { CrmPartyDetail, CrmPartyListRow } from "@/server/services/crm-parties.service";
+import type { CrmPartyDetail } from "@/server/services/crm-parties.service";
 import type { CrmContactListRow } from "@/server/services/crm-contacts.service";
 import type { CrmPartyRole } from "@/lib/validations/crm";
 
-interface CrmPartiesClientProps {
-  orgId: string;
-  initialData: PaginatedResult<CrmPartyListRow>;
-  canCreate: boolean;
-  canUpdate: boolean;
-  canDelete: boolean;
-}
-
-const QUERY_KEY = ["crm-parties"];
-
-export function CrmPartiesClient({
-  orgId,
-  initialData,
-  canCreate,
-  canUpdate,
-  canDelete,
-}: CrmPartiesClientProps) {
-  const t = useTranslations("modules.crm");
-  const [createOpen, setCreateOpen] = useState(false);
-  const [refreshToken, setRefreshToken] = useState(0);
-
-  const listFetcher = useCallback(
-    async (params: DataViewListParams) => {
-      const result = await listCrmPartiesForDataViewAction(params, orgId);
-      if (result.success === false) throw new Error(result.error);
-      return result.data;
-    },
-    [orgId]
-  );
-
-  const detailFetcher = useCallback(
-    async (id: string) => {
-      const result = await getCrmPartyDetailAction(id, orgId);
-      return result.success ? result.data : null;
-    },
-    [orgId]
-  );
-
-  const filters = useMemo<DataViewFilterDef[]>(
-    () => [
-      {
-        key: "role",
-        label: t("fields.role"),
-        type: "select",
-        options: [
-          { value: "supplier", label: t("roles.supplier") },
-          { value: "client", label: t("roles.client") },
-          { value: "contractor", label: t("roles.contractor") },
-          { value: "vendor", label: t("roles.vendor") },
-          { value: "partner", label: t("roles.partner") },
-        ],
-      },
-      {
-        key: "status",
-        label: t("fields.status"),
-        type: "select",
-        options: [
-          { value: "active", label: t("status.active") },
-          { value: "inactive", label: t("status.inactive") },
-          { value: "archived", label: t("status.archived") },
-        ],
-      },
-    ],
-    [t]
-  );
-
-  const columns = useMemo<DataViewColumnDef<CrmPartyListRow>[]>(
-    () => [
-      {
-        key: "counterparty_number",
-        header: t("fields.counterpartyNumber"),
-        accessor: (row) => <span className="font-mono text-sm">{row.counterparty_number}</span>,
-        sortable: true,
-      },
-      {
-        key: "display_name",
-        header: t("fields.name"),
-        accessor: (row) => <span className="font-medium">{row.display_name}</span>,
-        sortable: true,
-      },
-      {
-        key: "roles",
-        header: t("fields.roles"),
-        accessor: (row) => (
-          <div className="flex flex-wrap gap-1">
-            {row.roles.map((role) => (
-              <Badge key={role} variant="secondary">
-                {t(`roles.${role}`)}
-              </Badge>
-            ))}
-          </div>
-        ),
-      },
-      {
-        key: "status",
-        header: t("fields.status"),
-        accessor: (row) => <Badge variant="outline">{t(`status.${row.status}`)}</Badge>,
-        sortable: true,
-      },
-    ],
-    [t]
-  );
-
-  return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-6 py-4">
-        <div className="flex items-center gap-2">
-          <Building2 className="h-5 w-5 text-emerald-700" />
-          <h1 className="text-lg font-semibold">{t("pages.parties.title")}</h1>
-        </div>
-        {canCreate ? (
-          <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" />
-            {t("actions.newParty")}
-          </Button>
-        ) : null}
-      </div>
-      <div className="min-h-0 flex-1">
-        <DataView<CrmPartyListRow, CrmPartyDetail>
-          entity="crm-parties"
-          scope={dataViewScope.organization(orgId)}
-          columns={columns}
-          filters={filters}
-          initialData={initialData}
-          queryKey={QUERY_KEY}
-          refreshToken={refreshToken}
-          listFetcher={listFetcher}
-          detailFetcher={detailFetcher}
-          getRowId={(row) => row.id}
-          renderCompactItem={(row) => (
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs text-muted-foreground">
-                  {row.counterparty_number}
-                </span>
-                <span className="truncate text-sm font-medium">{row.display_name}</span>
-              </div>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {row.roles.slice(0, 2).map((role) => (
-                  <Badge key={role} variant="secondary" className="text-[10px]">
-                    {t(`roles.${role}`)}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-          renderDetail={(detail) => (
-            <CrmPartyDetailPanel
-              detail={detail}
-              orgId={orgId}
-              canUpdate={canUpdate}
-              canDelete={canDelete}
-              onChanged={() => setRefreshToken((value) => value + 1)}
-            />
-          )}
-        />
-      </div>
-      <CreatePartyDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onCreated={() => setRefreshToken((value) => value + 1)}
-      />
-    </div>
-  );
-}
-
-function CrmPartyDetailPanel({
+export function CrmPartyDetailPanel({
   detail,
   orgId,
   canUpdate,
@@ -859,14 +683,14 @@ function Info({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-function CreatePartyDialog({
+export function CreatePartyDialog({
   open,
   onOpenChange,
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreated: () => void;
+  onCreated: (party: CrmPartyDetail) => void;
 }) {
   const t = useTranslations("modules.crm");
   const [partyKind, setPartyKind] = useState<"organization" | "individual">("organization");
@@ -910,7 +734,7 @@ function CreatePartyDialog({
     setNotes("");
     setRole("client");
     onOpenChange(false);
-    onCreated();
+    onCreated(result.data);
   };
 
   return (
