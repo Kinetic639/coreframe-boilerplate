@@ -1350,7 +1350,7 @@ Stan inwentaryzacji: **11 listopada 2026**. Zakres: wyłącznie `apps/web`.
 ### V036 — QR: etap wyboru kodów
 
 - Wejście: `/dashboard/qr` — wariant wewnątrz widoku / wskazany kontekst.
-- Źródło: [qr-management-client.tsx](../../src/app/[locale]/dashboard/qr/_components/qr-management-client.tsx).
+- Źródło: [qr-workspace.tsx](../../src/app/[locale]/dashboard/qr/_components/qr-workspace.tsx).
 - [ ] Desktop — zaprojektowany, wdrożony i zweryfikowany.
 - [ ] Mobile — zaprojektowany, wdrożony i zweryfikowany.
 - Dowód odbioru: do uzupełnienia po wykonaniu.
@@ -1358,7 +1358,7 @@ Stan inwentaryzacji: **11 listopada 2026**. Zakres: wyłącznie `apps/web`.
 ### V037 — QR: etap projektowania etykiet
 
 - Wejście: `/dashboard/qr` — wariant wewnątrz widoku / wskazany kontekst.
-- Źródło: [qr-management-client.tsx](../../src/app/[locale]/dashboard/qr/_components/qr-management-client.tsx).
+- Źródło: [qr-workspace.tsx](../../src/app/[locale]/dashboard/qr/_components/qr-workspace.tsx).
 - [ ] Desktop — zaprojektowany, wdrożony i zweryfikowany.
 - [ ] Mobile — zaprojektowany, wdrożony i zweryfikowany.
 - Dowód odbioru: do uzupełnienia po wykonaniu.
@@ -1366,7 +1366,7 @@ Stan inwentaryzacji: **11 listopada 2026**. Zakres: wyłącznie `apps/web`.
 ### V038 — QR: panel szczegółów kodu
 
 - Wejście: `/dashboard/qr` — wariant wewnątrz widoku / wskazany kontekst.
-- Źródło: [qr-management-client.tsx](../../src/app/[locale]/dashboard/qr/_components/qr-management-client.tsx).
+- Źródło: [qr-workspace.tsx](../../src/app/[locale]/dashboard/qr/_components/qr-workspace.tsx).
 - [ ] Desktop — zaprojektowany, wdrożony i zweryfikowany.
 - [ ] Mobile — zaprojektowany, wdrożony i zweryfikowany.
 - Dowód odbioru: do uzupełnienia po wykonaniu.
