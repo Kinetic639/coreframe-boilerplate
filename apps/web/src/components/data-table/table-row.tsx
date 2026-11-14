@@ -3,8 +3,8 @@
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import type { MouseEvent, ReactNode } from "react";
-import { cn } from "../lib/utils";
-import { requestVisitPanelClose } from "../visit-table/visit-panel-motion";
+import { cn } from "./lib/utils";
+import { requestRecordPanelClose } from "./panel-motion";
 import { isSamePage, useTableNavigate } from "./table-navigation";
 
 // A row of a portal table that opens it in the side panel when
@@ -22,7 +22,7 @@ export function TableRow({
   rowId?: string;
   /** The pointer rests on the row or it has focus (false: it left). */
   onIntent?: (active: boolean) => void;
-  /** The table's address with this visit open (or closed, if it is). */
+  /** The table's address with this record open (or closed, if it is). */
   href: string;
   selected: boolean;
   children: ReactNode;
@@ -36,7 +36,7 @@ export function TableRow({
     }
     if (window.getSelection()?.toString()) return;
     // Its own row closes the panel (sliding it out).
-    if (selected && requestVisitPanelClose(href)) return;
+    if (selected && requestRecordPanelClose(href)) return;
     if (navigate && isSamePage(href)) navigate(href);
     else router.push(href as Route, { scroll: false });
   };

@@ -3,12 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useQueryStates } from "nuqs";
-import type {
-  ColumnLayout,
-  ColumnSet,
-  ColumnWidths,
-} from "@/components/kolor-sensu/data-table/columns";
-import { TableNavigationProvider } from "@/components/kolor-sensu/data-table/table-navigation";
+import type { ColumnLayout, ColumnSet, ColumnWidths } from "@/components/data-table/columns";
+import { TableNavigationProvider } from "@/components/data-table/table-navigation";
 import type {
   InventoryCustomFieldDefinition,
   InventoryProductListRow,

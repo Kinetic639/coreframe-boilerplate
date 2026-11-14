@@ -16,7 +16,7 @@ import {
 } from "@/lib/constants/permissions";
 import { ContactsDirectoryService } from "@/server/services/contacts-directory.service";
 import { OrgMembersService } from "@/server/services/organization.service";
-import { parseLayout, parseWidths } from "@/components/kolor-sensu/data-table/columns";
+import { parseLayout, parseWidths } from "@/components/data-table/columns";
 import { contactKeys } from "./_components/contacts-query";
 import { contactColumnSet } from "./_components/contacts-table";
 import { ContactsWorkspace } from "./_components/contacts-workspace";
@@ -26,7 +26,7 @@ import {
   loadContactState,
   migrateContactSearchParams,
 } from "./_components/contacts-state";
-import "@/components/kolor-sensu/data-table/ambra-list.css";
+import "@/components/data-table/ambra-list.css";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -41,7 +41,7 @@ function cookieValue(value: string | undefined) {
 }
 
 /**
- * Contacts (Kolor Sensu list): employees and external contacts, the search,
+ * Contacts (data table list): employees and external contacts, the search,
  * the kind, the name order, the page and the open contact in the address.
  * The server puts the first page in the list's cache; the list fetches the
  * rest.

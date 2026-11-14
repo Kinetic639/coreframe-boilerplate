@@ -18,8 +18,8 @@ import {
   parseAsDay,
   parseAsUuid,
   sortRows,
-} from "@/components/kolor-sensu/data-table/local-list";
-import type { ColumnSet } from "@/components/kolor-sensu/data-table/columns";
+} from "@/components/data-table/local-list";
+import type { ColumnSet } from "@/components/data-table/columns";
 import type { OrgBranch } from "@/server/services/organization.service";
 
 // The branch list's whole state is its address: the search, the filters, the

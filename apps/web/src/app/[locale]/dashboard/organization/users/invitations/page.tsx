@@ -10,7 +10,7 @@ import {
   OrgInvitationsService,
   OrgRolesService,
 } from "@/server/services/organization.service";
-import { savedColumns } from "@/components/kolor-sensu/data-table/saved-columns";
+import { savedColumns } from "@/components/data-table/saved-columns";
 import { InvitationsWorkspace } from "./_components/invitations-workspace";
 import {
   invitationColumnSet,
@@ -18,13 +18,13 @@ import {
   loadInvitationState,
   migrateInvitationSearchParams,
 } from "./_components/invitations-state";
-import "@/components/kolor-sensu/data-table/ambra-list.css";
+import "@/components/data-table/ambra-list.css";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-/** The organization's invitations (Kolor Sensu list), all loaded; the address picks. */
+/** The organization's invitations (data table list), all loaded; the address picks. */
 export default async function InvitationsPage({ searchParams }: PageProps = {}) {
   const [locale, context, t, tUsers] = await Promise.all([
     getLocale(),

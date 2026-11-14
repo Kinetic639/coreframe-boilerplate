@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown } from "lucide-react";
 import type { ReactNode } from "react";
-import { cn } from "../lib/utils";
+import { cn } from "./lib/utils";
 import { TableLink as Link } from "./table-navigation";
 import { ColumnResizer } from "./column-resizer";
 import { usualWidth, widthOf, type ColumnSet, type ColumnWidths } from "./columns";

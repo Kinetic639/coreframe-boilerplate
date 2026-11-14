@@ -13,7 +13,7 @@ import {
 } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
 import { OrgBranchesService } from "@/server/services/organization.service";
-import { parseLayout, parseWidths } from "@/components/kolor-sensu/data-table/columns";
+import { parseLayout, parseWidths } from "@/components/data-table/columns";
 import { BranchesWorkspace } from "./_components/branches-workspace";
 import {
   branchColumnSet,
@@ -21,7 +21,7 @@ import {
   loadBranchState,
   migrateBranchSearchParams,
 } from "./_components/branches-state";
-import "@/components/kolor-sensu/data-table/ambra-list.css";
+import "@/components/data-table/ambra-list.css";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -35,7 +35,7 @@ function cookieValue(value: string | undefined) {
   }
 }
 
-/** The organization's branches (Kolor Sensu list), all loaded; the address picks. */
+/** The organization's branches (data table list), all loaded; the address picks. */
 export default async function BranchesPage({ searchParams }: PageProps = {}) {
   const [locale, context, t] = await Promise.all([
     getLocale(),

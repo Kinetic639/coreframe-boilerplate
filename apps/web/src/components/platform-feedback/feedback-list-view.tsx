@@ -6,15 +6,11 @@ import { useQueryStates } from "nuqs";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { KanbanSquare, List, MessageSquare, Paperclip, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FilterBar, type FilterField } from "@/components/kolor-sensu/data-table/filter-bar";
-import type {
-  ColumnLayout,
-  ColumnSet,
-  ColumnWidths,
-} from "@/components/kolor-sensu/data-table/columns";
-import { TableNavigationProvider } from "@/components/kolor-sensu/data-table/table-navigation";
-import { ListPane, ListSidePanel } from "@/components/kolor-sensu/data-table/list-pane";
-import { useListKeys } from "@/components/kolor-sensu/data-table/use-list-keys";
+import { FilterBar, type FilterField } from "@/components/data-table/filter-bar";
+import type { ColumnLayout, ColumnSet, ColumnWidths } from "@/components/data-table/columns";
+import { TableNavigationProvider } from "@/components/data-table/table-navigation";
+import { ListPane, ListSidePanel } from "@/components/data-table/list-pane";
+import { useListKeys } from "@/components/data-table/use-list-keys";
 import { getFeedbackAction, listFeedbackAction } from "@/app/actions/platform-feedback";
 import {
   FEEDBACK_KINDS,
@@ -40,7 +36,7 @@ import {
 const EMPTY = { rows: [] as FeedbackListRow[], totalCount: 0 };
 
 /**
- * Reports as a Kolor Sensu list, paged by the database, with the open one
+ * Reports as a data table list, paged by the database, with the open one
  * beside it. "mine": the user's own reports (account page); "all": every
  * organization's reports for the platform admin, who can also switch to a
  * kanban board by status. The address holds the whole state.
@@ -194,7 +190,7 @@ export function FeedbackListView({
 
   return (
     <TableNavigationProvider navigate={navigate}>
-      <section className="ks-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
+      <section className="dt-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2.5 md:px-4">
           <div className="min-w-0">
             <div className="flex items-baseline gap-2">
@@ -247,7 +243,7 @@ export function FeedbackListView({
           </div>
         ) : (
           <>
-            <div className="ks-list-filter-row">
+            <div className="dt-list-filter-row">
               <FilterBar
                 parsers={feedbackParsers}
                 fields={fields}

@@ -6,7 +6,7 @@ import { checkPermission } from "@/lib/utils/permissions";
 import { MEMBERS_MANAGE, MEMBERS_READ } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
 import { OrgPositionsService } from "@/server/services/organization.service";
-import { savedColumns } from "@/components/kolor-sensu/data-table/saved-columns";
+import { savedColumns } from "@/components/data-table/saved-columns";
 import { PositionsWorkspace } from "./_components/positions-workspace";
 import {
   loadPositionState,
@@ -14,13 +14,13 @@ import {
   positionColumnSet,
   positionHref,
 } from "./_components/positions-state";
-import "@/components/kolor-sensu/data-table/ambra-list.css";
+import "@/components/data-table/ambra-list.css";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-/** The organization's positions (Kolor Sensu list), all loaded; the address picks. */
+/** The organization's positions (data table list), all loaded; the address picks. */
 export default async function PositionsPage({ searchParams }: PageProps = {}) {
   const [locale, context, t] = await Promise.all([
     getLocale(),

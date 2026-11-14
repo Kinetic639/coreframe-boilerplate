@@ -14,7 +14,7 @@ import {
   CRM_PARTIES_UPDATE,
 } from "@/lib/constants/permissions";
 import { CrmPartiesService } from "@/server/services/crm-parties.service";
-import { parseLayout, parseWidths } from "@/components/kolor-sensu/data-table/columns";
+import { parseLayout, parseWidths } from "@/components/data-table/columns";
 import { partyKeys } from "./_components/parties-query";
 import { partyColumnSet } from "./_components/parties-table";
 import { PartiesWorkspace } from "./_components/parties-workspace";
@@ -26,7 +26,7 @@ import {
   PARTY_ROLES,
   PARTY_STATUSES,
 } from "./_components/parties-state";
-import "@/components/kolor-sensu/data-table/ambra-list.css";
+import "@/components/data-table/ambra-list.css";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -41,7 +41,7 @@ function cookieValue(value: string | undefined) {
 }
 
 /**
- * The counterparties (Kolor Sensu list): the search, a filter per column, the
+ * The counterparties (data table list): the search, a filter per column, the
  * sort, the page and the open counterparty in the address. The server puts
  * the first page in the list's cache; the list fetches the rest.
  */

@@ -2,7 +2,7 @@
 
 import { useQueryStates } from "nuqs";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { FilterBar, type FilterField } from "@/components/kolor-sensu/data-table/filter-bar";
+import { FilterBar, type FilterField } from "@/components/data-table/filter-bar";
 import { TICKET_PRIORITIES, TICKET_STATUSES } from "@/lib/validations/helpdesk";
 import { cn } from "@/lib/utils";
 import {
@@ -158,7 +158,7 @@ export function TicketFilters({
               : [id]
   );
   return (
-    <div className="ks-list-filter-row">
+    <div className="dt-list-filter-row">
       <FilterBar
         parsers={ticketParsers}
         fields={fields}

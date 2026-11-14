@@ -8,8 +8,8 @@ import {
   parseAsStringLiteral,
   type inferParserType,
 } from "nuqs/server";
-import type { ColumnSet } from "@/components/kolor-sensu/data-table/columns";
-import { migrateDataViewParams, parseAsUuid } from "@/components/kolor-sensu/data-table/local-list";
+import type { ColumnSet } from "@/components/data-table/columns";
+import { migrateDataViewParams, parseAsUuid } from "@/components/data-table/local-list";
 import {
   FEEDBACK_KINDS,
   FEEDBACK_PRIORITIES,

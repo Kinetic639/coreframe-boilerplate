@@ -1,6 +1,6 @@
 import { createParser } from "nuqs/server";
 
-// Helpers for Kolor Sensu lists whose rows are all loaded at once (a few
+// Helpers for data table lists whose rows are all loaded at once (a few
 // hundred at most): the address filters, sorts and pages them in place.
 
 /** Ready ranges of a "created" filter. */
@@ -100,7 +100,7 @@ export function pageOf<Row>(rows: Row[], page: number, size: number) {
 
 /**
  * Old DataView links (`search`, `page`, `pageSize`, `sort=field.dir`,
- * `filters={...}`) translated into a Kolor Sensu list's address. `filters`
+ * `filters={...}`) translated into a data table list's address. `filters`
  * maps each old filter key to its new param and how its value reads there
  * (null: drop it). `selected` keeps its name.
  */

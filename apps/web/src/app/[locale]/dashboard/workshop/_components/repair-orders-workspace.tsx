@@ -3,13 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useQueryStates } from "nuqs";
-import { FilterBar, type FilterField } from "@/components/kolor-sensu/data-table/filter-bar";
-import type {
-  ColumnLayout,
-  ColumnSet,
-  ColumnWidths,
-} from "@/components/kolor-sensu/data-table/columns";
-import { TableNavigationProvider } from "@/components/kolor-sensu/data-table/table-navigation";
+import { FilterBar, type FilterField } from "@/components/data-table/filter-bar";
+import type { ColumnLayout, ColumnSet, ColumnWidths } from "@/components/data-table/columns";
+import { TableNavigationProvider } from "@/components/data-table/table-navigation";
 import { RepairOrdersTable } from "./repair-orders-table";
 import {
   repairOrderListQuery,
@@ -162,7 +158,7 @@ export function RepairOrdersWorkspace({
 
   return (
     <TableNavigationProvider navigate={navigate}>
-      <div className="ks-list-filter-row">
+      <div className="dt-list-filter-row">
         <FilterBar
           parsers={repairOrderParsers}
           fields={fields}

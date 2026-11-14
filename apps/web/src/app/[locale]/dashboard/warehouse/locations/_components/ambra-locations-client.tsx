@@ -43,11 +43,7 @@ import {
   ambraLocationToUpdateInput,
   warehouseLocationsToAmbra,
 } from "../_lib/warehouse-location-adapter";
-import type {
-  ColumnLayout,
-  ColumnSet,
-  ColumnWidths,
-} from "@/components/kolor-sensu/data-table/columns";
+import type { ColumnLayout, ColumnSet, ColumnWidths } from "@/components/data-table/columns";
 import { LocationsListWorkspace } from "./list/locations-list-workspace";
 
 type AmbraLocationsClientProps = {

@@ -16,7 +16,7 @@ import { createClient } from "@/utils/supabase/server";
 import { PlanningTasksService } from "@/server/services/planning-tasks.service";
 import { PlanningSettingsService } from "@/server/services/planning-settings.service";
 import { OrgMembersService } from "@/server/services/organization.service";
-import { parseLayout, parseWidths } from "@/components/kolor-sensu/data-table/columns";
+import { parseLayout, parseWidths } from "@/components/data-table/columns";
 import { taskKeys } from "../_components/tasks-query";
 import { taskColumnSet } from "../_components/tasks-table";
 import { TasksWorkspace } from "../_components/tasks-workspace";
@@ -29,7 +29,7 @@ import {
   TASK_PRIORITIES,
   TASK_STATUSES,
 } from "../_components/tasks-state";
-import "@/components/kolor-sensu/data-table/ambra-list.css";
+import "@/components/data-table/ambra-list.css";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -51,7 +51,7 @@ const STATUS_KEY = {
 } as const;
 
 /**
- * Planning tasks (Kolor Sensu list, or the board): the view, the search, a
+ * Planning tasks (data table list, or the board): the view, the search, a
  * filter per column, the sort, the page and the open task in the address.
  * The server puts the first page (or the board) in the list's cache.
  */

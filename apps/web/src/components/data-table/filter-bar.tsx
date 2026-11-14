@@ -3,9 +3,9 @@
 import { Check, ChevronLeft, Filter, LoaderCircle, Search, X } from "lucide-react";
 import { debounce, useQueryStates } from "nuqs";
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
-import { cn } from "../lib/utils";
-import { Popover, PopoverContent, PopoverTrigger } from "../popover";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../tooltip";
+import { cn } from "./lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "./popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip";
 
 // A portal table's filter bar (bookings, clients): the
 // search, folded to a magnifier until used; a chip per filter (a click

@@ -15,9 +15,9 @@ import { InventoryProductsService } from "@/server/services/inventory-products.s
 import { createClient } from "@/utils/supabase/server";
 import { AmbraLocationsClient } from "./_components/ambra-locations-client";
 import { createAmbraBranch, warehouseLocationsToAmbra } from "./_lib/warehouse-location-adapter";
-import { parseLayout, parseWidths } from "@/components/kolor-sensu/data-table/columns";
+import { parseLayout, parseWidths } from "@/components/data-table/columns";
 import { locationColumnSet, migrateLocationSearch } from "./_components/list/locations-list-state";
-import "@/components/kolor-sensu/data-table/ambra-list.css";
+import "@/components/data-table/ambra-list.css";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;

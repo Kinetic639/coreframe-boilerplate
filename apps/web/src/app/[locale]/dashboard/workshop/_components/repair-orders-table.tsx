@@ -1,20 +1,15 @@
 import { ExternalLink } from "lucide-react";
 import type { ReactNode } from "react";
-import { TableLink as PageLink } from "@/components/kolor-sensu/data-table/table-navigation";
-import {
-  DataTable,
-  TablePagination,
-  pageState,
-  TD,
-} from "@/components/kolor-sensu/data-table/data-table";
-import { ColumnsMenu } from "@/components/kolor-sensu/data-table/columns-menu";
+import { TableLink as PageLink } from "@/components/data-table/table-navigation";
+import { DataTable, TablePagination, pageState, TD } from "@/components/data-table/data-table";
+import { ColumnsMenu } from "@/components/data-table/columns-menu";
 import {
   defaultLayout,
   type ColumnLayout,
   type ColumnSet,
   type ColumnWidths,
-} from "@/components/kolor-sensu/data-table/columns";
-import { RowActions, RowActionLink } from "@/components/kolor-sensu/row-actions";
+} from "@/components/data-table/columns";
+import { RowActions, RowActionLink } from "@/components/data-table/row-actions";
 import type { RepairOrderHeader } from "@/server/services/repair-orders.service";
 import { cn } from "@/lib/utils";
 import type { RepairOrderList } from "./repair-orders-query";
@@ -257,13 +252,13 @@ export function RepairOrdersTable({
         : labels.emptyAll;
   return (
     <div
-      className="ks-list-pane relative flex min-h-0 min-w-0 flex-1 flex-col"
+      className="dt-list-pane relative flex min-h-0 min-w-0 flex-1 flex-col"
       aria-busy={loading || refreshing}
       data-refreshing={refreshing ? "" : undefined}
     >
       {/* The rows stay while new ones come: a thin bar says so, not a skeleton. */}
       {loading || refreshing ? (
-        <div className="ks-list-progress" role="progressbar" aria-label={labels.loading} />
+        <div className="dt-list-progress" role="progressbar" aria-label={labels.loading} />
       ) : null}
       {error ? (
         <div role="alert" className="border-b bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -273,7 +268,7 @@ export function RepairOrdersTable({
           </button>
         </div>
       ) : null}
-      <div className="ks-list-desktop-table min-h-0 flex-1 flex-col">
+      <div className="dt-list-desktop-table min-h-0 flex-1 flex-col">
         <DataTable
           caption={labels.title}
           set={set}
@@ -311,7 +306,7 @@ export function RepairOrdersTable({
           pagination={pagination}
         />
       </div>
-      <div className="ks-list-mobile min-h-0 flex-1 flex-col">
+      <div className="dt-list-mobile min-h-0 flex-1 flex-col">
         <header className="flex h-10 shrink-0 items-center justify-between border-b px-3 text-xs text-muted-foreground">
           <span>
             {data.totalCount} {labels.countSuffix}

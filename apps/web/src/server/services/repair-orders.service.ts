@@ -1199,7 +1199,7 @@ export class RepairOrdersService {
   }
 
   /**
-   * One page of the workshop's repair order list (the Kolor Sensu list): the
+   * One page of the workshop's repair order list (the data table list): the
    * same scope and search as listForWorkshop, plus the list's filters, its
    * sort and the page, with the whole count. Rows carry the full header.
    */

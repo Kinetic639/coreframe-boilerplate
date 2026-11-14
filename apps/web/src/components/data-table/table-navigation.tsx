@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, type MouseEvent, type ReactNode } from "react";
-import { PageLink, type PageLinkProps } from "../public-site/page-link";
+import { PageLink, type PageLinkProps } from "./page-link";
 
 // How a table's own links (sorting, pages, rows) move. Without a provider
 // they are ordinary links: the server renders the page for the new address.

@@ -5,12 +5,8 @@ import Link from "next/link";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useQueryStates } from "nuqs";
 import { ExternalLink, X } from "lucide-react";
-import type {
-  ColumnLayout,
-  ColumnSet,
-  ColumnWidths,
-} from "@/components/kolor-sensu/data-table/columns";
-import { TableNavigationProvider } from "@/components/kolor-sensu/data-table/table-navigation";
+import type { ColumnLayout, ColumnSet, ColumnWidths } from "@/components/data-table/columns";
+import { TableNavigationProvider } from "@/components/data-table/table-navigation";
 import { useHelpdeskRealtime } from "@/hooks/queries/help-desk/use-helpdesk-realtime";
 import type { HelpdeskTicketListRow } from "@/server/services/helpdesk-tickets.service";
 import { TicketDetailPanel } from "./ticket-detail-panel";
@@ -224,7 +220,7 @@ function TicketRecordPanel({
   return (
     <aside
       aria-labelledby="helpdesk-ticket-panel-title"
-      className="ks-list-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-3xl flex-col overflow-hidden border-l bg-background shadow-2xl xl:static xl:z-auto xl:min-w-0 xl:flex-1 xl:max-w-none xl:shadow-none"
+      className="dt-list-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-3xl flex-col overflow-hidden border-l bg-background shadow-2xl xl:static xl:z-auto xl:min-w-0 xl:flex-1 xl:max-w-none xl:shadow-none"
     >
       <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
         <button

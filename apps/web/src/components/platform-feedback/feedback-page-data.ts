@@ -4,7 +4,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { dehydrate, QueryClient } from "@tanstack/react-query";
 import { createClient } from "@/utils/supabase/server";
 import { PlatformFeedbackService } from "@/server/services/platform-feedback.service";
-import { savedColumns } from "@/components/kolor-sensu/data-table/saved-columns";
+import { savedColumns } from "@/components/data-table/saved-columns";
 import {
   feedbackColumnSet,
   feedbackHref,

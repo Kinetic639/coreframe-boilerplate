@@ -21,15 +21,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FilterBar, type FilterField } from "@/components/kolor-sensu/data-table/filter-bar";
+import { FilterBar, type FilterField } from "@/components/data-table/filter-bar";
 import {
   defaultLayout,
   type ColumnLayout,
   type ColumnWidths,
-} from "@/components/kolor-sensu/data-table/columns";
-import { TableNavigationProvider } from "@/components/kolor-sensu/data-table/table-navigation";
-import { ListPane, ListSidePanel } from "@/components/kolor-sensu/data-table/list-pane";
-import { useListKeys } from "@/components/kolor-sensu/data-table/use-list-keys";
+} from "@/components/data-table/columns";
+import { TableNavigationProvider } from "@/components/data-table/table-navigation";
+import { ListPane, ListSidePanel } from "@/components/data-table/list-pane";
+import { useListKeys } from "@/components/data-table/use-list-keys";
 import type { QrCodeWithStatus } from "@/server/services/qr.service";
 import { usePermissions } from "@/hooks/v2/use-permissions";
 import { QR_CREATE, QR_REVOKE, QR_EXPORT } from "@/lib/constants/permissions";
@@ -271,7 +271,7 @@ export function QrWorkspace({
         </TabsList>
 
         <TabsContent value="select" className="!mt-0 flex min-h-0 min-w-0 flex-1 flex-col">
-          <section className="ks-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
+          <section className="dt-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
             <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2.5 md:px-4">
               <div className="flex items-baseline gap-2">
                 <h2 className="text-lg font-semibold tracking-tight">{labels.title}</h2>
@@ -345,7 +345,7 @@ export function QrWorkspace({
                 </Button>
               </div>
             ) : null}
-            <div className="ks-list-filter-row">
+            <div className="dt-list-filter-row">
               <FilterBar
                 parsers={qrParsers}
                 fields={fields}

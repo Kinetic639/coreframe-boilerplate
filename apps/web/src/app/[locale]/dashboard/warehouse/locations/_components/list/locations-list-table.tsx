@@ -11,22 +11,22 @@ import {
   TreePine,
 } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
-import { TableLink as PageLink } from "@/components/kolor-sensu/data-table/table-navigation";
+import { TableLink as PageLink } from "@/components/data-table/table-navigation";
 import {
   DataTable,
   TablePagination,
   pageState,
   TD,
   type TableSelection,
-} from "@/components/kolor-sensu/data-table/data-table";
-import { ColumnsMenu } from "@/components/kolor-sensu/data-table/columns-menu";
+} from "@/components/data-table/data-table";
+import { ColumnsMenu } from "@/components/data-table/columns-menu";
 import {
   defaultLayout,
   type ColumnLayout,
   type ColumnSet,
   type ColumnWidths,
-} from "@/components/kolor-sensu/data-table/columns";
-import { RowActionButton, RowActionLink, RowActions } from "@/components/kolor-sensu/row-actions";
+} from "@/components/data-table/columns";
+import { RowActionButton, RowActionLink, RowActions } from "@/components/data-table/row-actions";
 import { cn } from "@/lib/utils";
 import {
   LOCATION_PAGE_SIZES,
@@ -246,13 +246,13 @@ export function LocationsListTable({
   return (
     <div
       className={cn(
-        "ks-list-pane relative flex min-h-0 min-w-0 flex-1 flex-col",
-        state.selected && "ks-list-pane--preview"
+        "dt-list-pane relative flex min-h-0 min-w-0 flex-1 flex-col",
+        state.selected && "dt-list-pane--preview"
       )}
     >
       {state.selected ? (
         <aside
-          className="ks-list-mini-list min-h-0 flex-1 overflow-y-auto border-r bg-background"
+          className="dt-list-mini-list min-h-0 flex-1 overflow-y-auto border-r bg-background"
           aria-label={labels.title}
         >
           <header className="sticky top-0 z-10 flex h-[34px] items-center border-b bg-muted/70 px-3 text-[10px] font-medium text-muted-foreground backdrop-blur-sm">
@@ -293,7 +293,7 @@ export function LocationsListTable({
           </ul>
         </aside>
       ) : (
-        <div className="ks-list-desktop-table min-h-0 flex-1 flex-col">
+        <div className="dt-list-desktop-table min-h-0 flex-1 flex-col">
           <DataTable
             caption={labels.title}
             set={set}
@@ -337,7 +337,7 @@ export function LocationsListTable({
           />
         </div>
       )}
-      <div className="ks-list-mobile min-h-0 flex-1 flex-col">
+      <div className="dt-list-mobile min-h-0 flex-1 flex-col">
         <header className="flex h-10 shrink-0 items-center justify-between border-b px-3 text-xs text-muted-foreground">
           <span>
             {totalCount} {labels.countSuffix}

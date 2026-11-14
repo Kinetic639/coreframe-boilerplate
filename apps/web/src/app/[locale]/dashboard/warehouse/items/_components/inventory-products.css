@@ -1,4 +1,4 @@
-/* Kolor Sensu's semantic tokens are aliases of the active Ambra theme.
+/* The table's semantic tokens are aliases of the active Ambra theme.
    The body scope also reaches Radix portals without changing other pages. */
 body:has(.inventory-products-view) {
   --surface: var(--background);
@@ -56,7 +56,7 @@ body:has(.inventory-products-view) {
     flex: 0 0 260px;
   }
 }
-/* D / Zoho direction: an operational list, not the spreadsheet-like Kolor Sensu grid. */
+/* D / Zoho direction: an operational list, not a spreadsheet-like grid. */
 .products-desktop-table table {
   font-size: 12px;
 }

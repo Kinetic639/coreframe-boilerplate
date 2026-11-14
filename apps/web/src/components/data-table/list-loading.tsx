@@ -25,7 +25,7 @@ const CELL_WIDTHS = ["70%", "45%", "60%", "35%", "55%", "40%", "65%"];
 const ROW_WIDTHS = ["w-24", "w-32", "w-20", "w-28", "w-36", "w-24", "w-16", "w-28"];
 
 /**
- * Loading skeleton of a Kolor Sensu list (products, movements, locations…):
+ * Loading skeleton of a data table list (products, movements, locations…):
  * one bordered card with the title bar, the filter row, the table (pinned
  * first column, tick boxes, row menu) and the pagination footer. Phones get
  * the card list the page shows there.
@@ -44,7 +44,7 @@ export function ListLoading({
     <div className={cn("flex flex-col gap-3", className)} aria-busy="true" aria-live="polite">
       <span className="sr-only">Ładowanie…</span>
       {above}
-      <section className="ks-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
+      <section className="dt-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
         {/* Title bar: title, count, actions */}
         <div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2.5 md:px-4">
           <div className="flex items-baseline gap-2">
