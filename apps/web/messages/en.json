@@ -330,59 +330,6 @@
       "loadingAria": "Loading rows"
     }
   },
-  "dataViewDemo": {
-    "page": {
-      "title": "DataView Demo",
-      "description": "Generic master-detail workspace. URL-driven state via nuqs, TanStack Query for caching, and Framer Motion for the detail transition."
-    },
-    "columns": {
-      "product": "Product",
-      "category": "Category",
-      "supplier": "Supplier",
-      "status": "Status",
-      "stock": "Stock",
-      "location": "Location",
-      "price": "Price",
-      "updatedAt": "Updated"
-    },
-    "filters": {
-      "catalog": "Catalog",
-      "category": "Category",
-      "supplier": "Supplier",
-      "status": "Status",
-      "price": "Price",
-      "updatedAt": "Updated",
-      "inStock": "In stock"
-    },
-    "detail": {
-      "category": "Category",
-      "supplier": "Supplier",
-      "location": "Location",
-      "price": "Price",
-      "stock": "Stock",
-      "stockUnits": "{count} units",
-      "barcode": "Barcode",
-      "receivedAt": "Received",
-      "updatedAt": "Updated"
-    },
-    "status": {
-      "active": "Active",
-      "draft": "Draft",
-      "discontinued": "Discontinued"
-    },
-    "categories": {
-      "powerTools": "Power Tools",
-      "storage": "Storage",
-      "furniture": "Furniture",
-      "measurement": "Measurement",
-      "handTools": "Hand Tools",
-      "safetyEquipment": "Safety Equipment",
-      "electrical": "Electrical",
-      "fasteners": "Fasteners",
-      "warehouse": "Warehouse",
-      "lighting": "Lighting"
-    }
-  },
   "PreferencesPage": {
     "title": "Preferences",
     "description": "Manage your account preferences and settings",

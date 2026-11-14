@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/utils/supabase/client";
-import { invalidateDataViewEntity } from "@/components/data-view/data-view-query-keys";
+import { invalidateDataViewEntity } from "@/lib/data-view/query-keys";
 import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import { commentsKeys } from "@/hooks/queries/comments";
 import { attachmentsKeys } from "@/hooks/queries/attachments";

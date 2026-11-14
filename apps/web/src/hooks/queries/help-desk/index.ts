@@ -23,10 +23,7 @@ import type {
   TakeTicketInput,
 } from "@/lib/validations/helpdesk";
 import type { HelpdeskTicketDetail } from "@/server/services/helpdesk-tickets.service";
-import {
-  dataViewKeys,
-  invalidateDataViewEntity,
-} from "@/components/data-view/data-view-query-keys";
+import { dataViewKeys, invalidateDataViewEntity } from "@/lib/data-view/query-keys";
 import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 
 // ---------------------------------------------------------------------------

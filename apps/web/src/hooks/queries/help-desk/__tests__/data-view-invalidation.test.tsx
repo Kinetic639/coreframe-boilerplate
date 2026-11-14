@@ -4,9 +4,9 @@ import React from "react";
 import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { dataViewKeys } from "@/components/data-view/data-view-query-keys";
+import { dataViewKeys } from "@/lib/data-view/query-keys";
 import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
-import type { DataViewListParams } from "@/components/data-view/data-view.types";
+import type { DataViewListParams } from "@/lib/data-view/types";
 import { useAcceptTicketMutation } from "../index";
 
 const { acceptTicketAction } = vi.hoisted(() => ({ acceptTicketAction: vi.fn() }));
@@ -34,19 +34,16 @@ const params: DataViewListParams = {
   filters: {},
 };
 
-describe("Help Desk DataView invalidation", () => {
+describe("Help Desk list invalidation", () => {
   beforeEach(() => {
     acceptTicketAction.mockResolvedValue({ success: true, data: {} });
   });
 
-  it("invalidates the canonical list, sidebar, and selected detail after acceptance", async () => {
+  it("invalidates the list pages and the selected detail after acceptance", async () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const scope = dataViewScope.organization("org-1");
     const otherScope = dataViewScope.organization("org-2");
     queryClient.setQueryData(dataViewKeys.list("helpdesk-tickets", scope, params), { rows: [] });
-    queryClient.setQueryData(dataViewKeys.sidebar("helpdesk-tickets", scope, params), {
-      pages: [],
-    });
     queryClient.setQueryData(dataViewKeys.detail("helpdesk-tickets", scope, "HD-1"), {
       id: "HD-1",
     });
@@ -64,10 +61,6 @@ describe("Help Desk DataView invalidation", () => {
 
     expect(
       queryClient.getQueryState(dataViewKeys.list("helpdesk-tickets", scope, params))?.isInvalidated
-    ).toBe(true);
-    expect(
-      queryClient.getQueryState(dataViewKeys.sidebar("helpdesk-tickets", scope, params))
-        ?.isInvalidated
     ).toBe(true);
     expect(
       queryClient.getQueryState(dataViewKeys.detail("helpdesk-tickets", scope, "HD-1"))

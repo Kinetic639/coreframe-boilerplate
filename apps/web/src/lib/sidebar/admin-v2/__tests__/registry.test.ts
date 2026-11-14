@@ -28,7 +28,6 @@ describe("Admin Sidebar Registry", () => {
         "admin.pricing",
         "admin.branding",
         "admin.site",
-        "admin.data-view-demo",
         "admin.rich-text-demo",
         "admin.comments-demo",
         "admin.avatar-demo",
