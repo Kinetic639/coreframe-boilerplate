@@ -25,6 +25,8 @@ export interface ListFilterField {
   id: string;
   label: string;
   options: { value: string; label: string }[];
+  /** One value at most (radios): the list's source filters by one only. */
+  single?: boolean;
 }
 
 /**
@@ -264,6 +266,7 @@ export function FilterBar({
     if (config.kind === "text" || config.kind === "range") return;
     if (config.kind === "dates") return setDates(config, { scope: value });
     const now = field.chosen;
+    if (config.single) return change({ [config.id]: now.includes(value) ? null : [value] });
     const next = now.includes(value) ? now.filter((one) => one !== value) : [...now, value];
     change({ [config.id]: next.length ? next : null });
   };
@@ -607,6 +610,7 @@ function FieldValues({
     const [first, last] = from && to && from > to ? [to, from] : [from, to];
     onOwnRange(first, last);
   };
+  const radio = field.dates || (field.config.kind === "list" && field.config.single === true);
   return (
     <div>
       <ul aria-label={`Wartości: ${field.label}`} className="grid gap-px" role="group">
@@ -618,10 +622,10 @@ function FieldValues({
                 aria-checked={checked}
                 className={OPTION}
                 onClick={() => onChoose(option.value)}
-                role={field.dates ? "menuitemradio" : "menuitemcheckbox"}
+                role={radio ? "menuitemradio" : "menuitemcheckbox"}
                 type="button"
               >
-                <Box checked={checked} round={field.dates} />
+                <Box checked={checked} round={radio} />
                 <span className="truncate">{option.label}</span>
               </button>
             </li>

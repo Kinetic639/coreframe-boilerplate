@@ -1,7 +1,10 @@
-import { parseDataViewSearchParams } from "@/components/data-view/data-view-search-params";
-import { createClient } from "@/utils/supabase/server";
-import { PlatformFeedbackService } from "@/server/services/platform-feedback.service";
+import { getLocale } from "next-intl/server";
+import { HydrationBoundary } from "@tanstack/react-query";
+import { getPathname } from "@/i18n/navigation";
+import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { FeedbackListView } from "@/components/platform-feedback/feedback-list-view";
+import { loadFeedbackPage } from "@/components/platform-feedback/feedback-page-data";
+import "@/components/kolor-sensu/data-table/ambra-list.css";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -9,21 +12,26 @@ type PageProps = {
 
 /** The user's own reports to the Ambra team, with the answers. */
 export default async function AccountFeedbackPage({ searchParams }: PageProps = {}) {
-  const params = parseDataViewSearchParams(searchParams ? await searchParams : {});
-  const supabase = await createClient();
-  const result = await PlatformFeedbackService.list(supabase, {
-    scope: "mine",
-    search: params.search || undefined,
-    page: params.page,
-    pageSize: params.pageSize,
-  });
-  const initialData = result.success
-    ? result.data
-    : { rows: [], totalCount: 0, page: params.page, pageSize: params.pageSize };
+  const [locale, context] = await Promise.all([getLocale(), loadDashboardContextV2()]);
+  const path = getPathname({ locale, href: "/dashboard/account/feedback" });
+  const page = await loadFeedbackPage(
+    "mine",
+    path,
+    searchParams ? await searchParams : {},
+    context?.user.user.id ?? ""
+  );
 
   return (
-    <div className="h-[calc(100vh-14rem)] min-h-[480px]">
-      <FeedbackListView scope="mine" initialData={initialData} />
-    </div>
+    <HydrationBoundary state={page.dehydrated}>
+      <FeedbackListView
+        scope="mine"
+        path={path}
+        set={page.set}
+        layout={page.layout}
+        widths={page.widths}
+        cookie={page.cookie}
+        labels={page.labels}
+      />
+    </HydrationBoundary>
   );
 }

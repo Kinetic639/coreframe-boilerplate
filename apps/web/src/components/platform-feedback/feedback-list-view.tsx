@@ -1,17 +1,20 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFormatter } from "next-intl";
+import { useQueryStates } from "nuqs";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { KanbanSquare, List, MessageSquare, Paperclip, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DataView } from "@/components/data-view/data-view";
-import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+import { FilterBar, type FilterField } from "@/components/kolor-sensu/data-table/filter-bar";
 import type {
-  DataViewColumnDef,
-  DataViewFilterDef,
-  DataViewListParams,
-  PaginatedResult,
-} from "@/components/data-view/data-view.types";
+  ColumnLayout,
+  ColumnSet,
+  ColumnWidths,
+} from "@/components/kolor-sensu/data-table/columns";
+import { TableNavigationProvider } from "@/components/kolor-sensu/data-table/table-navigation";
+import { ListPane, ListSidePanel } from "@/components/kolor-sensu/data-table/list-pane";
+import { useListKeys } from "@/components/kolor-sensu/data-table/use-list-keys";
 import { getFeedbackAction, listFeedbackAction } from "@/app/actions/platform-feedback";
 import {
   FEEDBACK_KINDS,
@@ -22,258 +25,334 @@ import {
 } from "@/lib/platform-feedback/types";
 import { FeedbackKindBadge, FeedbackPriorityBadge, FeedbackStatusBadge } from "./feedback-badges";
 import { FeedbackBoard } from "./feedback-board";
-import { FeedbackDetailPanel } from "./feedback-detail-panel";
+import { FeedbackDetailPanel, feedbackDetailKey } from "./feedback-detail-panel";
 import { ReportFeedbackDialog } from "./report-feedback-dialog";
+import {
+  feedbackHref,
+  feedbackListInput,
+  feedbackListKey,
+  feedbackParsers,
+  FEEDBACK_PAGE_SIZES,
+  type FeedbackScope,
+  type FeedbackState,
+} from "./feedback-state";
 
-function asString(value: string | string[] | boolean | null | undefined): string | undefined {
-  return typeof value === "string" && value ? value : undefined;
-}
-
-function asArray(value: string | string[] | boolean | null | undefined): string[] | undefined {
-  if (Array.isArray(value)) return value.length ? value : undefined;
-  return typeof value === "string" && value ? [value] : undefined;
-}
+const EMPTY = { rows: [] as FeedbackListRow[], totalCount: 0 };
 
 /**
- * Reports in a DataView (list + detail panel). "mine": the user's own
- * reports (account page); "all": every organization's reports for the
- * platform admin, who can also switch to a kanban board by status.
+ * Reports as a Kolor Sensu list, paged by the database, with the open one
+ * beside it. "mine": the user's own reports (account page); "all": every
+ * organization's reports for the platform admin, who can also switch to a
+ * kanban board by status. The address holds the whole state.
  */
 export function FeedbackListView({
   scope,
-  initialData,
+  path,
+  set,
+  layout: savedLayout,
+  widths,
+  cookie,
+  labels,
 }: {
-  scope: "mine" | "all";
-  initialData: PaginatedResult<FeedbackListRow>;
+  scope: FeedbackScope;
+  path: string;
+  set: ColumnSet<string>;
+  layout: ColumnLayout;
+  widths: ColumnWidths;
+  cookie: string;
+  labels: Record<string, string>;
 }) {
-  const t = useTranslations("platformFeedback");
   const format = useFormatter();
   const isAdmin = scope === "all";
-  const [view, setView] = useState<"list" | "board">("list");
+  const queryClient = useQueryClient();
+  const [state] = useQueryStates(feedbackParsers);
+  const [layout, setLayout] = useState(savedLayout);
   const [reportOpen, setReportOpen] = useState(false);
-  const [refreshToken, setRefreshToken] = useState(0);
 
-  const listFetcher = useCallback(
-    async (params: DataViewListParams): Promise<PaginatedResult<FeedbackListRow>> => {
-      const result = await listFeedbackAction({
-        scope,
-        search: params.search || undefined,
-        statuses: asArray(params.filters.status),
-        kind: asString(params.filters.kind),
-        priority: asString(params.filters.priority),
-        page: params.page,
-        pageSize: params.pageSize,
-      });
-      if (result.success) return (result as { data: PaginatedResult<FeedbackListRow> }).data;
-      throw new Error((result as { error: string }).error);
+  const list = useQuery({
+    queryKey: feedbackListKey(scope, state),
+    queryFn: async () => {
+      const result = await listFeedbackAction(feedbackListInput(scope, state));
+      if (!result.success) throw new Error((result as { error: string }).error);
+      return result.data;
     },
-    [scope]
+    staleTime: 30 * 1000,
+    placeholderData: keepPreviousData,
+  });
+  const data = list.data ?? EMPTY;
+  const refresh = useCallback(
+    () => void queryClient.invalidateQueries({ queryKey: ["platform-feedback"] }),
+    [queryClient]
   );
 
-  const detailFetcher = useCallback(async (id: string): Promise<FeedbackDetail | null> => {
-    const result = await getFeedbackAction(id);
-    return result.success ? (result as { data: FeedbackDetail | null }).data : null;
+  const navigate = useCallback((href: string) => {
+    window.history.pushState(null, "", href);
   }, []);
-
-  const filters = useMemo<DataViewFilterDef[]>(
-    () => [
-      {
-        type: "multi-select",
-        key: "status",
-        label: t("filters.status"),
-        options: FEEDBACK_STATUSES.map((s) => ({ value: s, label: t(`status.${s}`) })),
-      },
-      {
-        type: "select",
-        key: "kind",
-        label: t("filters.kind"),
-        options: FEEDBACK_KINDS.map((k) => ({ value: k, label: t(`kind.${k}`) })),
-      },
-      ...(isAdmin
-        ? [
-            {
-              type: "select" as const,
-              key: "priority",
-              label: t("filters.priority"),
-              options: FEEDBACK_PRIORITIES.map((p) => ({ value: p, label: t(`priority.${p}`) })),
-            },
-          ]
-        : []),
-    ],
-    [isAdmin, t]
+  const href = useCallback(
+    (patch: Partial<FeedbackState>) => feedbackHref(path, state, patch),
+    [path, state]
   );
+  const preview = useCallback(
+    (selected: string | null) => navigate(href({ selected })),
+    [navigate, href]
+  );
+  const keys = useMemo(() => data.rows.map((row) => row.id), [data.rows]);
+  useListKeys(keys, state.selected, preview);
 
-  const columns = useMemo<DataViewColumnDef<FeedbackListRow>[]>(
-    () => [
-      {
-        key: "code",
-        header: t("columns.code"),
-        accessor: (row) => <span className="font-mono text-xs">{row.code}</span>,
-        defaultVisible: true,
-      },
-      {
-        key: "title",
-        header: t("columns.title"),
-        accessor: (row) => (
-          <div className="flex min-w-0 items-center gap-2">
-            <FeedbackKindBadge kind={row.kind} />
-            <span className="truncate font-medium">{row.title}</span>
-          </div>
-        ),
-        defaultVisible: true,
-      },
-      {
-        key: "status",
-        header: t("columns.status"),
-        accessor: (row) => (
-          <div className="flex items-center gap-1.5">
-            <FeedbackStatusBadge status={row.status} />
-            <FeedbackPriorityBadge priority={row.priority} />
-          </div>
-        ),
-        defaultVisible: true,
-      },
-      ...(isAdmin
-        ? [
-            {
-              key: "reporter",
-              header: t("columns.reporter"),
-              accessor: (row: FeedbackListRow) => (
-                <div className="min-w-0 text-sm">
-                  <div className="truncate">{row.reporter_name || row.reporter_email || "—"}</div>
-                  {row.organization_name && (
-                    <div className="text-muted-foreground truncate text-xs">
-                      {row.organization_name}
-                    </div>
-                  )}
-                </div>
-              ),
-              defaultVisible: true,
-            },
-          ]
-        : []),
-      {
-        key: "activity",
-        header: t("columns.activity"),
-        accessor: (row) => (
-          <span className="text-muted-foreground inline-flex items-center gap-2 text-xs">
-            {row.message_count > 0 && (
-              <span className="inline-flex items-center gap-0.5">
-                <MessageSquare className="h-3 w-3" />
-                {row.message_count}
-              </span>
-            )}
-            {row.attachment_count > 0 && (
-              <span className="inline-flex items-center gap-0.5">
-                <Paperclip className="h-3 w-3" />
-                {row.attachment_count}
-              </span>
-            )}
-            {format.relativeTime(new Date(row.last_activity_at))}
+  // A page past the end (a filter narrowed): go to the last one.
+  useEffect(() => {
+    if (list.isPlaceholderData || !list.data) return;
+    const last = Math.max(1, Math.ceil(list.data.totalCount / state.wierszy));
+    if (state.strona > last) window.history.replaceState(null, "", href({ strona: last }));
+  }, [href, list.data, list.isPlaceholderData, state.strona, state.wierszy]);
+
+  const detail = useQuery({
+    queryKey: feedbackDetailKey(state.selected ?? ""),
+    enabled: Boolean(state.selected),
+    queryFn: async (): Promise<FeedbackDetail | null> => {
+      const result = await getFeedbackAction(state.selected!);
+      if (!result.success) throw new Error((result as { error: string }).error);
+      return result.data;
+    },
+    staleTime: 15 * 1000,
+  });
+
+  const fields: FilterField[] = [
+    {
+      kind: "list",
+      id: "status",
+      label: labels.filter_status,
+      options: FEEDBACK_STATUSES.map((value) => ({ value, label: labels[`status_${value}`] })),
+    },
+    {
+      kind: "list",
+      id: "rodzaj",
+      label: labels.filter_kind,
+      single: true,
+      options: FEEDBACK_KINDS.map((value) => ({ value, label: labels[`kind_${value}`] })),
+    },
+    ...(isAdmin
+      ? [
+          {
+            kind: "list" as const,
+            id: "priorytet",
+            label: labels.filter_priority,
+            single: true,
+            options: FEEDBACK_PRIORITIES.map((value) => ({
+              value,
+              label: labels[`priority_${value}`],
+            })),
+          },
+        ]
+      : []),
+  ];
+  const filtered =
+    Boolean(state.q) || state.status.length + state.rodzaj.length + state.priorytet.length > 0;
+  const rowHref = (row: FeedbackListRow) =>
+    href({ selected: state.selected === row.id ? null : row.id });
+  const reporter = (row: FeedbackListRow) => row.reporter_name || row.reporter_email || "—";
+  const value = (row: FeedbackListRow, id: string) => {
+    if (id === "code") return <span className="font-mono text-xs">{row.code}</span>;
+    if (id === "status")
+      return (
+        <span className="flex items-center gap-1.5">
+          <FeedbackStatusBadge status={row.status} />
+          <FeedbackPriorityBadge priority={row.priority} />
+        </span>
+      );
+    if (id === "reporter")
+      return (
+        <span className="block min-w-0 text-sm">
+          <span className="block truncate">{reporter(row)}</span>
+          {row.organization_name ? (
+            <span className="block truncate text-xs text-muted-foreground">
+              {row.organization_name}
+            </span>
+          ) : null}
+        </span>
+      );
+    return (
+      <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+        {row.message_count > 0 ? (
+          <span className="inline-flex items-center gap-0.5">
+            <MessageSquare className="size-3" />
+            {row.message_count}
           </span>
-        ),
-        defaultVisible: true,
-      },
-    ],
-    [format, isAdmin, t]
-  );
+        ) : null}
+        {row.attachment_count > 0 ? (
+          <span className="inline-flex items-center gap-0.5">
+            <Paperclip className="size-3" />
+            {row.attachment_count}
+          </span>
+        ) : null}
+        {format.relativeTime(new Date(row.last_activity_at))}
+      </span>
+    );
+  };
+  const open = data.rows.find((row) => row.id === state.selected);
+  const board = isAdmin && state.widok === "tablica";
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t(isAdmin ? "pages.admin.title" : "pages.mine.title")}
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {t(isAdmin ? "pages.admin.subtitle" : "pages.mine.subtitle")}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {isAdmin && (
-            <div className="bg-muted inline-flex rounded-md p-0.5" role="tablist">
-              <Button
-                size="sm"
-                variant={view === "list" ? "default" : "ghost"}
-                className="h-7"
-                onClick={() => setView("list")}
-                data-testid="feedback-view-list"
-              >
-                <List className="mr-1.5 h-3.5 w-3.5" />
-                {t("views.list")}
-              </Button>
-              <Button
-                size="sm"
-                variant={view === "board" ? "default" : "ghost"}
-                className="h-7"
-                onClick={() => setView("board")}
-                data-testid="feedback-view-board"
-              >
-                <KanbanSquare className="mr-1.5 h-3.5 w-3.5" />
-                {t("views.board")}
-              </Button>
+    <TableNavigationProvider navigate={navigate}>
+      <section className="ks-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2.5 md:px-4">
+          <div className="min-w-0">
+            <div className="flex items-baseline gap-2">
+              <h2 className="text-lg font-semibold tracking-tight">{labels.title}</h2>
+              {board ? null : (
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  {data.totalCount}
+                </span>
+              )}
             </div>
-          )}
-          {!isAdmin && (
-            <Button size="sm" onClick={() => setReportOpen(true)}>
-              <Plus className="mr-1.5 h-4 w-4" />
-              {t("report.open")}
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <div className="min-h-0 flex-1">
-        {view === "board" && isAdmin ? (
-          <FeedbackBoard />
-        ) : (
-          <DataView<FeedbackListRow, FeedbackDetail>
-            entity={isAdmin ? "platform-feedback-all" : "platform-feedback-mine"}
-            scope={dataViewScope.global()}
-            columns={columns}
-            filters={filters}
-            initialData={initialData}
-            queryKey={["platform-feedback", scope]}
-            listFetcher={listFetcher}
-            detailFetcher={detailFetcher}
-            getRowId={(row) => row.id}
-            refreshToken={refreshToken}
-            renderCompactItem={(row) => (
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground font-mono text-[11px]">{row.code}</span>
-                  <FeedbackStatusBadge status={row.status} />
-                </div>
-                <span className="truncate text-sm font-medium">{row.title}</span>
-                {isAdmin && (
-                  <span className="text-muted-foreground truncate text-xs">
-                    {row.reporter_name || row.reporter_email || "—"}
-                    {row.organization_name ? ` · ${row.organization_name}` : ""}
-                  </span>
-                )}
+            <p className="text-xs text-muted-foreground">{labels.subtitle}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {isAdmin ? (
+              <div className="inline-flex rounded-md bg-muted p-0.5" role="group">
+                <Button
+                  size="sm"
+                  variant={board ? "ghost" : "default"}
+                  className="h-7"
+                  aria-pressed={!board}
+                  onClick={() => navigate(href({ widok: "lista" }))}
+                  data-testid="feedback-view-list"
+                >
+                  <List className="mr-1.5 size-3.5" />
+                  {labels.viewList}
+                </Button>
+                <Button
+                  size="sm"
+                  variant={board ? "default" : "ghost"}
+                  className="h-7"
+                  aria-pressed={board}
+                  onClick={() => navigate(href({ widok: "tablica", selected: null }))}
+                  data-testid="feedback-view-board"
+                >
+                  <KanbanSquare className="mr-1.5 size-3.5" />
+                  {labels.viewBoard}
+                </Button>
               </div>
+            ) : (
+              <Button size="sm" onClick={() => setReportOpen(true)}>
+                <Plus className="mr-1.5 size-3.5" />
+                {labels.report}
+              </Button>
             )}
-            renderDetail={(detail) => (
-              <FeedbackDetailPanel
-                key={detail.id}
-                initial={detail}
-                isAdmin={isAdmin}
-                onChanged={() => setRefreshToken((n) => n + 1)}
+          </div>
+        </header>
+        {board ? (
+          <div className="min-h-0 flex-1 overflow-auto p-3">
+            <FeedbackBoard />
+          </div>
+        ) : (
+          <>
+            <div className="ks-list-filter-row">
+              <FilterBar
+                parsers={feedbackParsers}
+                fields={fields}
+                resetOnChange={["strona", "selected"]}
+                shallow
+                pending={list.isFetching}
+                search={{ label: labels.search, placeholder: labels.search }}
               />
-            )}
-          />
+            </div>
+            <div className="flex min-h-0 min-w-0 flex-1">
+              <ListPane
+                rows={data.rows}
+                totalCount={data.totalCount}
+                page={state.strona}
+                size={state.wierszy}
+                sizes={FEEDBACK_PAGE_SIZES}
+                selected={state.selected}
+                rowKey={(row) => row.id}
+                rowHref={rowHref}
+                pageHref={(strona) => href({ strona, selected: null })}
+                sizeHref={(wierszy) =>
+                  href({
+                    wierszy: wierszy as FeedbackState["wierszy"],
+                    strona: 1,
+                    selected: null,
+                  })
+                }
+                set={set}
+                layout={layout}
+                widths={widths}
+                cookie={cookie}
+                onLayoutChange={setLayout}
+                sortOf={() => undefined}
+                identity={(row) => (
+                  <>
+                    <FeedbackKindBadge kind={row.kind} />
+                    <span className="min-w-0">
+                      <span className="block truncate text-[13px] font-medium" title={row.title}>
+                        {row.title}
+                      </span>
+                      {isAdmin ? (
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {reporter(row)}
+                          {row.organization_name ? ` · ${row.organization_name}` : ""}
+                        </span>
+                      ) : null}
+                    </span>
+                  </>
+                )}
+                value={value}
+                badge={(row) => <FeedbackStatusBadge status={row.status} />}
+                labels={labels}
+                empty={filtered ? labels.empty : labels.emptyAll}
+                loading={list.isPending}
+                refreshing={list.isFetching && !list.isPending}
+                error={list.error ? list.error.message : null}
+                onRetry={() => void list.refetch()}
+                onPreview={preview}
+              />
+              {state.selected ? (
+                <ListSidePanel
+                  titleId="feedback-panel-title"
+                  title={
+                    open
+                      ? `${open.code} · ${open.title}`
+                      : detail.data
+                        ? `${detail.data.code} · ${detail.data.title}`
+                        : detail.isPending
+                          ? labels.loading
+                          : labels.notFound
+                  }
+                  backLabel={labels.title}
+                  closeLabel={labels.close}
+                  onClose={() => preview(null)}
+                >
+                  {detail.data ? (
+                    <div className="p-5">
+                      <FeedbackDetailPanel
+                        key={detail.data.id}
+                        initial={detail.data}
+                        isAdmin={isAdmin}
+                        onChanged={refresh}
+                      />
+                    </div>
+                  ) : (
+                    <p className="p-8 text-center text-sm text-muted-foreground">
+                      {detail.isPending ? labels.loading : labels.notFound}
+                    </p>
+                  )}
+                </ListSidePanel>
+              ) : null}
+            </div>
+          </>
         )}
-      </div>
+      </section>
 
-      {!isAdmin && (
+      {!isAdmin ? (
         <ReportFeedbackDialog
           open={reportOpen}
-          onOpenChange={(open) => {
-            setReportOpen(open);
-            if (!open) setRefreshToken((n) => n + 1);
+          onOpenChange={(next) => {
+            setReportOpen(next);
+            if (!next) refresh();
           }}
         />
-      )}
-    </div>
+      ) : null}
+    </TableNavigationProvider>
   );
 }
