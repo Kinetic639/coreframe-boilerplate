@@ -4639,7 +4639,8 @@
           "noPeople": "Everyone is already added",
           "remove": "Remove {name} from the board",
           "roleFor": "Role: {name}",
-          "ownerOnly": "Only the board owner changes who sees it."
+          "ownerOnly": "Only the board owner changes who sees it.",
+          "someNotAdded": "The board is created, but not everyone could be added. Add them in the board settings."
         },
         "task": {
           "status": "Status",

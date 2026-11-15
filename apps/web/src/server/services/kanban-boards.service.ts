@@ -515,6 +515,21 @@ export const KanbanBoardsService = {
       if (error) return { success: false, error: error.message };
 
       const boardId = (data as any).id as string;
+      const members = (input.members ?? []).filter((member) => member.user_id !== userId);
+      if (members.length) {
+        // The board exists either way: if this fails, the returned board has
+        // fewer members than asked for and the client says so.
+        await supabase.from("planning_kanban_board_members").upsert(
+          members.map((member) => ({
+            board_id: boardId,
+            organization_id: orgId,
+            user_id: member.user_id,
+            role: member.role,
+            added_by: userId,
+          })),
+          { onConflict: "board_id,user_id" }
+        );
+      }
       return KanbanBoardsService.getBoard(supabase, orgId, boardId, userId);
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };

@@ -97,7 +97,9 @@ import {
   BoardSharingProvider,
   BoardVisibilityFields,
   BoardVisibilityIcon,
+  NewBoardMembersField,
   useBoardSharing,
+  type PendingBoardMember,
   type BoardSharingOption,
   type BoardSharingPerson,
 } from "./board-sharing";
@@ -686,6 +688,7 @@ function CreateBoardDialog({
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState<KanbanVisibility>("private");
   const [branchId, setBranchId] = useState<string | null>(null);
+  const [members, setMembers] = useState<PendingBoardMember[]>([]);
   const [isPending, startTransition] = useTransition();
 
   const submit = useCallback(() => {
@@ -695,18 +698,23 @@ function CreateBoardDialog({
         description,
         visibility,
         branch_id: visibility === "branch" ? branchId : null,
+        members,
       });
       if (!result.success) {
         toast.error(actionError(result));
         return;
       }
+      if (result.data.members.length < members.length) {
+        toast.warning(t("boards.sharing.someNotAdded"));
+      }
       setTitle("");
       setDescription("");
       setVisibility("private");
       setBranchId(null);
+      setMembers([]);
       onCreated(result.data);
     });
-  }, [branchId, description, onCreated, title, visibility]);
+  }, [branchId, description, members, onCreated, t, title, visibility]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -716,7 +724,7 @@ function CreateBoardDialog({
           {t("boards.newBoard")}
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t("boards.createBoard")}</DialogTitle>
         </DialogHeader>
@@ -746,6 +754,7 @@ function CreateBoardDialog({
             onVisibilityChange={setVisibility}
             onBranchChange={setBranchId}
           />
+          <NewBoardMembersField value={members} onChange={setMembers} disabled={isPending} />
         </div>
         <DialogFooter>
           <Button

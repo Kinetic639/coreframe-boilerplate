@@ -4719,7 +4719,8 @@
           "noPeople": "Wszyscy są już dodani",
           "remove": "Usuń {name} z tablicy",
           "roleFor": "Rola: {name}",
-          "ownerOnly": "Widoczność i osoby zmienia tylko właściciel tablicy."
+          "ownerOnly": "Widoczność i osoby zmienia tylko właściciel tablicy.",
+          "someNotAdded": "Tablica jest utworzona, ale nie udało się dodać wszystkich osób. Dodaj je w ustawieniach tablicy."
         },
         "task": {
           "status": "Status",
