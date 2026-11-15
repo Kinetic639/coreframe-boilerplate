@@ -4612,7 +4612,28 @@
         "visibility": {
           "label": "Visibility",
           "private": "Private",
-          "public": "Public"
+          "branch": "Branch",
+          "organization": "Organization",
+          "privateHelp": "You and the people you add.",
+          "branchHelp": "Everyone in the chosen branch, plus the people you add.",
+          "organizationHelp": "Everyone in the organization."
+        },
+        "sharing": {
+          "branch": "Branch",
+          "members": "People",
+          "membersHelp": "Editors add and move tasks, viewers only look. A person's role also applies on a branch or organization board.",
+          "role": {
+            "owner": "Owner",
+            "editor": "Editor",
+            "viewer": "Viewer"
+          },
+          "person": "Choose a person",
+          "newRole": "Role for the new person",
+          "add": "Add",
+          "noPeople": "Everyone is already added",
+          "remove": "Remove {name} from the board",
+          "roleFor": "Role: {name}",
+          "ownerOnly": "Only the board owner changes who sees it."
         }
       },
       "settings": {

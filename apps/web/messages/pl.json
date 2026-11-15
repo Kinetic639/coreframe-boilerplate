@@ -4692,7 +4692,28 @@
         "visibility": {
           "label": "Widoczność",
           "private": "Prywatna",
-          "public": "Publiczna"
+          "branch": "Oddział",
+          "organization": "Organizacja",
+          "privateHelp": "Widzisz ją Ty i osoby, które dodasz.",
+          "branchHelp": "Widzą ją wszyscy z wybranego oddziału oraz dodane osoby.",
+          "organizationHelp": "Widzą ją wszyscy w organizacji."
+        },
+        "sharing": {
+          "branch": "Oddział",
+          "members": "Osoby",
+          "membersHelp": "Edytor dodaje i przesuwa zadania, obserwator tylko przegląda. Rola osoby obowiązuje też na tablicy oddziału lub organizacji.",
+          "role": {
+            "owner": "Właściciel",
+            "editor": "Edytor",
+            "viewer": "Obserwator"
+          },
+          "person": "Wybierz osobę",
+          "newRole": "Rola nowej osoby",
+          "add": "Dodaj",
+          "noPeople": "Wszyscy są już dodani",
+          "remove": "Usuń {name} z tablicy",
+          "roleFor": "Rola: {name}",
+          "ownerOnly": "Widoczność i osoby zmienia tylko właściciel tablicy."
         }
       },
       "settings": {

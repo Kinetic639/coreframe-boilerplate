@@ -1,9 +1,16 @@
 import { z } from "zod";
 
-export const KANBAN_VISIBILITIES = ["private", "public"] as const;
+/**
+ * Who sees a board, besides its owner and the people added to it:
+ * nobody else (private), one branch, or the whole organization.
+ */
+export const KANBAN_VISIBILITIES = ["private", "branch", "organization"] as const;
 export type KanbanVisibility = (typeof KANBAN_VISIBILITIES)[number];
 
-export const createKanbanBoardSchema = z.object({
+export const KANBAN_MEMBER_ROLES = ["editor", "viewer"] as const;
+export type KanbanMemberRole = (typeof KANBAN_MEMBER_ROLES)[number];
+
+const kanbanBoardFields = z.object({
   title: z.string().trim().min(1).max(160),
   description: z.string().trim().max(2000).nullable().optional(),
   color: z
@@ -12,14 +19,42 @@ export const createKanbanBoardSchema = z.object({
     .nullable()
     .optional(),
   visibility: z.enum(KANBAN_VISIBILITIES).default("private"),
+  /** Required for, and only kept with, the branch scope. */
+  branch_id: z.string().uuid().nullable().optional(),
 });
+
+const branchScopeHasBranch = (value: { visibility: KanbanVisibility; branch_id?: string | null }) =>
+  value.visibility !== "branch" || Boolean(value.branch_id);
+const branchScopeMessage = { message: "Choose a branch", path: ["branch_id"] };
+
+export const createKanbanBoardSchema = kanbanBoardFields.refine(
+  branchScopeHasBranch,
+  branchScopeMessage
+);
 
 export const deleteKanbanBoardSchema = z.object({
   id: z.string().uuid(),
 });
 
-export const updateKanbanBoardSchema = createKanbanBoardSchema.extend({
-  id: z.string().uuid(),
+export const updateKanbanBoardSchema = kanbanBoardFields
+  .extend({ id: z.string().uuid() })
+  .refine(branchScopeHasBranch, branchScopeMessage);
+
+export const addKanbanBoardMemberSchema = z.object({
+  board_id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  role: z.enum(KANBAN_MEMBER_ROLES).default("editor"),
+});
+
+export const updateKanbanBoardMemberSchema = z.object({
+  board_id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  role: z.enum(KANBAN_MEMBER_ROLES),
+});
+
+export const removeKanbanBoardMemberSchema = z.object({
+  board_id: z.string().uuid(),
+  user_id: z.string().uuid(),
 });
 
 export const createKanbanColumnSchema = z.object({
@@ -97,3 +132,6 @@ export type MoveKanbanCardInput = z.infer<typeof moveKanbanCardSchema>;
 export type MoveKanbanCardToInboxInput = z.infer<typeof moveKanbanCardToInboxSchema>;
 export type MoveKanbanInboxCardToBoardInput = z.infer<typeof moveKanbanInboxCardToBoardSchema>;
 export type ReorderKanbanColumnsInput = z.infer<typeof reorderKanbanColumnsSchema>;
+export type AddKanbanBoardMemberInput = z.infer<typeof addKanbanBoardMemberSchema>;
+export type UpdateKanbanBoardMemberInput = z.infer<typeof updateKanbanBoardMemberSchema>;
+export type RemoveKanbanBoardMemberInput = z.infer<typeof removeKanbanBoardMemberSchema>;

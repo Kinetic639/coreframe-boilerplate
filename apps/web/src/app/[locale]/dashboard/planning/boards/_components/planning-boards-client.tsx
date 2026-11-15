@@ -7,11 +7,9 @@ import {
   Activity,
   Calendar,
   Edit3,
-  Globe2,
   Inbox,
   KanbanSquare,
   Loader2,
-  Lock,
   MoreHorizontal,
   Plus,
   Save,
@@ -91,6 +89,14 @@ import {
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import type { KanbanVisibility } from "@/lib/validations/kanban";
 import { cn } from "@/utils";
+import {
+  BoardMembersSection,
+  BoardSharingProvider,
+  BoardVisibilityFields,
+  BoardVisibilityIcon,
+  type BoardSharingOption,
+  type BoardSharingPerson,
+} from "./board-sharing";
 
 interface PlanningBoardsClientProps {
   initialBoards: KanbanBoardSummary[];
@@ -98,6 +104,11 @@ interface PlanningBoardsClientProps {
   canCreate: boolean;
   canUpdate: boolean;
   canDelete: boolean;
+  /** Branches the board owner can pick for the branch scope. */
+  branches: BoardSharingOption[];
+  /** Organization members the owner can add to a board. */
+  people: BoardSharingPerson[];
+  currentUserId: string;
 }
 
 const COLUMN_COLORS = ["#64748b", "#0d9488", "#f59e0b", "#6366f1", "#22c55e", "#ef4444"];
@@ -243,6 +254,9 @@ export function PlanningBoardsClient({
   canCreate,
   canUpdate,
   canDelete,
+  branches,
+  people,
+  currentUserId,
 }: PlanningBoardsClientProps) {
   const t = useTranslations("modules.planning");
   const setFlushContent = useUiStoreV2((state) => state.setFlushContent);
@@ -257,7 +271,13 @@ export function PlanningBoardsClient({
   const [loadingInbox, setLoadingInbox] = useState(true);
   const boardLoadRequestIdRef = useRef(0);
 
-  const canCreateMore = canCreate && boards.length < MAX_KANBAN_BOARDS_PER_USER;
+  // The limit counts the boards this user owns, not the ones shared with them.
+  const ownBoardCount = boards.filter((board) => board.my_access === "owner").length;
+  const canCreateMore = canCreate && ownBoardCount < MAX_KANBAN_BOARDS_PER_USER;
+  const sharing = useMemo(
+    () => ({ branches, people, currentUserId }),
+    [branches, people, currentUserId]
+  );
 
   useEffect(() => {
     setFlushContent(true);
@@ -344,23 +364,12 @@ export function PlanningBoardsClient({
     (board: KanbanBoardDetail) => {
       if (activeBoardId && board.id !== activeBoardId) return;
       setSelectedBoard(board);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { columns, cards, members, ...summary } = board;
       setBoards((current) =>
-        [
-          {
-            id: board.id,
-            organization_id: board.organization_id,
-            title: board.title,
-            description: board.description,
-            color: board.color,
-            visibility: board.visibility,
-            created_by: board.created_by,
-            creator_name: board.creator_name,
-            creator_email: board.creator_email,
-            created_at: board.created_at,
-            updated_at: board.updated_at,
-          },
-          ...current.filter((item) => item.id !== board.id),
-        ].sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+        [summary, ...current.filter((item) => item.id !== board.id)].sort((a, b) =>
+          b.updated_at.localeCompare(a.updated_at)
+        )
       );
     },
     [activeBoardId]
@@ -407,51 +416,53 @@ export function PlanningBoardsClient({
   );
 
   return (
-    <TooltipProvider delayDuration={250}>
-      <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_3rem] overflow-hidden">
-        <main className="min-h-0 overflow-hidden">
-          {selectedBoard || loadingBoardId ? (
-            <BoardWorkspace
-              board={selectedBoard}
-              boardLoading={Boolean(loadingBoardId)}
-              inboxOpen={inboxOpen}
-              inboxCards={inboxCards}
-              loadingInbox={loadingInbox}
-              canUpdate={canUpdate}
-              canDelete={canDelete}
-              onBoardChange={handleBoardChange}
-              onInboxChange={setInboxCards}
-              onRefreshInbox={refreshInbox}
-              onBoardDeleted={() => selectedBoard && handleBoardDeleted(selectedBoard.id)}
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
-              {t("boards.selectBoard")}
-            </div>
-          )}
-        </main>
-        <KanbanRightToolbar
-          inboxOpen={inboxOpen}
-          onInboxToggle={() => setInboxOpen((value) => !value)}
-          onSwitchBoards={() => setSwitcherOpen(true)}
-        />
-        <BoardSwitcherDialog
-          open={switcherOpen}
-          onOpenChange={setSwitcherOpen}
-          boards={boards}
-          activeBoardId={activeBoardId}
-          canCreate={canCreate}
-          canCreateMore={canCreateMore}
-          createOpen={createOpen}
-          onCreateOpenChange={setCreateOpen}
-          onBoardCreated={handleBoardCreated}
-          onSelectBoard={(boardId) => {
-            selectBoard(boardId);
-            setSwitcherOpen(false);
-          }}
-        />
-      </div>
-    </TooltipProvider>
+    <BoardSharingProvider value={sharing}>
+      <TooltipProvider delayDuration={250}>
+        <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_3rem] overflow-hidden">
+          <main className="min-h-0 overflow-hidden">
+            {selectedBoard || loadingBoardId ? (
+              <BoardWorkspace
+                board={selectedBoard}
+                boardLoading={Boolean(loadingBoardId)}
+                inboxOpen={inboxOpen}
+                inboxCards={inboxCards}
+                loadingInbox={loadingInbox}
+                canUpdate={canUpdate}
+                canDelete={canDelete}
+                onBoardChange={handleBoardChange}
+                onInboxChange={setInboxCards}
+                onRefreshInbox={refreshInbox}
+                onBoardDeleted={() => selectedBoard && handleBoardDeleted(selectedBoard.id)}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
+                {t("boards.selectBoard")}
+              </div>
+            )}
+          </main>
+          <KanbanRightToolbar
+            inboxOpen={inboxOpen}
+            onInboxToggle={() => setInboxOpen((value) => !value)}
+            onSwitchBoards={() => setSwitcherOpen(true)}
+          />
+          <BoardSwitcherDialog
+            open={switcherOpen}
+            onOpenChange={setSwitcherOpen}
+            boards={boards}
+            activeBoardId={activeBoardId}
+            canCreate={canCreate}
+            canCreateMore={canCreateMore}
+            createOpen={createOpen}
+            onCreateOpenChange={setCreateOpen}
+            onBoardCreated={handleBoardCreated}
+            onSelectBoard={(boardId) => {
+              selectBoard(boardId);
+              setSwitcherOpen(false);
+            }}
+          />
+        </div>
+      </TooltipProvider>
+    </BoardSharingProvider>
   );
 }
 
@@ -583,11 +594,7 @@ function BoardSwitcherDialog({
                       </span>
                     ) : null}
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      {board.visibility === "public" ? (
-                        <Globe2 className="h-3.5 w-3.5" />
-                      ) : (
-                        <Lock className="h-3.5 w-3.5" />
-                      )}
+                      <BoardVisibilityIcon visibility={board.visibility} />
                       {t(`boards.visibility.${board.visibility}`)}
                     </span>
                   </button>
@@ -636,11 +643,17 @@ function CreateBoardDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState<KanbanVisibility>("private");
+  const [branchId, setBranchId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const submit = useCallback(() => {
     startTransition(async () => {
-      const result = await createKanbanBoardAction({ title, description, visibility });
+      const result = await createKanbanBoardAction({
+        title,
+        description,
+        visibility,
+        branch_id: visibility === "branch" ? branchId : null,
+      });
       if (!result.success) {
         toast.error(actionError(result));
         return;
@@ -648,9 +661,10 @@ function CreateBoardDialog({
       setTitle("");
       setDescription("");
       setVisibility("private");
+      setBranchId(null);
       onCreated(result.data);
     });
-  }, [description, onCreated, title, visibility]);
+  }, [branchId, description, onCreated, title, visibility]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -684,24 +698,18 @@ function CreateBoardDialog({
               placeholder={t("boards.descriptionPlaceholder")}
             />
           </div>
-          <div className="space-y-2">
-            <Label>{t("boards.visibility.label")}</Label>
-            <Select
-              value={visibility}
-              onValueChange={(value) => setVisibility(value as KanbanVisibility)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="private">{t("boards.visibility.private")}</SelectItem>
-                <SelectItem value="public">{t("boards.visibility.public")}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <BoardVisibilityFields
+            visibility={visibility}
+            branchId={branchId}
+            onVisibilityChange={setVisibility}
+            onBranchChange={setBranchId}
+          />
         </div>
         <DialogFooter>
-          <Button disabled={!title.trim() || isPending} onClick={submit}>
+          <Button
+            disabled={!title.trim() || (visibility === "branch" && !branchId) || isPending}
+            onClick={submit}
+          >
             {isPending ? t("boards.creating") : t("boards.createBoard")}
           </Button>
         </DialogFooter>
@@ -716,8 +724,8 @@ function BoardWorkspace({
   inboxOpen,
   inboxCards,
   loadingInbox,
-  canUpdate,
-  canDelete,
+  canUpdate: canUpdatePermission,
+  canDelete: canDeletePermission,
   onBoardChange,
   onInboxChange,
   onRefreshInbox,
@@ -736,6 +744,12 @@ function BoardWorkspace({
   onBoardDeleted: () => void | Promise<void>;
 }) {
   const t = useTranslations("modules.planning");
+  // A viewer only looks; the database refuses their writes anyway.
+  const isViewer = board?.my_access === "viewer";
+  const canUpdate = canUpdatePermission && !isViewer;
+  const canDelete = canDeletePermission && !isViewer;
+  const canArchiveBoard =
+    canUpdatePermission && (board?.my_access === "owner" || (canDeletePermission && !isViewer));
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [collapsedColumnIds, setCollapsedColumnIds] = useState<string[]>([]);
   const cardMoveRequestIdRef = useRef(0);
@@ -918,11 +932,7 @@ function BoardWorkspace({
                     <div className="flex min-w-0 items-center gap-2">
                       <h2 className="truncate text-xl font-semibold">{board.title}</h2>
                       <Badge variant="outline" className="shrink-0 gap-1.5 bg-background/60">
-                        {board.visibility === "public" ? (
-                          <Globe2 className="h-3.5 w-3.5" />
-                        ) : (
-                          <Lock className="h-3.5 w-3.5" />
-                        )}
+                        <BoardVisibilityIcon visibility={board.visibility} />
                         {t(`boards.visibility.${board.visibility}`)}
                       </Badge>
                     </div>
@@ -935,7 +945,7 @@ function BoardWorkspace({
                   <BoardSettingsDialog
                     board={board}
                     canUpdate={canUpdate}
-                    canDelete={canDelete}
+                    canDelete={canArchiveBoard}
                     onChanged={onBoardChange}
                     onDeleted={onBoardDeleted}
                   />
@@ -1049,13 +1059,16 @@ function BoardSettingsDialog({
   const [title, setTitle] = useState(board.title);
   const [description, setDescription] = useState(board.description ?? "");
   const [visibility, setVisibility] = useState<KanbanVisibility>(board.visibility);
+  const [branchId, setBranchId] = useState<string | null>(board.branch_id);
   const [isPending, startTransition] = useTransition();
+  const isOwner = board.my_access === "owner";
 
   useEffect(() => {
     if (!open) return;
     setTitle(board.title);
     setDescription(board.description ?? "");
     setVisibility(board.visibility);
+    setBranchId(board.branch_id);
   }, [board, open]);
 
   const save = useCallback(() => {
@@ -1065,6 +1078,7 @@ function BoardSettingsDialog({
         title,
         description,
         visibility,
+        branch_id: visibility === "branch" ? branchId : null,
       });
       if (!result.success) {
         toast.error(actionError(result));
@@ -1074,7 +1088,7 @@ function BoardSettingsDialog({
       setOpen(false);
       toast.success(t("boards.boardUpdated"));
     });
-  }, [board.id, description, onChanged, t, title, visibility]);
+  }, [board.id, branchId, description, onChanged, t, title, visibility]);
 
   const archive = useCallback(() => {
     startTransition(async () => {
@@ -1091,7 +1105,7 @@ function BoardSettingsDialog({
           {t("boards.boardMenu")}
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t("boards.boardSettings")}</DialogTitle>
         </DialogHeader>
@@ -1107,21 +1121,18 @@ function BoardSettingsDialog({
               onChange={(event) => setDescription(event.target.value)}
             />
           </div>
-          <div className="space-y-2">
-            <Label>{t("boards.visibility.label")}</Label>
-            <Select
-              value={visibility}
-              onValueChange={(value) => setVisibility(value as KanbanVisibility)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="private">{t("boards.visibility.private")}</SelectItem>
-                <SelectItem value="public">{t("boards.visibility.public")}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <BoardVisibilityFields
+            visibility={visibility}
+            branchId={branchId}
+            onVisibilityChange={setVisibility}
+            onBranchChange={setBranchId}
+            disabled={!isOwner}
+          />
+          {!isOwner ? (
+            <p className="text-xs text-muted-foreground">{t("boards.sharing.ownerOnly")}</p>
+          ) : null}
+          <Separator />
+          <BoardMembersSection board={board} onChanged={onChanged} />
         </div>
         <DialogFooter className="gap-2 sm:justify-between">
           {canDelete ? (
@@ -1133,7 +1144,10 @@ function BoardSettingsDialog({
             <span />
           )}
           {canUpdate ? (
-            <Button disabled={!title.trim() || isPending} onClick={save}>
+            <Button
+              disabled={!title.trim() || (visibility === "branch" && !branchId) || isPending}
+              onClick={save}
+            >
               <Save className="mr-1.5 h-4 w-4" />
               {t("boards.save")}
             </Button>

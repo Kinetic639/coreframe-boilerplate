@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { z } from "zod";
 import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
@@ -11,6 +12,7 @@ import {
   PLANNING_BOARDS_UPDATE,
 } from "@/lib/constants/permissions";
 import {
+  addKanbanBoardMemberSchema,
   createKanbanBoardSchema,
   createKanbanCardSchema,
   createKanbanColumnSchema,
@@ -19,10 +21,13 @@ import {
   moveKanbanCardToInboxSchema,
   moveKanbanCardSchema,
   moveKanbanInboxCardToBoardSchema,
+  removeKanbanBoardMemberSchema,
   reorderKanbanColumnsSchema,
+  updateKanbanBoardMemberSchema,
   updateKanbanBoardSchema,
   updateKanbanCardSchema,
   updateKanbanColumnSchema,
+  type AddKanbanBoardMemberInput,
   type CreateKanbanBoardInput,
   type CreateKanbanCardInput,
   type CreateKanbanColumnInput,
@@ -31,8 +36,10 @@ import {
   type MoveKanbanCardToInboxInput,
   type MoveKanbanCardInput,
   type MoveKanbanInboxCardToBoardInput,
+  type RemoveKanbanBoardMemberInput,
   type ReorderKanbanColumnsInput,
   type UpdateKanbanBoardInput,
+  type UpdateKanbanBoardMemberInput,
   type UpdateKanbanCardInput,
   type UpdateKanbanColumnInput,
 } from "@/lib/validations/kanban";
@@ -169,6 +176,56 @@ export async function updateKanbanBoardAction(
   } catch {
     return { success: false, error: "Unexpected error" };
   }
+}
+
+// ── Board members (the database lets only the board owner change them) ─────
+
+async function boardMemberAction<S extends z.ZodTypeAny>(
+  input: z.input<S>,
+  schema: S,
+  run: (
+    ctx: NonNullable<Awaited<ReturnType<typeof getAuthedContext>>>,
+    data: z.output<S>
+  ) => Promise<ActionResult<KanbanBoardDetail>>
+): Promise<ActionResult<KanbanBoardDetail>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_UPDATE)) {
+      return { success: false, error: "Insufficient permissions" };
+    }
+    const parsed = schema.safeParse(input);
+    if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
+    const result = await run(ctx, parsed.data);
+    if (result.success) revalidateBoards();
+    return result;
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function addKanbanBoardMemberAction(
+  input: AddKanbanBoardMemberInput
+): Promise<ActionResult<KanbanBoardDetail>> {
+  return boardMemberAction(input, addKanbanBoardMemberSchema, (ctx, data) =>
+    KanbanBoardsService.addBoardMember(ctx.supabase, ctx.orgId, ctx.userId, data)
+  );
+}
+
+export async function updateKanbanBoardMemberAction(
+  input: UpdateKanbanBoardMemberInput
+): Promise<ActionResult<KanbanBoardDetail>> {
+  return boardMemberAction(input, updateKanbanBoardMemberSchema, (ctx, data) =>
+    KanbanBoardsService.updateBoardMember(ctx.supabase, ctx.orgId, ctx.userId, data)
+  );
+}
+
+export async function removeKanbanBoardMemberAction(
+  input: RemoveKanbanBoardMemberInput
+): Promise<ActionResult<KanbanBoardDetail>> {
+  return boardMemberAction(input, removeKanbanBoardMemberSchema, (ctx, data) =>
+    KanbanBoardsService.removeBoardMember(ctx.supabase, ctx.orgId, ctx.userId, data)
+  );
 }
 
 export async function deleteKanbanBoardAction(

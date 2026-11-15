@@ -1,23 +1,29 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
+  AddKanbanBoardMemberInput,
   CreateKanbanBoardInput,
   CreateKanbanCardInput,
   CreateKanbanColumnInput,
   DeleteKanbanBoardInput,
   DeleteKanbanColumnInput,
+  KanbanMemberRole,
   KanbanVisibility,
   MoveKanbanCardToInboxInput,
   MoveKanbanCardInput,
   MoveKanbanInboxCardToBoardInput,
+  RemoveKanbanBoardMemberInput,
   ReorderKanbanColumnsInput,
   UpdateKanbanBoardInput,
+  UpdateKanbanBoardMemberInput,
   UpdateKanbanCardInput,
   UpdateKanbanColumnInput,
 } from "@/lib/validations/kanban";
 import { normalizeCommentRichText } from "@/lib/validations/comments";
 import {
   MAX_KANBAN_BOARDS_PER_USER,
+  type KanbanBoardAccess,
+  type KanbanBoardMember,
   type KanbanCardActivity,
   type KanbanBoardCard,
   type KanbanBoardColumn,
@@ -69,7 +75,73 @@ function displayName(
   return name || email || null;
 }
 
-function mapBoard(row: any): KanbanBoardSummary {
+const BOARD_FIELDS = `id, organization_id, title, description, color, visibility, branch_id, created_by, created_at, updated_at,
+           creator:users!created_by(first_name, last_name, email)`;
+
+// Before migration 20261115200000 runs there is no branch_id and no members
+// table. Reads fall back to the old shape so the boards keep working while
+// the code is deployed ahead of the database.
+const LEGACY_BOARD_FIELDS = `id, organization_id, title, description, color, visibility, created_by, created_at, updated_at,
+           creator:users!created_by(first_name, last_name, email)`;
+
+function isMissingSharingSchema(error: { code?: string } | null | undefined): boolean {
+  return ["42703", "42P01", "PGRST204", "PGRST205"].includes(error?.code ?? "");
+}
+
+function normalizeVisibility(value: string): KanbanVisibility {
+  return value === "public" ? "organization" : (value as KanbanVisibility);
+}
+
+/**
+ * The current user's role on a board, mirroring planning_board_access() in the
+ * database (which is what actually enforces it): owner, else an explicit
+ * member role, else editor through the board's scope (RLS only returns boards
+ * the user can see).
+ */
+function boardAccess(
+  row: { created_by: string },
+  userId: string | undefined,
+  memberRole: KanbanMemberRole | undefined
+): KanbanBoardAccess {
+  if (userId && row.created_by === userId) return "owner";
+  return memberRole ?? "editor";
+}
+
+function mapMember(row: any): KanbanBoardMember {
+  const user = Array.isArray(row.user) ? row.user[0] : row.user;
+  return {
+    user_id: row.user_id,
+    role: row.role as KanbanMemberRole,
+    name: user ? displayName(user.first_name, user.last_name, user.email) : null,
+    email: user?.email ?? null,
+    created_at: row.created_at,
+  };
+}
+
+async function myMemberRoles(
+  supabase: SupabaseClient,
+  orgId: string,
+  userId: string | undefined
+): Promise<Map<string, KanbanMemberRole>> {
+  if (!userId) return new Map();
+  const { data } = await supabase
+    .from("planning_kanban_board_members")
+    .select("board_id, role")
+    .eq("organization_id", orgId)
+    .eq("user_id", userId);
+  return new Map(
+    ((data ?? []) as Array<{ board_id: string; role: KanbanMemberRole }>).map((row) => [
+      row.board_id,
+      row.role,
+    ])
+  );
+}
+
+function mapBoard(
+  row: any,
+  userId?: string,
+  memberRoles: Map<string, KanbanMemberRole> = new Map()
+): KanbanBoardSummary {
   const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator;
   return {
     id: row.id,
@@ -77,7 +149,8 @@ function mapBoard(row: any): KanbanBoardSummary {
     title: row.title,
     description: row.description ?? null,
     color: row.color ?? null,
-    visibility: row.visibility as KanbanVisibility,
+    visibility: normalizeVisibility(row.visibility),
+    branch_id: row.branch_id ?? null,
     created_by: row.created_by,
     creator_name: creator
       ? displayName(creator.first_name, creator.last_name, creator.email)
@@ -85,6 +158,7 @@ function mapBoard(row: any): KanbanBoardSummary {
     creator_email: creator?.email ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    my_access: boardAccess(row, userId, memberRoles.get(row.id)),
   };
 }
 
@@ -225,19 +299,28 @@ export const KanbanBoardsService = {
     userId: string
   ): Promise<ServiceResult<KanbanBoardSummary[]>> {
     try {
-      const { data, error } = await supabase
-        .from("planning_kanban_boards")
-        .select(
-          `id, organization_id, title, description, color, visibility, created_by, created_at, updated_at,
-           creator:users!created_by(first_name, last_name, email)`
-        )
-        .eq("organization_id", orgId)
-        .or(`visibility.eq.public,created_by.eq.${userId}`)
-        .is("deleted_at", null)
-        .order("updated_at", { ascending: false });
+      // RLS returns exactly the boards this user can see (own, shared with
+      // them, their branch's, the organization's).
+      const selectBoards = (fields: string) =>
+        supabase
+          .from("planning_kanban_boards")
+          .select(fields)
+          .eq("organization_id", orgId)
+          .is("deleted_at", null)
+          .order("updated_at", { ascending: false });
+      const [first, memberRoles] = await Promise.all([
+        selectBoards(BOARD_FIELDS),
+        myMemberRoles(supabase, orgId, userId),
+      ]);
+      const { data, error } = isMissingSharingSchema(first.error)
+        ? await selectBoards(LEGACY_BOARD_FIELDS)
+        : first;
 
       if (error) return { success: false, error: error.message };
-      return { success: true, data: (data ?? []).map(mapBoard) };
+      return {
+        success: true,
+        data: (data ?? []).map((row) => mapBoard(row, userId, memberRoles)),
+      };
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }
@@ -250,26 +333,22 @@ export const KanbanBoardsService = {
     userId?: string
   ): Promise<ServiceResult<KanbanBoardDetail>> {
     try {
-      let boardQuery = supabase
-        .from("planning_kanban_boards")
-        .select(
-          `id, organization_id, title, description, color, visibility, created_by, created_at, updated_at,
-           creator:users!created_by(first_name, last_name, email)`
-        )
-        .eq("organization_id", orgId)
-        .eq("id", boardId)
-        .is("deleted_at", null);
-
-      if (userId) {
-        boardQuery = boardQuery.or(`visibility.eq.public,created_by.eq.${userId}`);
-      }
-
-      const { data: boardRaw, error: boardError } = await boardQuery.single();
+      const selectBoard = (fields: string) =>
+        supabase
+          .from("planning_kanban_boards")
+          .select(fields)
+          .eq("organization_id", orgId)
+          .eq("id", boardId)
+          .is("deleted_at", null)
+          .single();
+      const firstBoard = await selectBoard(BOARD_FIELDS);
+      const { data: boardRaw, error: boardError } = isMissingSharingSchema(firstBoard.error)
+        ? await selectBoard(LEGACY_BOARD_FIELDS)
+        : firstBoard;
 
       if (boardError) return { success: false, error: boardError.message };
-      const board = mapBoard(boardRaw as any);
 
-      const [columnsResult, cardsResult] = await Promise.all([
+      const [columnsResult, cardsResult, membersResult] = await Promise.all([
         supabase
           .from("planning_kanban_columns")
           .select(
@@ -291,10 +370,28 @@ export const KanbanBoardsService = {
           .eq("is_inbox", false)
           .is("deleted_at", null)
           .order("position", { ascending: true }),
+        supabase
+          .from("planning_kanban_board_members")
+          .select(
+            `user_id, role, created_at,
+             user:users!user_id(first_name, last_name, email)`
+          )
+          .eq("organization_id", orgId)
+          .eq("board_id", boardId)
+          .order("created_at", { ascending: true }),
       ]);
 
       if (columnsResult.error) return { success: false, error: columnsResult.error.message };
       if (cardsResult.error) return { success: false, error: cardsResult.error.message };
+      if (membersResult.error && !isMissingSharingSchema(membersResult.error)) {
+        return { success: false, error: membersResult.error.message };
+      }
+
+      const members = membersResult.error ? [] : (membersResult.data ?? []).map(mapMember);
+      const memberRoles = new Map<string, KanbanMemberRole>(
+        userId ? members.filter((m) => m.user_id === userId).map((m) => [boardId, m.role]) : []
+      );
+      const board = mapBoard(boardRaw as any, userId, memberRoles);
 
       return {
         success: true,
@@ -302,6 +399,7 @@ export const KanbanBoardsService = {
           ...board,
           columns: (columnsResult.data ?? []).map(mapColumn),
           cards: (cardsResult.data ?? []).map(mapCard),
+          members,
         },
       };
     } catch (e) {
@@ -339,6 +437,7 @@ export const KanbanBoardsService = {
           description: input.description || null,
           color: input.color || null,
           visibility: input.visibility,
+          branch_id: input.visibility === "branch" ? (input.branch_id ?? null) : null,
           created_by: userId,
           updated_by: userId,
         })
@@ -349,6 +448,72 @@ export const KanbanBoardsService = {
 
       const boardId = (data as any).id as string;
       return KanbanBoardsService.getBoard(supabase, orgId, boardId, userId);
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
+    }
+  },
+
+  // ── Members (owner only; enforced by RLS) ─────────────────────────────────
+
+  async addBoardMember(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: AddKanbanBoardMemberInput
+  ): Promise<ServiceResult<KanbanBoardDetail>> {
+    try {
+      const { error } = await supabase.from("planning_kanban_board_members").upsert(
+        {
+          board_id: input.board_id,
+          organization_id: orgId,
+          user_id: input.user_id,
+          role: input.role,
+          added_by: userId,
+        },
+        { onConflict: "board_id,user_id" }
+      );
+      if (error) return { success: false, error: error.message };
+      return KanbanBoardsService.getBoard(supabase, orgId, input.board_id, userId);
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
+    }
+  },
+
+  async updateBoardMember(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: UpdateKanbanBoardMemberInput
+  ): Promise<ServiceResult<KanbanBoardDetail>> {
+    try {
+      const { error } = await supabase
+        .from("planning_kanban_board_members")
+        .update({ role: input.role })
+        .eq("organization_id", orgId)
+        .eq("board_id", input.board_id)
+        .eq("user_id", input.user_id);
+      if (error) return { success: false, error: error.message };
+      return KanbanBoardsService.getBoard(supabase, orgId, input.board_id, userId);
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
+    }
+  },
+
+  async removeBoardMember(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: RemoveKanbanBoardMemberInput
+  ): Promise<ServiceResult<KanbanBoardDetail>> {
+    try {
+      const { error } = await supabase
+        .from("planning_kanban_board_members")
+        .delete()
+        .eq("organization_id", orgId)
+        .eq("board_id", input.board_id)
+        .eq("user_id", input.user_id);
+      if (error) return { success: false, error: error.message };
+      return KanbanBoardsService.getBoard(supabase, orgId, input.board_id, userId);
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }
@@ -403,6 +568,7 @@ export const KanbanBoardsService = {
         title: input.title,
         description: input.description || null,
         visibility: input.visibility,
+        branch_id: input.visibility === "branch" ? (input.branch_id ?? null) : null,
         updated_by: userId,
       };
       if (input.color !== undefined) {

@@ -1,4 +1,4 @@
-import type { KanbanVisibility } from "@/lib/validations/kanban";
+import type { KanbanMemberRole, KanbanVisibility } from "@/lib/validations/kanban";
 
 export const MAX_KANBAN_BOARDS_PER_USER = 5;
 
@@ -9,11 +9,25 @@ export interface KanbanBoardSummary {
   description: string | null;
   color: string | null;
   visibility: KanbanVisibility;
+  /** Set for the branch scope. */
+  branch_id: string | null;
   created_by: string;
   creator_name: string | null;
   creator_email: string | null;
   created_at: string;
   updated_at: string;
+  /** The current user's role: owner, editor (adds and moves tasks) or viewer (only looks). */
+  my_access: KanbanBoardAccess;
+}
+
+export type KanbanBoardAccess = "owner" | KanbanMemberRole;
+
+export interface KanbanBoardMember {
+  user_id: string;
+  role: KanbanMemberRole;
+  name: string | null;
+  email: string | null;
+  created_at: string;
 }
 
 export interface KanbanBoardColumn {
@@ -65,4 +79,5 @@ export interface KanbanCardActivity {
 export interface KanbanBoardDetail extends KanbanBoardSummary {
   columns: KanbanBoardColumn[];
   cards: KanbanBoardCard[];
+  members: KanbanBoardMember[];
 }
