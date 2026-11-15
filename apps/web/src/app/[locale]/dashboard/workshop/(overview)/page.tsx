@@ -15,7 +15,7 @@ import {
 import { createClient } from "@/utils/supabase/server";
 import { RepairOrdersService } from "@/server/services/repair-orders.service";
 import { BranchWarehousesService } from "@/server/services/branch-warehouses.service";
-import { parseLayout, parseWidths } from "@/components/kolor-sensu/data-table/columns";
+import { parseLayout, parseWidths } from "@/components/data-table/columns";
 import { Button } from "@/components/ui/button";
 import { repairOrderKeys, type RepairOrdersScope } from "../_components/repair-orders-query";
 import { repairOrderColumnSet } from "../_components/repair-orders-table";
@@ -27,7 +27,7 @@ import {
   repairOrderListParams,
   REPAIR_ORDER_STATUSES,
 } from "../_components/repair-orders-state";
-import "@/components/kolor-sensu/data-table/ambra-list.css";
+import "@/components/data-table/ambra-list.css";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -42,7 +42,7 @@ function cookieValue(value: string | undefined) {
 }
 
 /**
- * The workshop's repair orders (Kolor Sensu list): branch/org-scoped, the
+ * The workshop's repair orders (data table list): branch/org-scoped, the
  * search, a filter per column, the sort and the page in the address. The
  * server puts the first page in the list's cache; the list fetches the rest.
  */
@@ -187,7 +187,7 @@ export default async function WorkshopOverviewPage({ searchParams }: PageProps =
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <section className="ks-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
+      <section className="dt-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
         {header(<RepairOrdersTotal scope={scope} initial={data.totalCount} />)}
         <RepairOrdersWorkspace
           scope={scope}

@@ -5,18 +5,18 @@ import { gsap } from "gsap";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { type MouseEvent, type ReactNode, useEffect, useRef, useSyncExternalStore } from "react";
-import { PageLink as Link } from "../public-site/page-link";
+import { PageLink as Link } from "./page-link";
 
 gsap.registerPlugin(useGSAP);
 
-// How the visit panel comes and goes. It slides in from the right when a
-// visit is opened (beside the table on a wide screen, where it also makes
+// How the record panel comes and goes. It slides in from the right when a
+// record is opened (beside the table on a wide screen, where it also makes
 // room; over it on a narrow one) and slides out before the address drops
 // it: its close link, Escape, or a click on its row ask it to. Another
-// visit opened in it only fades its content in. No motion where it is
+// record opened in it only fades its content in. No motion where it is
 // reduced, and none on a page that loads with the panel already open.
 
-const CLOSE_EVENT = "ks:visit-panel-close";
+const CLOSE_EVENT = "data-table:record-panel-close";
 const WIDE = "(min-width: 1280px)";
 const MOTION = "(prefers-reduced-motion: no-preference)";
 
@@ -24,7 +24,7 @@ const MOTION = "(prefers-reduced-motion: no-preference)";
  * Asks the open panel to close to `href`: true when it does (slides out,
  * then goes there), false when there is none to ask (go there yourself).
  */
-export function requestVisitPanelClose(href: string) {
+export function requestRecordPanelClose(href: string) {
   return !window.dispatchEvent(new CustomEvent(CLOSE_EVENT, { detail: href, cancelable: true }));
 }
 
@@ -35,15 +35,15 @@ function motionAllowed() {
   return typeof window.matchMedia === "function" && window.matchMedia(MOTION).matches;
 }
 
-export function VisitPanelMotion({
-  visitId,
+export function RecordPanelMotion({
+  recordId,
   closeHref,
   labelledBy,
   className,
   children,
 }: {
-  /** The visit shown: another one fades its content in. */
-  visitId: string;
+  /** The record shown: another one fades its content in. */
+  recordId: string;
   /** The table's address without the panel. */
   closeHref: string;
   labelledBy: string;
@@ -61,7 +61,7 @@ export function VisitPanelMotion({
     () => false
   );
   const enter = useRef(mountedOnClient);
-  const shownVisit = useRef(visitId);
+  const shownRecord = useRef(recordId);
 
   const { contextSafe } = useGSAP(
     () => {
@@ -95,11 +95,11 @@ export function VisitPanelMotion({
     { scope: root }
   );
 
-  // Another visit in the open panel: its content fades in.
+  // Another record in the open panel: its content fades in.
   useGSAP(
     () => {
-      if (shownVisit.current === visitId) return;
-      shownVisit.current = visitId;
+      if (shownRecord.current === recordId) return;
+      shownRecord.current = recordId;
       if (!motionAllowed()) return;
       gsap.fromTo(
         inner.current,
@@ -112,7 +112,7 @@ export function VisitPanelMotion({
         }
       );
     },
-    { dependencies: [visitId], scope: root }
+    { dependencies: [recordId], scope: root }
   );
 
   const close = contextSafe((href: string) => {
@@ -160,10 +160,10 @@ export function VisitPanelMotion({
     };
   }, [close, closeHref]);
 
-  // A new address (another visit, or back to this one): open again.
+  // A new address (another record, or back to this one): open again.
   useEffect(() => {
     closing.current = false;
-  }, [visitId, closeHref]);
+  }, [recordId, closeHref]);
 
   return (
     <aside aria-labelledby={labelledBy} className={className} ref={root}>
@@ -175,7 +175,7 @@ export function VisitPanelMotion({
 }
 
 /** The panel's close link: slides the panel out first (a plain link without JS). */
-export function VisitPanelCloseLink({
+export function RecordPanelCloseLink({
   href,
   className,
   children,
@@ -193,7 +193,7 @@ export function VisitPanelCloseLink({
       href={href}
       onClick={(event: MouseEvent<HTMLAnchorElement>) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey) return;
-        if (requestVisitPanelClose(href)) event.preventDefault();
+        if (requestRecordPanelClose(href)) event.preventDefault();
       }}
       scroll={false}
     >

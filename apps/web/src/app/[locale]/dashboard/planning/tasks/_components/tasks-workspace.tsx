@@ -8,13 +8,9 @@ import { toast } from "react-toastify";
 import { Columns3, ExternalLink, LayoutList, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { FilterBar, type FilterField } from "@/components/kolor-sensu/data-table/filter-bar";
-import type {
-  ColumnLayout,
-  ColumnSet,
-  ColumnWidths,
-} from "@/components/kolor-sensu/data-table/columns";
-import { TableNavigationProvider } from "@/components/kolor-sensu/data-table/table-navigation";
+import { FilterBar, type FilterField } from "@/components/data-table/filter-bar";
+import type { ColumnLayout, ColumnSet, ColumnWidths } from "@/components/data-table/columns";
+import { TableNavigationProvider } from "@/components/data-table/table-navigation";
 import { KanbanBoard, KanbanCard, type KanbanCardMoveParams } from "@/components/primitives/kanban";
 import { UserAvatar } from "@/components/primitives/avatar";
 import { PlanningTaskPriorityBadge } from "@/components/planning/planning-task-priority-badge";
@@ -288,7 +284,7 @@ export function TasksWorkspace({
 
   return (
     <TableNavigationProvider navigate={navigate}>
-      <section className="ks-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
+      <section className="dt-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2.5 md:px-4">
           <div className="flex items-baseline gap-2">
             <h1 className="text-lg font-semibold tracking-tight">{labels.title}</h1>
@@ -311,7 +307,7 @@ export function TasksWorkspace({
             ) : null}
           </div>
         </header>
-        <div className="ks-list-filter-row">
+        <div className="dt-list-filter-row">
           <FilterBar
             parsers={taskParsers}
             fields={fields}
@@ -360,7 +356,7 @@ export function TasksWorkspace({
             {state.selected ? (
               <aside
                 aria-labelledby="planning-task-panel-title"
-                className="ks-list-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-3xl flex-col overflow-hidden border-l bg-background shadow-2xl xl:static xl:z-auto xl:min-w-0 xl:flex-1 xl:max-w-none xl:shadow-none"
+                className="dt-list-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-3xl flex-col overflow-hidden border-l bg-background shadow-2xl xl:static xl:z-auto xl:min-w-0 xl:flex-1 xl:max-w-none xl:shadow-none"
               >
                 <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
                   <button

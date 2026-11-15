@@ -7,11 +7,7 @@ import {
   QueryClientProvider,
   type DehydratedState,
 } from "@tanstack/react-query";
-import type {
-  ColumnLayout,
-  ColumnSet,
-  ColumnWidths,
-} from "@/components/kolor-sensu/data-table/columns";
+import type { ColumnLayout, ColumnSet, ColumnWidths } from "@/components/data-table/columns";
 import { FeedbackListView } from "@/components/platform-feedback/feedback-list-view";
 
 /** The admin shell has no query client of its own (the dashboard's lives in its layout). */

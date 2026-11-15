@@ -18,7 +18,7 @@ import { WarehouseLocationsService } from "@/server/services/warehouse-locations
 import { InternalOrderOperationsService } from "@/server/services/internal-orders.service";
 import { WarehouseStockService } from "@/server/services/warehouse-stock.service";
 import { BranchTransfers } from "@/components/warehouse/branch-transfers";
-import { parseLayout, parseWidths } from "@/components/kolor-sensu/data-table/columns";
+import { parseLayout, parseWidths } from "@/components/data-table/columns";
 import { Button } from "@/components/ui/button";
 import { MovementFilters, MovementsTotal } from "./_components/inventory-movements-controls";
 import {
@@ -33,7 +33,7 @@ import {
   movementHref,
   movementListParams,
 } from "./_components/inventory-movements-state";
-import "@/components/kolor-sensu/data-table/ambra-list.css";
+import "@/components/data-table/ambra-list.css";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -220,7 +220,7 @@ export default async function WarehouseInventoryMovementsPage({ searchParams }: 
         <BranchTransfers transfers={transfers.data} canOperate={canOperate} />
       ) : null}
       <HydrationBoundary state={dehydrate(queryClient)}>
-        <section className="ks-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
+        <section className="dt-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
           {header(<MovementsTotal scope={scope} initial={data.totalCount} />)}
           <MovementFilters
             scope={scope}

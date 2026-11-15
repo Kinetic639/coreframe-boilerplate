@@ -8,7 +8,7 @@ import {
   parseAsStringLiteral,
   type inferParserType,
 } from "nuqs/server";
-import type { ColumnSet } from "@/components/kolor-sensu/data-table/columns";
+import type { ColumnSet } from "@/components/data-table/columns";
 import type { WarehouseLocation } from "@/lib/warehouse/location-tree";
 
 // The locations list's whole state is its address, as the products and

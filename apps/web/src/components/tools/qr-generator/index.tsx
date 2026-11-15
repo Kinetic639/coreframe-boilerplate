@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { ListLoading } from "@/components/kolor-sensu/data-table/list-loading";
+import { ListLoading } from "@/components/data-table/list-loading";
 import { QrWorkspace } from "@/app/[locale]/dashboard/qr/_components/qr-workspace";
 import { listQrCodesAction } from "@/app/actions/qr/list";
 import type { QrCodeWithStatus } from "@/server/services/qr.service";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
-import "@/components/kolor-sensu/data-table/ambra-list.css";
+import "@/components/data-table/ambra-list.css";
 
 /**
  * QR Generator Tool — registered in the tool registry under "qr-generator".

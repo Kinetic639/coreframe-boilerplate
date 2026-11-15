@@ -2,13 +2,13 @@
 
 Research: 11 listopada 2026. Zakres: `apps/web`. Kierunek wizualny **czeka na wybór użytkownika**; nie rozpoczynamy masowej przebudowy.
 
-Inwentaryzacja poniżej jest snapshotem kodu sprzed scalenia main (`be2bf1ca`). Aplikacja została następnie zaktualizowana do `08428e6d`; nowe strony dodane w main wymagają dopisania przed przebudową kolejnych modułów. Dla pilota produktów wybrano już kierunek D/Zoho z komponentami Kolor Sensu.
+Inwentaryzacja poniżej jest snapshotem kodu sprzed scalenia main (`be2bf1ca`). Aplikacja została następnie zaktualizowana do `08428e6d`; nowe strony dodane w main wymagają dopisania przed przebudową kolejnych modułów. Dla pilota produktów wybrano już kierunek D/Zoho z komponentami pierwowzór tabeli.
 
 [Checklista desktop/mobile](VIEW_CHECKLIST.md) · [Inspiracje ze zrzutami ekranów](inspiration-board.html) · [Opis inspiracji i źródła](INSPIRATIONS.md) · [Manifest widoków](view-inventory.json)
 
 Aktualny pilot wskazany przez użytkownika: **DataView i produkty**. [Analiza komponentu](dataview/ANALYSIS.md) · [Interaktywny prototyp sześciu kierunków](dataview/prototype.html) · [Galeria 24 ekranów](dataview/gallery.html). Podgląd z działającymi adresami i galerią wymaga lokalnego serwera prototypu na porcie 4313.
 
-Wybrany kierunek: **tabela D/Zoho + oryginalne komponenty filtrów, menu i kolumn Kolor Sensu**. Aktualny wynik jest dostępny w aplikacji na `/dashboard/magazyn/produkty`, port 3001. [Opis implementacji i zachowań](dataview/IMPLEMENTATION.md). Prototyp HTML pozostaje materiałem porównawczym.
+Wybrany kierunek: **tabela D/Zoho + oryginalne komponenty filtrów, menu i kolumn pierwowzoru tabeli**. Aktualny wynik jest dostępny w aplikacji na `/dashboard/magazyn/produkty`, port 3001. [Opis implementacji i zachowań](dataview/IMPLEMENTATION.md). Prototyp HTML pozostaje materiałem porównawczym.
 
 ## Cel
 

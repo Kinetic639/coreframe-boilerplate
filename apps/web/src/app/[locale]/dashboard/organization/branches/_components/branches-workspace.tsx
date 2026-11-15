@@ -15,17 +15,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FilterBar, type FilterField } from "@/components/kolor-sensu/data-table/filter-bar";
-import type {
-  ColumnLayout,
-  ColumnSet,
-  ColumnWidths,
-} from "@/components/kolor-sensu/data-table/columns";
-import { TableNavigationProvider } from "@/components/kolor-sensu/data-table/table-navigation";
-import { ListPane, ListSidePanel } from "@/components/kolor-sensu/data-table/list-pane";
-import { useListKeys } from "@/components/kolor-sensu/data-table/use-list-keys";
-import { CREATED_WITHIN } from "@/components/kolor-sensu/data-table/local-list";
-import { RowActions, RowActionLink } from "@/components/kolor-sensu/row-actions";
+import { FilterBar, type FilterField } from "@/components/data-table/filter-bar";
+import type { ColumnLayout, ColumnSet, ColumnWidths } from "@/components/data-table/columns";
+import { TableNavigationProvider } from "@/components/data-table/table-navigation";
+import { ListPane, ListSidePanel } from "@/components/data-table/list-pane";
+import { useListKeys } from "@/components/data-table/use-list-keys";
+import { CREATED_WITHIN } from "@/components/data-table/local-list";
+import { RowActions, RowActionLink } from "@/components/data-table/row-actions";
 import {
   useBranchesQuery,
   useCreateBranchMutation,
@@ -242,7 +238,7 @@ export function BranchesWorkspace({
 
   return (
     <TableNavigationProvider navigate={navigate}>
-      <section className="ks-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
+      <section className="dt-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2.5 md:px-4">
           <div className="flex items-baseline gap-2">
             <h1 className="text-lg font-semibold tracking-tight">{labels.title}</h1>
@@ -255,7 +251,7 @@ export function BranchesWorkspace({
             </Button>
           ) : null}
         </header>
-        <div className="ks-list-filter-row">
+        <div className="dt-list-filter-row">
           <FilterBar
             parsers={branchParsers}
             fields={fields}

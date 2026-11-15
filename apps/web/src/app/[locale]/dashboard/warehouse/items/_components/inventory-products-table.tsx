@@ -1,21 +1,16 @@
 import Image from "next/image";
 import { ArrowDown, ArrowUp, ChevronsUpDown, Package, Pencil, ExternalLink } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
-import { TableLink as PageLink } from "@/components/kolor-sensu/data-table/table-navigation";
-import {
-  DataTable,
-  TablePagination,
-  pageState,
-  TD,
-} from "@/components/kolor-sensu/data-table/data-table";
-import { ColumnsMenu } from "@/components/kolor-sensu/data-table/columns-menu";
+import { TableLink as PageLink } from "@/components/data-table/table-navigation";
+import { DataTable, TablePagination, pageState, TD } from "@/components/data-table/data-table";
+import { ColumnsMenu } from "@/components/data-table/columns-menu";
 import {
   defaultLayout,
   type ColumnLayout,
   type ColumnSet,
   type ColumnWidths,
-} from "@/components/kolor-sensu/data-table/columns";
-import { RowActions, RowActionLink } from "@/components/kolor-sensu/row-actions";
+} from "@/components/data-table/columns";
+import { RowActions, RowActionLink } from "@/components/data-table/row-actions";
 import type {
   InventoryProductListRow,
   InventoryCustomFieldDefinition,

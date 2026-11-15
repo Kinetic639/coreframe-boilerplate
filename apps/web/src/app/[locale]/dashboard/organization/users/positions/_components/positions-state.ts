@@ -7,14 +7,14 @@ import {
   parseAsStringLiteral,
   type inferParserType,
 } from "nuqs/server";
-import type { ColumnSet } from "@/components/kolor-sensu/data-table/columns";
+import type { ColumnSet } from "@/components/data-table/columns";
 import {
   matchesSearch,
   migrateDataViewParams,
   pageOf,
   parseAsUuid,
   sortRows,
-} from "@/components/kolor-sensu/data-table/local-list";
+} from "@/components/data-table/local-list";
 import type { OrgPosition } from "@/server/services/organization.service";
 
 // The positions list's whole state is its address: the search, the sort, the

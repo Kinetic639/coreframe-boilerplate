@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "./dropdown-menu";
 import { cn } from "./lib/utils";
-import { TableLink } from "./data-table/table-navigation";
+import { TableLink } from "./table-navigation";
 
 // A table row's "⋮" menu: its actions in one place, reachable from the
 // keyboard. Items are links (tel:, mailto:, pages) or buttons opening a

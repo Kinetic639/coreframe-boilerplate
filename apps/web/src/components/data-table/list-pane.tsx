@@ -12,7 +12,7 @@ export interface ListSort {
 }
 
 /**
- * A Kolor Sensu list's body: the desktop table, the narrow list beside an
+ * A data table list's body: the desktop table, the narrow list beside an
  * open record, and the phone cards, with the pagination under each. The page
  * owns the address; this only draws it: every link is one the page builds.
  */
@@ -140,15 +140,15 @@ export function ListPane<Row>({
   return (
     <div
       className={cn(
-        "ks-list-pane relative flex min-h-0 min-w-0 flex-1 flex-col",
-        selected && "ks-list-pane--preview"
+        "dt-list-pane relative flex min-h-0 min-w-0 flex-1 flex-col",
+        selected && "dt-list-pane--preview"
       )}
       aria-busy={loading || refreshing}
       data-refreshing={refreshing ? "" : undefined}
     >
       {/* The rows stay while new ones come: a thin bar says so, not a skeleton. */}
       {loading || refreshing ? (
-        <div className="ks-list-progress" role="progressbar" aria-label={labels.loading} />
+        <div className="dt-list-progress" role="progressbar" aria-label={labels.loading} />
       ) : null}
       {error ? (
         <div role="alert" className="border-b bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -162,7 +162,7 @@ export function ListPane<Row>({
       ) : null}
       {selected ? (
         <aside
-          className="ks-list-mini-list min-h-0 flex-1 overflow-y-auto border-r bg-background"
+          className="dt-list-mini-list min-h-0 flex-1 overflow-y-auto border-r bg-background"
           aria-label={labels.title}
         >
           <header className="sticky top-0 z-10 flex h-[34px] items-center border-b bg-muted/70 px-3 text-[10px] font-medium text-muted-foreground backdrop-blur-sm">
@@ -208,7 +208,7 @@ export function ListPane<Row>({
           </ul>
         </aside>
       ) : (
-        <div className="ks-list-desktop-table min-h-0 flex-1 flex-col">
+        <div className="dt-list-desktop-table min-h-0 flex-1 flex-col">
           <DataTable
             caption={labels.title}
             set={set}
@@ -239,7 +239,7 @@ export function ListPane<Row>({
           />
         </div>
       )}
-      <div className="ks-list-mobile min-h-0 flex-1 flex-col">
+      <div className="dt-list-mobile min-h-0 flex-1 flex-col">
         <header className="flex h-10 shrink-0 items-center justify-between border-b px-3 text-xs text-muted-foreground">
           <span>
             {totalCount} {labels.countSuffix}
@@ -323,7 +323,7 @@ export function ListSidePanel({
   return (
     <aside
       aria-labelledby={titleId}
-      className="ks-list-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-3xl flex-col overflow-hidden border-l bg-background shadow-2xl xl:static xl:z-auto xl:min-w-0 xl:flex-1 xl:max-w-none xl:shadow-none"
+      className="dt-list-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-3xl flex-col overflow-hidden border-l bg-background shadow-2xl xl:static xl:z-auto xl:min-w-0 xl:flex-1 xl:max-w-none xl:shadow-none"
     >
       <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
         <button

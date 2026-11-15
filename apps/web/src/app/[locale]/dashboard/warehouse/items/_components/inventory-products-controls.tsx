@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQueryStates } from "nuqs";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
-import { FilterBar, type FilterField } from "@/components/kolor-sensu/data-table/filter-bar";
+import { FilterBar, type FilterField } from "@/components/data-table/filter-bar";
 import { Button } from "@/components/ui/button";
 import { exportInventoryProductsCsvAction } from "@/app/actions/warehouse/inventory";
 import type { InventoryCustomFieldDefinition } from "@/lib/warehouse/inventory-types";

@@ -1,20 +1,15 @@
 import { ArrowDown, ArrowUp, ChevronsUpDown, Eye } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
-import { TableLink as PageLink } from "@/components/kolor-sensu/data-table/table-navigation";
-import {
-  DataTable,
-  TablePagination,
-  pageState,
-  TD,
-} from "@/components/kolor-sensu/data-table/data-table";
-import { ColumnsMenu } from "@/components/kolor-sensu/data-table/columns-menu";
+import { TableLink as PageLink } from "@/components/data-table/table-navigation";
+import { DataTable, TablePagination, pageState, TD } from "@/components/data-table/data-table";
+import { ColumnsMenu } from "@/components/data-table/columns-menu";
 import {
   defaultLayout,
   type ColumnLayout,
   type ColumnSet,
   type ColumnWidths,
-} from "@/components/kolor-sensu/data-table/columns";
-import { RowActions, RowActionLink } from "@/components/kolor-sensu/row-actions";
+} from "@/components/data-table/columns";
+import { RowActions, RowActionLink } from "@/components/data-table/row-actions";
 import { Badge } from "@/components/ui/badge";
 import type { CrmPartyListRow } from "@/server/services/crm-parties.service";
 import { cn } from "@/lib/utils";
@@ -257,14 +252,14 @@ export function PartiesTable({
   return (
     <div
       className={cn(
-        "ks-list-pane relative flex min-h-0 min-w-0 flex-1 flex-col",
-        state.selected && "ks-list-pane--preview"
+        "dt-list-pane relative flex min-h-0 min-w-0 flex-1 flex-col",
+        state.selected && "dt-list-pane--preview"
       )}
       aria-busy={loading || refreshing}
       data-refreshing={refreshing ? "" : undefined}
     >
       {loading || refreshing ? (
-        <div className="ks-list-progress" role="progressbar" aria-label={labels.loading} />
+        <div className="dt-list-progress" role="progressbar" aria-label={labels.loading} />
       ) : null}
       {error ? (
         <div role="alert" className="border-b bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -276,7 +271,7 @@ export function PartiesTable({
       ) : null}
       {state.selected ? (
         <aside
-          className="ks-list-mini-list min-h-0 flex-1 overflow-y-auto border-r bg-background"
+          className="dt-list-mini-list min-h-0 flex-1 overflow-y-auto border-r bg-background"
           aria-label={labels.title}
         >
           <header className="sticky top-0 z-10 flex h-[34px] items-center border-b bg-muted/70 px-3 text-[10px] font-medium text-muted-foreground backdrop-blur-sm">
@@ -317,7 +312,7 @@ export function PartiesTable({
           </ul>
         </aside>
       ) : (
-        <div className="ks-list-desktop-table min-h-0 flex-1 flex-col">
+        <div className="dt-list-desktop-table min-h-0 flex-1 flex-col">
           <DataTable
             caption={labels.title}
             set={set}
@@ -354,7 +349,7 @@ export function PartiesTable({
           />
         </div>
       )}
-      <div className="ks-list-mobile min-h-0 flex-1 flex-col">
+      <div className="dt-list-mobile min-h-0 flex-1 flex-col">
         <header className="flex h-10 shrink-0 items-center justify-between border-b px-3 text-xs text-muted-foreground">
           <span>
             {data.totalCount} {labels.countSuffix}

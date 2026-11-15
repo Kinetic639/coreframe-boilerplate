@@ -4,7 +4,7 @@ import { getPathname } from "@/i18n/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { QrCodesService } from "@/server/services/qr.service";
-import { savedColumns } from "@/components/kolor-sensu/data-table/saved-columns";
+import { savedColumns } from "@/components/data-table/saved-columns";
 import { QrWorkspace } from "../_components/qr-workspace";
 import {
   loadQrState,
@@ -13,13 +13,13 @@ import {
   qrHref,
   qrListLabels,
 } from "../_components/qr-state";
-import "@/components/kolor-sensu/data-table/ambra-list.css";
+import "@/components/data-table/ambra-list.css";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-/** The organization's QR codes (Kolor Sensu list), all loaded; the address picks. */
+/** The organization's QR codes (data table list), all loaded; the address picks. */
 export default async function QrCodesPage({ searchParams }: PageProps = {}) {
   const [locale, context, t] = await Promise.all([
     getLocale(),

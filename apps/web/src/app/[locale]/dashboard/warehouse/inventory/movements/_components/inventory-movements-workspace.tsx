@@ -5,12 +5,8 @@ import Link from "next/link";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useQueryStates } from "nuqs";
 import { ExternalLink, X } from "lucide-react";
-import type {
-  ColumnLayout,
-  ColumnSet,
-  ColumnWidths,
-} from "@/components/kolor-sensu/data-table/columns";
-import { TableNavigationProvider } from "@/components/kolor-sensu/data-table/table-navigation";
+import type { ColumnLayout, ColumnSet, ColumnWidths } from "@/components/data-table/columns";
+import { TableNavigationProvider } from "@/components/data-table/table-navigation";
 import type { InventoryMovementListRow } from "@/lib/warehouse/inventory-types";
 import { InventoryMovementDetailPanel } from "./inventory-movement-detail-panel";
 import {
@@ -244,7 +240,7 @@ function MovementRecordPanel({
   return (
     <aside
       aria-labelledby="inventory-movement-panel-title"
-      className="ks-list-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-2xl flex-col overflow-hidden border-l bg-background shadow-2xl xl:static xl:z-auto xl:min-w-0 xl:flex-1 xl:max-w-none xl:shadow-none"
+      className="dt-list-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-2xl flex-col overflow-hidden border-l bg-background shadow-2xl xl:static xl:z-auto xl:min-w-0 xl:flex-1 xl:max-w-none xl:shadow-none"
     >
       <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
         <button

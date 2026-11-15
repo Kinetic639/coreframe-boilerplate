@@ -24,15 +24,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Shield, Plus, Pencil, Trash2, Lock, Building2, GitBranch } from "lucide-react";
-import { FilterBar, type FilterField } from "@/components/kolor-sensu/data-table/filter-bar";
-import type {
-  ColumnLayout,
-  ColumnSet,
-  ColumnWidths,
-} from "@/components/kolor-sensu/data-table/columns";
-import { TableNavigationProvider } from "@/components/kolor-sensu/data-table/table-navigation";
-import { ListPane, ListSidePanel } from "@/components/kolor-sensu/data-table/list-pane";
-import { useListKeys } from "@/components/kolor-sensu/data-table/use-list-keys";
+import { FilterBar, type FilterField } from "@/components/data-table/filter-bar";
+import type { ColumnLayout, ColumnSet, ColumnWidths } from "@/components/data-table/columns";
+import { TableNavigationProvider } from "@/components/data-table/table-navigation";
+import { ListPane, ListSidePanel } from "@/components/data-table/list-pane";
+import { useListKeys } from "@/components/data-table/use-list-keys";
 import {
   allowedInScope,
   groupCatalog,
@@ -379,7 +375,7 @@ export function RolesWorkspace({
 
   return (
     <TableNavigationProvider navigate={navigate}>
-      <section className="ks-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
+      <section className="dt-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2.5 md:px-4">
           <div className="flex items-baseline gap-2">
             <h2 className="text-lg font-semibold tracking-tight">{labels.title}</h2>
@@ -392,7 +388,7 @@ export function RolesWorkspace({
             </Button>
           ) : null}
         </header>
-        <div className="ks-list-filter-row">
+        <div className="dt-list-filter-row">
           <FilterBar
             parsers={roleParsers}
             fields={fields}

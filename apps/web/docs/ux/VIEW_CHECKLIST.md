@@ -161,7 +161,7 @@ Stan inwentaryzacji: **11 listopada 2026**. Zakres: wyłącznie `apps/web`.
 
 ### R034 — Demo DataView w dashboardzie
 
-- Usunięty razem z DataView (11.2026): wszystkie listy działają na tabeli Kolor Sensu.
+- Usunięty razem z DataView (11.2026): wszystkie listy działają na wspólnej tabeli danych.
 
 ### R035 — Diagnostyka kontekstu i uprawnień
 
@@ -1779,7 +1779,7 @@ Stan inwentaryzacji: **11 listopada 2026**. Zakres: wyłącznie `apps/web`.
 
 ### R009 — Demo list i szczegółów DataView
 
-- Usunięty razem z DataView (11.2026): wszystkie listy działają na tabeli Kolor Sensu.
+- Usunięty razem z DataView (11.2026): wszystkie listy działają na wspólnej tabeli danych.
 
 ### R010 — Dostęp do funkcji i limity organizacji
 

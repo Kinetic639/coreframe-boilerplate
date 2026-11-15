@@ -1094,7 +1094,7 @@
       .theme-E .object-icon {
         border-radius: 12px;
       }
-      /* F: Kolor Sensu-inspired; Ambra amber, dense grid, pinned identity and side inspector. */
+      /* F: Pierwowzór tabeli; Ambra amber, dense grid, pinned identity and side inspector. */
       .theme-F {
         --accent: #a36b18;
         --accentsoft: #fbf2e3;
@@ -1706,14 +1706,14 @@
       .theme-F .pagehead h2 {
         font-size: 18px;
       }
-      .theme-F .toolbar.ks-toolbar {
+      .theme-F .toolbar.dt-toolbar {
         position: relative;
         min-height: 40px;
         gap: 6px;
         padding: 5px 8px;
         flex-wrap: wrap;
       }
-      .ks-toolbar .btn {
+      .dt-toolbar .btn {
         min-height: 28px;
         height: 28px;
         border-color: transparent;
@@ -1721,14 +1721,14 @@
         background: transparent;
         font-size: 12px;
       }
-      .ks-toolbar .btn:hover {
+      .dt-toolbar .btn:hover {
         background: var(--soft);
       }
-      .ks-toolbar .ks-filter-trigger {
+      .dt-toolbar .dt-filter-trigger {
         width: 28px;
         flex: 0 0 28px;
       }
-      .ks-filter-badge {
+      .dt-filter-badge {
         position: absolute;
         left: 26px;
         top: 2px;
@@ -1741,7 +1741,7 @@
         border-radius: 10px;
         pointer-events: none;
       }
-      .ks-search {
+      .dt-search {
         display: inline-flex;
         align-items: center;
         height: 28px;
@@ -1752,12 +1752,12 @@
         cursor: pointer;
         padding: 0 5px;
       }
-      .ks-search svg {
+      .dt-search svg {
         width: 16px;
         height: 16px;
         flex-shrink: 0;
       }
-      .ks-search input {
+      .dt-search input {
         width: 1px;
         min-width: 1px;
         padding: 0;
@@ -1768,18 +1768,18 @@
         font: inherit;
         font-size: 13px;
       }
-      .ks-search.is-open {
+      .dt-search.is-open {
         border-color: var(--accent);
         background: white;
         gap: 6px;
       }
-      .ks-search.is-open input {
+      .dt-search.is-open input {
         width: 185px;
       }
-      .ks-search input::-webkit-search-cancel-button {
+      .dt-search input::-webkit-search-cancel-button {
         display: none;
       }
-      .ks-active {
+      .dt-active {
         margin-left: auto;
         display: flex;
         gap: 6px;
@@ -1788,7 +1788,7 @@
         flex-wrap: wrap;
         min-width: 0;
       }
-      .ks-chip {
+      .dt-chip {
         display: inline-flex;
         height: 26px;
         max-width: 100%;
@@ -1797,7 +1797,7 @@
         overflow: hidden;
         background: white;
       }
-      .ks-chip button {
+      .dt-chip button {
         border: 0;
         background: transparent;
         display: inline-flex;
@@ -1808,32 +1808,32 @@
         font-size: 12px;
         min-width: 0;
       }
-      .ks-chip button:first-child {
+      .dt-chip button:first-child {
         overflow: hidden;
       }
-      .ks-chip button span {
+      .dt-chip button span {
         color: var(--muted);
         white-space: nowrap;
       }
-      .ks-chip strong {
+      .dt-chip strong {
         font-weight: 600;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .ks-chip button:last-child {
+      .dt-chip button:last-child {
         border-left: 1px solid var(--line);
         padding: 0 5px;
         flex-shrink: 0;
       }
-      .ks-chip svg {
+      .dt-chip svg {
         height: 12px;
         width: 12px;
       }
-      .ks-chip button:hover {
+      .dt-chip button:hover {
         background: var(--soft);
       }
-      .ks-popover {
+      .dt-popover {
         z-index: 50;
         position: fixed;
         width: 256px;
@@ -1847,10 +1847,10 @@
         box-shadow: 0 8px 24px #102a5620;
         font: 13px/1.4 system-ui;
       }
-      .ks-popover[hidden] {
+      .dt-popover[hidden] {
         display: none;
       }
-      .ks-option {
+      .dt-option {
         border: 0;
         background: transparent;
         display: flex;
@@ -1863,25 +1863,25 @@
         text-align: left;
         font: inherit;
       }
-      .ks-option:hover,
-      .ks-option:focus-visible {
+      .dt-option:hover,
+      .dt-option:focus-visible {
         background: #f8faf9;
         outline: 2px solid #2a8d70;
         outline-offset: -2px;
       }
-      .ks-option.chosen {
+      .dt-option.chosen {
         background: #e6f5ee;
         color: #0f7a59;
       }
-      .ks-check {
+      .dt-check {
         width: 14px;
       }
-      .ks-value-count {
+      .dt-value-count {
         margin-left: auto;
         color: #566f94;
         font-size: 11px;
       }
-      .ks-box {
+      .dt-box {
         width: 14px;
         height: 14px;
         border: 1px solid #c7d4da;
@@ -1891,12 +1891,12 @@
         font-size: 11px;
         line-height: 1;
       }
-      .ks-box.checked {
+      .dt-box.checked {
         background: #0f7a59;
         border-color: #0f7a59;
         color: white;
       }
-      .ks-menu-title {
+      .dt-menu-title {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -1905,55 +1905,55 @@
         color: #566f94;
         font-size: 11px;
       }
-      .ks-menu-title button {
+      .dt-menu-title button {
         border: 0;
         background: transparent;
         color: #0f7a59;
         font-size: 11px;
         font-weight: 600;
       }
-      .ks-back {
+      .dt-back {
         color: #566f94;
       }
-      .ks-back svg {
+      .dt-back svg {
         width: 14px;
         height: 14px;
       }
-      .ks-divider {
+      .dt-divider {
         border-top: 1px solid #dce5e8;
         margin: 4px 0;
       }
-      .phone.theme-F .ks-toolbar {
+      .phone.theme-F .dt-toolbar {
         gap: 6px;
       }
-      .phone.theme-F .ks-toolbar .btn {
+      .phone.theme-F .dt-toolbar .btn {
         height: 40px;
         min-height: 40px;
       }
-      .phone.theme-F .ks-filter-trigger {
+      .phone.theme-F .dt-filter-trigger {
         width: 40px;
         flex-basis: 40px;
       }
-      .phone.theme-F .ks-filter-badge {
+      .phone.theme-F .dt-filter-badge {
         left: 34px;
         top: 4px;
       }
-      .phone.theme-F .ks-search {
+      .phone.theme-F .dt-search {
         height: 40px;
       }
-      .phone.theme-F .ks-search.is-open input {
+      .phone.theme-F .dt-search.is-open input {
         width: min(185px, 42vw);
       }
-      .phone.theme-F .ks-active {
+      .phone.theme-F .dt-active {
         flex-basis: 100%;
       }
-      .phone.theme-F .ks-active:empty {
+      .phone.theme-F .dt-active:empty {
         display: none;
       }
-      .phone.theme-F .ks-chip {
+      .phone.theme-F .dt-chip {
         height: 36px;
       }
-      .phone.theme-F .ks-chip button:last-child {
+      .phone.theme-F .dt-chip button:last-child {
         min-width: 34px;
         justify-content: center;
       }
@@ -1961,7 +1961,7 @@
         width: 36px;
         height: 36px;
       }
-      body:has(.phone.theme-F) .ks-option {
+      body:has(.phone.theme-F) .dt-option {
         height: 42px;
       }
     </style>
@@ -2117,8 +2117,8 @@
     </dialog>
     <div class="toast" role="status" id="toast"></div>
     <div
-      id="ksFilterPopover"
-      class="ks-popover"
+      id="dtFilterPopover"
+      class="dt-popover"
       role="dialog"
       aria-label="Filtry produktów"
       hidden
@@ -2151,10 +2151,10 @@
           description: "Czytelne listy i grupowane sekcje; desktop jako adaptacja układu iPada.",
         },
         F: {
-          name: "Kolor Sensu",
-          label: "F · Kolor Sensu",
+          name: "Pierwowzór",
+          label: "F · Pierwowzór",
           description:
-            "Kolor Sensu: oryginalne kolory, rozwijana lupa, menu pól, wielokrotny wybór i edytowalne filtry na pasku.",
+            "Pierwowzór: oryginalne kolory, rozwijana lupa, menu pól, wielokrotny wybór i edytowalne filtry na pasku.",
         },
       };
       const DEMO_PHOTOS = [
@@ -2462,11 +2462,11 @@
           "</button>"
         );
       }
-      let kolorMenu = null,
-        kolorAnchor = null,
-        kolorSearchOpen = false,
-        kolorSearchTimer;
-      const KOLOR_FIELDS = [
+      let protoMenu = null,
+        protoAnchor = null,
+        protoSearchOpen = false,
+        protoSearchTimer;
+      const PROTO_FIELDS = [
         {
           id: "type",
           label: "Typ",
@@ -2501,11 +2501,11 @@
           ),
         },
       ];
-      const kolorValues = (s, key) => (s[key] ? s[key].split(",") : []);
-      function kolorToolbar(s) {
-        const chips = KOLOR_FIELDS.filter((f) => s[f.id])
+      const protoValues = (s, key) => (s[key] ? s[key].split(",") : []);
+      function protoToolbar(s) {
+        const chips = PROTO_FIELDS.filter((f) => s[f.id])
           .map((f) => {
-            const labels = kolorValues(s, f.id).map(
+            const labels = protoValues(s, f.id).map(
               (v) => f.options.find((o) => o[0] === v)?.[1] ?? v
             );
             const value =
@@ -2513,13 +2513,13 @@
                 ? labels[0] + " i " + (labels.length - 1) + " inne"
                 : labels.join(", ");
             return (
-              '<span class="ks-chip"><button data-ks-edit="' +
+              '<span class="dt-chip"><button data-dt-edit="' +
               f.id +
               '"><span>' +
               f.label +
               " jest</span> <strong>" +
               esc(value) +
-              '</strong></button><button data-ks-remove="' +
+              '</strong></button><button data-dt-remove="' +
               f.id +
               '" aria-label="Usuń filtr ' +
               f.label +
@@ -2530,22 +2530,22 @@
           })
           .join("");
         return (
-          '<div class="toolbar ks-toolbar">' +
+          '<div class="toolbar dt-toolbar">' +
           btn(
             "",
             "filter",
             'data-action="filters" aria-label="Filtry' +
               (activeFilters(s) ? ", ustawione: " + activeFilters(s) : "") +
               '" aria-expanded="' +
-              (kolorMenu !== null) +
+              (protoMenu !== null) +
               '"',
-            "icon ks-filter-trigger"
+            "icon dt-filter-trigger"
           ) +
           (activeFilters(s)
-            ? '<span class="ks-filter-badge">' + activeFilters(s) + "</span>"
+            ? '<span class="dt-filter-badge">' + activeFilters(s) + "</span>"
             : "") +
-          '<label class="ks-search ' +
-          (kolorSearchOpen || s.search ? "is-open" : "") +
+          '<label class="dt-search ' +
+          (protoSearchOpen || s.search ? "is-open" : "") +
           '" title="Szukaj (/)">' +
           icon("search") +
           '<input id="search" type="search" aria-label="Szukaj produktów po nazwie lub SKU" placeholder="Szukaj nazwy lub SKU…" value="' +
@@ -2555,44 +2555,44 @@
             ? btn(
                 "",
                 "close",
-                'data-action="ks-search-clear" aria-label="Wyczyść wyszukiwanie"',
+                'data-action="dt-search-clear" aria-label="Wyczyść wyszukiwanie"',
                 "icon"
               )
             : "") +
-          '<div class="ks-active" role="group" aria-label="Ustawione filtry">' +
+          '<div class="dt-active" role="group" aria-label="Ustawione filtry">' +
           chips +
           "</div>" +
           btn("Kolumny", "columns", 'data-action="columns"', "desktop-control") +
           "</div>"
         );
       }
-      function renderKolorMenu() {
-        const pop = document.getElementById("ksFilterPopover");
+      function renderProtoMenu() {
+        const pop = document.getElementById("dtFilterPopover");
         document
-          .querySelector(".ks-filter-trigger")
-          ?.setAttribute("aria-expanded", String(kolorMenu !== null));
-        pop.hidden = kolorMenu === null || read().variant !== "F";
+          .querySelector(".dt-filter-trigger")
+          ?.setAttribute("aria-expanded", String(protoMenu !== null));
+        pop.hidden = protoMenu === null || read().variant !== "F";
         if (pop.hidden) return;
         const s = read(),
-          field = KOLOR_FIELDS.find((f) => f.id === kolorMenu);
+          field = PROTO_FIELDS.find((f) => f.id === protoMenu);
         pop.innerHTML = field
-          ? '<button class="ks-option ks-back" data-ks-back>' +
+          ? '<button class="dt-option dt-back" data-dt-back>' +
             icon("left") +
             esc(field.label) +
-            '</button><div class="ks-divider"></div><div role="group" aria-label="Wartości: ' +
+            '</button><div class="dt-divider"></div><div role="group" aria-label="Wartości: ' +
             esc(field.label) +
             '">' +
             field.options
               .map(([value, label]) => {
-                const checked = kolorValues(s, field.id).includes(value);
+                const checked = protoValues(s, field.id).includes(value);
                 return (
-                  '<button class="ks-option" role="menuitemcheckbox" aria-checked="' +
+                  '<button class="dt-option" role="menuitemcheckbox" aria-checked="' +
                   checked +
-                  '" data-ks-value="' +
+                  '" data-dt-value="' +
                   esc(value) +
-                  '" data-ks-field="' +
+                  '" data-dt-field="' +
                   field.id +
-                  '"><span class="ks-box ' +
+                  '"><span class="dt-box ' +
                   (checked ? "checked" : "") +
                   '">' +
                   (checked ? "✓" : "") +
@@ -2603,25 +2603,25 @@
               })
               .join("") +
             "</div>"
-          : '<div class="ks-menu-title">Filtruj według' +
-            (activeFilters(s) ? "<button data-ks-clear>Wyczyść wszystkie</button>" : "") +
+          : '<div class="dt-menu-title">Filtruj według' +
+            (activeFilters(s) ? "<button data-dt-clear>Wyczyść wszystkie</button>" : "") +
             "</div>" +
-            KOLOR_FIELDS.map(
+            PROTO_FIELDS.map(
               (f) =>
-                '<button class="ks-option ' +
+                '<button class="dt-option ' +
                 (s[f.id] ? "chosen" : "") +
-                '" data-ks-edit="' +
+                '" data-dt-edit="' +
                 f.id +
-                '"><span class="ks-check">' +
+                '"><span class="dt-check">' +
                 (s[f.id] ? "✓" : "") +
                 "</span>" +
                 f.label +
-                '<span class="ks-value-count">' +
-                (kolorValues(s, f.id).length || "") +
+                '<span class="dt-value-count">' +
+                (protoValues(s, f.id).length || "") +
                 "</span></button>"
             ).join("");
         const r =
-          kolorAnchor ?? document.querySelector(".ks-filter-trigger")?.getBoundingClientRect();
+          protoAnchor ?? document.querySelector(".dt-filter-trigger")?.getBoundingClientRect();
         if (r) {
           const w = Math.min(256, innerWidth - 16);
           pop.style.width = w + "px";
@@ -2630,15 +2630,15 @@
             Math.max(8, Math.min(r.bottom + 5, innerHeight - pop.offsetHeight - 8)) + "px";
         }
       }
-      function kolorChange(patch) {
+      function protoChange(patch) {
         listScroll = 0;
         lastSelected = null;
         selectedChecks.clear();
         update({ ...patch, page: null, selected: null, tab: null });
-        renderKolorMenu();
+        renderProtoMenu();
       }
       function toolbar(s, count) {
-        if (s.variant === "F") return kolorToolbar(s);
+        if (s.variant === "F") return protoToolbar(s);
         return (
           '<div class="toolbar"><label class="search">' +
           icon("search") +
@@ -2674,9 +2674,9 @@
           stock: { low: "Poniżej minimum", available: "Dostępne", zero: "Brak zapasu" }[s.stock],
           category: s.category,
         };
-        for (const f of KOLOR_FIELDS)
+        for (const f of PROTO_FIELDS)
           if (s[f.id])
-            names[f.id] = kolorValues(s, f.id)
+            names[f.id] = protoValues(s, f.id)
               .map((v) => f.options.find((o) => o[0] === v)?.[1] ?? v)
               .join(", ");
         const active = ["status", "type", "stock", "category"].filter((k) => s[k]);
@@ -3117,7 +3117,7 @@
               "Więcej</span></nav>"
             : "") +
           "</div>";
-        renderKolorMenu();
+        renderProtoMenu();
         if (!p && document.getElementById("listScroll"))
           document.getElementById("listScroll").scrollTop = listScroll;
         if (focusId) {
@@ -3138,40 +3138,40 @@
         const el = e.target.closest("button,a,input");
         if (!el) return;
         const s = read();
-        if (el.hasAttribute("data-ks-back")) {
-          kolorMenu = "fields";
-          renderKolorMenu();
+        if (el.hasAttribute("data-dt-back")) {
+          protoMenu = "fields";
+          renderProtoMenu();
           return;
         }
-        if (el.dataset.ksEdit) {
-          if (!el.closest("#ksFilterPopover")) kolorAnchor = el.getBoundingClientRect();
-          kolorMenu = el.dataset.ksEdit;
-          renderKolorMenu();
+        if (el.dataset.dtEdit) {
+          if (!el.closest("#dtFilterPopover")) protoAnchor = el.getBoundingClientRect();
+          protoMenu = el.dataset.dtEdit;
+          renderProtoMenu();
           return;
         }
-        if (el.dataset.ksValue) {
-          const key = el.dataset.ksField,
-            values = kolorValues(s, key),
-            value = el.dataset.ksValue;
+        if (el.dataset.dtValue) {
+          const key = el.dataset.dtField,
+            values = protoValues(s, key),
+            value = el.dataset.dtValue;
           const next = values.includes(value)
             ? values.filter((v) => v !== value)
             : [...values, value];
-          kolorChange({ [key]: next.join(",") || null });
+          protoChange({ [key]: next.join(",") || null });
           document
-            .querySelector('#ksFilterPopover [data-ks-value="' + CSS.escape(value) + '"]')
+            .querySelector('#dtFilterPopover [data-dt-value="' + CSS.escape(value) + '"]')
             ?.focus();
           return;
         }
-        if (el.dataset.ksRemove) {
-          kolorChange({ [el.dataset.ksRemove]: null });
+        if (el.dataset.dtRemove) {
+          protoChange({ [el.dataset.dtRemove]: null });
           return;
         }
-        if (el.hasAttribute("data-ks-clear")) {
-          kolorChange({ status: null, type: null, stock: null, category: null });
+        if (el.hasAttribute("data-dt-clear")) {
+          protoChange({ status: null, type: null, stock: null, category: null });
           return;
         }
         if (el.dataset.theme) {
-          kolorMenu = null;
+          protoMenu = null;
           update({ variant: el.dataset.theme });
           return;
         }
@@ -3234,17 +3234,17 @@
           case "close":
             closeDetail();
             break;
-          case "ks-search-clear":
-            clearTimeout(kolorSearchTimer);
-            kolorSearchOpen = true;
-            kolorChange({ search: null });
+          case "dt-search-clear":
+            clearTimeout(protoSearchTimer);
+            protoSearchOpen = true;
+            protoChange({ search: null });
             document.getElementById("search")?.focus();
             break;
           case "filters": {
             if (s.variant === "F") {
-              kolorMenu = kolorMenu === null ? "fields" : null;
-              kolorAnchor = el.getBoundingClientRect();
-              renderKolorMenu();
+              protoMenu = protoMenu === null ? "fields" : null;
+              protoAnchor = el.getBoundingClientRect();
+              renderProtoMenu();
               break;
             }
             const d = document.getElementById("filterDialog");
@@ -3321,10 +3321,10 @@
         if (e.target.id === "search") {
           listScroll = 0;
           if (read().variant === "F") {
-            clearTimeout(kolorSearchTimer);
+            clearTimeout(protoSearchTimer);
             const value = e.target.value;
-            if (!value) kolorChange({ search: null });
-            else kolorSearchTimer = setTimeout(() => kolorChange({ search: value }), 300);
+            if (!value) protoChange({ search: null });
+            else protoSearchTimer = setTimeout(() => protoChange({ search: value }), 300);
             return;
           }
           update({ search: e.target.value, page: null });
@@ -3386,23 +3386,23 @@
       });
       document.addEventListener("pointerdown", (e) => {
         if (
-          kolorMenu !== null &&
-          !e.target.closest('#ksFilterPopover,[data-action="filters"],[data-ks-edit]')
+          protoMenu !== null &&
+          !e.target.closest('#dtFilterPopover,[data-action="filters"],[data-dt-edit]')
         ) {
-          kolorMenu = null;
-          renderKolorMenu();
+          protoMenu = null;
+          renderProtoMenu();
         }
       });
       document.addEventListener("focusin", (e) => {
         if (e.target.id === "search" && read().variant === "F") {
-          kolorSearchOpen = true;
-          e.target.closest(".ks-search")?.classList.add("is-open");
+          protoSearchOpen = true;
+          e.target.closest(".dt-search")?.classList.add("is-open");
         }
       });
       document.addEventListener("focusout", (e) => {
         if (e.target.id === "search" && read().variant === "F" && !e.target.value) {
-          kolorSearchOpen = false;
-          e.target.closest(".ks-search")?.classList.remove("is-open");
+          protoSearchOpen = false;
+          e.target.closest(".dt-search")?.classList.remove("is-open");
         }
       });
       document.addEventListener("keydown", (e) => {
@@ -3412,28 +3412,28 @@
           document.getElementById("search")?.focus();
         }
         if (e.key === "Escape") {
-          if (kolorMenu !== null) {
-            kolorMenu = null;
-            renderKolorMenu();
-            document.querySelector(".ks-filter-trigger")?.focus();
+          if (protoMenu !== null) {
+            protoMenu = null;
+            renderProtoMenu();
+            document.querySelector(".dt-filter-trigger")?.focus();
           } else if (e.target.id === "search") {
-            clearTimeout(kolorSearchTimer);
-            kolorChange({ search: null });
+            clearTimeout(protoSearchTimer);
+            protoChange({ search: null });
             document.getElementById("search")?.focus();
           }
         }
-        if (["ArrowDown", "ArrowUp"].includes(e.key) && e.target.closest("#ksFilterPopover")) {
+        if (["ArrowDown", "ArrowUp"].includes(e.key) && e.target.closest("#dtFilterPopover")) {
           e.preventDefault();
-          const opts = [...document.querySelectorAll("#ksFilterPopover button")],
+          const opts = [...document.querySelectorAll("#dtFilterPopover button")],
             i = opts.indexOf(document.activeElement);
           opts[(i + (e.key === "ArrowDown" ? 1 : -1) + opts.length) % opts.length]?.focus();
         }
       });
-      window.addEventListener("resize", renderKolorMenu);
+      window.addEventListener("resize", renderProtoMenu);
       window.addEventListener("popstate", () => {
-        clearTimeout(kolorSearchTimer);
+        clearTimeout(protoSearchTimer);
         render();
-        renderKolorMenu();
+        renderProtoMenu();
       });
       render();
     </script>

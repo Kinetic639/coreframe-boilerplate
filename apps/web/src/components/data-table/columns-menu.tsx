@@ -20,9 +20,9 @@ import { CSS } from "@dnd-kit/utilities";
 import { Check, Columns3, GripVertical } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { cn } from "../lib/utils";
-import { Popover, PopoverContent, PopoverTrigger } from "../popover";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../tooltip";
+import { cn } from "./lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "./popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip";
 import { serializeLayout, type ColumnLayout } from "./columns";
 
 // A table's "Kolumny" menu, in the header of its last column:

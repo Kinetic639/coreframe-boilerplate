@@ -17,7 +17,7 @@ import { HelpdeskTicketsService } from "@/server/services/helpdesk-tickets.servi
 import { HelpdeskTicketTypesService } from "@/server/services/helpdesk-ticket-types.service";
 import { OrgMembersService } from "@/server/services/organization.service";
 import { TICKET_PRIORITIES, TICKET_STATUSES } from "@/lib/validations/helpdesk";
-import { parseLayout, parseWidths } from "@/components/kolor-sensu/data-table/columns";
+import { parseLayout, parseWidths } from "@/components/data-table/columns";
 import { Button } from "@/components/ui/button";
 import { TicketFilters, TicketQueues, TicketsTotal } from "./_components/tickets-controls";
 import { ticketKeys } from "./_components/tickets-query";
@@ -29,7 +29,7 @@ import {
   ticketHref,
   ticketListParams,
 } from "./_components/tickets-state";
-import "@/components/kolor-sensu/data-table/ambra-list.css";
+import "@/components/data-table/ambra-list.css";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -201,7 +201,7 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <section className="ks-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
+      <section className="dt-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
         {header(<TicketsTotal orgId={orgId} initial={data.totalCount} />)}
         {canManage ? <TicketQueues userId={userId} branchId={branchId} labels={labels} /> : null}
         <TicketFilters

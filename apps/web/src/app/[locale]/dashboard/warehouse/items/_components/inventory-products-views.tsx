@@ -10,7 +10,7 @@ import {
   listInventoryViewsAction,
   saveInventoryViewAction,
 } from "@/app/actions/warehouse/inventory";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/kolor-sensu/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/data-table/popover";
 import { cn } from "@/lib/utils";
 import { inventoryProductKeys, type ProductsScope } from "./inventory-product-query";
 import {

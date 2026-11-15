@@ -1,6 +1,6 @@
 # DataView produktów — analiza i propozycje
 
-11 listopada 2026. Zakres: DataView w `apps/web`, jego podłączenie do `/dashboard/magazyn/produkty`, powiązany serwis produktów oraz porównanie tylko do odczytu z `D:\dev\kolor-sensu-review`.
+11 listopada 2026. Zakres: DataView w `apps/web`, jego podłączenie do `/dashboard/magazyn/produkty`, powiązany serwis produktów oraz porównanie tylko do odczytu z `D:\dev\projekt źródłowy`.
 
 [Interaktywny prototyp](prototype.html) · [Galeria 24 ekranów](gallery.html)
 
@@ -87,7 +87,7 @@ Obecny komponent ma mobilną gałąź poniżej 1024 px i pełnoekranowe szczegó
 
 Propozycja: projektować całe środowisko listy, nie tylko wnętrze tabeli. Mobilna lista ma priorytetowe pola i filtr w panelu; szczegóły zajmują ekran. Desktop może mieć tabelę i inspektor albo kompaktową listę i obiekt. Zmiana szerokości nie powinna blokować pokazania gotowych danych.
 
-## Co przenieść z Kolor Sensu
+## Co przenieść z pierwowzoru tabeli
 
 Odnalezione źródła w drugim projekcie:
 
@@ -117,7 +117,7 @@ To zestaw komponentów, nie jeden plik nazwany DataView. Wariant F korzysta z ic
 - **C:** adaptacja SAP Fiori; filtry, lista–obiekt i jawne sekcje.
 - **D:** adaptacja Zoho Inventory; operacyjna kartoteka. Desktop jest naszym rozwinięciem inspiracji mobilnej.
 - **E:** adaptacja SAP iOS/iPad; grupowane listy i sekcje. Desktop nie jest oficjalnym produktem SAP.
-- **F:** odwzorowanie wzorca Kolor Sensu: oryginalne zielone akcenty i granatowy tekst, zwarta siatka ze zdjęciami, panel 384 px, lupa rozwijana po kliknięciu lub `/`, menu pól filtrów, wielokrotny wybór wartości i edytowalne etykiety po prawej stronie paska. Wybór działa od razu, bez „Zastosuj”, zapisuje stan w URL i resetuje stronę oraz otwarty rekord. Mobilne kontrolki mają większe obszary dotyku.
+- **F:** odwzorowanie pierwowzoru tabeli: oryginalne zielone akcenty i granatowy tekst, zwarta siatka ze zdjęciami, panel 384 px, lupa rozwijana po kliknięciu lub `/`, menu pól filtrów, wielokrotny wybór wartości i edytowalne etykiety po prawej stronie paska. Wybór działa od razu, bez „Zastosuj”, zapisuje stan w URL i resetuje stronę oraz otwarty rekord. Mobilne kontrolki mają większe obszary dotyku.
 
 Każdy kierunek ma desktop/mobile oraz listę/szczegóły. Przełączniki w prototypie pozwalają porównać ten sam produkt i te same filtry. Działają: wyszukiwanie nazwy/SKU, filtry, sortowanie, paginacja, kolumny, zaznaczanie desktopowe, wybór produktu, URL, powrót, reload i zakładki szczegółów. Część kontrolek, np. utworzenie i eksport, jest opisana jako poza zakresem prototypu.
 

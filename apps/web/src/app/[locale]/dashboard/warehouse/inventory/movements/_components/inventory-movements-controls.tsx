@@ -2,7 +2,7 @@
 
 import { useQueryStates } from "nuqs";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { FilterBar, type FilterField } from "@/components/kolor-sensu/data-table/filter-bar";
+import { FilterBar, type FilterField } from "@/components/data-table/filter-bar";
 import type { DocumentUnit } from "@/server/services/warehouse-stock.service";
 import { MOVEMENT_STATUSES, movementParsers, POSTED_WITHIN } from "./inventory-movements-state";
 import { movementListQuery, type MovementsScope } from "./inventory-movements-query";
@@ -95,7 +95,7 @@ export function MovementFilters({
     id === "movement_type" ? ["rodzaj"] : id === "warehouse" ? ["jednostka", "magazyn"] : [id]
   );
   return (
-    <div className="ks-list-filter-row">
+    <div className="dt-list-filter-row">
       <FilterBar
         parsers={movementParsers}
         fields={fields}

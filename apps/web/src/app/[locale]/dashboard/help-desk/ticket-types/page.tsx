@@ -9,7 +9,7 @@ import { createClient } from "@/utils/supabase/server";
 import { HelpdeskTicketTypesService } from "@/server/services/helpdesk-ticket-types.service";
 import { OrgMembersService } from "@/server/services/organization.service";
 import { TICKET_PRIORITIES } from "@/lib/validations/helpdesk";
-import { parseLayout, parseWidths } from "@/components/kolor-sensu/data-table/columns";
+import { parseLayout, parseWidths } from "@/components/data-table/columns";
 import { ticketTypeColumnSet } from "./_components/ticket-types-table";
 import { TicketTypesView } from "./_components/ticket-types-view";
 import {
@@ -17,7 +17,7 @@ import {
   migrateTicketTypeSearchParams,
   ticketTypeHref,
 } from "./_components/ticket-types-state";
-import "@/components/kolor-sensu/data-table/ambra-list.css";
+import "@/components/data-table/ambra-list.css";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;

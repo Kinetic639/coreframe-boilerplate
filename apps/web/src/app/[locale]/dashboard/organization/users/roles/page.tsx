@@ -6,7 +6,7 @@ import { checkPermission } from "@/lib/utils/permissions";
 import { MEMBERS_MANAGE, MEMBERS_READ } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
 import { OrgRolesService } from "@/server/services/organization.service";
-import { savedColumns } from "@/components/kolor-sensu/data-table/saved-columns";
+import { savedColumns } from "@/components/data-table/saved-columns";
 import { RolesWorkspace } from "./_components/roles-workspace";
 import {
   loadRoleState,
@@ -14,13 +14,13 @@ import {
   roleColumnSet,
   roleHref,
 } from "./_components/roles-state";
-import "@/components/kolor-sensu/data-table/ambra-list.css";
+import "@/components/data-table/ambra-list.css";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-/** The organization's roles (Kolor Sensu list), all loaded; the address picks. */
+/** The organization's roles (data table list), all loaded; the address picks. */
 export default async function RolesPage({ searchParams }: PageProps = {}) {
   const [locale, context, t, tUsers] = await Promise.all([
     getLocale(),

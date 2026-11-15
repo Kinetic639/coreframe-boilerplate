@@ -4,7 +4,7 @@ import { getPathname } from "@/i18n/navigation";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { FeedbackListView } from "@/components/platform-feedback/feedback-list-view";
 import { loadFeedbackPage } from "@/components/platform-feedback/feedback-page-data";
-import "@/components/kolor-sensu/data-table/ambra-list.css";
+import "@/components/data-table/ambra-list.css";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;

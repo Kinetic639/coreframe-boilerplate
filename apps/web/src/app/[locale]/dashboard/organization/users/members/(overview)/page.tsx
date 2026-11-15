@@ -11,7 +11,7 @@ import {
   OrgRolesService,
   OrgBranchesService,
 } from "@/server/services/organization.service";
-import { savedColumns } from "@/components/kolor-sensu/data-table/saved-columns";
+import { savedColumns } from "@/components/data-table/saved-columns";
 import { MembersWorkspace } from "../_components/members-workspace";
 import {
   loadMemberState,
@@ -19,13 +19,13 @@ import {
   memberHref,
   migrateMemberSearchParams,
 } from "../_components/members-state";
-import "@/components/kolor-sensu/data-table/ambra-list.css";
+import "@/components/data-table/ambra-list.css";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-/** The organization's members (Kolor Sensu list), all loaded; the address picks. */
+/** The organization's members (data table list), all loaded; the address picks. */
 export default async function MembersPage({ searchParams }: PageProps = {}) {
   const [locale, context, t] = await Promise.all([
     getLocale(),
