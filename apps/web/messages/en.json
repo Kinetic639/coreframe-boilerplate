@@ -9541,5 +9541,78 @@
         "subtitle": "Bugs, problems and ideas from every organization."
       }
     }
+  },
+  "dataTable": {
+    "loading": "Loading…",
+    "pagination": {
+      "rowsPerPage": "Rows per page",
+      "rows": "Rows:",
+      "pages": "Pages",
+      "previous": "Previous page",
+      "next": "Next page",
+      "range": "{from}–{to} of {total}"
+    },
+    "columns": {
+      "menu": "Columns",
+      "heading": "Columns · drag to reorder",
+      "always": "always",
+      "reset": "Reset to default",
+      "move": "Move column {label}",
+      "width": "Width of column {label}",
+      "widthHint": "Drag to change the width (double-click: default)",
+      "instructions": "To move a column, press Space, move it with the arrow keys and press Space to drop it. Escape cancels.",
+      "dragStart": "Picked up column {label}.",
+      "dragOver": "Column {label} is over column {over}.",
+      "dragEndOver": "Column {label} dropped in place of column {over}.",
+      "dragEnd": "Column {label} dropped.",
+      "dragCancel": "Moving column {label} cancelled."
+    },
+    "filters": {
+      "menu": "Filters",
+      "menuSet": "Filters, set: {count}",
+      "heading": "Filter by",
+      "clearAll": "Clear all",
+      "fieldSet": "{label}, in the bar, values: {count}",
+      "remove": "Remove filter {label}",
+      "set": "Filters set",
+      "contains": "contains",
+      "is": "is",
+      "more": "{first} and {count} more",
+      "values": "Values: {label}",
+      "from": "From",
+      "to": "To",
+      "show": "Show",
+      "ownDates": "Custom date range"
+    },
+    "search": {
+      "hint": "Search (/)",
+      "clear": "Clear search"
+    },
+    "views": {
+      "menu": "Views",
+      "menuActive": "Views, selected: {name}",
+      "loading": "Loading views…",
+      "empty": "You have no saved views yet. Set filters and sorting, then save them below.",
+      "mine": "My views",
+      "shared": "Shared views",
+      "remove": "Delete view {name}",
+      "saveLabel": "Save the current filters and sorting as a view",
+      "placeholder": "e.g. Active, newest first",
+      "share": "Share with the whole organization",
+      "save": "Save view",
+      "saved": "View saved",
+      "duplicate": "A view with this name already exists.",
+      "saveFailed": "Could not save the view. Please try again.",
+      "removeFailed": "Could not delete the view. Please try again."
+    },
+    "bulk": {
+      "actions": "Actions on selected",
+      "selected": "Selected",
+      "export": "Export CSV",
+      "clear": "Clear selection",
+      "selectAll": "Select all",
+      "selectRow": "Select: {label}",
+      "fileName": "list"
+    }
   }
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { Bookmark, Check, ChevronDown, Trash2, Users } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "react-toastify";
@@ -40,6 +41,8 @@ export interface SavedViewsMenuProps {
 }
 
 export function SavedViewsMenu({ listKey: givenKey, ignore = [], shallow }: SavedViewsMenuProps) {
+  const t = useTranslations("dataTable.views");
+  const locale = useLocale();
   const pathname = usePathname();
   const listKey = givenKey ?? pathname;
   const router = useRouter();
@@ -105,20 +108,16 @@ export function SavedViewsMenu({ listKey: givenKey, ignore = [], shallow }: Save
         isShared: shared,
       });
       if (result.success === false) {
-        toast.error(
-          result.error === "duplicate_name"
-            ? "Widok o tej nazwie już istnieje."
-            : "Nie udało się zapisać widoku. Spróbuj ponownie."
-        );
+        toast.error(result.error === "duplicate_name" ? t("duplicate") : t("saveFailed"));
         return;
       }
       update({
         ...data,
-        views: [...data.views, result.data].sort((a, b) => a.name.localeCompare(b.name, "pl")),
+        views: [...data.views, result.data].sort((a, b) => a.name.localeCompare(b.name, locale)),
       });
       setName("");
       setShared(false);
-      toast.success("Zapisano widok");
+      toast.success(t("saved"));
     });
 
   const remove = (id: string) =>
@@ -126,7 +125,7 @@ export function SavedViewsMenu({ listKey: givenKey, ignore = [], shallow }: Save
       if (!data) return;
       const result = await deleteListViewAction({ id });
       if (!result.success) {
-        toast.error("Nie udało się usunąć widoku. Spróbuj ponownie.");
+        toast.error(t("removeFailed"));
         return;
       }
       update({ ...data, views: data.views.filter((view) => view.id !== id) });
@@ -148,7 +147,7 @@ export function SavedViewsMenu({ listKey: givenKey, ignore = [], shallow }: Save
         </button>
         {removable ? (
           <button
-            aria-label={`Usuń widok ${view.name}`}
+            aria-label={t("remove", { name: view.name })}
             className="mr-0.5 grid size-6 shrink-0 place-items-center rounded-[4px] text-[var(--text-muted)] opacity-0 group-hover:opacity-100 hover:bg-[var(--surface)] hover:text-[var(--danger)] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none"
             disabled={pending}
             onClick={() => remove(view.id)}
@@ -170,7 +169,7 @@ export function SavedViewsMenu({ listKey: givenKey, ignore = [], shallow }: Save
         <Tooltip>
           <TooltipTrigger asChild>
             <PopoverTrigger
-              aria-label={active ? `Widoki, wybrany: ${active.name}` : "Widoki"}
+              aria-label={active ? t("menuActive", { name: active.name }) : t("menu")}
               className={cn(
                 "inline-flex h-7 max-w-48 items-center gap-1 rounded-[5px] px-1.5 text-[0.78rem] text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none data-[state=open]:bg-[var(--surface-subtle)] data-[state=open]:text-[var(--text)]",
                 active && "font-semibold text-[var(--primary)]"
@@ -181,21 +180,18 @@ export function SavedViewsMenu({ listKey: givenKey, ignore = [], shallow }: Save
               <ChevronDown aria-hidden="true" className="size-3 shrink-0 opacity-60" />
             </PopoverTrigger>
           </TooltipTrigger>
-          <TooltipContent>Widoki</TooltipContent>
+          <TooltipContent>{t("menu")}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
       <PopoverContent align="end" className="w-72 p-1 text-[0.8125rem]">
         {!data ? (
-          <p className="px-2 py-2 text-xs text-[var(--text-muted)]">Wczytywanie widoków…</p>
+          <p className="px-2 py-2 text-xs text-[var(--text-muted)]">{t("loading")}</p>
         ) : !views.length ? (
-          <p className="px-2 py-2 text-xs text-[var(--text-muted)]">
-            Nie masz jeszcze zapisanych widoków. Ustaw filtry i sortowanie, a potem zapisz je
-            poniżej.
-          </p>
+          <p className="px-2 py-2 text-xs text-[var(--text-muted)]">{t("empty")}</p>
         ) : null}
         {own.length ? (
           <>
-            <p className={HEADING}>Moje widoki</p>
+            <p className={HEADING}>{t("mine")}</p>
             <ul className="grid gap-px">{own.map(item)}</ul>
           </>
         ) : null}
@@ -208,7 +204,7 @@ export function SavedViewsMenu({ listKey: givenKey, ignore = [], shallow }: Save
               )}
             >
               <Users aria-hidden="true" className="size-3" />
-              Wspólne widoki
+              {t("shared")}
             </p>
             <ul className="grid gap-px">{common.map(item)}</ul>
           </>
@@ -222,12 +218,12 @@ export function SavedViewsMenu({ listKey: givenKey, ignore = [], shallow }: Save
             }}
           >
             <label className="grid gap-1 text-[0.7rem] text-[var(--text-muted)]">
-              Zapisz obecne filtry i sortowanie jako widok
+              {t("saveLabel")}
               <input
                 className="h-8 rounded-[5px] border border-[var(--border)] bg-[var(--surface)] px-2 text-[0.8125rem] text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none"
                 maxLength={160}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="np. Aktywne, od najnowszych"
+                placeholder={t("placeholder")}
                 value={name}
               />
             </label>
@@ -238,14 +234,14 @@ export function SavedViewsMenu({ listKey: givenKey, ignore = [], shallow }: Save
                 onChange={(event) => setShared(event.target.checked)}
                 type="checkbox"
               />
-              Udostępnij całej organizacji
+              {t("share")}
             </label>
             <button
               className="h-8 rounded-[5px] bg-[var(--primary)] px-3 text-xs font-medium text-[var(--primary-foreground)] disabled:opacity-50"
               disabled={pending || !name.trim()}
               type="submit"
             >
-              Zapisz widok
+              {t("save")}
             </button>
           </form>
         ) : null}

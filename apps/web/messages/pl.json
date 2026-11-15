@@ -9624,5 +9624,78 @@
         "subtitle": "Błędy, problemy i propozycje ze wszystkich organizacji."
       }
     }
+  },
+  "dataTable": {
+    "loading": "Ładowanie…",
+    "pagination": {
+      "rowsPerPage": "Wierszy na stronie",
+      "rows": "Wierszy:",
+      "pages": "Strony",
+      "previous": "Poprzednia strona",
+      "next": "Następna strona",
+      "range": "{from}–{to} z {total}"
+    },
+    "columns": {
+      "menu": "Kolumny",
+      "heading": "Kolumny · przeciągnij, by zmienić kolejność",
+      "always": "zawsze",
+      "reset": "Przywróć domyślne",
+      "move": "Przenieś kolumnę {label}",
+      "width": "Szerokość kolumny {label}",
+      "widthHint": "Przeciągnij, aby zmienić szerokość (dwuklik: domyślna)",
+      "instructions": "Aby przenieść kolumnę, naciśnij spację, przesuń ją strzałkami i naciśnij spację, by ją odłożyć. Escape anuluje.",
+      "dragStart": "Podniesiono kolumnę {label}.",
+      "dragOver": "Kolumna {label} nad kolumną {over}.",
+      "dragEndOver": "Kolumna {label} odłożona w miejsce kolumny {over}.",
+      "dragEnd": "Kolumna {label} odłożona.",
+      "dragCancel": "Anulowano przenoszenie kolumny {label}."
+    },
+    "filters": {
+      "menu": "Filtry",
+      "menuSet": "Filtry, ustawione: {count}",
+      "heading": "Filtruj według",
+      "clearAll": "Wyczyść wszystkie",
+      "fieldSet": "{label}, w pasku, wartości: {count}",
+      "remove": "Usuń filtr {label}",
+      "set": "Ustawione filtry",
+      "contains": "zawiera",
+      "is": "jest",
+      "more": "{first} i {count} inne",
+      "values": "Wartości: {label}",
+      "from": "Od",
+      "to": "Do",
+      "show": "Pokaż",
+      "ownDates": "Własny zakres dat"
+    },
+    "search": {
+      "hint": "Szukaj (/)",
+      "clear": "Wyczyść wyszukiwanie"
+    },
+    "views": {
+      "menu": "Widoki",
+      "menuActive": "Widoki, wybrany: {name}",
+      "loading": "Wczytywanie widoków…",
+      "empty": "Nie masz jeszcze zapisanych widoków. Ustaw filtry i sortowanie, a potem zapisz je poniżej.",
+      "mine": "Moje widoki",
+      "shared": "Wspólne widoki",
+      "remove": "Usuń widok {name}",
+      "saveLabel": "Zapisz obecne filtry i sortowanie jako widok",
+      "placeholder": "np. Aktywne, od najnowszych",
+      "share": "Udostępnij całej organizacji",
+      "save": "Zapisz widok",
+      "saved": "Zapisano widok",
+      "duplicate": "Widok o tej nazwie już istnieje.",
+      "saveFailed": "Nie udało się zapisać widoku. Spróbuj ponownie.",
+      "removeFailed": "Nie udało się usunąć widoku. Spróbuj ponownie."
+    },
+    "bulk": {
+      "actions": "Akcje na zaznaczonych",
+      "selected": "Zaznaczono",
+      "export": "Eksport CSV",
+      "clear": "Odznacz",
+      "selectAll": "Zaznacz wszystkie",
+      "selectRow": "Zaznacz: {label}",
+      "fileName": "lista"
+    }
   }
 }

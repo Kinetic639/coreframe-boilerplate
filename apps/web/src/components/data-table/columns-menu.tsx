@@ -18,6 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Check, Columns3, GripVertical } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { cn } from "./lib/utils";
@@ -37,9 +38,11 @@ function saveLayout(cookie: string, layout: ColumnLayout) {
   )}; path=/; max-age=31536000; samesite=lax`;
 }
 
-const announcementsFor = (labels: Record<string, string>) => ({
+type Translate = ReturnType<typeof useTranslations<"dataTable.columns">>;
+
+const announcementsFor = (labels: Record<string, string>, t: Translate) => ({
   onDragStart: ({ active }: { active: { id: string | number } }) =>
-    `Podniesiono kolumnę ${labels[String(active.id)]}.`,
+    t("dragStart", { label: labels[String(active.id)] }),
   onDragOver: ({
     active,
     over,
@@ -48,7 +51,7 @@ const announcementsFor = (labels: Record<string, string>) => ({
     over: { id: string | number } | null;
   }) =>
     over
-      ? `Kolumna ${labels[String(active.id)]} nad kolumną ${labels[String(over.id)]}.`
+      ? t("dragOver", { label: labels[String(active.id)], over: labels[String(over.id)] })
       : undefined,
   onDragEnd: ({
     active,
@@ -58,10 +61,10 @@ const announcementsFor = (labels: Record<string, string>) => ({
     over: { id: string | number } | null;
   }) =>
     over
-      ? `Kolumna ${labels[String(active.id)]} odłożona w miejsce kolumny ${labels[String(over.id)]}.`
-      : `Kolumna ${labels[String(active.id)]} odłożona.`,
+      ? t("dragEndOver", { label: labels[String(active.id)], over: labels[String(over.id)] })
+      : t("dragEnd", { label: labels[String(active.id)] }),
   onDragCancel: ({ active }: { active: { id: string | number } }) =>
-    `Anulowano przenoszenie kolumny ${labels[String(active.id)]}.`,
+    t("dragCancel", { label: labels[String(active.id)] }),
 });
 
 export function ColumnsMenu({
@@ -87,6 +90,7 @@ export function ColumnsMenu({
   /** The usual layout ("Przywróć domyślne"). */
   defaults: ColumnLayout;
 }) {
+  const t = useTranslations("dataTable.columns");
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [layout, setLayout] = useState(saved);
@@ -123,31 +127,28 @@ export function ColumnsMenu({
         <Tooltip>
           <TooltipTrigger asChild>
             <PopoverTrigger
-              aria-label="Kolumny"
+              aria-label={t("menu")}
               className="inline-grid size-7 place-items-center rounded-[5px] text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none data-[state=open]:bg-[var(--surface-subtle)]"
             >
               <Columns3 aria-hidden="true" className="size-4" />
             </PopoverTrigger>
           </TooltipTrigger>
-          <TooltipContent>Kolumny</TooltipContent>
+          <TooltipContent>{t("menu")}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
       <PopoverContent align="end" className="w-60 p-1 text-[0.8125rem]">
-        <p className="px-2 py-1 text-[0.7rem] text-[var(--text-muted)]">
-          Kolumny · przeciągnij, by zmienić kolejność
-        </p>
+        <p className="px-2 py-1 text-[0.7rem] text-[var(--text-muted)]">{t("heading")}</p>
         <div className="flex h-7 items-center gap-2 px-2 text-[var(--text-muted)]">
           <span className="w-3.5" />
           <Box checked />
           {pinnedLabel}
-          <span className="ml-auto text-[0.7rem]">zawsze</span>
+          <span className="ml-auto text-[0.7rem]">{t("always")}</span>
         </div>
         <DndContext
           accessibility={{
-            announcements: announcementsFor(labels),
+            announcements: announcementsFor(labels, t),
             screenReaderInstructions: {
-              draggable:
-                "Aby przenieść kolumnę, naciśnij spację, przesuń ją strzałkami i naciśnij spację, by ją odłożyć. Escape anuluje.",
+              draggable: t("instructions"),
             },
           }}
           collisionDetection={closestCenter}
@@ -177,7 +178,7 @@ export function ColumnsMenu({
           onClick={() => apply(defaults)}
           type="button"
         >
-          Przywróć domyślne
+          {t("reset")}
         </button>
       </PopoverContent>
     </Popover>
@@ -211,6 +212,7 @@ function ColumnRow({
   shown: boolean;
   onToggle: () => void;
 }) {
+  const t = useTranslations("dataTable.columns");
   const {
     attributes,
     listeners,
@@ -230,7 +232,7 @@ function ColumnRow({
       style={{ transform: CSS.Transform.toString(transform), transition }}
     >
       <button
-        aria-label={`Przenieś kolumnę ${label}`}
+        aria-label={t("move", { label })}
         className="grid h-7 w-5 shrink-0 cursor-grab touch-none place-items-center rounded-[4px] text-[var(--text-muted)] hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none active:cursor-grabbing"
         ref={setActivatorNodeRef}
         type="button"

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { type KeyboardEvent, type PointerEvent, useRef, useState } from "react";
 import { clampColumnWidth, parseWidths, serializeWidths } from "./columns";
 
@@ -55,6 +56,7 @@ export function ColumnResizer({
   width: number;
   usualWidth: number;
 }) {
+  const t = useTranslations("dataTable.columns");
   const [width, setWidth] = useState(initial);
   const drag = useRef<{ x: number; width: number } | null>(null);
   // The latest width, for the events between renders (the drag's end).
@@ -70,7 +72,7 @@ export function ColumnResizer({
 
   return (
     <span
-      aria-label={`Szerokość kolumny ${label}`}
+      aria-label={t("width", { label })}
       aria-orientation="vertical"
       aria-valuemax={640}
       aria-valuemin={60}
@@ -107,7 +109,7 @@ export function ColumnResizer({
       }}
       role="separator"
       tabIndex={0}
-      title="Przeciągnij, aby zmienić szerokość (dwuklik: domyślna)"
+      title={t("widthHint")}
     >
       <span
         aria-hidden="true"

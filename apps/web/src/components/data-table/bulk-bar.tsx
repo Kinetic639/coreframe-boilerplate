@@ -1,6 +1,7 @@
 "use client";
 
 import { Download, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -20,22 +21,23 @@ export function ListBulkBar({
   onClear: () => void;
   /** The list's own actions (e.g. archive), after the export. */
   children?: ReactNode;
-  /** bulkActions, bulkSelected, bulkExport, bulkClear (Polish by default). */
+  /** bulkActions, bulkSelected, bulkExport, bulkClear (the shared wording by default). */
   labels?: Record<string, string | undefined>;
 }) {
+  const t = useTranslations("dataTable.bulk");
   return (
     <div
       role="toolbar"
-      aria-label={labels.bulkActions ?? "Akcje na zaznaczonych"}
+      aria-label={labels.bulkActions ?? t("actions")}
       className="flex h-10 shrink-0 items-center gap-2 border-b bg-primary/5 px-3 text-xs"
     >
       <strong className="font-medium tabular-nums">
-        {labels.bulkSelected ?? "Zaznaczono"}: {count}
+        {labels.bulkSelected ?? t("selected")}: {count}
       </strong>
       {onExport ? (
         <Button size="sm" variant="outline" className="h-7" onClick={onExport}>
           <Download className="mr-1.5 size-3.5" />
-          {labels.bulkExport ?? "Eksport CSV"}
+          {labels.bulkExport ?? t("export")}
         </Button>
       ) : null}
       {children}
@@ -45,7 +47,7 @@ export function ListBulkBar({
         className="ml-auto inline-flex items-center gap-1 rounded px-1.5 py-1 text-muted-foreground hover:bg-muted hover:text-foreground"
       >
         <X className="size-3.5" />
-        {labels.bulkClear ?? "Odznacz"}
+        {labels.bulkClear ?? t("clear")}
       </button>
     </div>
   );
