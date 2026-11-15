@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useTransition, type FormEvent } from "reac
 import { cn } from "./lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip";
+import { SavedViewsMenu } from "./saved-views-menu";
 
 // A portal table's filter bar (bookings, clients): the
 // search, folded to a magnifier until used; a chip per filter (a click
@@ -91,6 +92,11 @@ export interface FilterBarProps {
   shallow?: boolean;
   /** The list's own wait (with shallow), for the search box's spinner. */
   pending?: boolean;
+  /**
+   * The saved views menu ("Widoki"), on in every list. `listKey` overrides
+   * the list's key (default: its route without the locale); false: no menu.
+   */
+  views?: false | { listKey?: string; ignore?: readonly string[] };
 }
 
 // The parsers are nuqs's, of any value.
@@ -152,6 +158,7 @@ export function FilterBar({
   search,
   shallow = false,
   pending: listPending,
+  views,
 }: FilterBarProps) {
   const [transitionPending, startTransition] = useTransition();
   const pending = listPending ?? transitionPending;
@@ -453,6 +460,13 @@ export function FilterBar({
           )}
         </PopoverContent>
       </Popover>
+      {views === false ? null : (
+        <SavedViewsMenu
+          ignore={[...resetOnChange, ...(views?.ignore ?? [])]}
+          listKey={views?.listKey}
+          shallow={shallow}
+        />
+      )}
       <TableSearch
         label={search.label}
         parsers={parsers.strona ? { q: parsers.q, strona: parsers.strona } : { q: parsers.q }}

@@ -97,31 +97,6 @@ describe("product table URL contract", () => {
   });
 });
 
-describe("saved product views", () => {
-  it("keep the search, filters and sort, never the page or the open product", async () => {
-    const { viewQuery } = await import("../inventory-products-views");
-    const query = viewQuery(
-      loadProductState({
-        q: "szyba",
-        status: "active",
-        sort: "available_quantity",
-        direction: "asc",
-        strona: "3",
-        selected: "22222222-2222-4222-8222-222222222222",
-        tab: "stock",
-      })
-    );
-    const params = new URLSearchParams(query.replace(/^\?/, ""));
-    expect(params.get("q")).toBe("szyba");
-    expect(params.get("status")).toBe("active");
-    expect(params.get("sort")).toBe("available_quantity");
-    expect(params.has("strona")).toBe(false);
-    expect(params.has("selected")).toBe(false);
-    expect(params.has("tab")).toBe(false);
-    expect(viewQuery(loadProductState({}))).toBe("");
-  });
-});
-
 describe("a filter for every column", () => {
   it("turns column params into the service's filters", () => {
     const filters = productListParams(

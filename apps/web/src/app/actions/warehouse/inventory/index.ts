@@ -95,9 +95,6 @@ import {
   releaseAllocationSchema,
   releaseReservationSchema,
   reverseMovementSchema,
-  saveInventoryViewSchema,
-  listInventoryViewsSchema,
-  deleteInventoryViewSchema,
   setCustomFieldValueSchema,
   transferStockSchema,
   previewMovementImportFromSourceSchema,
@@ -3113,68 +3110,6 @@ export async function addInventoryCollectionItemAction(rawInput: unknown) {
       product_id: parsed.data.product_id!,
       actor_user_id: userIdFrom(auth),
     });
-  } catch (error) {
-    return mapUnexpected(error);
-  }
-}
-
-export async function saveInventoryViewAction(rawInput: unknown) {
-  try {
-    const auth = await requireWarehouseContext();
-    if (!auth.success) return auth;
-    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_READ))
-      return { success: false, error: "Unauthorized" };
-    const parsed = saveInventoryViewSchema.safeParse(rawInput);
-    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
-    const userId = userIdFrom(auth);
-    if (!userId) return { success: false, error: "User identity unavailable" };
-    const supabase = await createClient();
-    return InventoryEnterpriseService.saveView(supabase, auth.context.app.activeOrgId, userId, {
-      entity: parsed.data.entity!,
-      name: parsed.data.name!,
-      config: parsed.data.config!,
-      is_shared: parsed.data.is_shared,
-    });
-  } catch (error) {
-    return mapUnexpected(error);
-  }
-}
-
-/** The saved views of a list (one's own and the shared ones). */
-export async function listInventoryViewsAction(rawInput: unknown) {
-  try {
-    const auth = await requireWarehouseContext();
-    if (!auth.success) return auth;
-    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_READ))
-      return { success: false as const, error: "Unauthorized" };
-    const parsed = listInventoryViewsSchema.safeParse(rawInput);
-    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
-    const supabase = await createClient();
-    return InventoryEnterpriseService.listViews(
-      supabase,
-      auth.context.app.activeOrgId,
-      parsed.data.entity
-    );
-  } catch (error) {
-    return mapUnexpected(error);
-  }
-}
-
-/** Removes a saved view (RLS decides whose: one's own, shared with manage). */
-export async function deleteInventoryViewAction(rawInput: unknown) {
-  try {
-    const auth = await requireWarehouseContext();
-    if (!auth.success) return auth;
-    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_READ))
-      return { success: false as const, error: "Unauthorized" };
-    const parsed = deleteInventoryViewSchema.safeParse(rawInput);
-    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
-    const supabase = await createClient();
-    return InventoryEnterpriseService.deleteView(
-      supabase,
-      auth.context.app.activeOrgId,
-      parsed.data.id
-    );
   } catch (error) {
     return mapUnexpected(error);
   }
