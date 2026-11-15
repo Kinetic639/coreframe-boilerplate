@@ -397,7 +397,7 @@ export function MembersWorkspace({
     </Badge>
   );
   const avatar = (member: OrgMember, size: string) => (
-    <Avatar className={`${size} shrink-0`}>
+    <Avatar aria-hidden="true" className={`${size} shrink-0`}>
       <AvatarImage src={member.user_avatar_url ?? undefined} />
       <AvatarFallback className="text-xs">{getInitials(member)}</AvatarFallback>
     </Avatar>

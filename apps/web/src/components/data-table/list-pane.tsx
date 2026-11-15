@@ -1,5 +1,9 @@
+"use client";
+
 import { ArrowDown, ArrowUp, ChevronsUpDown, X } from "lucide-react";
-import type { MouseEvent, ReactNode } from "react";
+import { useState, type MouseEvent, type ReactNode } from "react";
+import { ListBulkBar } from "./bulk-bar";
+import { downloadCsv, nodeText, rowsToCsv } from "./csv";
 import { TableLink as PageLink } from "./table-navigation";
 import { DataTable, TablePagination, pageState, TD, type TableSelection } from "./data-table";
 import { ColumnsMenu } from "./columns-menu";
@@ -49,8 +53,12 @@ export function ListPane<Row>({
   onRetry,
   onPreview,
   onPrefetch,
-  selection,
+  selection: givenSelection,
   bulkBar,
+  selectable = true,
+  exportValue,
+  exportName,
+  bulkActions,
 }: {
   rows: Row[];
   totalCount: number;
@@ -93,11 +101,56 @@ export function ListPane<Row>({
   /** Opens a row beside the list (none: a row's link leads to its own page). */
   onPreview?: (key: string | null) => void;
   onPrefetch?: (key: string | null) => void;
-  /** Ticking rows, for actions on several at once (none: no boxes). */
+  /**
+   * The list's own ticking (with `bulkBar`). None: the pane ticks rows
+   * itself and shows the shared bar (count, CSV export, untick).
+   */
   selection?: TableSelection<Row>;
   /** The actions on the ticked rows, above the list (shown while any are ticked). */
   bulkBar?: ReactNode;
+  /** false: no boxes at all. */
+  selectable?: boolean;
+  /** A cell's text in the CSV export (default: the text the cell draws). */
+  exportValue?: (row: Row, columnId: string) => unknown;
+  /** The exported file's name, before the date (default: the list's title). */
+  exportName?: string;
+  /** More actions on the ticked rows in the shared bar (e.g. archive). */
+  bulkActions?: (rows: Row[], clear: () => void) => ReactNode;
 }) {
+  // The pane's own ticks (when the list keeps none): kept across pages, as
+  // the rows themselves so the export needs no request.
+  const [ticked, setTicked] = useState<ReadonlyMap<string, Row>>(() => new Map());
+  const own = selectable && !givenSelection;
+  const tickedOnPage = own ? rows.filter((row) => ticked.has(rowKey(row))) : [];
+  const clear = () => setTicked(new Map());
+  const ownSelection: TableSelection<Row> | undefined = own
+    ? {
+        isSelected: (row) => ticked.has(rowKey(row)),
+        toggle: (row) =>
+          setTicked((current) => {
+            const next = new Map(current);
+            const key = rowKey(row);
+            if (next.has(key)) next.delete(key);
+            else next.set(key, row);
+            return next;
+          }),
+        all: rows.length > 0 && tickedOnPage.length === rows.length,
+        some: tickedOnPage.length > 0,
+        toggleAll: () =>
+          setTicked((current) => {
+            const next = new Map(current);
+            const every = rows.every((row) => next.has(rowKey(row)));
+            for (const row of rows) {
+              if (every) next.delete(rowKey(row));
+              else next.set(rowKey(row), row);
+            }
+            return next;
+          }),
+        allLabel: labels.selectAll ?? "Zaznacz wszystkie",
+        rowLabel: (row) => `${labels.selectRow ?? "Zaznacz"}: ${nodeText(identity(row))}`,
+      }
+    : undefined;
+  const selection = selectable ? (givenSelection ?? ownSelection) : undefined;
   const shown = layout.filter((c) => c.shown).map((c) => c.id);
   const cardFields = shown.filter((id) => !cardHidden.includes(id));
   const { page, pages, range } = pageState({ page: askedPage, size }, totalCount, rows.length);
@@ -169,7 +222,34 @@ export function ListPane<Row>({
           ) : null}
         </div>
       ) : null}
-      {bulkBar && !selected ? bulkBar : null}
+      {selected ? null : own ? (
+        ticked.size ? (
+          <ListBulkBar
+            count={ticked.size}
+            labels={labels}
+            onClear={clear}
+            onExport={() => {
+              const tickedRows = [...ticked.values()];
+              const columns = [
+                { id: set.pinned.id, label: set.pinned.label },
+                ...shown.map((id) => ({ id, label: set.labels[id] })),
+              ];
+              downloadCsv(
+                rowsToCsv(tickedRows, columns, (row, id) =>
+                  exportValue
+                    ? exportValue(row, id)
+                    : nodeText(id === set.pinned.id ? identity(row) : plainValue(row, id))
+                ),
+                exportName ?? fileName(labels.title)
+              );
+            }}
+          >
+            {bulkActions?.([...ticked.values()], clear)}
+          </ListBulkBar>
+        ) : null
+      ) : (
+        bulkBar
+      )}
       {selected ? (
         <aside
           className="dt-list-mini-list min-h-0 flex-1 overflow-y-auto border-r bg-background"
@@ -310,6 +390,18 @@ export function ListPane<Row>({
       </div>
     </div>
   );
+}
+
+/** A file name from the list's title ("Zlecenia serwisowe" → "zlecenia-serwisowe"). */
+function fileName(title: string | undefined) {
+  const name = (title ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ł/g, "l")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return name || "lista";
 }
 
 /** The record's panel beside the list (a sheet on narrow screens). */
