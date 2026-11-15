@@ -4393,6 +4393,7 @@
       "titleSidebar": "Planning",
       "description": "Organize and track tasks across your organization.",
       "items": {
+        "calendar": "Calendar",
         "overview": "Overview",
         "tasks": "Tasks",
         "boards": "Boards",
@@ -4680,8 +4681,7 @@
       "views": {
         "label": "Task views",
         "boards": "Boards",
-        "list": "List",
-        "calendar": "Calendar"
+        "list": "List"
       }
     },
     "crm": {

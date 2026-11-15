@@ -1,21 +1,20 @@
 "use client";
 
-import { CalendarDays, Kanban, LayoutList } from "lucide-react";
+import { Kanban, LayoutList } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 
-export type PlanningView = "boards" | "list" | "calendar";
+export type PlanningView = "boards" | "list";
 
 const VIEWS = [
   { id: "boards", href: "/dashboard/planning/boards", Icon: Kanban },
   { id: "list", href: "/dashboard/planning/tasks", Icon: LayoutList },
-  { id: "calendar", href: "/dashboard/planning", Icon: CalendarDays },
 ] as const;
 
 /**
- * The three views of the same tasks (boards, list, calendar). Planning has
- * one menu entry; this switch moves between its views.
+ * The two views of the same tasks (boards, list). The tasks have one menu
+ * entry; this switch moves between its views. (The calendar is separate.)
  */
 export function PlanningViewSwitcher({
   current,
@@ -48,7 +47,7 @@ export function PlanningViewSwitcher({
   );
 }
 
-/** A slim bar above a full-height view (boards, calendar) holding the switch. */
+/** A slim bar above a full-height view (boards) holding the switch. */
 export function PlanningViewBar({ current }: { current: PlanningView }) {
   return (
     <div className="flex shrink-0 items-center border-b px-3 py-1.5">

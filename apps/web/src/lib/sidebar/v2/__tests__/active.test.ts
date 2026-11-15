@@ -217,7 +217,7 @@ describe("isItemActive — match.also", () => {
     href: "/dashboard/planning/boards",
     match: {
       startsWith: "/dashboard/planning/boards",
-      also: [{ startsWith: "/dashboard/planning/tasks" }, { exact: "/dashboard/planning" }],
+      also: [{ startsWith: "/dashboard/planning/tasks" }, { exact: "/dashboard/planning/x" }],
     },
   } as const;
 
@@ -225,11 +225,13 @@ describe("isItemActive — match.also", () => {
     expect(isItemActive(item, "/dashboard/planning/boards")).toBe(true);
     expect(isItemActive(item, "/dashboard/planning/tasks")).toBe(true);
     expect(isItemActive(item, "/dashboard/planning/tasks/PT-000001")).toBe(true);
-    expect(isItemActive(item, "/dashboard/planning")).toBe(true);
+    expect(isItemActive(item, "/dashboard/planning/x")).toBe(true);
   });
 
   it("stays off elsewhere (an exact extra route is not a prefix)", () => {
     expect(isItemActive(item, "/dashboard/planning/settings")).toBe(false);
+    expect(isItemActive(item, "/dashboard/planning/x/y")).toBe(false);
+    expect(isItemActive(item, "/dashboard/planning")).toBe(false);
     expect(isItemActive(item, "/dashboard/planningx")).toBe(false);
   });
 });

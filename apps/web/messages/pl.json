@@ -4473,6 +4473,7 @@
       "titleSidebar": "Planowanie",
       "description": "Organizuj i śledź zadania w całej organizacji.",
       "items": {
+        "calendar": "Kalendarz",
         "overview": "Przegląd",
         "tasks": "Zadania",
         "boards": "Tablice",
@@ -4760,8 +4761,7 @@
       "views": {
         "label": "Widok zadań",
         "boards": "Tablice",
-        "list": "Lista",
-        "calendar": "Kalendarz"
+        "list": "Lista"
       }
     },
     "crm": {

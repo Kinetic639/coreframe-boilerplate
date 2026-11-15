@@ -587,7 +587,7 @@ describe("Sidebar SSR Integration", () => {
 
   // ── Planning Module ────────────────────────────────────────────────────────
 
-  it("should show one planning tasks entry (boards, list, calendar) when planning is entitled", () => {
+  it("should show the calendar and one tasks entry (boards, list) when planning is entitled", () => {
     const userContext = {
       user: {
         id: "user-123",
@@ -622,6 +622,7 @@ describe("Sidebar SSR Integration", () => {
 
     expect(findItemById(model, "planning")).toBeDefined();
     expect(findItemById(model, "planning.tasks")).toBeDefined();
+    expect(findItemById(model, "planning.calendar")).toBeDefined();
     expect(findItemById(model, "planning.boards")).toBeUndefined();
     expect(findItemById(model, "planning.overview")).toBeUndefined();
   });
