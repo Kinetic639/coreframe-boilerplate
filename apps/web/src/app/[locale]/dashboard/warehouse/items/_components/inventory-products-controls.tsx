@@ -109,7 +109,7 @@ export function ProductFilters({
       : []),
   ];
   return (
-    <div className="products-filter-row">
+    <div className="dt-list-filter-row">
       <FilterBar
         parsers={productParsers}
         fields={fields}
@@ -119,7 +119,7 @@ export function ProductFilters({
         order={["nazwa", ...order]}
         search={{ label: labels.search, placeholder: labels.search }}
       />
-      <div className="products-filter-extras">
+      <div className="dt-list-filter-extras">
         <label className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
           <input
             type="checkbox"
