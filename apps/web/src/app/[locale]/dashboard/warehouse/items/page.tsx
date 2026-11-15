@@ -32,7 +32,7 @@ import {
   productHref,
   migrateProductSearchParams,
 } from "./_components/inventory-products-state";
-import "./_components/inventory-products.css";
+import "@/components/data-table/ambra-list.css";
 
 type PageProps = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
 function cookieValue(value: string | undefined) {
@@ -193,7 +193,7 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
   return (
     // The whole view (the count in the header too) reads the hydrated first page.
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <section className="inventory-products-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
+      <section className="inventory-products-view dt-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2.5 md:px-4">
           <div className="flex items-baseline gap-2">
             <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>

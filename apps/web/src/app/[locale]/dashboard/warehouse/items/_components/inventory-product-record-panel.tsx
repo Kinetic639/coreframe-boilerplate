@@ -138,7 +138,7 @@ export function ProductRecordPanel({
   return (
     <aside
       aria-labelledby="inventory-product-panel-title"
-      className="products-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-xl flex-col overflow-hidden border-l bg-background shadow-2xl xl:static xl:z-auto xl:min-w-0 xl:flex-1 xl:max-w-none xl:shadow-none"
+      className="dt-list-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-xl flex-col overflow-hidden border-l bg-background shadow-2xl xl:static xl:z-auto xl:min-w-0 xl:flex-1 xl:max-w-none xl:shadow-none"
     >
       <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
         <button

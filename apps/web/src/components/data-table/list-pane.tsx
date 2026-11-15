@@ -50,6 +50,7 @@ export function ListPane<Row>({
   onPreview,
   onPrefetch,
   selection,
+  bulkBar,
 }: {
   rows: Row[];
   totalCount: number;
@@ -94,6 +95,8 @@ export function ListPane<Row>({
   onPrefetch?: (key: string | null) => void;
   /** Ticking rows, for actions on several at once (none: no boxes). */
   selection?: TableSelection<Row>;
+  /** The actions on the ticked rows, above the list (shown while any are ticked). */
+  bulkBar?: ReactNode;
 }) {
   const shown = layout.filter((c) => c.shown).map((c) => c.id);
   const cardFields = shown.filter((id) => !cardHidden.includes(id));
@@ -166,6 +169,7 @@ export function ListPane<Row>({
           ) : null}
         </div>
       ) : null}
+      {bulkBar && !selected ? bulkBar : null}
       {selected ? (
         <aside
           className="dt-list-mini-list min-h-0 flex-1 overflow-y-auto border-r bg-background"

@@ -26,7 +26,7 @@ test("switches EN/PL on the same product view with filters and selection intact"
 }) => {
   await page.goto("/en/dashboard/warehouse/items?wierszy=100");
   const product = page
-    .locator(".products-desktop-table tbody th a,.products-mobile-list li a")
+    .locator(".dt-list-desktop-table tbody th a,.dt-list-mobile li a")
     .filter({ visible: true })
     .first();
   await expect(page.locator(".inventory-products-view")).toBeVisible();
@@ -35,7 +35,7 @@ test("switches EN/PL on the same product view with filters and selection intact"
     "selected"
   );
   await product.click();
-  await expect(page.locator(".products-panel")).toBeVisible();
+  await expect(page.locator(".dt-list-panel")).toBeVisible();
   for (const scenario of [
     { search: "language", language: "Polski", path: "/dashboard/magazyn/produkty", locale: "pl" },
     { search: "język", language: "English", path: "/en/dashboard/warehouse/items", locale: "en" },
@@ -48,7 +48,7 @@ test("switches EN/PL on the same product view with filters and selection intact"
         url.searchParams.get("wierszy") === "100"
     );
     await expect(page.locator("html")).toHaveAttribute("lang", scenario.locale);
-    await expect(page.locator(".products-panel")).toBeVisible();
+    await expect(page.locator(".dt-list-panel")).toBeVisible();
   }
 });
 

@@ -1,10 +1,7 @@
-import { ArrowDown, ArrowUp, ChevronsUpDown, ExternalLink, Eye, Pencil } from "lucide-react";
-import type { MouseEvent, ReactNode } from "react";
-import { TableLink as PageLink } from "@/components/data-table/table-navigation";
-import { DataTable, TablePagination, pageState, TD } from "@/components/data-table/data-table";
-import { ColumnsMenu } from "@/components/data-table/columns-menu";
+import { ExternalLink, Eye, Pencil } from "lucide-react";
+import type { ReactNode } from "react";
+import { ListPane } from "@/components/data-table/list-pane";
 import {
-  defaultLayout,
   type ColumnLayout,
   type ColumnSet,
   type ColumnWidths,
@@ -142,21 +139,9 @@ export function InventoryMovementsTable({
   /** A row the pointer rests on (null: it left), for its card's prefetch. */
   onPrefetch: (routeKey: string | null) => void;
 }) {
-  const shown = layout.filter((c) => c.shown).map((c) => c.id);
-  const { page, pages, range } = pageState(
-    { page: state.strona, size: state.wierszy },
-    data.totalCount,
-    data.rows.length
-  );
   const href = (patch: Partial<MovementState>) => movementHref(path, state, patch);
   const rowHref = (row: InventoryMovementListRow) =>
     href({ selected: state.selected === row.route_key ? null : row.route_key });
-  const openPreview = (event: MouseEvent, row: InventoryMovementListRow) => {
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
-      return;
-    event.preventDefault();
-    onPreview(state.selected === row.route_key ? null : row.route_key);
-  };
   const sortOf = (field: MovementSort) => ({
     href: href({
       sort: field,
@@ -166,16 +151,6 @@ export function InventoryMovementsTable({
     }),
     direction: state.sort === field ? state.direction : null,
   });
-  const menu = (
-    <ColumnsMenu
-      cookie={cookie}
-      defaults={defaultLayout(set)}
-      labels={set.labels}
-      layout={layout}
-      onChange={onLayoutChange}
-      pinnedLabel={set.pinned.label}
-    />
-  );
   const date = (value: string | null) =>
     value ? (
       <span className="text-xs text-muted-foreground">
@@ -251,25 +226,7 @@ export function InventoryMovementsTable({
         return "—";
     }
   };
-  const pagination = (
-    <TablePagination
-      sizes={MOVEMENT_PAGE_SIZES.map((size) => ({
-        size,
-        current: state.wierszy === size,
-        href: href({ wierszy: size, strona: 1, selected: null }),
-      }))}
-      range={range}
-      previousHref={page > 1 ? href({ strona: page - 1, selected: null }) : null}
-      nextHref={page < pages ? href({ strona: page + 1, selected: null }) : null}
-    />
-  );
   const numberSort = sortOf("document_number");
-  const NumberSortIcon =
-    numberSort.direction === "asc"
-      ? ArrowUp
-      : numberSort.direction === "desc"
-        ? ArrowDown
-        : ChevronsUpDown;
   const identity = (row: InventoryMovementListRow) => (
     <span className="min-w-0">
       <span className="block truncate font-mono text-[12.5px] font-medium">
@@ -280,176 +237,46 @@ export function InventoryMovementsTable({
       </span>
     </span>
   );
-  const linkProps = (row: InventoryMovementListRow) => ({
-    href: rowHref(row),
-    scroll: false,
-    onClick: (event: MouseEvent) => openPreview(event, row),
-    onMouseEnter: () => onPrefetch(row.route_key),
-    onMouseLeave: () => onPrefetch(null),
-    onFocus: () => onPrefetch(row.route_key),
-  });
   const empty = loading ? labels.loading : error ? labels.loadError : labels.empty;
   return (
-    <div
-      className={cn(
-        "dt-list-pane relative flex min-h-0 min-w-0 flex-1 flex-col",
-        state.selected && "dt-list-pane--preview"
+    <ListPane
+      rows={data.rows}
+      totalCount={data.totalCount}
+      page={state.strona}
+      size={state.wierszy}
+      sizes={MOVEMENT_PAGE_SIZES}
+      selected={state.selected}
+      rowKey={(row) => row.route_key}
+      rowHref={rowHref}
+      pageHref={(page) => href({ strona: page, selected: null })}
+      sizeHref={(size) =>
+        href({ wierszy: size as MovementState["wierszy"], strona: 1, selected: null })
+      }
+      set={set}
+      layout={layout}
+      widths={widths}
+      cookie={cookie}
+      onLayoutChange={onLayoutChange}
+      sortOf={(id) => (SORT_FIELD[id] ? sortOf(SORT_FIELD[id]) : undefined)}
+      pinnedSort={numberSort}
+      identity={identity}
+      value={value}
+      badge={(row) => (
+        <MovementStatus value={row.status} label={labels[`status_${row.status}`] ?? row.status} />
       )}
-      aria-busy={loading || refreshing}
-      data-refreshing={refreshing ? "" : undefined}
-    >
-      {/* The rows stay while new ones come: a thin bar says so, not a skeleton. */}
-      {loading || refreshing ? (
-        <div className="dt-list-progress" role="progressbar" aria-label={labels.loading} />
-      ) : null}
-      {error ? (
-        <div role="alert" className="border-b bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {labels.loadError} <span className="block text-xs">{error}</span>
-          <button type="button" onClick={onRetry} className="underline">
-            {labels.retry}
-          </button>
-        </div>
-      ) : null}
-      {state.selected ? (
-        <aside
-          className="dt-list-mini-list min-h-0 flex-1 overflow-y-auto border-r bg-background"
-          aria-label={labels.title}
-        >
-          <header className="sticky top-0 z-10 flex h-[34px] items-center border-b bg-muted/70 px-3 text-[10px] font-medium text-muted-foreground backdrop-blur-sm">
-            <PageLink
-              href={numberSort.href}
-              scroll={false}
-              className={cn(
-                "inline-flex items-center gap-1 rounded hover:text-foreground",
-                numberSort.direction && "text-foreground"
-              )}
-            >
-              {set.pinned.label}
-              <NumberSortIcon
-                className={cn("size-3", !numberSort.direction && "opacity-40")}
-                aria-hidden="true"
-              />
-            </PageLink>
-          </header>
-          <ul>
-            {data.rows.map((row) => {
-              const selected = row.route_key === state.selected;
-              return (
-                <li key={row.id} data-row-id={row.route_key}>
-                  <PageLink
-                    {...linkProps(row)}
-                    className={cn(
-                      "group flex h-[49px] items-center gap-2.5 border-b px-3 py-1 hover:bg-muted/50",
-                      selected &&
-                        "border-l-[3px] border-l-primary bg-primary/10 pl-[9px] hover:bg-primary/10"
-                    )}
-                    aria-current={selected ? "true" : undefined}
-                  >
-                    {identity(row)}
-                  </PageLink>
-                </li>
-              );
-            })}
-          </ul>
-        </aside>
-      ) : (
-        <div className="dt-list-desktop-table min-h-0 flex-1 flex-col">
-          <DataTable
-            caption={labels.title}
-            set={set}
-            columns={shown.map((id) => ({
-              id,
-              label: set.labels[id],
-              sort: SORT_FIELD[id] ? sortOf(SORT_FIELD[id]) : undefined,
-            }))}
-            rows={data.rows}
-            rowKey={(row) => row.route_key}
-            rowHref={rowHref}
-            selected={(row) => row.route_key === state.selected}
-            pinnedSort={numberSort}
-            onRowIntent={(row) => onPrefetch(row ? row.route_key : null)}
-            pinned={(row) => (
-              <PageLink {...linkProps(row)} className="flex min-w-0 items-center gap-2.5 py-1">
-                {identity(row)}
-              </PageLink>
-            )}
-            cell={(row, id) => (
-              <td
-                key={id}
-                className={cn(
-                  TD,
-                  id === "line_count"
-                    ? "text-right"
-                    : id === "status"
-                      ? ""
-                      : "text-muted-foreground"
-                )}
-              >
-                {value(row, id)}
-              </td>
-            )}
-            actions={actions}
-            menu={menu}
-            widths={widths}
-            widthsCookie={`${cookie}_widths`}
-            empty={empty}
-            pagination={pagination}
-          />
-        </div>
-      )}
-      <div className="dt-list-mobile min-h-0 flex-1 flex-col">
-        <header className="flex h-10 shrink-0 items-center justify-between border-b px-3 text-xs text-muted-foreground">
-          <span>
-            {data.totalCount} {labels.countSuffix}
-          </span>
-          <div className="flex items-center gap-2">
-            <PageLink href={numberSort.href}>
-              {set.pinned.label}{" "}
-              {numberSort.direction === "asc" ? "↑" : numberSort.direction === "desc" ? "↓" : "↕"}
-            </PageLink>
-            {menu}
-          </div>
-        </header>
-        <ul className="min-h-0 flex-1 overflow-auto overscroll-contain">
-          {data.rows.map((row) => (
-            <li key={row.id} className="flex items-start border-b px-3 py-2.5 hover:bg-muted/30">
-              <PageLink {...linkProps(row)} className="flex min-w-0 flex-1 items-start gap-2.5">
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center justify-between gap-2">
-                    <strong className="truncate font-mono text-[13px] font-medium leading-5">
-                      {movementNumber(row)}
-                    </strong>
-                    <MovementStatus
-                      value={row.status}
-                      label={labels[`status_${row.status}`] ?? row.status}
-                    />
-                  </span>
-                  <span className="block truncate text-[11px] text-muted-foreground">
-                    {row.movement_type_name}
-                  </span>
-                  <span className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-1">
-                    {shown
-                      .filter((id) => id !== "status" && id !== "movement_type")
-                      .map((id) => (
-                        <span key={id} className="min-w-0 text-xs">
-                          <span className="block text-[10px] text-muted-foreground">
-                            {set.labels[id]}
-                          </span>
-                          <span className="block truncate">{value(row, id)}</span>
-                        </span>
-                      ))}
-                  </span>
-                </span>
-              </PageLink>
-              <div className="ml-1 shrink-0">{actions(row)}</div>
-            </li>
-          ))}
-          {!data.rows.length ? (
-            <li className="px-4 py-12 text-center text-sm text-muted-foreground">{empty}</li>
-          ) : null}
-        </ul>
-        {pagination}
-      </div>
-    </div>
+      cardHidden={["status", "movement_type"]}
+      actions={actions}
+      cellClassName={(id) =>
+        id === "line_count" ? "text-right" : id === "status" ? undefined : "text-muted-foreground"
+      }
+      labels={labels}
+      empty={empty}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRetry={onRetry}
+      onPreview={onPreview}
+      onPrefetch={onPrefetch}
+    />
   );
 }

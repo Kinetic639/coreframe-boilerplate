@@ -1,5 +1,4 @@
-/* Shared look of the data table lists (copied from the products list, which
-   keeps its own copy until it moves onto these classes).
+/* Shared look of every data table list.
 
    The table's semantic tokens are aliases of the active Ambra theme.
    The body scope also reaches Radix portals without changing other pages. */

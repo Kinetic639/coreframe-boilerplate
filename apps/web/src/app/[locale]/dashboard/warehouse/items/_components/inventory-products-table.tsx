@@ -1,11 +1,8 @@
 import Image from "next/image";
-import { ArrowDown, ArrowUp, ChevronsUpDown, Package, Pencil, ExternalLink } from "lucide-react";
-import type { MouseEvent, ReactNode } from "react";
-import { TableLink as PageLink } from "@/components/data-table/table-navigation";
-import { DataTable, TablePagination, pageState, TD } from "@/components/data-table/data-table";
-import { ColumnsMenu } from "@/components/data-table/columns-menu";
+import { Package, Pencil, ExternalLink } from "lucide-react";
+import type { ReactNode } from "react";
+import { ListPane } from "@/components/data-table/list-pane";
 import {
-  defaultLayout,
   type ColumnLayout,
   type ColumnSet,
   type ColumnWidths,
@@ -163,21 +160,9 @@ export function InventoryProductsTable({
   /** A row the pointer rests on (null: it left), for its card's prefetch. */
   onPrefetch: (selectionId: string | null) => void;
 }) {
-  const shown = layout.filter((c) => c.shown).map((c) => c.id);
-  const { page, pages, range } = pageState(
-    { page: state.strona, size: state.wierszy },
-    data.totalCount,
-    data.rows.length
-  );
   const href = (patch: Partial<ProductState>) => productHref(path, state, patch);
   const rowHref = (row: InventoryProductListRow) =>
     href({ selected: state.selected === row.row_id ? null : row.row_id, tab: "info" });
-  const openPreview = (event: MouseEvent, row: InventoryProductListRow) => {
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
-      return;
-    event.preventDefault();
-    onPreview(state.selected === row.row_id ? null : row.row_id);
-  };
   const sortOf = (field: ProductSort) => ({
     href: href({
       sort: field,
@@ -187,16 +172,6 @@ export function InventoryProductsTable({
     }),
     direction: state.sort === field ? state.direction : null,
   });
-  const menu = (
-    <ColumnsMenu
-      cookie={cookie}
-      defaults={defaultLayout(set)}
-      labels={set.labels}
-      layout={layout}
-      onChange={onLayoutChange}
-      pinnedLabel={set.pinned.label}
-    />
-  );
   const actions = (row: InventoryProductListRow) => (
     <RowActions label={row.name}>
       <RowActionLink href={rowHref(row)} icon={<ExternalLink className="size-4" />}>
@@ -295,25 +270,7 @@ export function InventoryProductsTable({
     allLabel: labels.bulkSelectAll,
     rowLabel: (row: InventoryProductListRow) => `${labels.bulkSelectRow}: ${row.name}`,
   };
-  const pagination = (
-    <TablePagination
-      sizes={PAGE_SIZES.map((size) => ({
-        size,
-        current: state.wierszy === size,
-        href: href({ wierszy: size, strona: 1, selected: null }),
-      }))}
-      range={range}
-      previousHref={page > 1 ? href({ strona: page - 1, selected: null }) : null}
-      nextHref={page < pages ? href({ strona: page + 1, selected: null }) : null}
-    />
-  );
   const nameSort = sortOf("name");
-  const NameSortIcon =
-    nameSort.direction === "asc"
-      ? ArrowUp
-      : nameSort.direction === "desc"
-        ? ArrowDown
-        : ChevronsUpDown;
   const productIdentity = (row: InventoryProductListRow) => (
     <>
       <ProductThumbnail src={row.thumbnail_url} size={32} />
@@ -330,218 +287,75 @@ export function InventoryProductsTable({
       </span>
     </>
   );
+  const shown = layout.filter((c) => c.shown).map((c) => c.id);
   return (
-    <div
-      className={cn(
-        "products-list-pane relative flex min-h-0 min-w-0 flex-1 flex-col",
-        state.selected && "products-list-pane--preview"
-      )}
-      aria-busy={loading || refreshing}
-      data-refreshing={refreshing ? "" : undefined}
-    >
-      {/* The rows stay while new ones come: a thin bar says so, not a skeleton. */}
-      {loading || refreshing ? (
-        <div className="products-progress" role="progressbar" aria-label={labels.loading} />
-      ) : null}
-      {error ? (
-        <div role="alert" className="border-b bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {labels.loadError} <span className="block text-xs">{error}</span>
-          <button type="button" onClick={onRetry} className="underline">
-            {labels.retry}
-          </button>
-        </div>
-      ) : null}
-      {state.selected ? (
-        <aside
-          className="products-desktop-mini-list min-h-0 flex-1 overflow-y-auto border-r bg-background"
-          aria-label={labels.title}
-        >
-          <header className="sticky top-0 z-10 flex h-[34px] items-center border-b bg-muted/70 px-3 text-[10px] font-medium text-muted-foreground backdrop-blur-sm">
-            <PageLink
-              href={nameSort.href}
-              scroll={false}
-              className={cn(
-                "inline-flex items-center gap-1 rounded hover:text-foreground",
-                nameSort.direction && "text-foreground"
-              )}
-            >
-              {set.pinned.label}
-              <NameSortIcon
-                className={cn("size-3", !nameSort.direction && "opacity-40")}
-                aria-hidden="true"
-              />
-            </PageLink>
-          </header>
-          <ul>
-            {data.rows.map((row) => {
-              const selected = row.row_id === state.selected;
-              return (
-                <li key={row.row_id} data-row-id={row.row_id}>
-                  <PageLink
-                    href={rowHref(row)}
-                    scroll={false}
-                    onClick={(event) => openPreview(event, row)}
-                    onMouseEnter={() => onPrefetch(row.row_id)}
-                    onMouseLeave={() => onPrefetch(null)}
-                    onFocus={() => onPrefetch(row.row_id)}
-                    className={cn(
-                      "group flex h-[49px] items-center gap-2.5 border-b px-3 py-1 hover:bg-muted/50",
-                      selected &&
-                        "border-l-[3px] border-l-primary bg-primary/10 pl-[9px] hover:bg-primary/10"
-                    )}
-                    aria-current={selected ? "true" : undefined}
-                  >
-                    {productIdentity(row)}
-                  </PageLink>
-                </li>
-              );
-            })}
-          </ul>
-        </aside>
-      ) : (
-        <div className="products-desktop-table min-h-0 flex-1 flex-col">
-          {tickedRows.length ? (
-            <ProductsBulkBar
-              rows={tickedRows}
-              canArchive={canArchive}
-              labels={labels}
-              onClear={() => onTickedChange([])}
-              csv={() =>
-                rowsToCsv(
-                  tickedRows,
-                  [
-                    { id: "name", label: set.pinned.label },
-                    ...shown.map((id) => ({ id, label: set.labels[id] })),
-                  ],
-                  plain
-                )
-              }
-            />
-          ) : null}
-          <DataTable
-            caption={labels.title}
-            set={set}
-            columns={shown.map((id) => ({
-              id,
-              label: set.labels[id],
-              sort:
-                SORTABLE.has(id) || (state.grouped && STOCK_SORTABLE.has(id))
-                  ? sortOf(id as ProductSort)
-                  : undefined,
-            }))}
-            rows={data.rows}
-            rowKey={(row) => row.row_id}
-            rowHref={rowHref}
-            selected={(row) => row.row_id === state.selected}
-            pinnedSort={nameSort}
-            onRowIntent={(row) => onPrefetch(row ? row.row_id : null)}
-            selection={selection}
-            pinned={(row, url) => (
-              <PageLink
-                href={url}
-                scroll={false}
-                onClick={(event) => openPreview(event, row)}
-                onMouseEnter={() => onPrefetch(row.row_id)}
-                onMouseLeave={() => onPrefetch(null)}
-                onFocus={() => onPrefetch(row.row_id)}
-                className="flex min-w-0 items-center gap-2.5 py-1"
-              >
-                {productIdentity(row)}
-              </PageLink>
-            )}
-            cell={(row, id) => (
-              <td
-                key={id}
-                className={cn(
-                  TD,
-                  [
-                    "on_hand_quantity",
-                    "available_quantity",
-                    "reserved_total_quantity",
-                    "blocked_quantity",
-                  ].includes(id)
-                    ? "text-right"
-                    : "text-muted-foreground"
-                )}
-              >
-                {value(row, id)}
-              </td>
-            )}
-            actions={actions}
-            menu={menu}
-            widths={widths}
-            widthsCookie={`${cookie}_widths`}
-            empty={loading ? labels.loading : error ? labels.loadError : labels.empty}
-            pagination={pagination}
+    <ListPane
+      rows={data.rows}
+      totalCount={data.totalCount}
+      page={state.strona}
+      size={state.wierszy}
+      sizes={PAGE_SIZES}
+      selected={state.selected}
+      rowKey={(row) => row.row_id}
+      rowHref={rowHref}
+      pageHref={(page) => href({ strona: page, selected: null })}
+      sizeHref={(size) =>
+        href({ wierszy: size as ProductState["wierszy"], strona: 1, selected: null })
+      }
+      set={set}
+      layout={layout}
+      widths={widths}
+      cookie={cookie}
+      onLayoutChange={onLayoutChange}
+      sortOf={(id) =>
+        SORTABLE.has(id) || (state.grouped && STOCK_SORTABLE.has(id))
+          ? sortOf(id as ProductSort)
+          : undefined
+      }
+      pinnedSort={nameSort}
+      identity={productIdentity}
+      value={value}
+      cardHidden={["sku"]}
+      actions={actions}
+      cellClassName={(id) =>
+        [
+          "on_hand_quantity",
+          "available_quantity",
+          "reserved_total_quantity",
+          "blocked_quantity",
+        ].includes(id)
+          ? "text-right"
+          : "text-muted-foreground"
+      }
+      labels={{ countSuffix: labels.title.toLowerCase(), ...labels }}
+      empty={labels.empty}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRetry={onRetry}
+      onPreview={onPreview}
+      onPrefetch={onPrefetch}
+      selection={selection}
+      bulkBar={
+        tickedRows.length ? (
+          <ProductsBulkBar
+            rows={tickedRows}
+            canArchive={canArchive}
+            labels={labels}
+            onClear={() => onTickedChange([])}
+            csv={() =>
+              rowsToCsv(
+                tickedRows,
+                [
+                  { id: "name", label: set.pinned.label },
+                  ...shown.map((id) => ({ id, label: set.labels[id] })),
+                ],
+                plain
+              )
+            }
           />
-        </div>
-      )}
-      <div className="products-mobile-list min-h-0 flex-1 flex-col">
-        <header className="flex h-10 shrink-0 items-center justify-between border-b px-3 text-xs text-muted-foreground">
-          <span>
-            {data.totalCount} {labels.title.toLowerCase()}
-          </span>
-          <div className="flex items-center gap-2">
-            <PageLink
-              href={href({
-                sort: "name",
-                direction: state.direction === "asc" ? "desc" : "asc",
-                strona: 1,
-                selected: null,
-              })}
-            >
-              {labels.sortName}{" "}
-              {state.sort === "name" ? (state.direction === "asc" ? "↑" : "↓") : "↕"}
-            </PageLink>
-            {menu}
-          </div>
-        </header>
-        <ul className="min-h-0 flex-1 overflow-auto overscroll-contain">
-          {data.rows.map((row) => (
-            <li
-              key={row.row_id}
-              className="flex items-start border-b px-3 py-2.5 hover:bg-muted/30"
-            >
-              <PageLink
-                href={rowHref(row)}
-                scroll={false}
-                onClick={(event) => openPreview(event, row)}
-                onMouseEnter={() => onPrefetch(row.row_id)}
-                onMouseLeave={() => onPrefetch(null)}
-                onFocus={() => onPrefetch(row.row_id)}
-                className="flex min-w-0 flex-1 items-start gap-2.5"
-              >
-                <ProductThumbnail src={row.thumbnail_url} size={42} />
-                <span className="min-w-0 flex-1">
-                  <strong className="block text-[13px] font-medium leading-5">{row.name}</strong>
-                  <span className="block truncate font-mono text-[11px] text-muted-foreground">
-                    {row.sku || labels.noSku}
-                  </span>
-                  <span className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-1">
-                    {shown
-                      .filter((id) => id !== "sku")
-                      .map((id) => (
-                        <span key={id} className="min-w-0 text-xs">
-                          <span className="block text-[10px] text-muted-foreground">
-                            {set.labels[id]}
-                          </span>
-                          <span className="block truncate">{value(row, id)}</span>
-                        </span>
-                      ))}
-                  </span>
-                </span>
-              </PageLink>
-              <div className="ml-1 shrink-0">{actions(row)}</div>
-            </li>
-          ))}
-          {!data.rows.length ? (
-            <li className="px-4 py-12 text-center text-sm text-muted-foreground">
-              {loading ? labels.loading : error ? labels.loadError : labels.empty}
-            </li>
-          ) : null}
-        </ul>
-        {pagination}
-      </div>
-    </div>
+        ) : null
+      }
+    />
   );
 }
