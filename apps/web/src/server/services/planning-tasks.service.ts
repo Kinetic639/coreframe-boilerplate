@@ -194,6 +194,9 @@ function collectAvatarSignEntries(rows: any[]): Array<{ userId: string; avatarPa
   return Array.from(entries, ([userId, avatarPath]) => ({ userId, avatarPath }));
 }
 
+// Board placement columns (board_id, column_id, board_position, is_inbox) are
+// not selected yet: they come with migration 20261115130000 and are read once
+// the board view uses them (phase 2). Until then rows map them to defaults.
 function mapTaskRow(row: any, signedAvatarUrls: Map<string, string>): PlanningTaskListRow {
   const assignee = Array.isArray(row.assignee) ? row.assignee[0] : row.assignee;
   const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator;
@@ -371,7 +374,7 @@ export const PlanningTasksService = {
         .from("planning_tasks")
         .select(
           `id, organization_id, task_number, title, status, priority,
-           branch_id, board_id, column_id, board_position, is_inbox, assigned_to, due_at, started_at, completed_at, cancelled_at,
+           branch_id, assigned_to, due_at, started_at, completed_at, cancelled_at,
            created_by, created_at, updated_at,
            assignee:users!assigned_to(first_name, last_name, email, avatar_url, avatar_path),
            creator:users!created_by(first_name, last_name, email)`,
@@ -452,7 +455,7 @@ export const PlanningTasksService = {
         .from("planning_tasks")
         .select(
           `id, organization_id, task_number, title, status, priority,
-           branch_id, board_id, column_id, board_position, is_inbox, assigned_to, due_at, started_at, completed_at, cancelled_at,
+           branch_id, assigned_to, due_at, started_at, completed_at, cancelled_at,
            created_by, created_at, updated_at,
            assignee:users!assigned_to(first_name, last_name, email, avatar_url, avatar_path),
            creator:users!created_by(first_name, last_name, email)`
@@ -488,7 +491,7 @@ export const PlanningTasksService = {
         .from("planning_tasks")
         .select(
           `id, organization_id, task_number, title, description_plain, description_rich,
-           status, priority, branch_id, board_id, column_id, board_position, is_inbox, assigned_to, due_at, started_at, completed_at,
+           status, priority, branch_id, assigned_to, due_at, started_at, completed_at,
            cancelled_at, created_by, updated_by, created_at, updated_at, deleted_at,
            assignee:users!assigned_to(first_name, last_name, email, avatar_url, avatar_path),
            creator:users!created_by(first_name, last_name, email)`
@@ -607,15 +610,17 @@ export const PlanningTasksService = {
           status: "open",
           priority: input.priority ?? "normal",
           branch_id: input.branch_id ?? null,
-          // The column decides the board and the status (database trigger).
-          column_id: input.column_id ?? null,
-          is_inbox: input.column_id ? false : (input.is_inbox ?? false),
+          // Placement columns are sent only when used, so this keeps working on
+          // a database without the board placement migration. The column
+          // decides the board and the status (database trigger).
+          ...(input.column_id ? { column_id: input.column_id } : {}),
+          ...(!input.column_id && input.is_inbox ? { is_inbox: true } : {}),
           assigned_to: input.assigned_to ?? null,
           due_at: input.due_at ?? null,
         })
         .select(
           `id, organization_id, task_number, title, description_plain, description_rich,
-           status, priority, branch_id, board_id, column_id, board_position, is_inbox, assigned_to, due_at, started_at, completed_at,
+           status, priority, branch_id, assigned_to, due_at, started_at, completed_at,
            cancelled_at, created_by, updated_by, created_at, updated_at, deleted_at,
            assignee:users!assigned_to(first_name, last_name, email, avatar_url, avatar_path),
            creator:users!created_by(first_name, last_name, email)`
