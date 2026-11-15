@@ -444,40 +444,6 @@ export const PlanningTasksService = {
     }
   },
 
-  // ── List for Kanban ─────────────────────────────────────────────────────
-
-  async listForKanban(
-    supabase: SupabaseClient,
-    orgId: string
-  ): Promise<ServiceResult<PlanningTaskListRow[]>> {
-    try {
-      const { data, error } = await supabase
-        .from("planning_tasks")
-        .select(
-          `id, organization_id, task_number, title, status, priority,
-           branch_id, assigned_to, due_at, started_at, completed_at, cancelled_at,
-           created_by, created_at, updated_at,
-           assignee:users!assigned_to(first_name, last_name, email, avatar_url, avatar_path),
-           creator:users!created_by(first_name, last_name, email)`
-        )
-        .eq("organization_id", orgId)
-        .in("status", ["open", "in_progress", "completed", "cancelled"])
-        .is("deleted_at", null)
-        .order("updated_at", { ascending: false })
-        .limit(500);
-
-      if (error) return { success: false, error: error.message };
-
-      const rawRows = (data ?? []) as any[];
-      const signedAvatarUrls = await batchSignAvatarUrls(collectAvatarSignEntries(rawRows));
-      const rows = rawRows.map((row) => mapTaskRow(row, signedAvatarUrls));
-
-      return { success: true, data: rows };
-    } catch (e) {
-      return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
-    }
-  },
-
   // ── Get detail ───────────────────────────────────────────────────────────
 
   async getDetail(

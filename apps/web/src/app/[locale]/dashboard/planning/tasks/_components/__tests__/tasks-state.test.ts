@@ -5,30 +5,15 @@ import {
   migrateTaskSearchParams,
   taskFilters,
   taskHref,
-  taskMatches,
 } from "../tasks-state";
 
 const PERSON = "22222222-2222-4222-8222-222222222222";
 const BRANCH = "33333333-3333-4333-8333-333333333333";
 const TODAY = new Date("2026-11-13T10:00:00.000Z");
 
-const task = (overrides: Record<string, unknown> = {}) => ({
-  task_number: "PT-000042",
-  title: "Wymiana łożyska",
-  status: "open",
-  priority: "high",
-  assigned_to: PERSON,
-  assignee_name: "Anna Nowak",
-  assignee_email: "anna@example.com",
-  branch_id: null,
-  due_at: "2026-11-15T12:00:00.000Z",
-  ...overrides,
-});
-
 describe("task list state", () => {
   it("reads the address, dropping what it cannot use", () => {
     const state = loadTaskState({
-      widok: "tablica",
       status: "open,nope",
       priorytet: "urgent",
       przypisani: `brak,${PERSON},x`,
@@ -36,7 +21,6 @@ describe("task list state", () => {
       termin: "7d",
     });
     expect(state).toMatchObject({
-      widok: "tablica",
       status: ["open"],
       priorytet: ["urgent"],
       przypisani: ["brak", PERSON],
@@ -79,26 +63,10 @@ describe("task list state", () => {
     });
   });
 
-  it("matches the board's tasks the same way", () => {
-    expect(taskMatches(task(), loadTaskState({ q: "lozysk" }), TODAY)).toBe(true);
-    expect(taskMatches(task(), loadTaskState({ q: "nowak" }), TODAY)).toBe(true);
-    expect(taskMatches(task(), loadTaskState({ przypisani: "brak" }), TODAY)).toBe(false);
-    expect(
-      taskMatches(task({ assigned_to: null }), loadTaskState({ przypisani: "brak" }), TODAY)
-    ).toBe(true);
-    expect(taskMatches(task(), loadTaskState({ oddzial: "organizacja" }), TODAY)).toBe(true);
-    expect(taskMatches(task(), loadTaskState({ oddzial: BRANCH }), TODAY)).toBe(false);
-    expect(taskMatches(task(), loadTaskState({ termin: "7d" }), TODAY)).toBe(true);
-    expect(taskMatches(task(), loadTaskState({ termin: "po_terminie" }), TODAY)).toBe(false);
-    expect(taskMatches(task({ due_at: null }), loadTaskState({ termin: "7d" }), TODAY)).toBe(false);
-  });
-
   it("keeps defaults out of the address", () => {
     const state = loadTaskState({});
     expect(taskHref("/dashboard/planowanie/zadania", state)).toBe("/dashboard/planowanie/zadania");
-    expect(taskHref("/x", state, { widok: "tablica", selected: "PT-000042" })).toBe(
-      "/x?widok=tablica&selected=PT-000042"
-    );
+    expect(taskHref("/x", state, { selected: "PT-000042" })).toBe("/x?selected=PT-000042");
   });
 
   it("translates old DataView and QR links", () => {
@@ -121,6 +89,13 @@ describe("task list state", () => {
         oddzial: BRANCH,
         selected: "PT-000042",
       },
+      changed: true,
+    });
+  });
+
+  it("drops the old view parameter (the status board is the boards page now)", () => {
+    expect(migrateTaskSearchParams({ widok: "lista", q: "pompa" })).toEqual({
+      params: { q: "pompa" },
       changed: true,
     });
   });

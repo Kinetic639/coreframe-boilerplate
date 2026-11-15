@@ -22,8 +22,13 @@ export function isPrefixMatch(pathname: string, prefix: string): boolean {
  *    not covered by a specific child (e.g. next-intl pattern `/dashboard/tools/[slug]`).
  * 3. Exact match: item.match.exact === pathname  (leaf items only)
  * 4. StartsWith match: segment-aware prefix (uses isPrefixMatch)
- * 5. No match rule and no children → false
+ * 5. Any of `match.also` (exact or segment-aware prefix)
+ * 6. No match rule and no children → false
  */
+function matchesRule(rule: { exact: string } | { startsWith: string }, pathname: string) {
+  return "exact" in rule ? pathname === rule.exact : isPrefixMatch(pathname, rule.startsWith);
+}
+
 export function isItemActive(item: SidebarItem, pathname: string): boolean {
   const hasChildren = item.children && item.children.length > 0;
 
@@ -36,6 +41,8 @@ export function isItemActive(item: SidebarItem, pathname: string): boolean {
     if (!item.match?.startsWith) return false;
     return isPrefixMatch(pathname, item.match.startsWith);
   }
+
+  if (item.match?.also?.some((rule) => matchesRule(rule, pathname))) return true;
 
   // No match rule → not active
   if (!item.match) return false;

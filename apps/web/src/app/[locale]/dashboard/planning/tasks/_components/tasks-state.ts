@@ -12,16 +12,15 @@ import {
 import type { DataViewListParams } from "@/lib/data-view/types";
 import type { TaskListFilters } from "@/lib/validations/planning";
 
-// The task list's whole state is its address: the view (list or board), the
-// search, a filter per column, the sort, the page and the task open in the
-// side panel (the board's dialog).
+// The task list's whole state is its address: the search, a filter per
+// column, the sort, the page and the task open in the side panel. (Boards
+// and the calendar are their own pages.)
 
 export const TASK_PAGE_SIZES = [20, 50, 100] as const;
 export const TASK_SORTS = ["task_number", "title", "due_at", "created_at", "updated_at"] as const;
 export type TaskSort = (typeof TASK_SORTS)[number];
 export const TASK_STATUSES = ["open", "in_progress", "completed", "cancelled"] as const;
 export const TASK_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
-export const TASK_VIEWS = ["lista", "tablica"] as const;
 /** Ready ranges of the due date filter. */
 export const DUE_WITHIN = ["po_terminie", "dzis", "7d"] as const;
 /** The assignee filter's value for tasks nobody has. */
@@ -48,7 +47,6 @@ const parseAsBranch = createParser({
 });
 
 export const taskParsers = {
-  widok: parseAsStringLiteral(TASK_VIEWS).withDefault("lista"),
   q: parseAsString.withDefault(""),
   strona: parseAsInteger.withDefault(1),
   wierszy: parseAsNumberLiteral(TASK_PAGE_SIZES).withDefault(50),
@@ -103,7 +101,7 @@ export function dueWindow(
   }
 }
 
-/** The filters the address sets (the board applies the same ones in place). */
+/** The filters the address sets. */
 export function taskFilters(state: TaskState, today = new Date()): TaskListFilters {
   const due = dueWindow(state, today);
   return {
@@ -119,7 +117,7 @@ export function taskFilters(state: TaskState, today = new Date()): TaskListFilte
   };
 }
 
-/** What the list asks the service for (the panel and the view are not part of it). */
+/** What the list asks the service for (the panel is not part of it). */
 export function taskListParams(state: TaskState): DataViewListParams {
   return {
     search: state.q.trim().slice(0, 100),
@@ -133,11 +131,16 @@ export function taskListParams(state: TaskState): DataViewListParams {
 /**
  * Old DataView links (`search`, `page`, `pageSize`, `sort=field.dir`,
  * `filters={...}`) and QR links (`highlight`) are translated once into this
- * list's address. `selected` keeps its name.
+ * list's address. `selected` keeps its name. The old `widok` (list or status
+ * board) is dropped: the board view became the boards page.
  */
 export function migrateTaskSearchParams(raw: Record<string, string | string[] | undefined>) {
   const next = { ...raw };
   let changed = false;
+  if (raw.widok !== undefined) {
+    delete next.widok;
+    changed = true;
+  }
   for (const [oldKey, newKey] of [
     ["search", "q"],
     ["page", "strona"],
@@ -181,55 +184,4 @@ export function migrateTaskSearchParams(raw: Record<string, string | string[] | 
     changed = true;
   }
   return { params: next, changed };
-}
-
-const fold = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    // "ł" has no accent to strip.
-    .replace(/ł/g, "l");
-
-/** Whether a task is one the address asks for (the board filters in place). */
-export function taskMatches(
-  task: {
-    task_number: string;
-    title: string;
-    status: string;
-    priority: string;
-    assigned_to: string | null;
-    assignee_name: string | null;
-    assignee_email: string | null;
-    branch_id: string | null;
-    due_at: string | null;
-  },
-  state: TaskState,
-  today = new Date()
-) {
-  const filters = taskFilters(state, today);
-  if (filters.status && !filters.status.includes(task.status as never)) return false;
-  if (filters.priority && !filters.priority.includes(task.priority as never)) return false;
-  if (filters.assignees?.length || filters.unassigned) {
-    const mine = task.assigned_to
-      ? !!filters.assignees?.includes(task.assigned_to)
-      : !!filters.unassigned;
-    if (!mine) return false;
-  }
-  if (filters.branch_ids?.length || filters.org_wide) {
-    const inside = task.branch_id
-      ? !!filters.branch_ids?.includes(task.branch_id)
-      : !!filters.org_wide;
-    if (!inside) return false;
-  }
-  if (filters.due_from || filters.due_to) {
-    if (!task.due_at) return false;
-    if (filters.due_from && task.due_at < filters.due_from) return false;
-    if (filters.due_to && task.due_at > filters.due_to) return false;
-  }
-  const search = fold(state.q.trim());
-  if (!search) return true;
-  return [task.task_number, task.title, task.assignee_name, task.assignee_email]
-    .filter((value): value is string => !!value)
-    .some((value) => fold(value).includes(search));
 }
