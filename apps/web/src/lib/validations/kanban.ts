@@ -27,10 +27,20 @@ const branchScopeHasBranch = (value: { visibility: KanbanVisibility; branch_id?:
   value.visibility !== "branch" || Boolean(value.branch_id);
 const branchScopeMessage = { message: "Choose a branch", path: ["branch_id"] };
 
-export const createKanbanBoardSchema = kanbanBoardFields.refine(
-  branchScopeHasBranch,
-  branchScopeMessage
-);
+export const createKanbanBoardSchema = kanbanBoardFields
+  .extend({
+    /** People added to the board right away (same as adding them in its settings). */
+    members: z
+      .array(
+        z.object({
+          user_id: z.string().uuid(),
+          role: z.enum(KANBAN_MEMBER_ROLES),
+        })
+      )
+      .max(100)
+      .optional(),
+  })
+  .refine(branchScopeHasBranch, branchScopeMessage);
 
 export const deleteKanbanBoardSchema = z.object({
   id: z.string().uuid(),

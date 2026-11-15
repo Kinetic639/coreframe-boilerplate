@@ -134,6 +134,146 @@ function personLabel(person: { name: string | null; email: string | null }) {
   return person.name || person.email || "—";
 }
 
+export interface PendingBoardMember {
+  user_id: string;
+  role: KanbanMemberRole;
+}
+
+/** People to add to a board that is being created. */
+export function NewBoardMembersField({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: PendingBoardMember[];
+  onChange: (value: PendingBoardMember[]) => void;
+  disabled?: boolean;
+}) {
+  const t = useTranslations("modules.planning");
+  const { people, currentUserId } = useBoardSharing();
+  const [newUserId, setNewUserId] = useState<string>("");
+  const [newRole, setNewRole] = useState<KanbanMemberRole>("editor");
+
+  const byId = useMemo(() => new Map(people.map((person) => [person.user_id, person])), [people]);
+  const candidates = useMemo(() => {
+    const taken = new Set([currentUserId, ...value.map((m) => m.user_id)]);
+    return people.filter((person) => !taken.has(person.user_id));
+  }, [currentUserId, people, value]);
+
+  return (
+    <div className="space-y-2">
+      <div>
+        <Label>{t("boards.sharing.members")}</Label>
+        <p className="mt-1 text-xs text-muted-foreground">{t("boards.sharing.membersHelp")}</p>
+      </div>
+      {value.length ? (
+        <ul className="divide-y rounded-md border">
+          {value.map((member) => {
+            const person = byId.get(member.user_id);
+            const name = person ? personLabel(person) : "—";
+            return (
+              <li
+                key={member.user_id}
+                className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm"
+              >
+                <span className="min-w-0 truncate">{name}</span>
+                <span className="flex shrink-0 items-center gap-1">
+                  <Select
+                    value={member.role}
+                    disabled={disabled}
+                    onValueChange={(role) =>
+                      onChange(
+                        value.map((m) =>
+                          m.user_id === member.user_id
+                            ? { ...m, role: role as KanbanMemberRole }
+                            : m
+                        )
+                      )
+                    }
+                  >
+                    <SelectTrigger
+                      className="h-8 w-[8.5rem]"
+                      aria-label={t("boards.sharing.roleFor", { name })}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {KANBAN_MEMBER_ROLES.map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {t(`boards.sharing.role.${role}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    disabled={disabled}
+                    aria-label={t("boards.sharing.remove", { name })}
+                    onClick={() => onChange(value.filter((m) => m.user_id !== member.user_id))}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Select value={newUserId} onValueChange={setNewUserId} disabled={disabled}>
+          <SelectTrigger className="sm:flex-1" aria-label={t("boards.sharing.person")}>
+            <SelectValue placeholder={t("boards.sharing.person")} />
+          </SelectTrigger>
+          <SelectContent>
+            {candidates.length ? (
+              candidates.map((person) => (
+                <SelectItem key={person.user_id} value={person.user_id}>
+                  {personLabel(person)}
+                </SelectItem>
+              ))
+            ) : (
+              <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                {t("boards.sharing.noPeople")}
+              </div>
+            )}
+          </SelectContent>
+        </Select>
+        <Select
+          value={newRole}
+          onValueChange={(role) => setNewRole(role as KanbanMemberRole)}
+          disabled={disabled}
+        >
+          <SelectTrigger className="sm:w-[8.5rem]" aria-label={t("boards.sharing.newRole")}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {KANBAN_MEMBER_ROLES.map((role) => (
+              <SelectItem key={role} value={role}>
+                {t(`boards.sharing.role.${role}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={!newUserId || disabled}
+          onClick={() => {
+            onChange([...value, { user_id: newUserId, role: newRole }]);
+            setNewUserId("");
+          }}
+        >
+          <UserPlus className="mr-1.5 h-4 w-4" />
+          {t("boards.sharing.add")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /** People added to the board. Everyone sees the list; only the owner edits it. */
 export function BoardMembersSection({
   board,
