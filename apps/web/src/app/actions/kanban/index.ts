@@ -10,6 +10,7 @@ import {
   PLANNING_BOARDS_DELETE,
   PLANNING_BOARDS_READ,
   PLANNING_BOARDS_UPDATE,
+  PLANNING_TASKS_ASSIGN,
 } from "@/lib/constants/permissions";
 import {
   addKanbanBoardMemberSchema,
@@ -62,6 +63,19 @@ async function getAuthedContext() {
   } = await supabase.auth.getUser();
   if (!user) return null;
   return { supabase, context, userId: user.id, orgId: context.app.activeOrgId };
+}
+
+async function currentAssignee(
+  ctx: NonNullable<Awaited<ReturnType<typeof getAuthedContext>>>,
+  taskId: string
+): Promise<string | null> {
+  const { data } = await ctx.supabase
+    .from("planning_tasks")
+    .select("assigned_to")
+    .eq("organization_id", ctx.orgId)
+    .eq("id", taskId)
+    .maybeSingle();
+  return (data as { assigned_to: string | null } | null)?.assigned_to ?? null;
 }
 
 function firstZodError(error: unknown) {
@@ -124,7 +138,7 @@ export async function listKanbanInboxCardsAction(): Promise<ActionResult<KanbanB
     if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_READ)) {
       return { success: false, error: "Insufficient permissions" };
     }
-    return KanbanBoardsService.listInboxCards(ctx.supabase, ctx.orgId);
+    return KanbanBoardsService.listInboxCards(ctx.supabase, ctx.orgId, ctx.userId);
   } catch {
     return { success: false, error: "Unexpected error" };
   }
@@ -359,6 +373,20 @@ export async function updateKanbanCardAction(
     }
     const parsed = updateKanbanCardSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
+    // Anyone who edits the board can take a task ("I'll take it") or let go of
+    // it; giving it to someone else needs the assign permission.
+    const assignee = parsed.data.assigned_to;
+    if (
+      assignee !== undefined &&
+      assignee !== ctx.userId &&
+      !checkPermission(ctx.context.user.permissionSnapshot, PLANNING_TASKS_ASSIGN)
+    ) {
+      const current = await currentAssignee(ctx, parsed.data.id);
+      const releasingOwn = assignee === null && current === ctx.userId;
+      if (current !== assignee && !releasingOwn) {
+        return { success: false, error: "Insufficient permissions" };
+      }
+    }
     const result = await KanbanBoardsService.updateCard(
       ctx.supabase,
       ctx.orgId,

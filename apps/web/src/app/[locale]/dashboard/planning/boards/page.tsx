@@ -7,6 +7,7 @@ import {
   PLANNING_BOARDS_DELETE,
   PLANNING_BOARDS_READ,
   PLANNING_BOARDS_UPDATE,
+  PLANNING_TASKS_ASSIGN,
 } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
 import { KanbanBoardsService } from "@/server/services/kanban-boards.service";
@@ -66,6 +67,7 @@ export default async function PlanningBoardsPage({ searchParams }: PlanningBoard
       canCreate={checkPermission(snap, PLANNING_BOARDS_CREATE)}
       canUpdate={checkPermission(snap, PLANNING_BOARDS_UPDATE)}
       canDelete={checkPermission(snap, PLANNING_BOARDS_DELETE)}
+      canAssign={checkPermission(snap, PLANNING_TASKS_ASSIGN)}
       branches={context.app.accessibleBranches.map((branch) => ({
         id: branch.id,
         name: branch.name,

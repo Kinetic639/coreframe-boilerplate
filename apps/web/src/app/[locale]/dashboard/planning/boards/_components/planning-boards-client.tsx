@@ -7,6 +7,8 @@ import {
   Activity,
   Calendar,
   Edit3,
+  ExternalLink,
+  Hand,
   Inbox,
   KanbanSquare,
   Loader2,
@@ -85,15 +87,17 @@ import {
   type KanbanBoardDetail,
   type KanbanBoardSummary,
   type KanbanCardActivity,
+  type KanbanTaskStatus,
 } from "@/lib/types/kanban";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
-import type { KanbanVisibility } from "@/lib/validations/kanban";
+import { KANBAN_TASK_STATUSES, type KanbanVisibility } from "@/lib/validations/kanban";
 import { cn } from "@/utils";
 import {
   BoardMembersSection,
   BoardSharingProvider,
   BoardVisibilityFields,
   BoardVisibilityIcon,
+  useBoardSharing,
   type BoardSharingOption,
   type BoardSharingPerson,
 } from "./board-sharing";
@@ -104,6 +108,8 @@ interface PlanningBoardsClientProps {
   canCreate: boolean;
   canUpdate: boolean;
   canDelete: boolean;
+  /** Can give a task to someone else; anyone who edits can take one. */
+  canAssign: boolean;
   /** Branches the board owner can pick for the branch scope. */
   branches: BoardSharingOption[];
   /** Organization members the owner can add to a board. */
@@ -147,11 +153,46 @@ function formatDateTime(value: string | null): string {
   });
 }
 
+const STATUS_LABEL_KEYS: Record<KanbanTaskStatus, string> = {
+  open: "tasks.open",
+  in_progress: "tasks.inProgress",
+  completed: "tasks.completed",
+  cancelled: "tasks.cancelled",
+};
+
+const STATUS_DOT_COLORS: Record<KanbanTaskStatus, string> = {
+  open: "bg-slate-400",
+  in_progress: "bg-amber-500",
+  completed: "bg-emerald-500",
+  cancelled: "bg-zinc-400",
+};
+
+const TASK_ACTIVITY_TYPES = new Set([
+  "task_created",
+  "title_changed",
+  "description_changed",
+  "assigned",
+  "unassigned",
+  "status_changed",
+  "priority_changed",
+  "due_date_changed",
+  "completed",
+  "reopened",
+  "cancelled",
+  "archived",
+  "restored",
+]);
+
+function statusLabel(t: ReturnType<typeof useTranslations>, status: KanbanTaskStatus) {
+  return t(STATUS_LABEL_KEYS[status]);
+}
+
 function activityLabel(
   t: ReturnType<typeof useTranslations>,
   type: string,
   fallback: string | null
 ) {
+  if (TASK_ACTIVITY_TYPES.has(type)) return t(`tasks.activityMessages.${type}`);
   const keys: Record<string, string> = {
     card_created: "activityMessages.cardCreated",
     card_updated: "activityMessages.cardUpdated",
@@ -254,6 +295,7 @@ export function PlanningBoardsClient({
   canCreate,
   canUpdate,
   canDelete,
+  canAssign,
   branches,
   people,
   currentUserId,
@@ -275,8 +317,8 @@ export function PlanningBoardsClient({
   const ownBoardCount = boards.filter((board) => board.my_access === "owner").length;
   const canCreateMore = canCreate && ownBoardCount < MAX_KANBAN_BOARDS_PER_USER;
   const sharing = useMemo(
-    () => ({ branches, people, currentUserId }),
-    [branches, people, currentUserId]
+    () => ({ branches, people, currentUserId, canAssign }),
+    [branches, people, currentUserId, canAssign]
   );
 
   useEffect(() => {
@@ -1176,6 +1218,7 @@ function ColumnMenu({
   const [title, setTitle] = useState(column.title);
   const [description, setDescription] = useState(column.description ?? "");
   const [color, setColor] = useState(column.color ?? COLUMN_COLORS[0]);
+  const [statusCategory, setStatusCategory] = useState(column.status_category);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -1183,6 +1226,7 @@ function ColumnMenu({
     setTitle(column.title);
     setDescription(column.description ?? "");
     setColor(column.color ?? COLUMN_COLORS[0]);
+    setStatusCategory(column.status_category);
   }, [column, editOpen]);
 
   const save = useCallback(() => {
@@ -1193,6 +1237,7 @@ function ColumnMenu({
         title,
         description,
         color,
+        status_category: statusCategory,
       });
       if (!result.success) {
         toast.error(actionError(result));
@@ -1201,7 +1246,7 @@ function ColumnMenu({
       onChanged(result.data);
       setEditOpen(false);
     });
-  }, [boardId, color, column.id, description, onChanged, title]);
+  }, [boardId, color, column.id, description, onChanged, statusCategory, title]);
 
   const archive = useCallback(() => {
     startTransition(async () => {
@@ -1247,9 +1292,11 @@ function ColumnMenu({
             title={title}
             description={description}
             color={color}
+            statusCategory={statusCategory}
             onTitleChange={setTitle}
             onDescriptionChange={setDescription}
             onColorChange={setColor}
+            onStatusCategoryChange={setStatusCategory}
           />
           <DialogFooter>
             <Button disabled={!title.trim() || isPending} onClick={save}>
@@ -1300,8 +1347,21 @@ function BoardCard({
         {card.description ? (
           <p className="line-clamp-3 text-xs text-muted-foreground">{card.description}</p>
         ) : null}
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <span
+            className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_DOT_COLORS[card.status])}
+            aria-hidden="true"
+          />
+          <span>{statusLabel(t, card.status)}</span>
+          <span className="ml-auto font-mono">{card.task_number}</span>
+        </div>
         <div className="flex items-end justify-between gap-2 text-xs text-muted-foreground">
-          <span className="min-w-0 truncate">{card.creator_name ?? card.creator_email}</span>
+          <span className="flex min-w-0 items-center gap-1 truncate">
+            <User className="h-3 w-3 shrink-0" aria-hidden="true" />
+            <span className="truncate">
+              {card.assignee_name ?? card.assignee_email ?? t("boards.task.unassigned")}
+            </span>
+          </span>
           {card.due_at ? (
             <span className="shrink-0">
               {t("boards.dueShort")}: {formatDate(card.due_at)}
@@ -1339,6 +1399,9 @@ function CardDetailDialog({
   const [dueAt, setDueAt] = useState("");
   const [label, setLabel] = useState("");
   const [labelColor, setLabelColor] = useState(LABEL_COLORS[0]);
+  const [status, setStatus] = useState<KanbanTaskStatus>("open");
+  const [assignedTo, setAssignedTo] = useState<string | null>(null);
+  const { people, currentUserId, canAssign } = useBoardSharing();
   const [activity, setActivity] = useState<KanbanCardActivity[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -1350,6 +1413,8 @@ function CardDetailDialog({
     setDueAt(toDateInput(card?.due_at ?? null));
     setLabel(card?.label ?? "");
     setLabelColor(card?.label_color ?? LABEL_COLORS[0]);
+    setStatus(card?.status ?? "open");
+    setAssignedTo(card?.assigned_to ?? null);
   }, [card]);
 
   const loadActivity = useCallback(async (cardId: string) => {
@@ -1370,40 +1435,63 @@ function CardDetailDialog({
     void loadActivity(card.id);
   }, [card, loadActivity]);
 
-  const save = useCallback(() => {
-    if (!card) return;
-    const description = extractPlainText(descriptionRich).trim();
-    startTransition(async () => {
-      const result = await updateKanbanCardAction({
-        id: card.id,
-        board_id: board.id,
-        column_id: columnId,
-        title,
-        description,
-        description_rich: descriptionRich,
-        due_at: fromDateInput(dueAt),
-        label,
-        label_color: label ? labelColor : null,
+  const save = useCallback(
+    (overrides?: { assigned_to?: string | null }) => {
+      if (!card) return;
+      const description = extractPlainText(descriptionRich).trim();
+      startTransition(async () => {
+        const nextAssignee =
+          overrides && "assigned_to" in overrides ? (overrides.assigned_to ?? null) : assignedTo;
+        const result = await updateKanbanCardAction({
+          id: card.id,
+          board_id: board.id,
+          column_id: columnId,
+          title,
+          description,
+          description_rich: descriptionRich,
+          due_at: fromDateInput(dueAt),
+          label,
+          label_color: label ? labelColor : null,
+          status,
+          assigned_to: nextAssignee,
+        });
+        if (!result.success) {
+          toast.error(actionError(result));
+          return;
+        }
+        if (overrides && "assigned_to" in overrides) setAssignedTo(nextAssignee);
+        onChanged(result.data);
+        await loadActivity(card.id);
       });
-      if (!result.success) {
-        toast.error(actionError(result));
-        return;
-      }
-      onChanged(result.data);
-      await loadActivity(card.id);
-    });
-  }, [
-    board.id,
-    card,
-    columnId,
-    descriptionRich,
-    dueAt,
-    label,
-    labelColor,
-    loadActivity,
-    onChanged,
-    title,
-  ]);
+    },
+    [
+      assignedTo,
+      board.id,
+      card,
+      columnId,
+      descriptionRich,
+      dueAt,
+      label,
+      labelColor,
+      loadActivity,
+      onChanged,
+      status,
+      title,
+    ]
+  );
+
+  // Whom the assignee select offers: everyone for a user who can assign,
+  // otherwise only "nobody", themselves and whoever has it now.
+  const assigneeOptions = useMemo(
+    () =>
+      canAssign
+        ? people
+        : people.filter(
+            (person) => person.user_id === currentUserId || person.user_id === card?.assigned_to
+          ),
+    [canAssign, card?.assigned_to, currentUserId, people]
+  );
+  const canTakeIt = canUpdate && card ? card.assigned_to !== currentUserId : false;
 
   const archive = useCallback(() => {
     if (!card) return;
@@ -1423,7 +1511,7 @@ function CardDetailDialog({
         <DialogHeader>
           <div className="border-b px-5 py-4">
             <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
-              <span>{t("boards.cardDetails")}</span>
+              <span className="font-mono">{card?.task_number}</span>
               <span>•</span>
               <span>
                 {card?.is_inbox
@@ -1470,7 +1558,7 @@ function CardDetailDialog({
               {card ? (
                 <CommentsThread
                   key={card.id}
-                  targetType="planning.kanban_card"
+                  targetType="planning.task"
                   targetId={card.id}
                   density="compact"
                   labels={{
@@ -1503,6 +1591,72 @@ function CardDetailDialog({
 
           <aside className="min-h-0 overflow-y-auto border-t bg-muted/10 p-4 lg:border-l lg:border-t-0">
             <div className="space-y-4">
+              {card ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start gap-1.5"
+                  onClick={() =>
+                    (window.location.href = `/dashboard/planning/tasks/${card.task_number}`)
+                  }
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  {t("boards.task.openFull")}
+                </Button>
+              ) : null}
+              <div className="space-y-2">
+                <Label>{t("boards.task.status")}</Label>
+                <Select
+                  value={status}
+                  onValueChange={(value) => setStatus(value as KanbanTaskStatus)}
+                  disabled={!canUpdate}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {KANBAN_TASK_STATUSES.map((item) => (
+                      <SelectItem key={item} value={item}>
+                        {statusLabel(t, item)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{t("boards.task.assignee")}</Label>
+                <Select
+                  value={assignedTo ?? "__unassigned__"}
+                  onValueChange={(value) =>
+                    setAssignedTo(value === "__unassigned__" ? null : value)
+                  }
+                  disabled={!canUpdate}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__unassigned__">{t("boards.task.unassigned")}</SelectItem>
+                    {assigneeOptions.map((person) => (
+                      <SelectItem key={person.user_id} value={person.user_id}>
+                        {person.name || person.email || person.user_id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {canTakeIt ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="w-full gap-1.5"
+                    disabled={isPending}
+                    onClick={() => save({ assigned_to: currentUserId })}
+                  >
+                    <Hand className="h-3.5 w-3.5" />
+                    {t("boards.task.takeIt")}
+                  </Button>
+                ) : null}
+              </div>
               <div className="space-y-2">
                 <Label>{t("boards.column")}</Label>
                 <Select value={columnId} onValueChange={setColumnId} disabled={!canUpdate}>
@@ -1591,7 +1745,7 @@ function CardDetailDialog({
                 {canUpdate ? (
                   <Button
                     className="flex-1 gap-1.5"
-                    onClick={save}
+                    onClick={() => save()}
                     disabled={!title.trim() || !columnId || isPending}
                   >
                     {isPending ? (
@@ -1716,6 +1870,7 @@ function AddColumnPanel({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState(COLUMN_COLORS[0]);
+  const [statusCategory, setStatusCategory] = useState<KanbanTaskStatus | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const submit = useCallback(() => {
@@ -1725,6 +1880,7 @@ function AddColumnPanel({
         title,
         description,
         color,
+        status_category: statusCategory,
       });
       if (!result.success) {
         toast.error(actionError(result));
@@ -1732,10 +1888,11 @@ function AddColumnPanel({
       }
       setTitle("");
       setDescription("");
+      setStatusCategory(null);
       setOpen(false);
       onCreated(result.data);
     });
-  }, [boardId, color, description, onCreated, title]);
+  }, [boardId, color, description, onCreated, statusCategory, title]);
 
   if (!open) {
     return (
@@ -1758,9 +1915,11 @@ function AddColumnPanel({
         title={title}
         description={description}
         color={color}
+        statusCategory={statusCategory}
         onTitleChange={setTitle}
         onDescriptionChange={setDescription}
         onColorChange={setColor}
+        onStatusCategoryChange={setStatusCategory}
       />
       <div className="flex gap-2">
         <Button disabled={!title.trim() || isPending} onClick={submit}>
@@ -1785,20 +1944,26 @@ function AddColumnPanel({
   );
 }
 
+const NO_STATUS = "__none__";
+
 function ColumnFields({
   title,
   description,
   color,
+  statusCategory,
   onTitleChange,
   onDescriptionChange,
   onColorChange,
+  onStatusCategoryChange,
 }: {
   title: string;
   description: string;
   color: string;
+  statusCategory: KanbanTaskStatus | null;
   onTitleChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
   onColorChange: (value: string) => void;
+  onStatusCategoryChange: (value: KanbanTaskStatus | null) => void;
 }) {
   const t = useTranslations("modules.planning");
   return (
@@ -1819,6 +1984,28 @@ function ColumnFields({
           placeholder={t("boards.columnDescriptionPlaceholder")}
           className="min-h-20"
         />
+      </div>
+      <div className="space-y-2">
+        <Label>{t("boards.columnStatus.label")}</Label>
+        <Select
+          value={statusCategory ?? NO_STATUS}
+          onValueChange={(value) =>
+            onStatusCategoryChange(value === NO_STATUS ? null : (value as KanbanTaskStatus))
+          }
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_STATUS}>{t("boards.columnStatus.none")}</SelectItem>
+            {KANBAN_TASK_STATUSES.map((item) => (
+              <SelectItem key={item} value={item}>
+                {statusLabel(t, item)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">{t("boards.columnStatus.help")}</p>
       </div>
       <div className="space-y-2">
         <Label>{t("boards.color")}</Label>

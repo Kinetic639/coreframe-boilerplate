@@ -4611,7 +4611,13 @@
           "cancelled": "Zadanie anulowane",
           "archived": "Zadanie zarchiwizowane",
           "restored": "Zadanie przywrócone",
-          "comment_added": "Komentarz dodany"
+          "comment_added": "Komentarz dodany",
+          "card_created": "Dodane na tablicy",
+          "card_updated": "Zaktualizowane na tablicy",
+          "card_moved": "Przeniesione do innej kolumny",
+          "card_moved_to_inbox": "Przeniesione do skrzynki",
+          "card_moved_from_inbox": "Przeniesione ze skrzynki na tablicę",
+          "card_archived": "Zarchiwizowane na tablicy"
         }
       },
       "boards": {
@@ -4714,6 +4720,18 @@
           "remove": "Usuń {name} z tablicy",
           "roleFor": "Rola: {name}",
           "ownerOnly": "Widoczność i osoby zmienia tylko właściciel tablicy."
+        },
+        "task": {
+          "status": "Status",
+          "assignee": "Kto się tym zajmuje",
+          "unassigned": "Nikt",
+          "takeIt": "Biorę to",
+          "openFull": "Otwórz pełne zadanie"
+        },
+        "columnStatus": {
+          "label": "Status zadań w tej kolumnie",
+          "none": "Bez statusu (zwykła grupa)",
+          "help": "Zadanie przeniesione do tej kolumny dostaje ten status, a zmiana statusu na liście zadań przenosi je do pierwszej kolumny z tym statusem. Kolumna bez statusu tylko grupuje zadania."
         }
       },
       "settings": {

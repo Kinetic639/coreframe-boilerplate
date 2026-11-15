@@ -1,4 +1,10 @@
-import type { KanbanMemberRole, KanbanVisibility } from "@/lib/validations/kanban";
+import type {
+  KANBAN_TASK_STATUSES,
+  KanbanMemberRole,
+  KanbanVisibility,
+} from "@/lib/validations/kanban";
+
+export type KanbanTaskStatus = (typeof KANBAN_TASK_STATUSES)[number];
 
 export const MAX_KANBAN_BOARDS_PER_USER = 5;
 
@@ -37,15 +43,27 @@ export interface KanbanBoardColumn {
   title: string;
   description: string | null;
   color: string | null;
+  /** open / in_progress / completed / cancelled, or null for a plain group. */
+  status_category: KanbanTaskStatus | null;
   position: number;
   created_at: string;
   updated_at: string;
 }
 
+/**
+ * A task as a board shows it. Since phase 2 every card is a planning task
+ * (same id); board_id and column_id are empty strings for a task in the inbox.
+ */
 export interface KanbanBoardCard {
   id: string;
   board_id: string;
   column_id: string;
+  task_number: string;
+  status: KanbanTaskStatus;
+  priority: string;
+  assigned_to: string | null;
+  assignee_name: string | null;
+  assignee_email: string | null;
   organization_id: string;
   title: string;
   description: string | null;

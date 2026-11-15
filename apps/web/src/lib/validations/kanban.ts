@@ -57,6 +57,8 @@ export const removeKanbanBoardMemberSchema = z.object({
   user_id: z.string().uuid(),
 });
 
+export const KANBAN_TASK_STATUSES = ["open", "in_progress", "completed", "cancelled"] as const;
+
 export const createKanbanColumnSchema = z.object({
   board_id: z.string().uuid(),
   title: z.string().trim().min(1).max(120),
@@ -66,6 +68,8 @@ export const createKanbanColumnSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/)
     .nullable()
     .optional(),
+  /** A task moved into the column takes this status; null = the column is just a group. */
+  status_category: z.enum(KANBAN_TASK_STATUSES).nullable().optional(),
 });
 
 export const updateKanbanColumnSchema = createKanbanColumnSchema.extend({
@@ -94,6 +98,9 @@ export const createKanbanCardSchema = z.object({
 
 export const updateKanbanCardSchema = createKanbanCardSchema.extend({
   id: z.string().uuid(),
+  /** A card is a task: its status and assignee can be changed from the board. */
+  status: z.enum(KANBAN_TASK_STATUSES).optional(),
+  assigned_to: z.string().uuid().nullable().optional(),
 });
 
 export const moveKanbanCardSchema = z.object({
