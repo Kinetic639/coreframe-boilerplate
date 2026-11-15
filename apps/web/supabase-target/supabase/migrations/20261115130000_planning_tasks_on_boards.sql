@@ -8,13 +8,17 @@
 -- become a view of tasks. Kanban cards stay untouched here; they move over in
 -- phase 2.
 --
---   1. Every board column gets a status category (open / in_progress /
---      completed / cancelled), so a column always means one task status.
+--   1. A board column can have a status category (open / in_progress /
+--      completed / cancelled). It is optional: a column without one (NULL) is
+--      just a group, e.g. on a personal board sorted by topic, and moving a
+--      task into it leaves the task's status alone.
 --   2. A task can be placed on a board (board_id, column_id, board_position)
 --      or kept in its author's private inbox (is_inbox).
---   3. A trigger keeps the column and the status in step both ways: dragging a
---      task to another column sets its status, and changing the status from
---      the list moves it to the first column of that status on its board.
+--   3. A trigger keeps a status column and the status in step both ways:
+--      dragging a task into a status column sets its status, and changing the
+--      status from the list moves a task sitting in a status column to the
+--      first column of that status on its board. Columns without a category
+--      take no part in either direction.
 --   4. Two rules are added on top of the existing task policies (RESTRICTIVE,
 --      so the existing policies are kept as they are): an inbox task is seen
 --      only by its author, and a task on a private board only by the people
@@ -23,27 +27,29 @@
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
--- 1. Status category per board column
+-- 1. Optional status category per board column (NULL = not a status column)
 -- ---------------------------------------------------------------------------
 
 ALTER TABLE public.planning_kanban_columns
-  ADD COLUMN IF NOT EXISTS status_category TEXT NOT NULL DEFAULT 'open';
+  ADD COLUMN IF NOT EXISTS status_category TEXT;
 
 ALTER TABLE public.planning_kanban_columns
   DROP CONSTRAINT IF EXISTS planning_kanban_columns_status_category_check;
 ALTER TABLE public.planning_kanban_columns
   ADD CONSTRAINT planning_kanban_columns_status_category_check
-  CHECK (status_category IN ('open', 'in_progress', 'completed', 'cancelled'));
+  CHECK (status_category IS NULL OR status_category IN ('open', 'in_progress', 'completed', 'cancelled'));
 
--- Best guess for existing columns from their names; everything else stays open.
+-- Existing columns: only names that clearly mean a status get a category,
+-- everything else stays a plain group (NULL).
 UPDATE public.planning_kanban_columns
 SET status_category = CASE
-  WHEN title ~* '(done|complete|finish|zrobion|gotow|zako[nń]czon|wykonan|naprawion|zamkni[eę]t)' THEN 'completed'
-  WHEN title ~* '(cancel|anulow|odrzucon)' THEN 'cancelled'
-  WHEN title ~* '(progress|doing|review|w toku|w trakcie|w realizacji|realizowan)' THEN 'in_progress'
-  ELSE 'open'
+  WHEN title ~* '(^|\W)(done|completed?|finished|zrobione|gotowe|zako[nń]czone|wykonane|zamkni[eę]te)(\W|$)' THEN 'completed'
+  WHEN title ~* '(^|\W)(cancell?ed|anulowane|odrzucone)(\W|$)' THEN 'cancelled'
+  WHEN title ~* '(in progress|doing|w toku|w trakcie|w realizacji)' THEN 'in_progress'
+  WHEN title ~* '(^|\W)(to ?do|do zrobienia|nowe|otwarte|backlog)(\W|$)' THEN 'open'
+  ELSE NULL
 END
-WHERE status_category = 'open';
+WHERE status_category IS NULL;
 
 -- ---------------------------------------------------------------------------
 -- 2. Where a task sits: a board column or its author's inbox
@@ -134,15 +140,17 @@ BEGIN
   v_column_moved := NEW.column_id IS NOT NULL
     AND (TG_OP = 'INSERT' OR NEW.column_id IS DISTINCT FROM OLD.column_id);
 
-  IF v_column_moved THEN
-    -- Dragged to (or created in) a column: the status follows the column.
+  IF v_column_moved AND v_column_status IS NOT NULL THEN
+    -- Dragged to (or created in) a status column: the status follows it.
     NEW.status := v_column_status;
   ELSIF TG_OP = 'UPDATE'
+    AND NOT v_column_moved
     AND NEW.status IS DISTINCT FROM OLD.status
-    AND NEW.column_id IS NOT NULL
-    AND v_column_status IS DISTINCT FROM NEW.status THEN
-    -- Status changed elsewhere: move to the first column of that status, if
-    -- the board has one. Otherwise the task stays where it is.
+    AND v_column_status IS NOT NULL
+    AND v_column_status <> NEW.status THEN
+    -- Status changed elsewhere while in a status column: move to the first
+    -- column of that status, if the board has one. Otherwise, and always for
+    -- a plain column, the task stays where it is.
     SELECT c.id INTO v_target_column
     FROM public.planning_kanban_columns c
     WHERE c.board_id = NEW.board_id
