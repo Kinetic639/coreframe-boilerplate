@@ -38,6 +38,7 @@ export function ListPane<Row>({
   value,
   plainValue = value,
   badge,
+  cardHidden = [],
   actions,
   cellClassName,
   labels,
@@ -77,6 +78,8 @@ export function ListPane<Row>({
   plainValue?: (row: Row, columnId: string) => ReactNode;
   /** Shown at the top right of a phone card (e.g. the status). */
   badge?: (row: Row) => ReactNode;
+  /** Columns left out of the phone card's fields (shown by the badge or identity). */
+  cardHidden?: readonly string[];
   actions?: (row: Row) => ReactNode;
   cellClassName?: (columnId: string) => string | undefined;
   /** title, loading, loadError, retry, countSuffix (other keys are ignored). */
@@ -86,14 +89,17 @@ export function ListPane<Row>({
   refreshing?: boolean;
   error?: string | null;
   onRetry?: () => void;
-  onPreview: (key: string | null) => void;
+  /** Opens a row beside the list (none: a row's link leads to its own page). */
+  onPreview?: (key: string | null) => void;
   onPrefetch?: (key: string | null) => void;
   /** Ticking rows, for actions on several at once (none: no boxes). */
   selection?: TableSelection<Row>;
 }) {
   const shown = layout.filter((c) => c.shown).map((c) => c.id);
+  const cardFields = shown.filter((id) => !cardHidden.includes(id));
   const { page, pages, range } = pageState({ page: askedPage, size }, totalCount, rows.length);
   const openPreview = (event: MouseEvent, row: Row) => {
+    if (!onPreview) return;
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
       return;
     event.preventDefault();
@@ -102,7 +108,7 @@ export function ListPane<Row>({
   };
   const linkProps = (row: Row) => ({
     href: rowHref(row),
-    scroll: false,
+    scroll: onPreview ? false : undefined,
     onClick: (event: MouseEvent) => openPreview(event, row),
     onMouseEnter: () => onPrefetch?.(rowKey(row)),
     onMouseLeave: () => onPrefetch?.(null),
@@ -275,9 +281,9 @@ export function ListPane<Row>({
                     <span className="flex min-w-0 items-center gap-2.5">{identity(row)}</span>
                     {badge ? <span className="shrink-0">{badge(row)}</span> : null}
                   </span>
-                  {shown.length ? (
+                  {cardFields.length ? (
                     <span className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-1">
-                      {shown.map((id) => (
+                      {cardFields.map((id) => (
                         <span key={id} className="min-w-0 text-xs">
                           <span className="block text-[10px] text-muted-foreground">
                             {set.labels[id]}

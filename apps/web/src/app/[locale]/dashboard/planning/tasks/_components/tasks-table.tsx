@@ -1,10 +1,7 @@
-import { ArrowDown, ArrowUp, ChevronsUpDown, ExternalLink, Eye } from "lucide-react";
-import type { MouseEvent, ReactNode } from "react";
-import { TableLink as PageLink } from "@/components/data-table/table-navigation";
-import { DataTable, TablePagination, pageState, TD } from "@/components/data-table/data-table";
-import { ColumnsMenu } from "@/components/data-table/columns-menu";
+import { ExternalLink, Eye } from "lucide-react";
+import type { ReactNode } from "react";
+import { ListPane } from "@/components/data-table/list-pane";
 import {
-  defaultLayout,
   type ColumnLayout,
   type ColumnSet,
   type ColumnWidths,
@@ -119,21 +116,9 @@ export function TasksTable({
   /** The pointer rests on a row (null: it left): its card can be fetched. */
   onPrefetch: (taskNumber: string | null) => void;
 }) {
-  const shown = layout.filter((c) => c.shown).map((c) => c.id);
-  const { page, pages, range } = pageState(
-    { page: state.strona, size: state.wierszy },
-    data.totalCount,
-    data.rows.length
-  );
   const href = (patch: Partial<TaskState>) => taskHref(path, state, patch);
   const rowHref = (row: Row) =>
     href({ selected: state.selected === row.task_number ? null : row.task_number });
-  const openPreview = (event: MouseEvent, row: Row) => {
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
-      return;
-    event.preventDefault();
-    onPreview(state.selected === row.task_number ? null : row.task_number);
-  };
   const sortOf = (field: TaskSort) => ({
     href: href({
       sort: field,
@@ -143,16 +128,6 @@ export function TasksTable({
     }),
     direction: state.sort === field ? state.direction : null,
   });
-  const menu = (
-    <ColumnsMenu
-      cookie={cookie}
-      defaults={defaultLayout(set)}
-      labels={set.labels}
-      layout={layout}
-      onChange={onLayoutChange}
-      pinnedLabel={set.pinned.label}
-    />
-  );
   const date = (value: string | null, withTime = true) =>
     value ? (
       <span className="text-xs text-muted-foreground">
@@ -238,25 +213,6 @@ export function TasksTable({
     id === "assignee"
       ? (row.assignee_name ?? row.assignee_email ?? labels.unassigned)
       : value(row, id);
-  const pagination = (
-    <TablePagination
-      sizes={TASK_PAGE_SIZES.map((size) => ({
-        size,
-        current: state.wierszy === size,
-        href: href({ wierszy: size, strona: 1, selected: null }),
-      }))}
-      range={range}
-      previousHref={page > 1 ? href({ strona: page - 1, selected: null }) : null}
-      nextHref={page < pages ? href({ strona: page + 1, selected: null }) : null}
-    />
-  );
-  const numberSort = sortOf("task_number");
-  const NumberSortIcon =
-    numberSort.direction === "asc"
-      ? ArrowUp
-      : numberSort.direction === "desc"
-        ? ArrowDown
-        : ChevronsUpDown;
   const identity = (row: Row) => (
     <span className="min-w-0">
       <span className="block truncate text-[13px] font-medium" title={row.title}>
@@ -267,169 +223,44 @@ export function TasksTable({
       </span>
     </span>
   );
-  const linkProps = (row: Row) => ({
-    href: rowHref(row),
-    scroll: false,
-    onClick: (event: MouseEvent) => openPreview(event, row),
-    onMouseEnter: () => onPrefetch(row.task_number),
-    onMouseLeave: () => onPrefetch(null),
-    onFocus: () => onPrefetch(row.task_number),
-  });
-  const empty = loading ? labels.loading : error ? labels.loadError : labels.empty;
   return (
-    <div
-      className={cn(
-        "dt-list-pane relative flex min-h-0 min-w-0 flex-1 flex-col",
-        state.selected && "dt-list-pane--preview"
-      )}
-      aria-busy={loading || refreshing}
-      data-refreshing={refreshing ? "" : undefined}
-    >
-      {/* The rows stay while new ones come: a thin bar says so, not a skeleton. */}
-      {loading || refreshing ? (
-        <div className="dt-list-progress" role="progressbar" aria-label={labels.loading} />
-      ) : null}
-      {error ? (
-        <div role="alert" className="border-b bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {labels.loadError} <span className="block text-xs">{error}</span>
-          <button type="button" onClick={onRetry} className="underline">
-            {labels.retry}
-          </button>
-        </div>
-      ) : null}
-      {state.selected ? (
-        <aside
-          className="dt-list-mini-list min-h-0 flex-1 overflow-y-auto border-r bg-background"
-          aria-label={labels.title}
-        >
-          <header className="sticky top-0 z-10 flex h-[34px] items-center border-b bg-muted/70 px-3 text-[10px] font-medium text-muted-foreground backdrop-blur-sm">
-            <PageLink
-              href={numberSort.href}
-              scroll={false}
-              className={cn(
-                "inline-flex items-center gap-1 rounded hover:text-foreground",
-                numberSort.direction && "text-foreground"
-              )}
-            >
-              {set.pinned.label}
-              <NumberSortIcon
-                className={cn("size-3", !numberSort.direction && "opacity-40")}
-                aria-hidden="true"
-              />
-            </PageLink>
-          </header>
-          <ul>
-            {data.rows.map((row) => {
-              const selected = row.task_number === state.selected;
-              return (
-                <li key={row.id} data-row-id={row.task_number}>
-                  <PageLink
-                    {...linkProps(row)}
-                    className={cn(
-                      "group flex h-[49px] items-center gap-2.5 border-b px-3 py-1 hover:bg-muted/50",
-                      selected &&
-                        "border-l-[3px] border-l-primary bg-primary/10 pl-[9px] hover:bg-primary/10"
-                    )}
-                    aria-current={selected ? "true" : undefined}
-                  >
-                    {identity(row)}
-                  </PageLink>
-                </li>
-              );
-            })}
-          </ul>
-        </aside>
-      ) : (
-        <div className="dt-list-desktop-table min-h-0 flex-1 flex-col">
-          <DataTable
-            caption={labels.title}
-            set={set}
-            columns={shown.map((id) => ({
-              id,
-              label: set.labels[id],
-              sort: SORT_FIELD[id] ? sortOf(SORT_FIELD[id]) : undefined,
-            }))}
-            rows={data.rows}
-            rowKey={(row) => row.task_number}
-            rowHref={rowHref}
-            selected={(row) => row.task_number === state.selected}
-            pinnedSort={numberSort}
-            onRowIntent={(row) => onPrefetch(row ? row.task_number : null)}
-            pinned={(row) => (
-              <PageLink {...linkProps(row)} className="flex min-w-0 items-center gap-2.5 py-1">
-                {identity(row)}
-              </PageLink>
-            )}
-            cell={(row, id) => (
-              <td
-                key={id}
-                className={cn(
-                  TD,
-                  id === "branch" || id === "creator" ? "text-muted-foreground" : ""
-                )}
-              >
-                {value(row, id)}
-              </td>
-            )}
-            actions={actions}
-            menu={menu}
-            widths={widths}
-            widthsCookie={`${cookie}_widths`}
-            empty={empty}
-            pagination={pagination}
-          />
-        </div>
-      )}
-      <div className="dt-list-mobile min-h-0 flex-1 flex-col">
-        <header className="flex h-10 shrink-0 items-center justify-between border-b px-3 text-xs text-muted-foreground">
-          <span>
-            {data.totalCount} {labels.countSuffix}
-          </span>
-          <div className="flex items-center gap-2">
-            <PageLink href={numberSort.href}>
-              {labels.column_task}{" "}
-              {numberSort.direction === "asc" ? "↑" : numberSort.direction === "desc" ? "↓" : "↕"}
-            </PageLink>
-            {menu}
-          </div>
-        </header>
-        <ul className="min-h-0 flex-1 overflow-auto overscroll-contain">
-          {data.rows.map((row) => (
-            <li key={row.id} className="flex items-start border-b px-3 py-2.5 hover:bg-muted/30">
-              <PageLink {...linkProps(row)} className="flex min-w-0 flex-1 items-start gap-2.5">
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center justify-between gap-2">
-                    <strong className="truncate text-[13px] font-medium leading-5">
-                      {row.title}
-                    </strong>
-                    <TaskStatus row={row} configs={configs} />
-                  </span>
-                  <span className="block truncate font-mono text-[11px] text-muted-foreground">
-                    {row.task_number}
-                  </span>
-                  <span className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-1">
-                    {shown
-                      .filter((id) => id !== "status")
-                      .map((id) => (
-                        <span key={id} className="min-w-0 text-xs">
-                          <span className="block text-[10px] text-muted-foreground">
-                            {set.labels[id]}
-                          </span>
-                          <span className="block truncate">{plainValue(row, id)}</span>
-                        </span>
-                      ))}
-                  </span>
-                </span>
-              </PageLink>
-              <div className="ml-1 shrink-0">{actions(row)}</div>
-            </li>
-          ))}
-          {!data.rows.length ? (
-            <li className="px-4 py-12 text-center text-sm text-muted-foreground">{empty}</li>
-          ) : null}
-        </ul>
-        {pagination}
-      </div>
-    </div>
+    <ListPane
+      rows={data.rows}
+      totalCount={data.totalCount}
+      page={state.strona}
+      size={state.wierszy}
+      sizes={TASK_PAGE_SIZES}
+      selected={state.selected}
+      rowKey={(row) => row.task_number}
+      rowHref={rowHref}
+      pageHref={(page) => href({ strona: page, selected: null })}
+      sizeHref={(size) =>
+        href({ wierszy: size as TaskState["wierszy"], strona: 1, selected: null })
+      }
+      set={set}
+      layout={layout}
+      widths={widths}
+      cookie={cookie}
+      onLayoutChange={onLayoutChange}
+      sortOf={(id) => (SORT_FIELD[id] ? sortOf(SORT_FIELD[id]) : undefined)}
+      pinnedSort={sortOf("task_number")}
+      identity={identity}
+      value={value}
+      plainValue={plainValue}
+      badge={(row) => <TaskStatus row={row} configs={configs} />}
+      cardHidden={["status"]}
+      actions={actions}
+      cellClassName={(id) =>
+        id === "branch" || id === "creator" ? "text-muted-foreground" : undefined
+      }
+      labels={labels}
+      empty={labels.empty}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRetry={onRetry}
+      onPreview={onPreview}
+      onPrefetch={onPrefetch}
+    />
   );
 }
