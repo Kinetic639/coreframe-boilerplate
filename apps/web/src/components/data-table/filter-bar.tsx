@@ -460,13 +460,6 @@ export function FilterBar({
           )}
         </PopoverContent>
       </Popover>
-      {views === false ? null : (
-        <SavedViewsMenu
-          ignore={[...resetOnChange, ...(views?.ignore ?? [])]}
-          listKey={views?.listKey}
-          shallow={shallow}
-        />
-      )}
       <TableSearch
         label={search.label}
         parsers={parsers.strona ? { q: parsers.q, strona: parsers.strona } : { q: parsers.q }}
@@ -520,6 +513,16 @@ export function FilterBar({
           ))}
         </div>
       ) : null}
+      {/* Saved views, at the bar's right end (after the filters set). */}
+      {views === false ? null : (
+        <div className={cn("shrink-0", !active.length && "ml-auto")}>
+          <SavedViewsMenu
+            ignore={[...resetOnChange, ...(views?.ignore ?? [])]}
+            listKey={views?.listKey}
+            shallow={shallow}
+          />
+        </div>
+      )}
     </div>
   );
 }

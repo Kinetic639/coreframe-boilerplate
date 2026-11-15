@@ -184,7 +184,7 @@ export function SavedViewsMenu({ listKey: givenKey, ignore = [], shallow }: Save
           <TooltipContent>Widoki</TooltipContent>
         </Tooltip>
       </TooltipProvider>
-      <PopoverContent align="start" className="w-72 p-1 text-[0.8125rem]">
+      <PopoverContent align="end" className="w-72 p-1 text-[0.8125rem]">
         {!data ? (
           <p className="px-2 py-2 text-xs text-[var(--text-muted)]">Wczytywanie widoków…</p>
         ) : !views.length ? (
