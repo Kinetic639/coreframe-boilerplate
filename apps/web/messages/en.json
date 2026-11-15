@@ -4531,7 +4531,13 @@
           "cancelled": "Task cancelled",
           "archived": "Task archived",
           "restored": "Task restored",
-          "comment_added": "Comment added"
+          "comment_added": "Comment added",
+          "card_created": "Added on a board",
+          "card_updated": "Updated on a board",
+          "card_moved": "Moved to another column",
+          "card_moved_to_inbox": "Moved to the inbox",
+          "card_moved_from_inbox": "Moved from the inbox to a board",
+          "card_archived": "Archived on a board"
         }
       },
       "boards": {
@@ -4634,6 +4640,18 @@
           "remove": "Remove {name} from the board",
           "roleFor": "Role: {name}",
           "ownerOnly": "Only the board owner changes who sees it."
+        },
+        "task": {
+          "status": "Status",
+          "assignee": "Assignee",
+          "unassigned": "Nobody",
+          "takeIt": "I'll take it",
+          "openFull": "Open full task"
+        },
+        "columnStatus": {
+          "label": "Task status in this column",
+          "none": "No status (just a group)",
+          "help": "A task moved into this column gets this status, and changing the status in the task list moves it to the first column with that status. A column without a status only groups tasks."
         }
       },
       "settings": {

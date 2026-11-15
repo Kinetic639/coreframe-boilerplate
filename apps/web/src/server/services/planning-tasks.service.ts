@@ -920,6 +920,8 @@ export const PlanningTasksService = {
         )
         .eq("organization_id", orgId)
         .is("deleted_at", null)
+        // A task on a board shows in that board's calendar instead.
+        .is("board_id", null)
         .neq("status", "cancelled")
         .or(
           [
@@ -943,6 +945,7 @@ export const PlanningTasksService = {
           )
           .eq("organization_id", orgId)
           .is("deleted_at", null)
+          .is("board_id", null)
           .is("due_date", null)
           .is("calendar_all_day", null)
           .neq("status", "cancelled")

@@ -41,12 +41,15 @@ interface BoardSharingContextValue {
   branches: BoardSharingOption[];
   people: BoardSharingPerson[];
   currentUserId: string;
+  /** Can give a task to someone else (anyone who edits can take one). */
+  canAssign: boolean;
 }
 
 const BoardSharingContext = createContext<BoardSharingContextValue>({
   branches: [],
   people: [],
   currentUserId: "",
+  canAssign: false,
 });
 
 export const BoardSharingProvider = BoardSharingContext.Provider;

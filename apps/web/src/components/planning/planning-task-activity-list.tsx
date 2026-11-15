@@ -22,6 +22,12 @@ const ACTIVITY_ICONS: Record<string, string> = {
   cancelled: "❌",
   archived: "📦",
   restored: "♻️",
+  card_created: "✨",
+  card_updated: "📝",
+  card_moved: "➡️",
+  card_moved_to_inbox: "📥",
+  card_moved_from_inbox: "📤",
+  card_archived: "📦",
 };
 
 const ACTIVITY_MESSAGE_KEYS = {
@@ -39,6 +45,12 @@ const ACTIVITY_MESSAGE_KEYS = {
   archived: "archived",
   restored: "restored",
   comment_added: "comment_added",
+  card_created: "card_created",
+  card_updated: "card_updated",
+  card_moved: "card_moved",
+  card_moved_to_inbox: "card_moved_to_inbox",
+  card_moved_from_inbox: "card_moved_from_inbox",
+  card_archived: "card_archived",
 } as const;
 
 function formatRelativeTime(date: Date, locale: string): string {
