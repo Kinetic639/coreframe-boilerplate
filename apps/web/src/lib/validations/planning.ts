@@ -22,6 +22,10 @@ export const createTaskSchema = z.object({
   branch_id: z.string().uuid().nullable().optional(),
   assigned_to: z.string().uuid().nullable().optional(),
   due_at: z.string().datetime().nullable().optional(),
+  /** Board column to put the task in; the column decides the board and the status. */
+  column_id: z.string().uuid().nullable().optional(),
+  /** Keep the task in the author's private inbox (ignored when column_id is set). */
+  is_inbox: z.boolean().optional(),
 });
 
 export const updateTaskSchema = z.object({

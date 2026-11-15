@@ -24,6 +24,12 @@ export interface PlanningTaskListRow {
   status: TaskStatus;
   priority: TaskPriority;
   branch_id: string | null;
+  /** Board the task sits on; null when it is in the author's inbox or on no board. */
+  board_id: string | null;
+  column_id: string | null;
+  board_position: number;
+  /** In its author's private inbox (visible only to the author). */
+  is_inbox: boolean;
   assigned_to: string | null;
   assignee_name: string | null;
   assignee_email: string | null;
@@ -188,6 +194,9 @@ function collectAvatarSignEntries(rows: any[]): Array<{ userId: string; avatarPa
   return Array.from(entries, ([userId, avatarPath]) => ({ userId, avatarPath }));
 }
 
+// Board placement columns (board_id, column_id, board_position, is_inbox) are
+// not selected yet: they come with migration 20261115130000 and are read once
+// the board view uses them (phase 2). Until then rows map them to defaults.
 function mapTaskRow(row: any, signedAvatarUrls: Map<string, string>): PlanningTaskListRow {
   const assignee = Array.isArray(row.assignee) ? row.assignee[0] : row.assignee;
   const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator;
@@ -201,6 +210,10 @@ function mapTaskRow(row: any, signedAvatarUrls: Map<string, string>): PlanningTa
     status: row.status as TaskStatus,
     priority: row.priority as TaskPriority,
     branch_id: row.branch_id ?? null,
+    board_id: row.board_id ?? null,
+    column_id: row.column_id ?? null,
+    board_position: row.board_position ?? 0,
+    is_inbox: row.is_inbox ?? false,
     assigned_to: assignedTo,
     assignee_name: assignee
       ? displayName(assignee.first_name, assignee.last_name, assignee.email)
@@ -534,6 +547,10 @@ export const PlanningTasksService = {
           status: mappedRow.status,
           priority: mappedRow.priority,
           branch_id: mappedRow.branch_id,
+          board_id: mappedRow.board_id,
+          column_id: mappedRow.column_id,
+          board_position: mappedRow.board_position,
+          is_inbox: mappedRow.is_inbox,
           assigned_to: mappedRow.assigned_to,
           assignee_name: mappedRow.assignee_name,
           assignee_email: mappedRow.assignee_email,
@@ -593,6 +610,11 @@ export const PlanningTasksService = {
           status: "open",
           priority: input.priority ?? "normal",
           branch_id: input.branch_id ?? null,
+          // Placement columns are sent only when used, so this keeps working on
+          // a database without the board placement migration. The column
+          // decides the board and the status (database trigger).
+          ...(input.column_id ? { column_id: input.column_id } : {}),
+          ...(!input.column_id && input.is_inbox ? { is_inbox: true } : {}),
           assigned_to: input.assigned_to ?? null,
           due_at: input.due_at ?? null,
         })
@@ -640,6 +662,10 @@ export const PlanningTasksService = {
           status: mappedRow.status,
           priority: mappedRow.priority,
           branch_id: mappedRow.branch_id,
+          board_id: mappedRow.board_id,
+          column_id: mappedRow.column_id,
+          board_position: mappedRow.board_position,
+          is_inbox: mappedRow.is_inbox,
           assigned_to: mappedRow.assigned_to,
           assignee_name: mappedRow.assignee_name,
           assignee_email: mappedRow.assignee_email,
