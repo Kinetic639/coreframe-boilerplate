@@ -24,6 +24,12 @@ export interface PlanningTaskListRow {
   status: TaskStatus;
   priority: TaskPriority;
   branch_id: string | null;
+  /** Board the task sits on; null when it is in the author's inbox or on no board. */
+  board_id: string | null;
+  column_id: string | null;
+  board_position: number;
+  /** In its author's private inbox (visible only to the author). */
+  is_inbox: boolean;
   assigned_to: string | null;
   assignee_name: string | null;
   assignee_email: string | null;
@@ -201,6 +207,10 @@ function mapTaskRow(row: any, signedAvatarUrls: Map<string, string>): PlanningTa
     status: row.status as TaskStatus,
     priority: row.priority as TaskPriority,
     branch_id: row.branch_id ?? null,
+    board_id: row.board_id ?? null,
+    column_id: row.column_id ?? null,
+    board_position: row.board_position ?? 0,
+    is_inbox: row.is_inbox ?? false,
     assigned_to: assignedTo,
     assignee_name: assignee
       ? displayName(assignee.first_name, assignee.last_name, assignee.email)
@@ -361,7 +371,7 @@ export const PlanningTasksService = {
         .from("planning_tasks")
         .select(
           `id, organization_id, task_number, title, status, priority,
-           branch_id, assigned_to, due_at, started_at, completed_at, cancelled_at,
+           branch_id, board_id, column_id, board_position, is_inbox, assigned_to, due_at, started_at, completed_at, cancelled_at,
            created_by, created_at, updated_at,
            assignee:users!assigned_to(first_name, last_name, email, avatar_url, avatar_path),
            creator:users!created_by(first_name, last_name, email)`,
@@ -442,7 +452,7 @@ export const PlanningTasksService = {
         .from("planning_tasks")
         .select(
           `id, organization_id, task_number, title, status, priority,
-           branch_id, assigned_to, due_at, started_at, completed_at, cancelled_at,
+           branch_id, board_id, column_id, board_position, is_inbox, assigned_to, due_at, started_at, completed_at, cancelled_at,
            created_by, created_at, updated_at,
            assignee:users!assigned_to(first_name, last_name, email, avatar_url, avatar_path),
            creator:users!created_by(first_name, last_name, email)`
@@ -478,7 +488,7 @@ export const PlanningTasksService = {
         .from("planning_tasks")
         .select(
           `id, organization_id, task_number, title, description_plain, description_rich,
-           status, priority, branch_id, assigned_to, due_at, started_at, completed_at,
+           status, priority, branch_id, board_id, column_id, board_position, is_inbox, assigned_to, due_at, started_at, completed_at,
            cancelled_at, created_by, updated_by, created_at, updated_at, deleted_at,
            assignee:users!assigned_to(first_name, last_name, email, avatar_url, avatar_path),
            creator:users!created_by(first_name, last_name, email)`
@@ -534,6 +544,10 @@ export const PlanningTasksService = {
           status: mappedRow.status,
           priority: mappedRow.priority,
           branch_id: mappedRow.branch_id,
+          board_id: mappedRow.board_id,
+          column_id: mappedRow.column_id,
+          board_position: mappedRow.board_position,
+          is_inbox: mappedRow.is_inbox,
           assigned_to: mappedRow.assigned_to,
           assignee_name: mappedRow.assignee_name,
           assignee_email: mappedRow.assignee_email,
@@ -593,12 +607,15 @@ export const PlanningTasksService = {
           status: "open",
           priority: input.priority ?? "normal",
           branch_id: input.branch_id ?? null,
+          // The column decides the board and the status (database trigger).
+          column_id: input.column_id ?? null,
+          is_inbox: input.column_id ? false : (input.is_inbox ?? false),
           assigned_to: input.assigned_to ?? null,
           due_at: input.due_at ?? null,
         })
         .select(
           `id, organization_id, task_number, title, description_plain, description_rich,
-           status, priority, branch_id, assigned_to, due_at, started_at, completed_at,
+           status, priority, branch_id, board_id, column_id, board_position, is_inbox, assigned_to, due_at, started_at, completed_at,
            cancelled_at, created_by, updated_by, created_at, updated_at, deleted_at,
            assignee:users!assigned_to(first_name, last_name, email, avatar_url, avatar_path),
            creator:users!created_by(first_name, last_name, email)`
@@ -640,6 +657,10 @@ export const PlanningTasksService = {
           status: mappedRow.status,
           priority: mappedRow.priority,
           branch_id: mappedRow.branch_id,
+          board_id: mappedRow.board_id,
+          column_id: mappedRow.column_id,
+          board_position: mappedRow.board_position,
+          is_inbox: mappedRow.is_inbox,
           assigned_to: mappedRow.assigned_to,
           assignee_name: mappedRow.assignee_name,
           assignee_email: mappedRow.assignee_email,
