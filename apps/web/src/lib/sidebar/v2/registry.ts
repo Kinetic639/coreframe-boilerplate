@@ -368,37 +368,20 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
       requiresPermissions: [MODULE_PLANNING_ACCESS],
     },
     children: [
-      {
-        id: "planning.overview",
-        title: "Overview",
-        titleKey: "modules.planning.items.overview",
-        iconKey: "calendar",
-        href: "/dashboard/planning",
-        match: { exact: "/dashboard/planning" },
-        visibility: {
-          requiresPermissions: [PLANNING_READ],
-        },
-      },
+      // One entry for the tasks: boards, list and calendar are its views
+      // (switched at the top of each page).
       {
         id: "planning.tasks",
         title: "Tasks",
         titleKey: "modules.planning.items.tasks",
-        iconKey: "checkSquare",
-        href: "/dashboard/planning/tasks",
-        match: { startsWith: "/dashboard/planning/tasks" },
-        visibility: {
-          requiresPermissions: [PLANNING_TASKS_READ],
-        },
-      },
-      {
-        id: "planning.boards",
-        title: "Boards",
-        titleKey: "modules.planning.items.boards",
         iconKey: "kanban",
         href: "/dashboard/planning/boards",
-        match: { exact: "/dashboard/planning/boards" },
+        match: {
+          startsWith: "/dashboard/planning/boards",
+          also: [{ startsWith: "/dashboard/planning/tasks" }, { exact: "/dashboard/planning" }],
+        },
         visibility: {
-          requiresPermissions: [PLANNING_BOARDS_READ],
+          requiresAnyPermissions: [PLANNING_BOARDS_READ, PLANNING_TASKS_READ, PLANNING_READ],
         },
       },
       {

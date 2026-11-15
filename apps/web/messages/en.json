@@ -4676,6 +4676,12 @@
         "loadPlanningRetry": "Failed to load Planning. Please try again.",
         "tryAgain": "Try again",
         "operationFailed": "Operation failed"
+      },
+      "views": {
+        "label": "Task views",
+        "boards": "Boards",
+        "list": "List",
+        "calendar": "Calendar"
       }
     },
     "crm": {

@@ -8,6 +8,7 @@ import {
   PLANNING_BOARDS_READ,
   PLANNING_BOARDS_UPDATE,
   PLANNING_TASKS_ASSIGN,
+  PLANNING_TASKS_READ,
 } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
 import { KanbanBoardsService } from "@/server/services/kanban-boards.service";
@@ -26,6 +27,11 @@ export default async function PlanningBoardsPage({ searchParams }: PlanningBoard
   if (!context?.app.activeOrgId) return redirect({ href: "/sign-in", locale });
 
   if (!checkPermission(context.user.permissionSnapshot, PLANNING_BOARDS_READ)) {
+    // The planning menu entry opens boards; someone who only reads tasks gets
+    // the list instead of a dead end.
+    if (checkPermission(context.user.permissionSnapshot, PLANNING_TASKS_READ)) {
+      return redirect({ href: "/dashboard/planning/tasks", locale });
+    }
     return redirect({
       href: {
         pathname: "/dashboard/access-denied",

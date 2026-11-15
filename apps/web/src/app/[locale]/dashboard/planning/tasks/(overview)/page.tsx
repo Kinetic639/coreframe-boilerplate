@@ -51,9 +51,10 @@ const STATUS_KEY = {
 } as const;
 
 /**
- * Planning tasks (data table list, or the board): the view, the search, a
- * filter per column, the sort, the page and the open task in the address.
- * The server puts the first page (or the board) in the list's cache.
+ * Planning tasks as a list (data table): the search, a filter per column, the
+ * sort, the page and the open task in the address. The server puts the first
+ * page in the list's cache. The old status board (`widok=tablica`) lives on
+ * as the boards page.
  */
 export default async function PlanningTasksPage({ searchParams }: PageProps = {}) {
   const [locale, context, t] = await Promise.all([
@@ -74,8 +75,12 @@ export default async function PlanningTasksPage({ searchParams }: PageProps = {}
     });
   }
 
+  const rawParams = searchParams ? await searchParams : {};
+  if (rawParams.widok === "tablica") {
+    return redirect({ href: "/dashboard/planning/boards", locale });
+  }
   const path = getPathname({ locale, href: "/dashboard/planning/tasks" });
-  const migration = migrateTaskSearchParams(searchParams ? await searchParams : {});
+  const migration = migrateTaskSearchParams(rawParams);
   const state = loadTaskState(migration.params);
   if (migration.changed || state.strona < 1) {
     return redirectUrl(taskHref(path, state, { strona: Math.max(1, state.strona) }));
@@ -83,34 +88,29 @@ export default async function PlanningTasksPage({ searchParams }: PageProps = {}
 
   const supabase = await createClient();
   const orgId = context.app.activeOrgId;
-  const board = state.widok === "tablica";
 
-  const [listResult, boardResult, membersResult, settingsResult] = await Promise.all([
-    board
-      ? null
-      : PlanningTasksService.listForDataView(
-          supabase,
-          orgId,
-          taskListParams(state),
-          taskFilters(state)
-        ),
-    board ? PlanningTasksService.listForKanban(supabase, orgId) : null,
+  const [listResult, membersResult, settingsResult] = await Promise.all([
+    PlanningTasksService.listForDataView(
+      supabase,
+      orgId,
+      taskListParams(state),
+      taskFilters(state)
+    ),
     OrgMembersService.listMembers(supabase, orgId),
     PlanningSettingsService.getSettings(supabase, orgId),
   ]);
 
-  if (listResult?.success) {
+  if (listResult.success) {
     const lastPage = Math.max(1, Math.ceil(listResult.data.totalCount / state.wierszy));
     if (state.strona > lastPage) {
       return redirectUrl(taskHref(path, state, { strona: lastPage }));
     }
   }
 
-  // The first page (or the board) goes straight into the cache (no request
-  // on the client); a failed read is left to the client, which retries.
+  // The first page goes straight into the cache (no request on the client);
+  // a failed read is left to the client, which retries.
   const queryClient = new QueryClient();
-  if (listResult?.success) queryClient.setQueryData(taskKeys.list(orgId, state), listResult.data);
-  if (boardResult?.success) queryClient.setQueryData(taskKeys.board(orgId), boardResult.data);
+  if (listResult.success) queryClient.setQueryData(taskKeys.list(orgId, state), listResult.data);
 
   const members = membersResult.success
     ? membersResult.data.map((m) => ({
@@ -145,10 +145,6 @@ export default async function PlanningTasksPage({ searchParams }: PageProps = {}
     due_dzis: pl ? "Dziś" : "Today",
     due_7d: pl ? "Najbliższe 7 dni" : "Next 7 days",
     newTask: t("tasks.newTask"),
-    listView: t("tasks.listView"),
-    boardView: t("tasks.kanbanView"),
-    emptyColumn: t("tasks.emptyColumn"),
-    dragColumn: t("tasks.dragColumn"),
     viewFull: t("tasks.viewFull"),
     preview: pl ? "Podgląd" : "Preview",
     close: pl ? "Zamknij szczegóły" : "Close details",
