@@ -1,10 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import type { ReactNode } from "react";
-import { TableLink as PageLink } from "@/components/data-table/table-navigation";
-import { DataTable, TablePagination, pageState, TD } from "@/components/data-table/data-table";
-import { ColumnsMenu } from "@/components/data-table/columns-menu";
+import { ListPane } from "@/components/data-table/list-pane";
 import {
-  defaultLayout,
   type ColumnLayout,
   type ColumnSet,
   type ColumnWidths,
@@ -131,12 +128,6 @@ export function RepairOrdersTable({
   onRetry: () => void;
   onLayoutChange: (layout: ColumnLayout) => void;
 }) {
-  const shown = layout.filter((c) => c.shown).map((c) => c.id);
-  const { page, pages, range } = pageState(
-    { page: state.strona, size: state.wierszy },
-    data.totalCount,
-    data.rows.length
-  );
   const href = (patch: Partial<RepairOrderState>) => repairOrderHref(path, state, patch);
   const sortOf = (field: RepairOrderSort) => ({
     href: href({
@@ -146,16 +137,6 @@ export function RepairOrdersTable({
     }),
     direction: state.sort === field ? state.direction : null,
   });
-  const menu = (
-    <ColumnsMenu
-      cookie={cookie}
-      defaults={defaultLayout(set)}
-      labels={set.labels}
-      layout={layout}
-      onChange={onLayoutChange}
-      pinnedLabel={set.pinned.label}
-    />
-  );
   const date = (value: string | null) =>
     value ? (
       <span className="text-xs text-muted-foreground">
@@ -213,18 +194,6 @@ export function RepairOrdersTable({
         return "—";
     }
   };
-  const pagination = (
-    <TablePagination
-      sizes={REPAIR_ORDER_PAGE_SIZES.map((size) => ({
-        size,
-        current: state.wierszy === size,
-        href: href({ wierszy: size, strona: 1 }),
-      }))}
-      range={range}
-      previousHref={page > 1 ? href({ strona: page - 1 }) : null}
-      nextHref={page < pages ? href({ strona: page + 1 }) : null}
-    />
-  );
   /** The order's DMS number first, the whole ZL number under it. */
   const identity = (row: Row) => (
     <span className="min-w-0">
@@ -236,7 +205,6 @@ export function RepairOrdersTable({
       </span>
     </span>
   );
-  const createdSort = sortOf("created_at");
   const empty = loading
     ? labels.loading
     : error
@@ -251,110 +219,37 @@ export function RepairOrdersTable({
         ? labels.empty
         : labels.emptyAll;
   return (
-    <div
-      className="dt-list-pane relative flex min-h-0 min-w-0 flex-1 flex-col"
-      aria-busy={loading || refreshing}
-      data-refreshing={refreshing ? "" : undefined}
-    >
-      {/* The rows stay while new ones come: a thin bar says so, not a skeleton. */}
-      {loading || refreshing ? (
-        <div className="dt-list-progress" role="progressbar" aria-label={labels.loading} />
-      ) : null}
-      {error ? (
-        <div role="alert" className="border-b bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {labels.loadError} <span className="block text-xs">{error}</span>
-          <button type="button" onClick={onRetry} className="underline">
-            {labels.retry}
-          </button>
-        </div>
-      ) : null}
-      <div className="dt-list-desktop-table min-h-0 flex-1 flex-col">
-        <DataTable
-          caption={labels.title}
-          set={set}
-          columns={shown.map((id) => ({
-            id,
-            label: set.labels[id],
-            sort: SORT_FIELD[id] ? sortOf(SORT_FIELD[id]) : undefined,
-          }))}
-          rows={data.rows}
-          rowKey={(row) => row.id}
-          rowHref={(row) => orderPath(row.id)}
-          selected={() => false}
-          pinned={(row) => (
-            <PageLink
-              href={orderPath(row.id)}
-              className="flex min-w-0 items-center py-1"
-              data-testid="repair-order-row"
-            >
-              {identity(row)}
-            </PageLink>
-          )}
-          cell={(row, id) => (
-            <td
-              key={id}
-              className={cn(TD, id === "status" || id === "client" ? "" : "text-muted-foreground")}
-            >
-              {value(row, id)}
-            </td>
-          )}
-          actions={actions}
-          menu={menu}
-          widths={widths}
-          widthsCookie={`${cookie}_widths`}
-          empty={empty}
-          pagination={pagination}
-        />
-      </div>
-      <div className="dt-list-mobile min-h-0 flex-1 flex-col">
-        <header className="flex h-10 shrink-0 items-center justify-between border-b px-3 text-xs text-muted-foreground">
-          <span>
-            {data.totalCount} {labels.countSuffix}
-          </span>
-          <div className="flex items-center gap-2">
-            <PageLink href={createdSort.href}>
-              {labels.column_created_at}{" "}
-              {createdSort.direction === "asc" ? "↑" : createdSort.direction === "desc" ? "↓" : "↕"}
-            </PageLink>
-            {menu}
-          </div>
-        </header>
-        <ul className="min-h-0 flex-1 overflow-auto overscroll-contain">
-          {data.rows.map((row) => (
-            <li key={row.id} className="flex items-start border-b px-3 py-2.5 hover:bg-muted/30">
-              <PageLink
-                href={orderPath(row.id)}
-                className="flex min-w-0 flex-1 items-start gap-2.5"
-                data-testid="repair-order-card"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center justify-between gap-2">
-                    {identity(row)}
-                    {value(row, "status")}
-                  </span>
-                  <span className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-1">
-                    {shown
-                      .filter((id) => id !== "status")
-                      .map((id) => (
-                        <span key={id} className="min-w-0 text-xs">
-                          <span className="block text-[10px] text-muted-foreground">
-                            {set.labels[id]}
-                          </span>
-                          <span className="block truncate">{value(row, id)}</span>
-                        </span>
-                      ))}
-                  </span>
-                </span>
-              </PageLink>
-              <div className="ml-1 shrink-0">{actions(row)}</div>
-            </li>
-          ))}
-          {!data.rows.length ? (
-            <li className="px-4 py-12 text-center text-sm text-muted-foreground">{empty}</li>
-          ) : null}
-        </ul>
-        {pagination}
-      </div>
-    </div>
+    <ListPane
+      rows={data.rows}
+      totalCount={data.totalCount}
+      page={state.strona}
+      size={state.wierszy}
+      sizes={REPAIR_ORDER_PAGE_SIZES}
+      selected={null}
+      rowKey={(row) => row.id}
+      rowHref={(row) => orderPath(row.id)}
+      pageHref={(page) => href({ strona: page })}
+      sizeHref={(size) => href({ wierszy: size as RepairOrderState["wierszy"], strona: 1 })}
+      set={set}
+      layout={layout}
+      widths={widths}
+      cookie={cookie}
+      onLayoutChange={onLayoutChange}
+      sortOf={(id) => (SORT_FIELD[id] ? sortOf(SORT_FIELD[id]) : undefined)}
+      identity={identity}
+      value={value}
+      badge={(row) => value(row, "status")}
+      cardHidden={["status"]}
+      actions={actions}
+      cellClassName={(id) =>
+        id === "status" || id === "client" ? undefined : "text-muted-foreground"
+      }
+      labels={labels}
+      empty={empty}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRetry={onRetry}
+    />
   );
 }

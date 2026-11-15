@@ -6,8 +6,8 @@ import { useEffect, useState, useTransition } from "react";
 import { toast } from "react-toastify";
 import {
   deleteListViewAction,
-  listSavedViewsAction,
   saveListViewAction,
+  type listSavedViewsAction,
   type ListSavedViews,
 } from "@/app/actions/saved-views";
 import { usePathname } from "@/i18n/navigation";
@@ -54,7 +54,10 @@ export function SavedViewsMenu({ listKey: givenKey, ignore = [], shallow }: Save
   useEffect(() => {
     let live = true;
     setData(cache.get(listKey) ?? null);
-    void listSavedViewsAction({ listKey })
+    void fetch(`/api/saved-views?list=${encodeURIComponent(listKey)}`, { cache: "no-store" })
+      .then(
+        (response) => response.json() as Promise<Awaited<ReturnType<typeof listSavedViewsAction>>>
+      )
       .then((result) => {
         if (!live) return;
         if (!result.success) return setFailed(true);
@@ -181,7 +184,7 @@ export function SavedViewsMenu({ listKey: givenKey, ignore = [], shallow }: Save
           <TooltipContent>Widoki</TooltipContent>
         </Tooltip>
       </TooltipProvider>
-      <PopoverContent align="start" className="w-72 p-1 text-[0.8125rem]">
+      <PopoverContent align="end" className="w-72 p-1 text-[0.8125rem]">
         {!data ? (
           <p className="px-2 py-2 text-xs text-[var(--text-muted)]">Wczytywanie widoków…</p>
         ) : !views.length ? (
