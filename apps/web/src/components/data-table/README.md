@@ -5,6 +5,7 @@ The shared list UI of the dashboard: every list (products, movements, locations,
 - `data-table.tsx`: the server-rendered table with sortable header links, a pinned identity column, an actions column holding the column settings, horizontally scrolling middle columns and optional row selection.
 - `columns.ts`, `columns-menu.tsx`, `column-resizer.tsx`, `saved-columns.ts`: column visibility, order (pointer and keyboard drag and drop), widths (60–640 px), reset to defaults, and one-year cookies namespaced by user and organization. Persistence is per browser, not synced to the account.
 - `filter-bar.tsx`: the filter field menu, multi- or single-choice values, date ranges, text and number ranges, editable chips, removal and clear-all, and the expandable search (`/` to focus, Escape to clear, 300 ms URL debouncing).
+- `saved-views-menu.tsx`, `saved-views.ts`: the "Widoki" menu, built into `FilterBar` so every list has it (opt out with `views={false}`). A view is the list's address without the page and the open record, stored in `list_saved_views` under the list's route; one's own or shared with the organization.
 - `list-pane.tsx`: a list's body (the desktop table, the narrow list beside an open record, the phone cards and the pagination) and `ListSidePanel`, the record's panel.
 - `list-loading.tsx`: the loading skeleton a list's `loading.tsx` renders.
 - `local-list.ts`: helpers for lists whose rows are all loaded at once (search folding, stable sorting, paging, parsers) and the translation of old DataView links.

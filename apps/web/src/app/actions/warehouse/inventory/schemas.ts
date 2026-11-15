@@ -658,21 +658,6 @@ export const addCollectionItemSchema = z.object({
   product_id: uuidSchema,
 });
 
-export const saveInventoryViewSchema = z.object({
-  entity: z.string().min(1).max(120),
-  name: z.string().min(1).max(160),
-  config: z.record(z.unknown()),
-  is_shared: z.boolean().optional().default(false),
-});
-
-export const listInventoryViewsSchema = z.object({
-  entity: z.string().min(1).max(120),
-});
-
-export const deleteInventoryViewSchema = z.object({
-  id: uuidSchema,
-});
-
 export const createInventoryImportJobSchema = z.object({
   import_type: z.enum(["products", "opening_stock", "counts"]),
   file_name: z.string().max(240).nullable().optional(),
