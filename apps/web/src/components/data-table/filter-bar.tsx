@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, ChevronLeft, Filter, LoaderCircle, Search, X } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { debounce, useQueryStates } from "nuqs";
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { cn } from "./lib/utils";
@@ -120,7 +121,7 @@ interface Field {
 }
 
 /** `1 250,5` */
-const shortNumber = (value: number) => value.toLocaleString("pl-PL");
+const shortNumber = (value: number, locale: string) => value.toLocaleString(locale);
 
 /** `01.10.2026` */
 const shortDate = (date: string) => date.split("-").reverse().join(".");
@@ -160,6 +161,8 @@ export function FilterBar({
   pending: listPending,
   views,
 }: FilterBarProps) {
+  const t = useTranslations("dataTable.filters");
+  const locale = useLocale();
   const [transitionPending, startTransition] = useTransition();
   const pending = listPending ?? transitionPending;
   const [params, setParams] = useQueryStates(parsers, {
@@ -317,8 +320,9 @@ export function FilterBar({
     if (field.config.kind === "text") return `„${field.text ?? ""}”`;
     if (field.range) {
       const { min, max } = field.range;
-      if (min !== null && max !== null) return `${shortNumber(min)} – ${shortNumber(max)}`;
-      return min !== null ? `≥ ${shortNumber(min)}` : `≤ ${shortNumber(max ?? 0)}`;
+      if (min !== null && max !== null)
+        return `${shortNumber(min, locale)} – ${shortNumber(max, locale)}`;
+      return min !== null ? `≥ ${shortNumber(min, locale)}` : `≤ ${shortNumber(max ?? 0, locale)}`;
     }
     if (field.own && (field.own.from || field.own.to)) {
       const { from, to } = field.own;
@@ -327,7 +331,9 @@ export function FilterBar({
     const labels = field.chosen.map(
       (value) => field.options.find((o) => o.value === value)?.label ?? value
     );
-    return labels.length > 2 ? `${labels[0]} i ${labels.length - 1} inne` : labels.join(", ");
+    return labels.length > 2
+      ? t("more", { first: labels[0], count: labels.length - 1 })
+      : labels.join(", ");
   };
 
   const editingField = fields.find((field) => field.id === editing) ?? null;
@@ -345,7 +351,7 @@ export function FilterBar({
           <Tooltip>
             <TooltipTrigger asChild>
               <PopoverTrigger
-                aria-label={`Filtry${active.length ? `, ustawione: ${active.length}` : ""}`}
+                aria-label={active.length ? t("menuSet", { count: active.length }) : t("menu")}
                 className="relative inline-grid size-7 place-items-center rounded-[5px] text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none data-[state=open]:bg-[var(--surface-subtle)] data-[state=open]:text-[var(--text)]"
               >
                 <Filter aria-hidden="true" className="size-4" />
@@ -359,7 +365,7 @@ export function FilterBar({
                 ) : null}
               </PopoverTrigger>
             </TooltipTrigger>
-            <TooltipContent>Filtry</TooltipContent>
+            <TooltipContent>{t("menu")}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
         <PopoverContent align="start" className={MENU}>
@@ -394,14 +400,14 @@ export function FilterBar({
           ) : (
             <>
               <div className="flex h-7 items-center justify-between pr-1 pl-2 text-[0.7rem] text-[var(--text-muted)]">
-                Filtruj według
+                {t("heading")}
                 {active.length ? (
                   <button
                     className="h-6 rounded-[4px] px-1.5 text-[0.75rem] font-semibold text-[var(--primary)] hover:bg-[var(--surface-subtle)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none"
                     onClick={clearAll}
                     type="button"
                   >
-                    Wyczyść wszystkie
+                    {t("clearAll")}
                   </button>
                 ) : null}
               </div>
@@ -423,7 +429,7 @@ export function FilterBar({
                         )}
                         aria-label={
                           on
-                            ? `${field.label}, w pasku, wartości: ${field.chosen.length}`
+                            ? t("fieldSet", { label: field.label, count: field.chosen.length })
                             : undefined
                         }
                         onClick={() => setEditing(field.id)}
@@ -444,7 +450,7 @@ export function FilterBar({
                       </button>
                       {on ? (
                         <button
-                          aria-label={`Usuń filtr ${field.label}`}
+                          aria-label={t("remove", { label: field.label })}
                           className="mr-0.5 grid size-6 shrink-0 place-items-center rounded-[4px] text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--danger)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none"
                           onClick={() => remove(field)}
                           type="button"
@@ -470,7 +476,7 @@ export function FilterBar({
       {/* The filters set, on the bar's right, where it is empty. */}
       {active.length ? (
         <div
-          aria-label="Ustawione filtry"
+          aria-label={t("set")}
           className="ml-auto flex flex-wrap items-center justify-end gap-1.5"
           role="group"
         >
@@ -481,10 +487,10 @@ export function FilterBar({
                   <span className="text-[var(--text-muted)]">
                     {field.label}
                     {field.config.kind === "text"
-                      ? " zawiera"
+                      ? ` ${t("contains")}`
                       : field.dates || field.config.kind === "range"
                         ? ":"
-                        : " jest"}
+                        : ` ${t("is")}`}
                   </span>
                   <span className="font-semibold text-[var(--text)]">{chipValue(field)}</span>
                 </PopoverTrigger>
@@ -499,7 +505,7 @@ export function FilterBar({
                 </PopoverContent>
               </Popover>
               <button
-                aria-label={`Usuń filtr ${field.label}`}
+                aria-label={t("remove", { label: field.label })}
                 className={cn(
                   CHIP_PART,
                   "border-l border-[var(--border)] px-1 text-[var(--text-muted)] hover:text-[var(--danger)]"
@@ -546,6 +552,7 @@ function FieldValues({
   onText: (text: string | null) => void;
   onRange: (min: number | null, max: number | null) => void;
 }) {
+  const t = useTranslations("dataTable.filters");
   if (field.config.kind === "text") {
     return (
       <form
@@ -556,7 +563,7 @@ function FieldValues({
         }}
       >
         <label className="grid gap-0.5 text-[0.7rem] text-[var(--text-muted)]">
-          {field.label} zawiera
+          {field.label} {t("contains")}
           <input
             autoFocus
             className={INPUT}
@@ -567,7 +574,7 @@ function FieldValues({
           />
         </label>
         <button className={SUBMIT} type="submit">
-          Pokaż
+          {t("show")}
         </button>
       </form>
     );
@@ -593,7 +600,7 @@ function FieldValues({
         <p className="text-[0.7rem] text-[var(--text-muted)]">{field.label}</p>
         <div className="grid grid-cols-2 gap-1.5">
           <label className="grid gap-0.5 text-[0.7rem] text-[var(--text-muted)]">
-            Od
+            {t("from")}
             <input
               autoFocus
               className={INPUT}
@@ -603,7 +610,7 @@ function FieldValues({
             />
           </label>
           <label className="grid gap-0.5 text-[0.7rem] text-[var(--text-muted)]">
-            Do
+            {t("to")}
             <input
               className={INPUT}
               defaultValue={field.range?.max ?? ""}
@@ -613,7 +620,7 @@ function FieldValues({
           </label>
         </div>
         <button className={SUBMIT} type="submit">
-          Pokaż
+          {t("show")}
         </button>
       </form>
     );
@@ -630,7 +637,7 @@ function FieldValues({
   const radio = field.dates || (field.config.kind === "list" && field.config.single === true);
   return (
     <div>
-      <ul aria-label={`Wartości: ${field.label}`} className="grid gap-px" role="group">
+      <ul aria-label={t("values", { label: field.label })} className="grid gap-px" role="group">
         {field.options.map((option) => {
           const checked = field.chosen.includes(option.value);
           return (
@@ -654,10 +661,10 @@ function FieldValues({
           className="mt-1 grid gap-1.5 border-t border-[var(--border)] px-2 pt-2 pb-1"
           onSubmit={apply}
         >
-          <p className="text-[0.7rem] text-[var(--text-muted)]">Własny zakres dat</p>
+          <p className="text-[0.7rem] text-[var(--text-muted)]">{t("ownDates")}</p>
           <div className="grid grid-cols-2 gap-1.5">
             <label className="grid gap-0.5 text-[0.7rem] text-[var(--text-muted)]">
-              Od
+              {t("from")}
               <input
                 className="h-7 rounded-[5px] border border-[var(--border)] bg-[var(--surface)] px-1.5 text-[0.78rem] text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none"
                 defaultValue={ownRange.from ?? ""}
@@ -666,7 +673,7 @@ function FieldValues({
               />
             </label>
             <label className="grid gap-0.5 text-[0.7rem] text-[var(--text-muted)]">
-              Do
+              {t("to")}
               <input
                 className="h-7 rounded-[5px] border border-[var(--border)] bg-[var(--surface)] px-1.5 text-[0.78rem] text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none"
                 defaultValue={ownRange.to ?? ""}
@@ -679,7 +686,7 @@ function FieldValues({
             className="h-7 rounded-[5px] bg-[var(--primary)] px-2 text-[0.78rem] font-semibold text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none"
             type="submit"
           >
-            Pokaż
+            {t("show")}
           </button>
         </form>
       ) : null}
@@ -707,6 +714,7 @@ export function TableSearch({
   label: string;
   placeholder: string;
 }) {
+  const ts = useTranslations("dataTable.search");
   const input = useRef<HTMLInputElement>(null);
   // The box answers at once; the bar shows the server's wait, if any.
   const pending = outer ?? false;
@@ -750,7 +758,7 @@ export function TableSearch({
           open ? "cursor-text" : "cursor-pointer",
           q ? "pr-0" : undefined
         )}
-        title={open ? undefined : "Szukaj (/)"}
+        title={open ? undefined : ts("hint")}
       >
         {pending ? (
           <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
@@ -788,7 +796,7 @@ export function TableSearch({
       </label>
       {q ? (
         <button
-          aria-label="Wyczyść wyszukiwanie"
+          aria-label={ts("clear")}
           className="mx-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-[4px] text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none"
           onClick={() => {
             // The whole search at once, at once (no wait), back in the box.
@@ -797,7 +805,7 @@ export function TableSearch({
           }}
           // Keeps the box open: the click does not take the focus from it.
           onMouseDown={(event) => event.preventDefault()}
-          title="Wyczyść wyszukiwanie"
+          title={ts("clear")}
           type="button"
         >
           <X aria-hidden="true" className="size-3.5" />

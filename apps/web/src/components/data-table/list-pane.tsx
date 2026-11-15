@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, ChevronsUpDown, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, type MouseEvent, type ReactNode } from "react";
 import { ListBulkBar } from "./bulk-bar";
 import { downloadCsv, nodeText, rowsToCsv } from "./csv";
@@ -119,6 +120,7 @@ export function ListPane<Row>({
 }) {
   // The pane's own ticks (when the list keeps none): kept across pages, as
   // the rows themselves so the export needs no request.
+  const tb = useTranslations("dataTable.bulk");
   const [ticked, setTicked] = useState<ReadonlyMap<string, Row>>(() => new Map());
   const own = selectable && !givenSelection;
   const tickedOnPage = own ? rows.filter((row) => ticked.has(rowKey(row))) : [];
@@ -146,8 +148,8 @@ export function ListPane<Row>({
             }
             return next;
           }),
-        allLabel: labels.selectAll ?? "Zaznacz wszystkie",
-        rowLabel: (row) => `${labels.selectRow ?? "Zaznacz"}: ${nodeText(identity(row))}`,
+        allLabel: labels.selectAll ?? tb("selectAll"),
+        rowLabel: (row) => tb("selectRow", { label: nodeText(identity(row)) }),
       }
     : undefined;
   const selection = selectable ? (givenSelection ?? ownSelection) : undefined;
@@ -240,7 +242,7 @@ export function ListPane<Row>({
                     ? exportValue(row, id)
                     : nodeText(id === set.pinned.id ? identity(row) : plainValue(row, id))
                 ),
-                exportName ?? fileName(labels.title)
+                exportName ?? fileName(labels.title, tb("fileName"))
               );
             }}
           >
@@ -393,7 +395,7 @@ export function ListPane<Row>({
 }
 
 /** A file name from the list's title ("Zlecenia serwisowe" → "zlecenia-serwisowe"). */
-function fileName(title: string | undefined) {
+function fileName(title: string | undefined, fallback: string) {
   const name = (title ?? "")
     .toLowerCase()
     .normalize("NFD")
@@ -401,7 +403,7 @@ function fileName(title: string | undefined) {
     .replace(/ł/g, "l")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
-  return name || "lista";
+  return name || fallback;
 }
 
 /** The record's panel beside the list (a sheet on narrow screens). */

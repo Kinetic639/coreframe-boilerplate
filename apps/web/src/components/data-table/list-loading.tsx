@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import "./ambra-list.css";
@@ -40,9 +41,10 @@ export function ListLoading({
   above,
   className,
 }: ListLoadingProps) {
+  const t = useTranslations("dataTable");
   return (
     <div className={cn("flex flex-col gap-3", className)} aria-busy="true" aria-live="polite">
-      <span className="sr-only">Ładowanie…</span>
+      <span className="sr-only">{t("loading")}</span>
       {above}
       <section className="dt-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
         {/* Title bar: title, count, actions */}

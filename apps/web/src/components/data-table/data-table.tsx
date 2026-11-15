@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown } from "lucide-react";
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "./lib/utils";
 import { TableLink as Link } from "./table-navigation";
 import { ColumnResizer } from "./column-resizer";
@@ -85,7 +86,7 @@ export function SortHead({
   );
 }
 
-/** Which page this is, of how many, and `11–14 z 42`. */
+/** Which page this is, of how many, and which rows (`11–14` of 42). */
 export function pageState(
   { page: asked, size }: { page: number; size: number },
   total: number,
@@ -97,7 +98,7 @@ export function pageState(
   return {
     pages,
     page,
-    range: total ? `${first}–${first + Math.max(shown, 1) - 1} z ${total}` : "0 z 0",
+    range: { from: first, to: total ? first + Math.max(shown, 1) - 1 : 0, total },
   };
 }
 
@@ -113,12 +114,13 @@ export function TablePagination({
 }: {
   /** Each choice of rows per page and its link. */
   sizes: { size: number; href: string; current: boolean }[];
-  /** `11–14 z 42` */
-  range: string;
+  /** The rows shown: `11–14` of 42. */
+  range: { from: number; to: number; total: number };
   /** None: the first (or the last) page. */
   previousHref: string | null;
   nextHref: string | null;
 }) {
+  const t = useTranslations("dataTable.pagination");
   const step = (href: string | null, label: string, icon: ReactNode) =>
     href ? (
       <Link
@@ -141,8 +143,8 @@ export function TablePagination({
   return (
     <div className="flex h-8 shrink-0 items-center gap-1 border-t border-[var(--border)] px-2 text-[0.75rem] text-[var(--text-muted)] tabular-nums">
       <div className="ml-auto flex items-center gap-3">
-        <nav aria-label="Wierszy na stronie" className="flex items-center gap-0.5">
-          <span className="mr-1">Wierszy:</span>
+        <nav aria-label={t("rowsPerPage")} className="flex items-center gap-0.5">
+          <span className="mr-1">{t("rows")}</span>
           {sizes.map((option) => (
             <Link
               aria-current={option.current ? "true" : undefined}
@@ -160,20 +162,16 @@ export function TablePagination({
           ))}
         </nav>
         <span aria-hidden="true" className="h-4 w-px bg-[var(--border)]" />
-        <nav aria-label="Strony" className="flex items-center gap-0.5">
+        <nav aria-label={t("pages")} className="flex items-center gap-0.5">
           <span aria-live="polite" className="mr-1.5">
-            {range}
+            {t("range", range)}
           </span>
           {step(
             previousHref,
-            "Poprzednia strona",
+            t("previous"),
             <ChevronLeft aria-hidden="true" className="size-3.5" />
           )}
-          {step(
-            nextHref,
-            "Następna strona",
-            <ChevronRight aria-hidden="true" className="size-3.5" />
-          )}
+          {step(nextHref, t("next"), <ChevronRight aria-hidden="true" className="size-3.5" />)}
         </nav>
       </div>
     </div>
