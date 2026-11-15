@@ -10,6 +10,7 @@ import {
 } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
 import { KanbanBoardsService } from "@/server/services/kanban-boards.service";
+import { OrgMembersService } from "@/server/services/organization.service";
 import { PlanningBoardsClient } from "./_components/planning-boards-client";
 
 interface PlanningBoardsPageProps {
@@ -35,11 +36,17 @@ export default async function PlanningBoardsPage({ searchParams }: PlanningBoard
 
   const supabase = await createClient();
   const userId = context.user.user?.id ?? "";
-  const boardsResult = await KanbanBoardsService.listBoards(
-    supabase,
-    context.app.activeOrgId,
-    userId
-  );
+  const [boardsResult, membersResult] = await Promise.all([
+    KanbanBoardsService.listBoards(supabase, context.app.activeOrgId, userId),
+    OrgMembersService.listMembers(supabase, context.app.activeOrgId),
+  ]);
+  const people = membersResult.success
+    ? membersResult.data.map((m) => ({
+        user_id: m.user_id,
+        name: [m.user_first_name, m.user_last_name].filter(Boolean).join(" ") || null,
+        email: m.user_email,
+      }))
+    : [];
   const boards = boardsResult.success ? boardsResult.data : [];
   const requestedBoardId = resolvedSearchParams?.board;
   const initialBoardId =
@@ -59,6 +66,12 @@ export default async function PlanningBoardsPage({ searchParams }: PlanningBoard
       canCreate={checkPermission(snap, PLANNING_BOARDS_CREATE)}
       canUpdate={checkPermission(snap, PLANNING_BOARDS_UPDATE)}
       canDelete={checkPermission(snap, PLANNING_BOARDS_DELETE)}
+      branches={context.app.accessibleBranches.map((branch) => ({
+        id: branch.id,
+        name: branch.name,
+      }))}
+      people={people}
+      currentUserId={userId}
     />
   );
 }
