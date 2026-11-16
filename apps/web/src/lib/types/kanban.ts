@@ -22,6 +22,8 @@ export interface KanbanBoardSummary {
   creator_email: string | null;
   created_at: string;
   updated_at: string;
+  /** Set while the board is archived (hidden, can be restored). */
+  archived_at: string | null;
   /** The current user's role: owner, editor (adds and moves tasks) or viewer (only looks). */
   my_access: KanbanBoardAccess;
 }
@@ -46,6 +48,8 @@ export interface KanbanBoardColumn {
   /** open / in_progress / completed / cancelled, or null for a plain group. */
   status_category: KanbanTaskStatus | null;
   position: number;
+  /** Set while the column is archived: hidden with its tasks, can be restored. */
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -78,6 +82,8 @@ export interface KanbanBoardCard {
   creator_email: string | null;
   created_at: string;
   updated_at: string;
+  /** Set while the task is archived (planning_tasks.deleted_at). */
+  archived_at: string | null;
 }
 
 export interface KanbanCardActivity {
@@ -98,4 +104,20 @@ export interface KanbanBoardDetail extends KanbanBoardSummary {
   columns: KanbanBoardColumn[];
   cards: KanbanBoardCard[];
   members: KanbanBoardMember[];
+}
+
+/** Where a task ended up after a move (the database may change its status). */
+export interface KanbanMoveResult {
+  card_id: string;
+  board_id: string | null;
+  column_id: string | null;
+  is_inbox: boolean;
+  status: KanbanTaskStatus;
+  position: number;
+}
+
+/** What a board's archive holds: archived columns (with their tasks) and archived tasks. */
+export interface KanbanBoardArchive {
+  columns: Array<KanbanBoardColumn & { card_count: number }>;
+  cards: KanbanBoardCard[];
 }

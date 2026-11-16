@@ -17,11 +17,10 @@ import {
   createKanbanBoardSchema,
   createKanbanCardSchema,
   createKanbanColumnSchema,
-  deleteKanbanBoardSchema,
-  deleteKanbanColumnSchema,
-  moveKanbanCardToInboxSchema,
-  moveKanbanCardSchema,
-  moveKanbanInboxCardToBoardSchema,
+  kanbanBoardRefSchema,
+  kanbanCardRefSchema,
+  kanbanColumnRefSchema,
+  moveKanbanTaskSchema,
   removeKanbanBoardMemberSchema,
   reorderKanbanColumnsSchema,
   updateKanbanBoardMemberSchema,
@@ -32,11 +31,10 @@ import {
   type CreateKanbanBoardInput,
   type CreateKanbanCardInput,
   type CreateKanbanColumnInput,
-  type DeleteKanbanBoardInput,
-  type DeleteKanbanColumnInput,
-  type MoveKanbanCardToInboxInput,
-  type MoveKanbanCardInput,
-  type MoveKanbanInboxCardToBoardInput,
+  type KanbanBoardRefInput,
+  type KanbanCardRefInput,
+  type KanbanColumnRefInput,
+  type MoveKanbanTaskInput,
   type RemoveKanbanBoardMemberInput,
   type ReorderKanbanColumnsInput,
   type UpdateKanbanBoardInput,
@@ -44,11 +42,14 @@ import {
   type UpdateKanbanCardInput,
   type UpdateKanbanColumnInput,
 } from "@/lib/validations/kanban";
-import {
-  type KanbanBoardDetail,
-  type KanbanBoardSummary,
-  type KanbanBoardCard,
-  type KanbanCardActivity,
+import type {
+  KanbanBoardArchive,
+  KanbanBoardCard,
+  KanbanBoardColumn,
+  KanbanBoardDetail,
+  KanbanBoardSummary,
+  KanbanCardActivity,
+  KanbanMoveResult,
 } from "@/lib/types/kanban";
 import { KanbanBoardsService } from "@/server/services/kanban-boards.service";
 
@@ -83,9 +84,40 @@ function firstZodError(error: unknown) {
   return issues?.[0]?.message ?? "Invalid input";
 }
 
+/**
+ * Only for changes to the boards themselves (the page renders the board list
+ * on the server). Columns and cards live in the client cache, so changing
+ * them does not throw away the server-rendered page.
+ */
 function revalidateBoards() {
   revalidatePath("/dashboard/planning/boards");
   revalidatePath("/dashboard/planowanie/tablice");
+}
+
+type AuthedContext = NonNullable<Awaited<ReturnType<typeof getAuthedContext>>>;
+
+/** Signed in, holds the permission, input valid: then runs the change. */
+async function guarded<S extends z.ZodTypeAny, T>(
+  permission: string,
+  schema: S,
+  input: z.input<S>,
+  run: (ctx: AuthedContext, data: z.output<S>) => Promise<ActionResult<T>>,
+  options: { revalidate?: boolean } = {}
+): Promise<ActionResult<T>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, permission)) {
+      return { success: false, error: "Insufficient permissions" };
+    }
+    const parsed = schema.safeParse(input);
+    if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
+    const result = await run(ctx, parsed.data);
+    if (result.success && options.revalidate) revalidateBoards();
+    return result;
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
 }
 
 export async function listKanbanBoardsAction(): Promise<ActionResult<KanbanBoardSummary[]>> {
@@ -197,10 +229,7 @@ export async function updateKanbanBoardAction(
 async function boardMemberAction<S extends z.ZodTypeAny>(
   input: z.input<S>,
   schema: S,
-  run: (
-    ctx: NonNullable<Awaited<ReturnType<typeof getAuthedContext>>>,
-    data: z.output<S>
-  ) => Promise<ActionResult<KanbanBoardDetail>>
+  run: (ctx: AuthedContext, data: z.output<S>) => Promise<ActionResult<KanbanBoardDetail>>
 ): Promise<ActionResult<KanbanBoardDetail>> {
   try {
     const ctx = await getAuthedContext();
@@ -242,280 +271,177 @@ export async function removeKanbanBoardMemberAction(
   );
 }
 
-export async function deleteKanbanBoardAction(
-  input: DeleteKanbanBoardInput
+// ── Archive ─────────────────────────────────────────────────────────────────
+
+/** Open boards, or (archived: true) the archived ones. */
+export async function listKanbanBoardsByStateAction(
+  archived: boolean
 ): Promise<ActionResult<KanbanBoardSummary[]>> {
   try {
     const ctx = await getAuthedContext();
     if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_DELETE)) {
+    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_READ)) {
       return { success: false, error: "Insufficient permissions" };
     }
-    const parsed = deleteKanbanBoardSchema.safeParse(input);
-    if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
-    const result = await KanbanBoardsService.softDeleteBoard(
-      ctx.supabase,
-      ctx.orgId,
-      ctx.userId,
-      parsed.data
-    );
-    if (result.success) revalidateBoards();
-    return result;
+    return KanbanBoardsService.listBoards(ctx.supabase, ctx.orgId, ctx.userId, { archived });
   } catch {
     return { success: false, error: "Unexpected error" };
   }
 }
 
+// The database lets only the owner, or someone with planning.boards.delete,
+// archive, restore or delete a board.
+export async function archiveKanbanBoardAction(
+  input: KanbanBoardRefInput
+): Promise<ActionResult<KanbanBoardSummary>> {
+  return guarded(
+    PLANNING_BOARDS_UPDATE,
+    kanbanBoardRefSchema,
+    input,
+    (ctx, data) =>
+      KanbanBoardsService.setBoardArchived(ctx.supabase, ctx.orgId, ctx.userId, data.id, true),
+    { revalidate: true }
+  );
+}
+
+export async function restoreKanbanBoardAction(
+  input: KanbanBoardRefInput
+): Promise<ActionResult<KanbanBoardSummary>> {
+  return guarded(
+    PLANNING_BOARDS_UPDATE,
+    kanbanBoardRefSchema,
+    input,
+    (ctx, data) =>
+      KanbanBoardsService.setBoardArchived(ctx.supabase, ctx.orgId, ctx.userId, data.id, false),
+    { revalidate: true }
+  );
+}
+
+/** Deletes an archived board for good (its tasks stay in the task list). */
+export async function deleteKanbanBoardAction(
+  input: KanbanBoardRefInput
+): Promise<ActionResult<void>> {
+  return guarded(
+    PLANNING_BOARDS_UPDATE,
+    kanbanBoardRefSchema,
+    input,
+    (ctx, data) => KanbanBoardsService.deleteBoard(ctx.supabase, data.id),
+    { revalidate: true }
+  );
+}
+
+export async function getKanbanBoardArchiveAction(
+  boardId: string
+): Promise<ActionResult<KanbanBoardArchive>> {
+  return guarded(PLANNING_BOARDS_READ, kanbanBoardRefSchema, { id: boardId }, (ctx, data) =>
+    KanbanBoardsService.getBoardArchive(ctx.supabase, ctx.orgId, data.id)
+  );
+}
+
+// ── Columns ─────────────────────────────────────────────────────────────────
+
 export async function createKanbanColumnAction(
   input: CreateKanbanColumnInput
-): Promise<ActionResult<KanbanBoardDetail>> {
-  try {
-    const ctx = await getAuthedContext();
-    if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_UPDATE)) {
-      return { success: false, error: "Insufficient permissions" };
-    }
-    const parsed = createKanbanColumnSchema.safeParse(input);
-    if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
-    const result = await KanbanBoardsService.createColumn(
-      ctx.supabase,
-      ctx.orgId,
-      ctx.userId,
-      parsed.data
-    );
-    if (result.success) revalidateBoards();
-    return result;
-  } catch {
-    return { success: false, error: "Unexpected error" };
-  }
+): Promise<ActionResult<KanbanBoardColumn>> {
+  return guarded(PLANNING_BOARDS_UPDATE, createKanbanColumnSchema, input, (ctx, data) =>
+    KanbanBoardsService.createColumn(ctx.supabase, ctx.orgId, ctx.userId, data)
+  );
 }
 
 export async function updateKanbanColumnAction(
   input: UpdateKanbanColumnInput
-): Promise<ActionResult<KanbanBoardDetail>> {
-  try {
-    const ctx = await getAuthedContext();
-    if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_UPDATE)) {
-      return { success: false, error: "Insufficient permissions" };
-    }
-    const parsed = updateKanbanColumnSchema.safeParse(input);
-    if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
-    const result = await KanbanBoardsService.updateColumn(
-      ctx.supabase,
-      ctx.orgId,
-      ctx.userId,
-      parsed.data
-    );
-    if (result.success) revalidateBoards();
-    return result;
-  } catch {
-    return { success: false, error: "Unexpected error" };
-  }
+): Promise<ActionResult<KanbanBoardColumn>> {
+  return guarded(PLANNING_BOARDS_UPDATE, updateKanbanColumnSchema, input, (ctx, data) =>
+    KanbanBoardsService.updateColumn(ctx.supabase, ctx.orgId, ctx.userId, data)
+  );
 }
 
-export async function deleteKanbanColumnAction(
-  input: DeleteKanbanColumnInput
-): Promise<ActionResult<KanbanBoardDetail>> {
-  try {
-    const ctx = await getAuthedContext();
-    if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_DELETE)) {
-      return { success: false, error: "Insufficient permissions" };
-    }
-    const parsed = deleteKanbanColumnSchema.safeParse(input);
-    if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
-    const result = await KanbanBoardsService.softDeleteColumn(
-      ctx.supabase,
-      ctx.orgId,
-      ctx.userId,
-      parsed.data
-    );
-    if (result.success) revalidateBoards();
-    return result;
-  } catch {
-    return { success: false, error: "Unexpected error" };
-  }
+export async function archiveKanbanColumnAction(
+  input: KanbanColumnRefInput
+): Promise<ActionResult<KanbanBoardColumn>> {
+  return guarded(PLANNING_BOARDS_DELETE, kanbanColumnRefSchema, input, (ctx, data) =>
+    KanbanBoardsService.setColumnArchived(ctx.supabase, ctx.orgId, data, true)
+  );
 }
+
+export async function restoreKanbanColumnAction(
+  input: KanbanColumnRefInput
+): Promise<ActionResult<KanbanBoardColumn>> {
+  return guarded(PLANNING_BOARDS_DELETE, kanbanColumnRefSchema, input, (ctx, data) =>
+    KanbanBoardsService.setColumnArchived(ctx.supabase, ctx.orgId, data, false)
+  );
+}
+
+/** Deletes an archived column for good (its tasks stay in the task list). */
+export async function deleteKanbanColumnAction(
+  input: KanbanColumnRefInput
+): Promise<ActionResult<void>> {
+  return guarded(PLANNING_BOARDS_DELETE, kanbanColumnRefSchema, input, (ctx, data) =>
+    KanbanBoardsService.deleteColumn(ctx.supabase, data.id)
+  );
+}
+
+export async function reorderKanbanColumnsAction(
+  input: ReorderKanbanColumnsInput
+): Promise<ActionResult<void>> {
+  return guarded(PLANNING_BOARDS_UPDATE, reorderKanbanColumnsSchema, input, (ctx, data) =>
+    KanbanBoardsService.reorderColumns(ctx.supabase, data)
+  );
+}
+
+// ── Cards (tasks) ───────────────────────────────────────────────────────────
 
 export async function createKanbanCardAction(
   input: CreateKanbanCardInput
-): Promise<ActionResult<KanbanBoardDetail>> {
-  try {
-    const ctx = await getAuthedContext();
-    if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_UPDATE)) {
-      return { success: false, error: "Insufficient permissions" };
-    }
-    const parsed = createKanbanCardSchema.safeParse(input);
-    if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
-    const result = await KanbanBoardsService.createCard(
-      ctx.supabase,
-      ctx.orgId,
-      ctx.userId,
-      parsed.data
-    );
-    if (result.success) revalidateBoards();
-    return result;
-  } catch {
-    return { success: false, error: "Unexpected error" };
-  }
+): Promise<ActionResult<KanbanBoardCard>> {
+  return guarded(PLANNING_BOARDS_UPDATE, createKanbanCardSchema, input, (ctx, data) =>
+    KanbanBoardsService.createCard(ctx.supabase, ctx.orgId, ctx.userId, data)
+  );
 }
 
 export async function updateKanbanCardAction(
   input: UpdateKanbanCardInput
-): Promise<ActionResult<KanbanBoardDetail>> {
-  try {
-    const ctx = await getAuthedContext();
-    if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_UPDATE)) {
-      return { success: false, error: "Insufficient permissions" };
-    }
-    const parsed = updateKanbanCardSchema.safeParse(input);
-    if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
+): Promise<ActionResult<KanbanBoardCard>> {
+  return guarded(PLANNING_BOARDS_UPDATE, updateKanbanCardSchema, input, async (ctx, data) => {
     // Anyone who edits the board can take a task ("I'll take it") or let go of
     // it; giving it to someone else needs the assign permission.
-    const assignee = parsed.data.assigned_to;
+    const assignee = data.assigned_to;
     if (
       assignee !== undefined &&
       assignee !== ctx.userId &&
       !checkPermission(ctx.context.user.permissionSnapshot, PLANNING_TASKS_ASSIGN)
     ) {
-      const current = await currentAssignee(ctx, parsed.data.id);
+      const current = await currentAssignee(ctx, data.id);
       const releasingOwn = assignee === null && current === ctx.userId;
       if (current !== assignee && !releasingOwn) {
         return { success: false, error: "Insufficient permissions" };
       }
     }
-    const result = await KanbanBoardsService.updateCard(
-      ctx.supabase,
-      ctx.orgId,
-      ctx.userId,
-      parsed.data
-    );
-    if (result.success) revalidateBoards();
-    return result;
-  } catch {
-    return { success: false, error: "Unexpected error" };
-  }
+    return KanbanBoardsService.updateCard(ctx.supabase, ctx.orgId, ctx.userId, data);
+  });
 }
 
-export async function moveKanbanCardAction(
-  input: MoveKanbanCardInput
-): Promise<ActionResult<KanbanBoardDetail>> {
-  try {
-    const ctx = await getAuthedContext();
-    if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_UPDATE)) {
-      return { success: false, error: "Insufficient permissions" };
-    }
-    const parsed = moveKanbanCardSchema.safeParse(input);
-    if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
-    const result = await KanbanBoardsService.moveCard(
-      ctx.supabase,
-      ctx.orgId,
-      ctx.userId,
-      parsed.data
-    );
-    if (result.success) revalidateBoards();
-    return result;
-  } catch {
-    return { success: false, error: "Unexpected error" };
-  }
+/** Moves a task to a board column or to the inbox (one transaction in the database). */
+export async function moveKanbanTaskAction(
+  input: MoveKanbanTaskInput
+): Promise<ActionResult<KanbanMoveResult>> {
+  return guarded(PLANNING_BOARDS_UPDATE, moveKanbanTaskSchema, input, (ctx, data) =>
+    KanbanBoardsService.moveTask(ctx.supabase, ctx.orgId, ctx.userId, data)
+  );
 }
 
-export async function moveKanbanCardToInboxAction(
-  input: MoveKanbanCardToInboxInput
-): Promise<ActionResult<{ board: KanbanBoardDetail; inbox: KanbanBoardCard[] }>> {
-  try {
-    const ctx = await getAuthedContext();
-    if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_UPDATE)) {
-      return { success: false, error: "Insufficient permissions" };
-    }
-    const parsed = moveKanbanCardToInboxSchema.safeParse(input);
-    if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
-    const result = await KanbanBoardsService.moveCardToInbox(
-      ctx.supabase,
-      ctx.orgId,
-      ctx.userId,
-      parsed.data
-    );
-    if (result.success) revalidateBoards();
-    return result;
-  } catch {
-    return { success: false, error: "Unexpected error" };
-  }
+export async function archiveKanbanCardAction(
+  input: KanbanCardRefInput
+): Promise<ActionResult<void>> {
+  return guarded(PLANNING_BOARDS_DELETE, kanbanCardRefSchema, input, (ctx, data) =>
+    KanbanBoardsService.archiveCard(ctx.supabase, ctx.orgId, ctx.userId, data.card_id)
+  );
 }
 
-export async function moveKanbanInboxCardToBoardAction(
-  input: MoveKanbanInboxCardToBoardInput
-): Promise<ActionResult<{ board: KanbanBoardDetail; inbox: KanbanBoardCard[] }>> {
-  try {
-    const ctx = await getAuthedContext();
-    if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_UPDATE)) {
-      return { success: false, error: "Insufficient permissions" };
-    }
-    const parsed = moveKanbanInboxCardToBoardSchema.safeParse(input);
-    if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
-    const result = await KanbanBoardsService.moveInboxCardToBoard(
-      ctx.supabase,
-      ctx.orgId,
-      ctx.userId,
-      parsed.data
-    );
-    if (result.success) revalidateBoards();
-    return result;
-  } catch {
-    return { success: false, error: "Unexpected error" };
-  }
-}
-
-export async function reorderKanbanColumnsAction(
-  input: ReorderKanbanColumnsInput
-): Promise<ActionResult<KanbanBoardDetail>> {
-  try {
-    const ctx = await getAuthedContext();
-    if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_UPDATE)) {
-      return { success: false, error: "Insufficient permissions" };
-    }
-    const parsed = reorderKanbanColumnsSchema.safeParse(input);
-    if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
-    const result = await KanbanBoardsService.reorderColumns(
-      ctx.supabase,
-      ctx.orgId,
-      ctx.userId,
-      parsed.data
-    );
-    if (result.success) revalidateBoards();
-    return result;
-  } catch {
-    return { success: false, error: "Unexpected error" };
-  }
-}
-
-export async function deleteKanbanCardAction(
-  boardId: string,
-  cardId: string
-): Promise<ActionResult<KanbanBoardDetail>> {
-  try {
-    const ctx = await getAuthedContext();
-    if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_DELETE)) {
-      return { success: false, error: "Insufficient permissions" };
-    }
-    const result = await KanbanBoardsService.softDeleteCard(
-      ctx.supabase,
-      ctx.orgId,
-      ctx.userId,
-      boardId,
-      cardId
-    );
-    if (result.success) revalidateBoards();
-    return result;
-  } catch {
-    return { success: false, error: "Unexpected error" };
-  }
+export async function restoreKanbanCardAction(
+  input: KanbanCardRefInput
+): Promise<ActionResult<KanbanBoardCard>> {
+  return guarded(PLANNING_BOARDS_DELETE, kanbanCardRefSchema, input, (ctx, data) =>
+    KanbanBoardsService.restoreCard(ctx.supabase, ctx.orgId, ctx.userId, data.card_id)
+  );
 }

@@ -61,8 +61,11 @@ export function KanbanBoard<TItem>({
   const [activeColumn, setActiveColumn] = useState<KanbanColumnDefinition | null>(null);
   const sourceColumnIdRef = useRef<string | null>(null);
   const originalIndexRef = useRef(0);
+  /** True from drag start to drop: new props wait, so a refetch can't yank the dragged card. */
+  const draggingRef = useRef(false);
 
   useEffect(() => {
+    if (draggingRef.current) return;
     setOrderedColumns(columns);
     setGroupedItems(groupKanbanItems(columns, items, getItemColumnId));
   }, [columns, getItemColumnId, items]);
@@ -126,6 +129,7 @@ export function KanbanBoard<TItem>({
 
     if (column) {
       if (!columnsDraggable || nonDraggableColumnSet.has(column.id)) return;
+      draggingRef.current = true;
       setActiveColumn(column);
       return;
     }
@@ -139,6 +143,7 @@ export function KanbanBoard<TItem>({
 
     sourceColumnIdRef.current = sourceColumnId;
     originalIndexRef.current = index;
+    draggingRef.current = true;
     setActiveItem(sourceItems[index] ?? null);
   };
 
@@ -199,9 +204,18 @@ export function KanbanBoard<TItem>({
     });
   };
 
+  const handleDragCancel = () => {
+    draggingRef.current = false;
+    sourceColumnIdRef.current = null;
+    setActiveItem(null);
+    setActiveColumn(null);
+    resetToProps();
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     const wasColumnDrag = activeColumn !== null;
+    draggingRef.current = false;
     setActiveItem(null);
     setActiveColumn(null);
 
@@ -245,7 +259,11 @@ export function KanbanBoard<TItem>({
 
     const destinationItems = groupedItems[toColumnId] ?? [];
     const newIndex = destinationItems.findIndex((item) => getItemId(item) === activeId);
-    if (fromColumnId === toColumnId && originalIndexRef.current === newIndex) return;
+    if (fromColumnId === toColumnId && originalIndexRef.current === newIndex) {
+      // Props that arrived during the drag were held back: show them now.
+      resetToProps();
+      return;
+    }
 
     try {
       await onCardMove?.({
@@ -268,6 +286,7 @@ export function KanbanBoard<TItem>({
       onDragStart={disabled ? undefined : handleDragStart}
       onDragOver={disabled ? undefined : handleDragOver}
       onDragEnd={disabled ? undefined : handleDragEnd}
+      onDragCancel={disabled ? undefined : handleDragCancel}
     >
       <div className="flex h-full min-h-0 overflow-hidden">
         {fixedStartColumns.length ? (

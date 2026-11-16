@@ -42,10 +42,6 @@ export const createKanbanBoardSchema = kanbanBoardFields
   })
   .refine(branchScopeHasBranch, branchScopeMessage);
 
-export const deleteKanbanBoardSchema = z.object({
-  id: z.string().uuid(),
-});
-
 export const updateKanbanBoardSchema = kanbanBoardFields
   .extend({ id: z.string().uuid() })
   .refine(branchScopeHasBranch, branchScopeMessage);
@@ -86,7 +82,7 @@ export const updateKanbanColumnSchema = createKanbanColumnSchema.extend({
   id: z.string().uuid(),
 });
 
-export const deleteKanbanColumnSchema = z.object({
+export const kanbanColumnRefSchema = z.object({
   board_id: z.string().uuid(),
   id: z.string().uuid(),
 });
@@ -106,30 +102,41 @@ export const createKanbanCardSchema = z.object({
     .optional(),
 });
 
-export const updateKanbanCardSchema = createKanbanCardSchema.extend({
+export const updateKanbanCardSchema = createKanbanCardSchema
+  .omit({ board_id: true, column_id: true })
+  .extend({
+    id: z.string().uuid(),
+    /** Empty for a task in the inbox. */
+    board_id: z.string().uuid().nullable(),
+    /** A new column on the same board; left out to keep the task where it is. */
+    column_id: z.string().uuid().nullable().optional(),
+    /** A card is a task: its status and assignee can be changed from the board. */
+    status: z.enum(KANBAN_TASK_STATUSES).optional(),
+    assigned_to: z.string().uuid().nullable().optional(),
+  });
+
+/**
+ * Moves a task to a board column (board_id + column_id) or to its author's
+ * inbox (both null), at a position in the destination list.
+ */
+export const moveKanbanTaskSchema = z
+  .object({
+    card_id: z.string().uuid(),
+    board_id: z.string().uuid().nullable(),
+    column_id: z.string().uuid().nullable(),
+    position: z.number().int().min(0),
+  })
+  .refine((value) => (value.board_id === null) === (value.column_id === null), {
+    message: "A column needs its board",
+    path: ["column_id"],
+  });
+
+export const kanbanBoardRefSchema = z.object({
   id: z.string().uuid(),
-  /** A card is a task: its status and assignee can be changed from the board. */
-  status: z.enum(KANBAN_TASK_STATUSES).optional(),
-  assigned_to: z.string().uuid().nullable().optional(),
 });
 
-export const moveKanbanCardSchema = z.object({
+export const kanbanCardRefSchema = z.object({
   card_id: z.string().uuid(),
-  board_id: z.string().uuid(),
-  to_column_id: z.string().uuid(),
-  to_position: z.number().int().min(0),
-});
-
-export const moveKanbanCardToInboxSchema = z.object({
-  card_id: z.string().uuid(),
-  board_id: z.string().uuid(),
-});
-
-export const moveKanbanInboxCardToBoardSchema = z.object({
-  card_id: z.string().uuid(),
-  board_id: z.string().uuid(),
-  column_id: z.string().uuid(),
-  position: z.number().int().min(0),
 });
 
 export const reorderKanbanColumnsSchema = z.object({
@@ -139,15 +146,14 @@ export const reorderKanbanColumnsSchema = z.object({
 
 export type CreateKanbanBoardInput = z.infer<typeof createKanbanBoardSchema>;
 export type UpdateKanbanBoardInput = z.infer<typeof updateKanbanBoardSchema>;
-export type DeleteKanbanBoardInput = z.infer<typeof deleteKanbanBoardSchema>;
+export type KanbanBoardRefInput = z.infer<typeof kanbanBoardRefSchema>;
+export type KanbanCardRefInput = z.infer<typeof kanbanCardRefSchema>;
 export type CreateKanbanColumnInput = z.infer<typeof createKanbanColumnSchema>;
 export type UpdateKanbanColumnInput = z.infer<typeof updateKanbanColumnSchema>;
-export type DeleteKanbanColumnInput = z.infer<typeof deleteKanbanColumnSchema>;
+export type KanbanColumnRefInput = z.infer<typeof kanbanColumnRefSchema>;
 export type CreateKanbanCardInput = z.infer<typeof createKanbanCardSchema>;
 export type UpdateKanbanCardInput = z.infer<typeof updateKanbanCardSchema>;
-export type MoveKanbanCardInput = z.infer<typeof moveKanbanCardSchema>;
-export type MoveKanbanCardToInboxInput = z.infer<typeof moveKanbanCardToInboxSchema>;
-export type MoveKanbanInboxCardToBoardInput = z.infer<typeof moveKanbanInboxCardToBoardSchema>;
+export type MoveKanbanTaskInput = z.infer<typeof moveKanbanTaskSchema>;
 export type ReorderKanbanColumnsInput = z.infer<typeof reorderKanbanColumnsSchema>;
 export type AddKanbanBoardMemberInput = z.infer<typeof addKanbanBoardMemberSchema>;
 export type UpdateKanbanBoardMemberInput = z.infer<typeof updateKanbanBoardMemberSchema>;
