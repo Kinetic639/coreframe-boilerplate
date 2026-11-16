@@ -15,7 +15,8 @@ export const boardFilterParams = {
   q: parseAsString.withDefault(""),
   osoby: parseAsArrayOf(parseAsString).withDefault([]),
   etykiety: parseAsArrayOf(parseAsString).withDefault([]),
-  termin: parseAsStringLiteral(DUE_FILTERS),
+  // A list of one, as the shared filter bar keeps its single-choice filters.
+  termin: parseAsArrayOf(parseAsStringLiteral(DUE_FILTERS)).withDefault([]),
   priorytet: parseAsArrayOf(parseAsString).withDefault([]),
 };
 
