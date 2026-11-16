@@ -19,7 +19,13 @@ describe("board UI prefs", () => {
 
   it("round-trips through the cookie", () => {
     const prefs = withColumnCollapsed(
-      { lastBoardId: BOARD, recent: [BOARD], inboxOpen: false, collapsed: {} },
+      {
+        lastBoardId: BOARD,
+        recent: [BOARD],
+        inboxOpen: false,
+        inboxColor: "#0079bf",
+        collapsed: {},
+      },
       BOARD,
       COLUMN,
       true
@@ -29,12 +35,18 @@ describe("board UI prefs", () => {
 
   it("drops values that are not ids", () => {
     const raw = encodeURIComponent(
-      JSON.stringify({ b: "../evil", i: 1, c: { [BOARD]: [COLUMN, 5, "x"], bad: [COLUMN] } })
+      JSON.stringify({
+        b: "../evil",
+        i: 1,
+        x: "red;background:url(x)",
+        c: { [BOARD]: [COLUMN, 5, "x"], bad: [COLUMN] },
+      })
     );
     expect(parseBoardUiPrefs(raw)).toEqual({
       lastBoardId: null,
       recent: [],
       inboxOpen: true,
+      inboxColor: null,
       collapsed: { [BOARD]: [COLUMN] },
     });
   });

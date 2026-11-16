@@ -172,6 +172,11 @@ export function PlanningBoardsClient({
     [updatePrefs]
   );
 
+  const changeInboxColor = useCallback(
+    (inboxColor: string | null) => updatePrefs((current) => ({ ...current, inboxColor })),
+    [updatePrefs]
+  );
+
   const ownBoardCount = boards.filter((board) => board.my_access === "owner").length;
   const canCreateMore = canCreate && ownBoardCount < MAX_KANBAN_BOARDS_PER_USER;
   const openCreate = useCallback(() => setCreateOpen(true), []);
@@ -219,6 +224,8 @@ export function PlanningBoardsClient({
               onOpenBoard={selectBoard}
               switcher={switcher}
               onToggleInbox={toggleInbox}
+              inboxColor={prefs.inboxColor}
+              onInboxColorChange={changeInboxColor}
             />
           </main>
           <BoardSwitcherDialog

@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { ReactNode } from "react";
 
 export interface KanbanColumnDefinition {
@@ -45,8 +46,12 @@ export interface KanbanBoardProps<TItem> {
   labels?: KanbanBoardLabels;
   className?: string;
   columnClassName?: string;
+  /** Inline style of the scroll area (e.g. a board background). */
+  scrollAreaStyle?: CSSProperties;
   scrollAreaClassName?: string;
   fixedStartColumnIds?: string[];
+  /** Inline style of the fixed start area. */
+  fixedStartStyle?: CSSProperties;
   fixedStartClassName?: string;
   fixedColumnClassName?: string;
   disabled?: boolean;

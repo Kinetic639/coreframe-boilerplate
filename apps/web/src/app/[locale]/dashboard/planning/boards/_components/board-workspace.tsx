@@ -17,6 +17,7 @@ import { BoardArchiveDialog } from "./board-archive-dialog";
 import { BoardFieldsDialog } from "./board-fields-dialog";
 import { BoardCard } from "./board-card";
 import { boardBackground } from "./board-colors";
+import { InboxColorPicker } from "./board-color-picker";
 import {
   AddCardButton,
   AddCardComposer,
@@ -73,6 +74,9 @@ interface BoardWorkspaceProps {
   /** The other boards, behind the board's name. */
   switcher: BoardSwitcherProps;
   onToggleInbox: () => void;
+  /** The inbox panel's own background colour (per browser). */
+  inboxColor: string | null;
+  onInboxColorChange: (color: string | null) => void;
 }
 
 const emptyColumns: KanbanBoardDetail["columns"] = [];
@@ -101,6 +105,8 @@ export function BoardWorkspace({
   onOpenBoard,
   switcher,
   onToggleInbox,
+  inboxColor,
+  onInboxColorChange,
 }: BoardWorkspaceProps) {
   const t = useTranslations("modules.planning");
   const actions = useBoardActions(orgId, board?.id ?? null);
@@ -400,10 +406,14 @@ export function BoardWorkspace({
     [onColumnCollapsedChange]
   );
 
+  // As in Trello: the colour fills the board's panel behind the lists, not
+  // the page around it; the lists stay opaque cards over it. The inbox panel
+  // has a colour of its own.
   const background = showBoard ? boardBackground(board?.color) : undefined;
+  const inboxBackground = boardBackground(inboxColor);
 
   return (
-    <div className="h-full min-h-0 overflow-hidden" style={background ? { background } : undefined}>
+    <div className="h-full min-h-0 overflow-hidden">
       <KanbanBoard
         columns={columns}
         items={items}
@@ -418,20 +428,25 @@ export function BoardWorkspace({
         }}
         scrollAreaClassName={cn(
           "m-3 ml-3 overflow-hidden rounded-lg border",
-          background ? "border-white/20 bg-black/10" : "bg-muted/10"
+          background ? "border-transparent shadow-sm" : "bg-muted/10"
         )}
+        scrollAreaStyle={background ? { background } : undefined}
         className="flex-1 gap-3 p-3 pb-3"
-        // On a coloured board the lists are nearly opaque cards over it.
         columnClassName={cn(
           "min-h-0 rounded-md",
-          background && "border-transparent bg-background/90"
+          background && "border-transparent bg-background/95 shadow-sm"
         )}
         fixedStartColumnIds={inboxOpen ? [INBOX_COLUMN_ID] : []}
         fixedStartClassName={cn(
           "m-3 mr-0 w-[18rem] overflow-hidden rounded-lg border shadow-sm",
-          background ? "bg-background/90" : "bg-muted/10"
+          inboxBackground ? "border-transparent p-2" : "bg-muted/10"
         )}
-        fixedColumnClassName="w-full rounded-none border-0 bg-transparent"
+        fixedStartStyle={inboxBackground ? { background: inboxBackground } : undefined}
+        fixedColumnClassName={
+          inboxBackground
+            ? "w-full rounded-md border-0 bg-background/95 shadow-sm"
+            : "w-full rounded-none border-0 bg-transparent"
+        }
         nonDraggableColumnIds={[INBOX_COLUMN_ID]}
         renderScrollableHeader={
           board && showBoard
@@ -517,7 +532,10 @@ export function BoardWorkspace({
           ) : null;
         }}
         renderColumnActions={(column) => {
-          if (column.id === INBOX_COLUMN_ID || !board || !(canUpdate || canDelete)) return null;
+          if (column.id === INBOX_COLUMN_ID) {
+            return <InboxColorPicker color={inboxColor} onChange={onInboxColorChange} />;
+          }
+          if (!board || !(canUpdate || canDelete)) return null;
           const full = board.columns.find((candidate) => candidate.id === column.id);
           return full ? (
             <ColumnMenu

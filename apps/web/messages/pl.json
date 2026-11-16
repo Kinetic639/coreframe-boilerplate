@@ -4680,7 +4680,8 @@
         "inbox": {
           "title": "Skrzynka",
           "description": "Wspólna skrzynka kart pomiędzy tablicami",
-          "toggle": "Pokaż lub ukryj skrzynkę"
+          "toggle": "Pokaż lub ukryj skrzynkę",
+          "color": "Kolor skrzynki"
         },
         "comments": {
           "title": "Komentarze",
