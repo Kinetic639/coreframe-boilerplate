@@ -4713,7 +4713,8 @@
         "header": {
           "people": "People on this board",
           "share": "Share",
-          "renameHint": "Click to rename"
+          "renameHint": "Click to rename",
+          "rename": "Rename"
         },
         "cardBadges": {
           "due": {
@@ -4841,8 +4842,10 @@
           "menu": "Quick actions (focused card)",
           "take": "Assign to me / let go",
           "archive": "Archive card",
-          "help": "Show shortcuts"
-        }
+          "help": "Show shortcuts",
+          "inbox": "Show or hide the inbox"
+        },
+        "unnamedLabel": "Unnamed label"
       },
       "boardExtras": {
         "name": "Name",

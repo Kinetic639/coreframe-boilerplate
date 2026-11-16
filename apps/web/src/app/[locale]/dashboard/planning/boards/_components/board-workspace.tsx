@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { useQueryStates } from "nuqs";
 import { toast } from "react-toastify";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
+import { LayoutGrid, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KanbanBoard, type KanbanCardMoveParams } from "@/components/primitives/kanban";
 import { PageLoader } from "@/components/page-loader";
@@ -32,10 +34,10 @@ import {
   type BoardFilters,
 } from "./board-filters";
 import { INBOX_COLUMN_ID } from "./board-format";
+import { BoardFilterBar } from "./board-filter-bar";
+import type { BoardSwitcherProps } from "./board-switcher-menu";
 import {
-  BOARD_SEARCH_INPUT_ID,
   BoardActivitySheet,
-  BoardFilterBar,
   BoardLabelsDialog,
   BoardShortcutsDialog,
   BoardViewers,
@@ -68,6 +70,9 @@ interface BoardWorkspaceProps {
   canCreate: boolean;
   /** Opens another board (a copy just made). */
   onOpenBoard: (boardId: string) => void;
+  /** The other boards, behind the board's name. */
+  switcher: BoardSwitcherProps;
+  onToggleInbox: () => void;
 }
 
 const emptyColumns: KanbanBoardDetail["columns"] = [];
@@ -94,6 +99,8 @@ export function BoardWorkspace({
   onOpenAllBoards,
   canCreate,
   onOpenBoard,
+  switcher,
+  onToggleInbox,
 }: BoardWorkspaceProps) {
   const t = useTranslations("modules.planning");
   const actions = useBoardActions(orgId, board?.id ?? null);
@@ -107,7 +114,6 @@ export function BoardWorkspace({
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [copyingCard, setCopyingCard] = useState<KanbanBoardCard | null>(null);
   const hoveredCard = useRef<KanbanBoardCard | null>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
 
   const [filterParams, setFilterParams] = useQueryStates(boardFilterParams, { history: "replace" });
   const filters = useMemo<BoardFilters>(
@@ -115,7 +121,7 @@ export function BoardWorkspace({
       q: filterParams.q,
       people: filterParams.osoby,
       labels: filterParams.etykiety,
-      due: filterParams.termin ?? null,
+      due: filterParams.termin[0] ?? null,
       priority: filterParams.priorytet,
     }),
     [filterParams]
@@ -127,7 +133,7 @@ export function BoardWorkspace({
         ...(next.q !== undefined ? { q: next.q || null } : {}),
         ...(next.people !== undefined ? { osoby: next.people.length ? next.people : null } : {}),
         ...(next.labels !== undefined ? { etykiety: next.labels.length ? next.labels : null } : {}),
-        ...(next.due !== undefined ? { termin: next.due } : {}),
+        ...(next.due !== undefined ? { termin: next.due ? [next.due] : null } : {}),
         ...(next.priority !== undefined
           ? { priorytet: next.priority.length ? next.priority : null }
           : {}),
@@ -306,6 +312,7 @@ export function BoardWorkspace({
 
   // Keyboard shortcuts on the board (not while typing or with a window open).
   const shortcutState = useRef({
+    onToggleInbox,
     filters,
     canUpdate,
     canDelete,
@@ -313,6 +320,7 @@ export function BoardWorkspace({
     canDeletePermission,
   });
   shortcutState.current = {
+    onToggleInbox,
     filters,
     canUpdate,
     canDelete,
@@ -336,9 +344,13 @@ export function BoardWorkspace({
       const state = shortcutState.current;
       const hovered = hoveredCard.current;
       const key = event.key;
-      if (key === "/" || key === "f" || key === "F") {
+      // "/" is the filter bar's own.
+      if (key === "f" || key === "F") {
         event.preventDefault();
-        (searchRef.current ?? document.getElementById(BOARD_SEARCH_INPUT_ID))?.focus();
+        document.querySelector<HTMLInputElement>('.board-filter-row input[type="search"]')?.focus();
+      } else if (key === "i" || key === "I") {
+        event.preventDefault();
+        state.onToggleInbox();
       } else if (key === "q" || key === "Q") {
         event.preventDefault();
         const onlyMine = state.filters.people.length === 1 && state.filters.people[0] === "me";
@@ -439,16 +451,27 @@ export function BoardWorkspace({
                   onOpenFields={() => setFieldsOpen(true)}
                   canCreate={canCreate}
                   onOpenBoard={onOpenBoard}
+                  switcher={switcher}
+                  inbox={{
+                    open: inboxOpen,
+                    count: inboxCards.length,
+                    onToggle: onToggleInbox,
+                  }}
                   toolbar={
                     <BoardFilterBar
-                      ref={searchRef}
-                      filters={filters}
+                      boardId={board.id}
                       labels={board.labels ?? []}
                       people={people}
+                      onlyMine={filters.people.length === 1 && filters.people[0] === "me"}
+                      onToggleOnlyMine={() =>
+                        setFilters({
+                          people:
+                            filters.people.length === 1 && filters.people[0] === "me" ? [] : ["me"],
+                        })
+                      }
+                      filtering={filtering}
                       shown={items.length}
                       total={allItems.length}
-                      onChange={setFilters}
-                      onClear={clearFilters}
                     />
                   }
                 />
@@ -461,8 +484,20 @@ export function BoardWorkspace({
                 boardId ? (
                   <PageLoader className="h-full min-h-0 flex-1" />
                 ) : (
-                  <div className="flex h-full flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
+                  <div className="flex h-full flex-1 flex-col items-center justify-center gap-3 p-8 text-center text-sm text-muted-foreground">
                     {t("boards.selectBoard")}
+                    <div className="flex gap-2">
+                      {switcher.onCreateBoard ? (
+                        <Button size="sm" onClick={switcher.onCreateBoard}>
+                          <Plus className="mr-1.5 h-4 w-4" />
+                          {t("boards.newBoard")}
+                        </Button>
+                      ) : null}
+                      <Button size="sm" variant="outline" onClick={onOpenAllBoards}>
+                        <LayoutGrid className="mr-1.5 h-4 w-4" />
+                        {t("boards.all.title")}
+                      </Button>
+                    </div>
                   </div>
                 )
             : undefined

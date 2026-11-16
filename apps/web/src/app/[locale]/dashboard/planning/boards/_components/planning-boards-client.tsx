@@ -4,17 +4,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { parseAsString, useQueryStates } from "nuqs";
-import { Inbox, KanbanSquare } from "lucide-react";
 import { toast } from "react-toastify";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { MAX_KANBAN_BOARDS_PER_USER } from "@/lib/types/kanban";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import {
   BoardSharingProvider,
   type BoardSharingOption,
   type BoardSharingPerson,
 } from "./board-sharing";
-import { BoardSwitcherDialog } from "./board-switcher-dialog";
+import { BoardSwitcherDialog, CreateBoardDialog } from "./board-switcher-dialog";
+import type { BoardSwitcherProps } from "./board-switcher-menu";
 import {
   withBoardOpened,
   withColumnCollapsed,
@@ -65,6 +65,7 @@ export function PlanningBoardsClient({
   const [params, setParams] = useQueryStates(urlParams, { history: "push" });
   const [prefs, setPrefs] = useState(initialPrefs);
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const admin = useBoardsAdmin(orgId);
 
   const sharing = useMemo(
@@ -128,6 +129,13 @@ export function PlanningBoardsClient({
 
   const openSwitcher = useCallback(() => setSwitcherOpen(true), []);
 
+  // A board opened without ?board (the remembered one) gets it in the
+  // address, so a saved view of its filters keeps the board too.
+  useEffect(() => {
+    if (params.board || !loadedBoardId || loadedBoardArchived) return;
+    void setParams({ board: loadedBoardId }, { history: "replace" });
+  }, [loadedBoardArchived, loadedBoardId, params.board, setParams]);
+
   const prefetchBoard = useCallback(
     (boardId: string) => {
       void queryClient.prefetchQuery(boardQuery(orgId, boardId));
@@ -159,6 +167,27 @@ export function PlanningBoardsClient({
     [activeBoardId, updatePrefs]
   );
 
+  const toggleInbox = useCallback(
+    () => updatePrefs((current) => ({ ...current, inboxOpen: !current.inboxOpen })),
+    [updatePrefs]
+  );
+
+  const ownBoardCount = boards.filter((board) => board.my_access === "owner").length;
+  const canCreateMore = canCreate && ownBoardCount < MAX_KANBAN_BOARDS_PER_USER;
+  const openCreate = useCallback(() => setCreateOpen(true), []);
+
+  const switcher = useMemo<BoardSwitcherProps>(
+    () => ({
+      boards,
+      recentBoardIds: prefs.recent,
+      onSelectBoard: selectBoard,
+      onPrefetchBoard: prefetchBoard,
+      onOpenAllBoards: openSwitcher,
+      onCreateBoard: canCreateMore ? openCreate : undefined,
+    }),
+    [boards, canCreateMore, openCreate, openSwitcher, prefetchBoard, prefs.recent, selectBoard]
+  );
+
   const collapsedColumnIds = useMemo(
     () => (activeBoardId ? (prefs.collapsed[activeBoardId] ?? []) : []),
     [activeBoardId, prefs.collapsed]
@@ -167,8 +196,8 @@ export function PlanningBoardsClient({
   return (
     <BoardSharingProvider value={sharing}>
       <TooltipProvider delayDuration={250}>
-        <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_3rem] overflow-hidden">
-          <main className="min-h-0 overflow-hidden">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden">
+          <main className="min-h-0 flex-1 overflow-hidden">
             <BoardWorkspace
               orgId={orgId}
               boardId={activeBoardId}
@@ -188,45 +217,10 @@ export function PlanningBoardsClient({
               onOpenAllBoards={openSwitcher}
               canCreate={canCreate}
               onOpenBoard={selectBoard}
+              switcher={switcher}
+              onToggleInbox={toggleInbox}
             />
           </main>
-          <aside className="flex min-h-0 flex-col items-center border-l bg-muted/10 px-1.5 py-3">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant={prefs.inboxOpen ? "default" : "ghost"}
-                  className="h-8 w-8"
-                  onClick={() =>
-                    updatePrefs((current) => ({ ...current, inboxOpen: !current.inboxOpen }))
-                  }
-                  aria-pressed={prefs.inboxOpen}
-                  aria-label={t("boards.inbox.toggle")}
-                >
-                  <Inbox className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="left">{t("boards.inbox.toggle")}</TooltipContent>
-            </Tooltip>
-
-            <div className="mt-auto">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setSwitcherOpen(true)}
-                    aria-label={t("boards.switchBoards")}
-                  >
-                    <KanbanSquare className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left">{t("boards.switchBoards")}</TooltipContent>
-              </Tooltip>
-            </div>
-          </aside>
           <BoardSwitcherDialog
             orgId={orgId}
             open={switcherOpen}
@@ -240,6 +234,17 @@ export function PlanningBoardsClient({
             admin={admin}
             onSelectBoard={selectBoard}
             onPrefetchBoard={prefetchBoard}
+          />
+          <CreateBoardDialog
+            templates={boards.filter((board) => board.is_template)}
+            open={createOpen}
+            onOpenChange={setCreateOpen}
+            onCreated={(board) => {
+              admin.boardChanged(board);
+              setCreateOpen(false);
+              toast.success(t("boards.boardCreated"));
+              selectBoard(board.id);
+            }}
           />
         </div>
       </TooltipProvider>

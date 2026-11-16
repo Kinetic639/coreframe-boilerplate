@@ -4793,7 +4793,8 @@
         "header": {
           "people": "Osoby na tablicy",
           "share": "Udostępnij",
-          "renameHint": "Kliknij, aby zmienić nazwę"
+          "renameHint": "Kliknij, aby zmienić nazwę",
+          "rename": "Zmień nazwę"
         },
         "cardBadges": {
           "due": {
@@ -4921,8 +4922,10 @@
           "menu": "Szybkie akcje (karta z fokusem)",
           "take": "Przypisz do mnie / zwolnij",
           "archive": "Archiwizuj kartę",
-          "help": "Pokaż skróty"
-        }
+          "help": "Pokaż skróty",
+          "inbox": "Pokaż lub ukryj skrzynkę"
+        },
+        "unnamedLabel": "Etykieta bez nazwy"
       },
       "boardExtras": {
         "name": "Nazwa",

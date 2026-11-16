@@ -2,7 +2,8 @@
 
    The table's semantic tokens are aliases of the active Ambra theme.
    The body scope also reaches Radix portals without changing other pages. */
-body:has(.dt-list-view) {
+body:has(.dt-list-view),
+body:has(.dt-tokens) {
   --surface: var(--background);
   --surface-muted: var(--muted);
   --surface-subtle: color-mix(in srgb, var(--muted) 65%, var(--background));

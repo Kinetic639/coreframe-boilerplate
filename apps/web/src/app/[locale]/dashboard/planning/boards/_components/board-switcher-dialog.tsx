@@ -477,7 +477,7 @@ function DeleteBoardDialog({
 
 const BLANK_BOARD = "__blank__";
 
-function CreateBoardDialog({
+export function CreateBoardDialog({
   templates,
   open,
   onOpenChange,
