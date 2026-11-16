@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { User } from "lucide-react";
+import { Inbox, User } from "lucide-react";
 import { FilterBar, type FilterField } from "@/components/data-table/filter-bar";
 import "@/components/data-table/ambra-list.css";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ const VIEW_IGNORED = ["karta"];
  */
 export function BoardFilterBar({
   boardId,
+  inbox,
   labels,
   people,
   onlyMine,
@@ -37,6 +38,8 @@ export function BoardFilterBar({
   total,
 }: {
   boardId: string;
+  /** The shared inbox column: shown or not, and how many cards it holds. */
+  inbox: { open: boolean; count: number; onToggle: () => void };
   labels: KanbanBoardLabel[];
   people: FilterPerson[];
   onlyMine: boolean;
@@ -93,7 +96,33 @@ export function BoardFilterBar({
   ];
 
   return (
-    <div className="dt-tokens board-filter-row flex flex-wrap items-center gap-x-2 border-t px-3 [&>div:first-child]:min-w-0 [&>div:first-child]:flex-1 [&>div:first-child]:border-b-0">
+    <div className="dt-tokens board-filter-row flex flex-wrap items-center gap-x-2 border-t px-3 [&>div:nth-child(2)]:min-w-0 [&>div:nth-child(2)]:flex-1 [&>div:nth-child(2)]:border-b-0 [&>div:nth-child(2)]:px-1">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant={inbox.open ? "secondary" : "ghost"}
+            size="icon"
+            className={cn("relative h-7 w-7 shrink-0", inbox.open && "text-primary")}
+            aria-pressed={inbox.open}
+            aria-label={t("boards.inbox.toggle")}
+            onClick={inbox.onToggle}
+          >
+            <Inbox className="h-4 w-4" />
+            {inbox.count ? (
+              <span
+                aria-hidden="true"
+                className="absolute -right-0.5 -top-0.5 min-w-3.5 rounded-full bg-muted-foreground px-1 text-center text-[0.6rem] font-semibold leading-3.5 text-background tabular-nums"
+              >
+                {inbox.count}
+              </span>
+            ) : null}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          {t("boards.inbox.toggle")}
+          <kbd className="ml-1.5 rounded border px-1 font-mono text-[10px]">I</kbd>
+        </TooltipContent>
+      </Tooltip>
       <FilterBar
         parsers={boardFilterParams}
         fields={fields}

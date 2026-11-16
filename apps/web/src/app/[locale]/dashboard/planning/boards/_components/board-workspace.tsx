@@ -36,7 +36,7 @@ import {
 } from "./board-filters";
 import { INBOX_COLUMN_ID } from "./board-format";
 import { BoardFilterBar } from "./board-filter-bar";
-import type { BoardSwitcherProps } from "./board-switcher-menu";
+import type { BoardSwitcherProps } from "./board-picker-dialog";
 import {
   BoardActivitySheet,
   BoardLabelsDialog,
@@ -467,14 +467,14 @@ export function BoardWorkspace({
                   canCreate={canCreate}
                   onOpenBoard={onOpenBoard}
                   switcher={switcher}
-                  inbox={{
-                    open: inboxOpen,
-                    count: inboxCards.length,
-                    onToggle: onToggleInbox,
-                  }}
                   toolbar={
                     <BoardFilterBar
                       boardId={board.id}
+                      inbox={{
+                        open: inboxOpen,
+                        count: inboxCards.length,
+                        onToggle: onToggleInbox,
+                      }}
                       labels={board.labels ?? []}
                       people={people}
                       onlyMine={filters.people.length === 1 && filters.people[0] === "me"}

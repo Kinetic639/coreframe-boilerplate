@@ -8,13 +8,12 @@ import {
   ArchiveRestore,
   Check,
   Copy,
-  Inbox,
+  KanbanSquare,
   Keyboard,
   LayoutGrid,
   LayoutTemplate,
   MoreHorizontal,
   Palette,
-  Pencil,
   RotateCcw,
   Settings2,
   SlidersHorizontal,
@@ -43,7 +42,7 @@ import { initials } from "./board-format";
 import { ArchiveBoardConfirm, BoardSettingsDialog } from "./board-settings-dialog";
 import { BoardVisibilityIcon } from "./board-sharing";
 import { CopyBoardDialog } from "./board-copy-dialog";
-import { BoardSwitcherMenu, type BoardSwitcherProps } from "./board-switcher-menu";
+import { BoardPickerDialog, type BoardSwitcherProps } from "./board-picker-dialog";
 import type { BoardsAdmin } from "./use-boards-admin";
 
 const MAX_AVATARS = 4;
@@ -70,8 +69,6 @@ interface BoardHeaderProps {
   onOpenBoard: (boardId: string) => void;
   /** The other boards, behind the board's name. */
   switcher: BoardSwitcherProps;
-  /** The shared inbox column: shown or not, and how many cards it holds. */
-  inbox: { open: boolean; count: number; onToggle: () => void };
 }
 
 /**
@@ -96,13 +93,12 @@ export function BoardHeader({
   canCreate,
   onOpenBoard,
   switcher,
-  inbox,
 }: BoardHeaderProps) {
   const t = useTranslations("modules.planning");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
-  const [renaming, setRenaming] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const isArchived = Boolean(board.archived_at);
   const people = [
     { key: board.created_by, name: board.creator_name, email: board.creator_email },
@@ -137,11 +133,21 @@ export function BoardHeader({
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          {renaming ? (
-            <BoardTitleInput board={board} admin={admin} onDone={() => setRenaming(false)} />
-          ) : (
-            <BoardSwitcherMenu board={board} {...switcher} />
-          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                aria-label={t("boards.switchBoards")}
+                onClick={() => setPickerOpen(true)}
+              >
+                <KanbanSquare className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("boards.switchBoards")}</TooltipContent>
+          </Tooltip>
+          <BoardTitle board={board} canEdit={canUpdate} admin={admin} />
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -173,29 +179,6 @@ export function BoardHeader({
 
         <div className="flex shrink-0 items-center gap-2">
           {viewers}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={inbox.open ? "secondary" : "ghost"}
-                size="sm"
-                className="h-8 gap-1.5"
-                aria-pressed={inbox.open}
-                onClick={inbox.onToggle}
-              >
-                <Inbox className="h-4 w-4" />
-                <span className="hidden sm:inline">{t("boards.inbox.title")}</span>
-                {inbox.count ? (
-                  <span className="rounded-full bg-muted px-1.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
-                    {inbox.count}
-                  </span>
-                ) : null}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {t("boards.inbox.toggle")}{" "}
-              <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">I</kbd>
-            </TooltipContent>
-          </Tooltip>
           <div className="flex -space-x-1.5" aria-label={t("boards.header.people")}>
             {people.slice(0, MAX_AVATARS).map((person) => (
               <span
@@ -235,12 +218,6 @@ export function BoardHeader({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-60">
-              {canUpdate ? (
-                <DropdownMenuItem onSelect={() => setRenaming(true)}>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  {t("boards.header.rename")}
-                </DropdownMenuItem>
-              ) : null}
               {!isArchived ? (
                 <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
                   <Settings2 className="mr-2 h-4 w-4" />
@@ -355,6 +332,12 @@ export function BoardHeader({
       </div>
       {toolbar}
 
+      <BoardPickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        activeBoardId={board.id}
+        {...switcher}
+      />
       <BoardSettingsDialog
         board={board}
         open={settingsOpen}
@@ -383,48 +366,68 @@ export function BoardHeader({
   );
 }
 
-/** The board's name being renamed: Enter or leaving saves, Esc cancels. */
-function BoardTitleInput({
+/** The board's name: a click turns it into a field; Enter or leaving saves, Esc cancels. */
+function BoardTitle({
   board,
+  canEdit,
   admin,
-  onDone,
 }: {
   board: KanbanBoardDetail;
+  canEdit: boolean;
   admin: BoardsAdmin;
-  onDone: () => void;
 }) {
   const t = useTranslations("modules.planning");
+  const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(board.title);
   const doneRef = useRef(false);
+
+  if (!canEdit) return <h2 className="truncate text-lg font-semibold">{board.title}</h2>;
 
   const finish = (save: boolean) => {
     if (doneRef.current) return;
     doneRef.current = true;
-    onDone();
+    setEditing(false);
     const title = value.trim();
     if (save && title && title !== board.title) void admin.updateBoard(board, { title });
   };
 
+  if (editing) {
+    return (
+      <Input
+        autoFocus
+        value={value}
+        maxLength={160}
+        aria-label={t("boards.title")}
+        className="h-8 max-w-md text-lg font-semibold"
+        onFocus={(event) => event.currentTarget.select()}
+        onChange={(event) => setValue(event.target.value)}
+        onBlur={() => finish(true)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            finish(true);
+          }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            finish(false);
+          }
+        }}
+      />
+    );
+  }
+
   return (
-    <Input
-      autoFocus
-      value={value}
-      maxLength={160}
-      aria-label={t("boards.title")}
-      className="h-8 max-w-md text-lg font-semibold"
-      onFocus={(event) => event.currentTarget.select()}
-      onChange={(event) => setValue(event.target.value)}
-      onBlur={() => finish(true)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          finish(true);
-        }
-        if (event.key === "Escape") {
-          event.preventDefault();
-          finish(false);
-        }
+    <button
+      type="button"
+      className="min-w-0 truncate rounded px-1.5 py-0.5 text-left text-lg font-semibold hover:bg-muted/70"
+      title={t("boards.header.renameHint")}
+      onClick={() => {
+        doneRef.current = false;
+        setValue(board.title);
+        setEditing(true);
       }}
-    />
+    >
+      {board.title}
+    </button>
   );
 }
