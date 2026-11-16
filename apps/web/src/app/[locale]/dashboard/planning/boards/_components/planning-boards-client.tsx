@@ -15,7 +15,12 @@ import {
   type BoardSharingPerson,
 } from "./board-sharing";
 import { BoardSwitcherDialog } from "./board-switcher-dialog";
-import { withColumnCollapsed, writeBoardUiPrefs, type BoardUiPrefs } from "./board-ui-prefs";
+import {
+  withBoardOpened,
+  withColumnCollapsed,
+  writeBoardUiPrefs,
+  type BoardUiPrefs,
+} from "./board-ui-prefs";
 import { BoardWorkspace } from "./board-workspace";
 import { boardListQuery, boardQuery, inboxQuery } from "./boards-query";
 import { useBoardsAdmin } from "./use-boards-admin";
@@ -100,9 +105,7 @@ export function PlanningBoardsClient({
   const loadedBoardArchived = Boolean(activeBoard.data?.archived_at);
   useEffect(() => {
     if (!loadedBoardId || loadedBoardArchived) return;
-    updatePrefs((current) =>
-      current.lastBoardId === loadedBoardId ? current : { ...current, lastBoardId: loadedBoardId }
-    );
+    updatePrefs((current) => withBoardOpened(current, loadedBoardId));
   }, [loadedBoardArchived, loadedBoardId, updatePrefs]);
 
   // A board from an old link that is gone or no longer shared: say so and
@@ -122,6 +125,8 @@ export function PlanningBoardsClient({
     },
     [activeBoardId, setParams]
   );
+
+  const openSwitcher = useCallback(() => setSwitcherOpen(true), []);
 
   const prefetchBoard = useCallback(
     (boardId: string) => {
@@ -180,6 +185,7 @@ export function PlanningBoardsClient({
               onOpenCardChange={setOpenCard}
               admin={admin}
               onBoardArchived={handleBoardArchived}
+              onOpenAllBoards={openSwitcher}
             />
           </main>
           <aside className="flex min-h-0 flex-col items-center border-l bg-muted/10 px-1.5 py-3">
@@ -228,6 +234,7 @@ export function PlanningBoardsClient({
             canCreate={canCreate}
             canManageAll={canDelete}
             canUpdate={canUpdate}
+            recentBoardIds={prefs.recent}
             admin={admin}
             onSelectBoard={selectBoard}
             onPrefetchBoard={prefetchBoard}

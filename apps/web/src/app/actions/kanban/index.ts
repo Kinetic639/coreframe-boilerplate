@@ -11,6 +11,8 @@ import {
   PLANNING_BOARDS_READ,
   PLANNING_BOARDS_UPDATE,
   PLANNING_TASKS_ASSIGN,
+  PLANNING_TASKS_READ,
+  PLANNING_TASKS_UPDATE,
 } from "@/lib/constants/permissions";
 import {
   addKanbanBoardMemberSchema,
@@ -18,7 +20,10 @@ import {
   createKanbanCardSchema,
   createKanbanColumnSchema,
   kanbanBoardRefSchema,
+  kanbanBoardStarSchema,
   kanbanCardRefSchema,
+  kanbanTaskLookupSchema,
+  patchKanbanTaskSchema,
   kanbanColumnRefSchema,
   moveKanbanTaskSchema,
   removeKanbanBoardMemberSchema,
@@ -32,6 +37,8 @@ import {
   type CreateKanbanCardInput,
   type CreateKanbanColumnInput,
   type KanbanBoardRefInput,
+  type KanbanBoardStarInput,
+  type PatchKanbanTaskInput,
   type KanbanCardRefInput,
   type KanbanColumnRefInput,
   type MoveKanbanTaskInput,
@@ -50,6 +57,7 @@ import type {
   KanbanBoardSummary,
   KanbanCardActivity,
   KanbanMoveResult,
+  KanbanTaskEditorData,
 } from "@/lib/types/kanban";
 import { KanbanBoardsService } from "@/server/services/kanban-boards.service";
 
@@ -96,9 +104,9 @@ function revalidateBoards() {
 
 type AuthedContext = NonNullable<Awaited<ReturnType<typeof getAuthedContext>>>;
 
-/** Signed in, holds the permission, input valid: then runs the change. */
+/** Signed in, holds the permission (any of a list), input valid: then runs the change. */
 async function guarded<S extends z.ZodTypeAny, T>(
-  permission: string,
+  permission: string | string[],
   schema: S,
   input: z.input<S>,
   run: (ctx: AuthedContext, data: z.output<S>) => Promise<ActionResult<T>>,
@@ -107,7 +115,8 @@ async function guarded<S extends z.ZodTypeAny, T>(
   try {
     const ctx = await getAuthedContext();
     if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, permission)) {
+    const permissions = Array.isArray(permission) ? permission : [permission];
+    if (!permissions.some((item) => checkPermission(ctx.context.user.permissionSnapshot, item))) {
       return { success: false, error: "Insufficient permissions" };
     }
     const parsed = schema.safeParse(input);
@@ -154,7 +163,12 @@ export async function listKanbanCardActivityAction(
   try {
     const ctx = await getAuthedContext();
     if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_READ)) {
+    // A card is a task: its history is open to whoever reads tasks or boards.
+    const snapshot = ctx.context.user.permissionSnapshot;
+    if (
+      !checkPermission(snapshot, PLANNING_BOARDS_READ) &&
+      !checkPermission(snapshot, PLANNING_TASKS_READ)
+    ) {
       return { success: false, error: "Insufficient permissions" };
     }
     return KanbanBoardsService.listCardActivity(ctx.supabase, ctx.orgId, cardId);
@@ -419,6 +433,78 @@ export async function updateKanbanCardAction(
     }
     return KanbanBoardsService.updateCard(ctx.supabase, ctx.orgId, ctx.userId, data);
   });
+}
+
+/**
+ * The task editor saves one field at a time. Editing a task is the same
+ * right on the task list and on a board, so either permission will do; the
+ * database (RLS) still decides per board.
+ */
+export async function patchKanbanTaskAction(
+  input: PatchKanbanTaskInput
+): Promise<ActionResult<KanbanBoardCard>> {
+  return guarded(
+    [PLANNING_TASKS_UPDATE, PLANNING_BOARDS_UPDATE],
+    patchKanbanTaskSchema,
+    input,
+    async (ctx, data) => {
+      const assignee = data.assigned_to;
+      if (
+        assignee !== undefined &&
+        assignee !== ctx.userId &&
+        !checkPermission(ctx.context.user.permissionSnapshot, PLANNING_TASKS_ASSIGN)
+      ) {
+        const current = await currentAssignee(ctx, data.id);
+        const releasingOwn = assignee === null && current === ctx.userId;
+        if (current !== assignee && !releasingOwn) {
+          return { success: false, error: "Insufficient permissions" };
+        }
+      }
+      return KanbanBoardsService.patchTask(ctx.supabase, ctx.orgId, ctx.userId, data);
+    }
+  );
+}
+
+/** A task for the editor, by id or number, with its board and columns. */
+export async function getKanbanTaskEditorAction(
+  ref: string
+): Promise<ActionResult<KanbanTaskEditorData>> {
+  return guarded(
+    [PLANNING_TASKS_READ, PLANNING_BOARDS_READ],
+    kanbanTaskLookupSchema,
+    { ref },
+    (ctx, data) => KanbanBoardsService.getTaskEditor(ctx.supabase, ctx.orgId, ctx.userId, data.ref)
+  );
+}
+
+/** Archives every task of a column (they can be restored from the board archive). */
+export async function archiveKanbanColumnCardsAction(
+  input: KanbanColumnRefInput
+): Promise<ActionResult<string[]>> {
+  return guarded(PLANNING_BOARDS_DELETE, kanbanColumnRefSchema, input, (ctx, data) =>
+    KanbanBoardsService.archiveColumnCards(
+      ctx.supabase,
+      ctx.orgId,
+      ctx.userId,
+      data.board_id,
+      data.id
+    )
+  );
+}
+
+/** Stars or unstars a board (favourites are per person). */
+export async function setKanbanBoardStarAction(
+  input: KanbanBoardStarInput
+): Promise<ActionResult<void>> {
+  return guarded(PLANNING_BOARDS_READ, kanbanBoardStarSchema, input, (ctx, data) =>
+    KanbanBoardsService.setBoardStar(
+      ctx.supabase,
+      ctx.orgId,
+      ctx.userId,
+      data.board_id,
+      data.starred
+    )
+  );
 }
 
 /** Moves a task to a board column or to the inbox (one transaction in the database). */

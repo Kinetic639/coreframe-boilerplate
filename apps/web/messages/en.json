@@ -4539,7 +4539,8 @@
           "card_moved_to_inbox": "Moved to the inbox",
           "card_moved_from_inbox": "Moved from the inbox to a board",
           "card_archived": "Archived on a board"
-        }
+        },
+        "taskArchived": "Task archived"
       },
       "boards": {
         "newBoard": "New board",
@@ -4683,6 +4684,55 @@
           "columnDeleted": "Column deleted",
           "boardRestored": "Board restored",
           "boardDeleted": "Board deleted"
+        },
+        "all": {
+          "title": "All boards",
+          "openTab": "Boards",
+          "starred": "Starred",
+          "recent": "Recently opened",
+          "mine": "My boards",
+          "shared": "Shared with me"
+        },
+        "background": {
+          "label": "Board background",
+          "none": "No background"
+        },
+        "star": {
+          "add": "Star board",
+          "remove": "Unstar board"
+        },
+        "header": {
+          "people": "People on this board",
+          "share": "Share",
+          "renameHint": "Click to rename"
+        },
+        "cardBadges": {
+          "due": {
+            "done": "Due date, task complete",
+            "overdue": "Overdue",
+            "soon": "Due today or tomorrow",
+            "normal": "Due date"
+          },
+          "hasDescription": "Has a description",
+          "comments": "{count, plural, one {# comment} other {# comments}}"
+        },
+        "quick": {
+          "menu": "Quick actions",
+          "open": "Open card",
+          "editTitle": "Edit title",
+          "letGo": "Unassign me",
+          "moveTo": "Move to",
+          "toInbox": "Back to inbox"
+        },
+        "list": {
+          "addCard": "Add a card",
+          "addCardSubmit": "Add card",
+          "addCardTop": "Add card at the top",
+          "archiveAllCards": "Archive all cards ({count})",
+          "noColor": "No colour",
+          "pasteHint": "Paste several lines = several cards",
+          "renameHint": "Click to rename",
+          "cardsArchived": "{count, plural, one {Archived # card} other {Archived # cards}}"
         }
       },
       "settings": {
@@ -4706,6 +4756,16 @@
         "loadPlanningRetry": "Failed to load Planning. Please try again.",
         "tryAgain": "Try again",
         "operationFailed": "Operation failed"
+      },
+      "taskEditor": {
+        "noBoard": "No board",
+        "archivedBanner": "This task is archived. Restore it from the board archive.",
+        "saving": "Saving…",
+        "saved": "Saved",
+        "noDueDate": "No due date",
+        "clear": "Clear",
+        "labelPlaceholder": "Label name",
+        "labelColor": "Label colour"
       }
     },
     "crm": {

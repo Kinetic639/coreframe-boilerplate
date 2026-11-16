@@ -1,74 +1,364 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
-import { User } from "lucide-react";
+import {
+  AlignLeft,
+  Archive,
+  ArrowRightLeft,
+  Calendar,
+  Check,
+  ExternalLink,
+  Flag,
+  Hand,
+  Inbox,
+  MessageSquare,
+  Pencil,
+  X,
+} from "lucide-react";
 import { KanbanCard } from "@/components/primitives/kanban";
-import type { KanbanBoardCard } from "@/lib/types/kanban";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Textarea } from "@/components/ui/textarea";
+import type { KanbanBoardCard, KanbanBoardColumn } from "@/lib/types/kanban";
+import { KANBAN_TASK_PRIORITIES } from "@/lib/validations/kanban";
+import { PRIORITY_FLAG_COLORS } from "@/components/planning/task-editor/task-labels";
 import { cn } from "@/utils";
-import { STATUS_DOT_COLORS, statusLabel } from "./board-format";
+import {
+  DUE_STATE_CLASSES,
+  STATUS_DOT_COLORS,
+  dueState,
+  initials,
+  priorityLabel,
+  statusLabel,
+} from "./board-format";
+import type { BoardActions } from "./use-board-actions";
 
 interface BoardCardProps {
   card: KanbanBoardCard;
   columnColor?: string | null;
+  /** The board's columns, for "Move to". */
+  columns: KanbanBoardColumn[];
+  canEdit: boolean;
+  canArchive: boolean;
+  currentUserId: string;
+  actions: BoardActions;
   onOpen: (card: KanbanBoardCard) => void;
 }
 
-/** A task on the board. Memoized: a move re-renders only the cards that changed. */
-export const BoardCard = memo(function BoardCard({ card, columnColor, onOpen }: BoardCardProps) {
+/**
+ * A task on the board, Trello style: label, title, and a row of badges (due
+ * date coloured by how close it is, priority, comments, description) with the
+ * assignee's avatar. The pencil (or a right click) opens quick actions.
+ * Memoized: a move re-renders only the cards that changed.
+ */
+export const BoardCard = memo(function BoardCard({
+  card,
+  columnColor,
+  columns,
+  canEdit,
+  canArchive,
+  currentUserId,
+  actions,
+  onOpen,
+}: BoardCardProps) {
   const t = useTranslations("modules.planning");
   const format = useFormatter();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const due = dueState(card.due_at, card.status);
+  const showPriority = card.priority === "high" || card.priority === "urgent";
+  const assignee = card.assignee_name ?? card.assignee_email;
+  const hasQuickActions = canEdit || canArchive;
+
   return (
-    <KanbanCard id={card.id}>
-      <button
-        type="button"
-        className="flex w-full min-w-0 cursor-grab flex-col gap-2 text-left active:cursor-grabbing"
-        onClick={() => onOpen(card)}
+    <KanbanCard id={card.id} className="p-0">
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={card.title}
+        className="relative flex w-full min-w-0 cursor-grab flex-col gap-2 rounded-md p-3 text-left outline-none active:cursor-grabbing"
+        onClick={() => !editingTitle && onOpen(card)}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          if (event.key === "Enter") onOpen(card);
+          if ((event.key === "e" || event.key === "E") && hasQuickActions) {
+            event.preventDefault();
+            setMenuOpen(true);
+          }
+        }}
+        onContextMenu={(event) => {
+          if (!hasQuickActions) return;
+          event.preventDefault();
+          setMenuOpen(true);
+        }}
       >
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="line-clamp-3 text-sm font-medium">{card.title}</h3>
-          {columnColor ? (
-            <span
-              className="mt-1 h-2 w-2 shrink-0 rounded-full"
-              style={{ backgroundColor: columnColor }}
-              aria-hidden="true"
-            />
-          ) : null}
-        </div>
         {card.label ? (
           <span
-            className="w-fit rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
+            className="w-fit max-w-full truncate rounded px-1.5 py-0.5 text-[10px] font-semibold text-white"
             style={{ backgroundColor: card.label_color ?? "#64748b" }}
           >
             {card.label}
           </span>
         ) : null}
-        {card.description ? (
-          <p className="line-clamp-3 text-xs text-muted-foreground">{card.description}</p>
-        ) : null}
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <span
-            className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_DOT_COLORS[card.status])}
-            aria-hidden="true"
+
+        {editingTitle ? (
+          <QuickTitle
+            card={card}
+            onDone={(title) => {
+              setEditingTitle(false);
+              if (title && title !== card.title) void actions.patchCard(card, { title });
+            }}
           />
-          <span>{statusLabel(t, card.status)}</span>
-          <span className="ml-auto font-mono">{card.task_number}</span>
-        </div>
-        <div className="flex items-end justify-between gap-2 text-xs text-muted-foreground">
-          <span className="flex min-w-0 items-center gap-1 truncate">
-            <User className="h-3 w-3 shrink-0" aria-hidden="true" />
-            <span className="truncate">
-              {card.assignee_name ?? card.assignee_email ?? t("boards.task.unassigned")}
-            </span>
-          </span>
-          {card.due_at ? (
-            <span className="shrink-0">
-              {t("boards.dueShort")}:{" "}
-              {format.dateTime(new Date(card.due_at), { dateStyle: "medium" })}
+        ) : (
+          <h3 className="line-clamp-3 break-words pr-6 text-sm font-medium">{card.title}</h3>
+        )}
+
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+          {due ? (
+            <span
+              className={cn(
+                "flex items-center gap-1 rounded px-1.5 py-0.5 font-medium",
+                due === "normal" ? "bg-muted" : DUE_STATE_CLASSES[due]
+              )}
+              title={t(`boards.cardBadges.due.${due}`)}
+            >
+              {due === "done" ? <Check className="h-3 w-3" /> : <Calendar className="h-3 w-3" />}
+              {format.dateTime(new Date(card.due_at!), { day: "numeric", month: "short" })}
             </span>
           ) : null}
+          {showPriority ? (
+            <span
+              className="flex items-center gap-0.5"
+              title={`${t("tasks.priority")}: ${priorityLabel(t, card.priority)}`}
+            >
+              <Flag
+                className={cn(
+                  "h-3 w-3 fill-current",
+                  PRIORITY_FLAG_COLORS[card.priority as keyof typeof PRIORITY_FLAG_COLORS]
+                )}
+              />
+            </span>
+          ) : null}
+          {card.description ? (
+            <AlignLeft className="h-3 w-3" aria-label={t("boards.cardBadges.hasDescription")} />
+          ) : null}
+          {card.comment_count ? (
+            <span
+              className="flex items-center gap-0.5"
+              title={t("boards.cardBadges.comments", { count: card.comment_count })}
+            >
+              <MessageSquare className="h-3 w-3" />
+              {card.comment_count}
+            </span>
+          ) : null}
+          <span
+            className="flex items-center gap-1"
+            title={`${t("tasks.status")}: ${statusLabel(t, card.status)}`}
+          >
+            <span
+              className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_DOT_COLORS[card.status])}
+              aria-hidden="true"
+            />
+            <span className="sr-only">{statusLabel(t, card.status)}</span>
+          </span>
+          <span className="ml-auto flex items-center gap-1.5">
+            <span className="font-mono text-[10px] text-muted-foreground/80">
+              {card.task_number}
+            </span>
+            {assignee ? (
+              <span
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground"
+                title={assignee}
+              >
+                {initials(card.assignee_name, card.assignee_email)}
+              </span>
+            ) : null}
+          </span>
         </div>
-      </button>
+
+        {columnColor ? (
+          <span
+            className="absolute bottom-0 left-0 top-0 w-1 rounded-l-md"
+            style={{ backgroundColor: columnColor }}
+            aria-hidden="true"
+          />
+        ) : null}
+
+        {hasQuickActions ? (
+          <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "absolute right-1.5 top-1.5 rounded p-1 text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
+                  menuOpen && "opacity-100"
+                )}
+                aria-label={t("boards.quick.menu")}
+                onClick={(event) => event.stopPropagation()}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="w-56"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <DropdownMenuItem onSelect={() => onOpen(card)}>
+                <ExternalLink className="mr-2 h-4 w-4" />
+                {t("boards.quick.open")}
+              </DropdownMenuItem>
+              {canEdit ? (
+                <>
+                  <DropdownMenuItem onSelect={() => setEditingTitle(true)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    {t("boards.quick.editTitle")}
+                  </DropdownMenuItem>
+                  {card.assigned_to === currentUserId ? (
+                    <DropdownMenuItem
+                      onSelect={() => void actions.patchCard(card, { assigned_to: null })}
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      {t("boards.quick.letGo")}
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      onSelect={() => void actions.patchCard(card, { assigned_to: currentUserId })}
+                    >
+                      <Hand className="mr-2 h-4 w-4" />
+                      {t("boards.task.takeIt")}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <Flag className="mr-2 h-4 w-4" />
+                      {t("tasks.priority")}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {KANBAN_TASK_PRIORITIES.map((priority) => (
+                        <DropdownMenuItem
+                          key={priority}
+                          onSelect={() =>
+                            priority !== card.priority && void actions.patchCard(card, { priority })
+                          }
+                        >
+                          <Flag
+                            className={cn(
+                              "mr-2 h-3.5 w-3.5 fill-current",
+                              PRIORITY_FLAG_COLORS[priority]
+                            )}
+                          />
+                          {priorityLabel(t, priority)}
+                          {priority === card.priority ? (
+                            <Check className="ml-auto h-3.5 w-3.5" />
+                          ) : null}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  {columns.length > 1 || card.is_inbox ? (
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                        <ArrowRightLeft className="mr-2 h-4 w-4" />
+                        {t("boards.quick.moveTo")}
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+                        {columns
+                          .filter((column) => column.id !== card.column_id || card.is_inbox)
+                          .map((column) => (
+                            <DropdownMenuItem
+                              key={column.id}
+                              onSelect={() =>
+                                actions.moveCardTo(card.id, {
+                                  columnId: column.id,
+                                  index: 100000,
+                                })
+                              }
+                            >
+                              <span
+                                className="mr-2 h-2.5 w-2.5 rounded-full"
+                                style={{ backgroundColor: column.color ?? "#64748b" }}
+                              />
+                              {column.title}
+                            </DropdownMenuItem>
+                          ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  ) : null}
+                  {!card.is_inbox && card.created_by === currentUserId ? (
+                    <DropdownMenuItem
+                      onSelect={() => actions.moveCardTo(card.id, { columnId: null, index: 0 })}
+                    >
+                      <Inbox className="mr-2 h-4 w-4" />
+                      {t("boards.quick.toInbox")}
+                    </DropdownMenuItem>
+                  ) : null}
+                </>
+              ) : null}
+              {canArchive ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onSelect={() => void actions.archiveCard(card)}
+                  >
+                    <Archive className="mr-2 h-4 w-4" />
+                    {t("boards.archiveCard")}
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
     </KanbanCard>
   );
 });
+
+/** The title edited on the card: Enter saves, Esc or leaving cancels nothing typed. */
+function QuickTitle({
+  card,
+  onDone,
+}: {
+  card: KanbanBoardCard;
+  onDone: (title: string | null) => void;
+}) {
+  const t = useTranslations("modules.planning");
+  const [value, setValue] = useState(card.title);
+  return (
+    <Textarea
+      autoFocus
+      value={value}
+      rows={2}
+      aria-label={t("boards.cardTitle")}
+      className="min-h-0 resize-none text-sm"
+      // The card is draggable: typing and selecting must not start a drag.
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+      onChange={(event) => setValue(event.target.value.replace(/\n/g, " "))}
+      onFocus={(event) => event.currentTarget.select()}
+      onBlur={() => onDone(value.trim() || null)}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === "Enter") {
+          event.preventDefault();
+          onDone(value.trim() || null);
+        }
+        if (event.key === "Escape") {
+          event.preventDefault();
+          onDone(null);
+        }
+      }}
+    />
+  );
+}

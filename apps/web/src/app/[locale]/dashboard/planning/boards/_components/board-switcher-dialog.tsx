@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useFormatter, useTranslations } from "next-intl";
-import { Plus, RotateCcw, Search, Trash2 } from "lucide-react";
+import { Plus, RotateCcw, Search, Star, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 import {
   AlertDialog,
@@ -41,6 +41,8 @@ import {
   NewBoardMembersField,
   type PendingBoardMember,
 } from "./board-sharing";
+import { BoardColorPicker } from "./board-color-picker";
+import { boardSwatch } from "./board-colors";
 import { archivedBoardListQuery } from "./boards-query";
 import type { BoardsAdmin } from "./use-boards-admin";
 
@@ -54,6 +56,8 @@ interface BoardSwitcherDialogProps {
   /** Can restore or delete boards they don't own (planning.boards.delete). */
   canManageAll: boolean;
   canUpdate: boolean;
+  /** Boards this browser opened recently, newest first. */
+  recentBoardIds: string[];
   admin: BoardsAdmin;
   onSelectBoard: (boardId: string) => void;
   /** Hovering a board warms its cache, so opening it is instant. */
@@ -69,6 +73,7 @@ export function BoardSwitcherDialog({
   canCreate,
   canManageAll,
   canUpdate,
+  recentBoardIds,
   admin,
   onSelectBoard,
   onPrefetchBoard,
@@ -84,11 +89,38 @@ export function BoardSwitcherDialog({
 
   const filteredBoards = useMemo(() => filterBoards(boards, query), [boards, query]);
 
+  // Without a search: favourites, recently opened, mine, then shared with me.
+  const sections = useMemo(() => {
+    if (query.trim()) return [{ key: "results", title: null, boards: filteredBoards }];
+    const byId = new Map(boards.map((board) => [board.id, board]));
+    const recent = recentBoardIds
+      .map((id) => byId.get(id))
+      .filter((board): board is KanbanBoardSummary => Boolean(board));
+    return [
+      {
+        key: "starred",
+        title: t("boards.all.starred"),
+        boards: boards.filter((board) => board.starred),
+      },
+      { key: "recent", title: t("boards.all.recent"), boards: recent },
+      {
+        key: "mine",
+        title: t("boards.all.mine"),
+        boards: boards.filter((board) => board.my_access === "owner"),
+      },
+      {
+        key: "shared",
+        title: t("boards.all.shared"),
+        boards: boards.filter((board) => board.my_access !== "owner"),
+      },
+    ].filter((section) => section.boards.length);
+  }, [boards, filteredBoards, query, recentBoardIds, t]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl p-0">
+      <DialogContent className="max-w-5xl p-0">
         <DialogHeader className="border-b px-5 py-4">
-          <DialogTitle>{t("boards.switchBoards")}</DialogTitle>
+          <DialogTitle>{t("boards.all.title")}</DialogTitle>
         </DialogHeader>
 
         <Tabs value={tab} onValueChange={setTab} className="space-y-4 p-5">
@@ -105,37 +137,35 @@ export function BoardSwitcherDialog({
               />
             </div>
             <TabsList>
-              <TabsTrigger value="open">{t("boards.recentBoards")}</TabsTrigger>
+              <TabsTrigger value="open">{t("boards.all.openTab")}</TabsTrigger>
               <TabsTrigger value="archived">{t("boards.archive.archivedBoards")}</TabsTrigger>
             </TabsList>
           </div>
 
           <TabsContent value="open" className="mt-0 space-y-4">
-            {filteredBoards.length ? (
-              <div className="grid max-h-[46vh] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
-                {filteredBoards.map((board) => (
-                  <button
-                    key={board.id}
-                    type="button"
-                    onClick={() => onSelectBoard(board.id)}
-                    onPointerEnter={() => onPrefetchBoard(board.id)}
-                    onFocus={() => onPrefetchBoard(board.id)}
-                    className={cn(
-                      "flex min-w-0 flex-col gap-2 rounded-md border bg-card p-3 text-left transition-colors hover:border-muted-foreground/50 hover:bg-muted/40",
-                      activeBoardId === board.id && "border-primary ring-1 ring-primary/40"
-                    )}
-                  >
-                    <span className="truncate text-sm font-semibold">{board.title}</span>
-                    {board.description ? (
-                      <span className="line-clamp-2 text-xs text-muted-foreground">
-                        {board.description}
-                      </span>
+            {sections.length ? (
+              <div className="max-h-[56vh] space-y-5 overflow-y-auto pr-1">
+                {sections.map((section) => (
+                  <section key={section.key} className="space-y-2">
+                    {section.title ? (
+                      <h3 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {section.key === "starred" ? <Star className="h-3.5 w-3.5" /> : null}
+                        {section.title}
+                      </h3>
                     ) : null}
-                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <BoardVisibilityIcon visibility={board.visibility} />
-                      {t(`boards.visibility.${board.visibility}`)}
-                    </span>
-                  </button>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {section.boards.map((board) => (
+                        <BoardTile
+                          key={board.id}
+                          board={board}
+                          active={activeBoardId === board.id}
+                          onSelect={onSelectBoard}
+                          onPrefetch={onPrefetchBoard}
+                          onToggleStar={(starred) => void admin.toggleStar(board.id, starred)}
+                        />
+                      ))}
+                    </div>
+                  </section>
                 ))}
               </div>
             ) : (
@@ -190,6 +220,63 @@ export function BoardSwitcherDialog({
         />
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** A board on the list: its colour on top, the name, who sees it and the star. */
+function BoardTile({
+  board,
+  active,
+  onSelect,
+  onPrefetch,
+  onToggleStar,
+}: {
+  board: KanbanBoardSummary;
+  active: boolean;
+  onSelect: (boardId: string) => void;
+  onPrefetch: (boardId: string) => void;
+  onToggleStar: (starred: boolean) => void;
+}) {
+  const t = useTranslations("modules.planning");
+  return (
+    <div
+      className={cn(
+        "group relative overflow-hidden rounded-md border bg-card transition-colors hover:border-muted-foreground/50",
+        active && "border-primary ring-1 ring-primary/40"
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => onSelect(board.id)}
+        onPointerEnter={() => onPrefetch(board.id)}
+        onFocus={() => onPrefetch(board.id)}
+        className="flex w-full min-w-0 flex-col text-left"
+      >
+        <span className="h-10 w-full" style={{ background: boardSwatch(board.color) }} />
+        <span className="flex min-w-0 flex-col gap-1.5 p-3 pr-9">
+          <span className="truncate text-sm font-semibold">{board.title}</span>
+          {board.description ? (
+            <span className="line-clamp-2 text-xs text-muted-foreground">{board.description}</span>
+          ) : null}
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <BoardVisibilityIcon visibility={board.visibility} />
+            {t(`boards.visibility.${board.visibility}`)}
+          </span>
+        </span>
+      </button>
+      <button
+        type="button"
+        className={cn(
+          "absolute bottom-2.5 right-2 rounded p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:opacity-100",
+          board.starred ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        )}
+        aria-pressed={board.starred}
+        aria-label={board.starred ? t("boards.star.remove") : t("boards.star.add")}
+        onClick={() => onToggleStar(!board.starred)}
+      >
+        <Star className={cn("h-4 w-4", board.starred && "fill-amber-400 text-amber-400")} />
+      </button>
+    </div>
   );
 }
 
@@ -389,9 +476,11 @@ function CreateBoardDialog({
   const [visibility, setVisibility] = useState<KanbanVisibility>("private");
   const [branchId, setBranchId] = useState<string | null>(null);
   const [members, setMembers] = useState<PendingBoardMember[]>([]);
+  const [color, setColor] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
 
   const reset = () => {
+    setColor(null);
     setTitle("");
     setDescription("");
     setVisibility("private");
@@ -404,6 +493,7 @@ function CreateBoardDialog({
     const result = await createKanbanBoardAction({
       title,
       description,
+      color,
       visibility,
       branch_id: visibility === "branch" ? branchId : null,
       members,
@@ -445,6 +535,7 @@ function CreateBoardDialog({
               placeholder={t("boards.descriptionPlaceholder")}
             />
           </div>
+          <BoardColorPicker value={color} onChange={setColor} />
           <BoardVisibilityFields
             visibility={visibility}
             branchId={branchId}

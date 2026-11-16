@@ -102,7 +102,7 @@ Activity types: `task_created`, `title_changed`, `description_changed`, `assigne
 | `src/components/planning/planning-task-priority-badge.tsx` | Priority badge                |
 | `src/components/planning/planning-task-activity-list.tsx`  | Activity timeline             |
 | `tasks/_components/planning-task-create-dialog.tsx`        | Create task dialog            |
-| `tasks/_components/planning-task-detail-panel.tsx`         | Detail panel (DataView)       |
+| `src/components/planning/task-editor/`                     | One task editor (all views)   |
 | `tasks/_components/tasks-workspace.tsx`                    | data table list, board, panel |
 
 ## Migrations

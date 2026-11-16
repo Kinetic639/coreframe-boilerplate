@@ -26,6 +26,8 @@ export interface KanbanBoardSummary {
   archived_at: string | null;
   /** The current user's role: owner, editor (adds and moves tasks) or viewer (only looks). */
   my_access: KanbanBoardAccess;
+  /** The current user starred the board (favourites come first). */
+  starred: boolean;
 }
 
 export type KanbanBoardAccess = "owner" | KanbanMemberRole;
@@ -84,6 +86,8 @@ export interface KanbanBoardCard {
   updated_at: string;
   /** Set while the task is archived (planning_tasks.deleted_at). */
   archived_at: string | null;
+  /** Comments on the task (the board shows the count on the card). */
+  comment_count: number;
 }
 
 export interface KanbanCardActivity {
@@ -120,4 +124,19 @@ export interface KanbanMoveResult {
 export interface KanbanBoardArchive {
   columns: Array<KanbanBoardColumn & { card_count: number }>;
   cards: KanbanBoardCard[];
+}
+
+export interface KanbanTaskEditorBoard {
+  id: string;
+  title: string;
+  color: string | null;
+  archived_at: string | null;
+  my_access: KanbanBoardAccess;
+}
+
+/** Everything the task editor shows: the task, and its board and columns when it is on one. */
+export interface KanbanTaskEditorData {
+  card: KanbanBoardCard;
+  board: KanbanTaskEditorBoard | null;
+  columns: KanbanBoardColumn[];
 }

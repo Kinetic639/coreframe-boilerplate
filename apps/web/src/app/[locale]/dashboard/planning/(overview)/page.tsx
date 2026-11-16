@@ -3,9 +3,13 @@ import { getLocale } from "next-intl/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
+  PLANNING_BOARDS_DELETE,
+  PLANNING_BOARDS_UPDATE,
   PLANNING_READ,
-  PLANNING_TASKS_CREATE,
   PLANNING_TASKS_ASSIGN,
+  PLANNING_TASKS_CREATE,
+  PLANNING_TASKS_DELETE,
+  PLANNING_TASKS_UPDATE,
 } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
 import { OrgMembersService } from "@/server/services/organization.service";
@@ -56,9 +60,19 @@ export default async function PlanningOverviewPage() {
 
   return (
     <PlanningCalendarClient
+      orgId={orgId}
       members={members}
       currentUserId={userId}
       canAssign={checkPermission(snap, PLANNING_TASKS_ASSIGN)}
+      canUpdateTasks={
+        checkPermission(snap, PLANNING_TASKS_UPDATE) ||
+        checkPermission(snap, PLANNING_BOARDS_UPDATE)
+      }
+      canArchiveTasks={
+        checkPermission(snap, PLANNING_TASKS_DELETE) ||
+        checkPermission(snap, PLANNING_BOARDS_DELETE)
+      }
+      canMoveTasks={checkPermission(snap, PLANNING_BOARDS_UPDATE)}
       canCreateTasks={checkPermission(snap, PLANNING_TASKS_CREATE)}
       // No planning_settings row yet (new or reset organization) → default badges
       priorityConfigs={

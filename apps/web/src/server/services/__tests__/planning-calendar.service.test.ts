@@ -231,6 +231,7 @@ describe("PlanningCalendarService", () => {
           updated_at: "2026-06-01T00:00:00.000Z",
           my_access: "owner",
           archived_at: null,
+          starred: false,
         },
       ],
     });

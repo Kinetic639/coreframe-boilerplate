@@ -90,6 +90,8 @@ export const kanbanColumnRefSchema = z.object({
 export const createKanbanCardSchema = z.object({
   board_id: z.string().uuid(),
   column_id: z.string().uuid(),
+  /** Where in the column; left out for the bottom. */
+  position: z.number().int().min(0).optional(),
   title: z.string().trim().min(1).max(300),
   description: z.string().trim().max(4000).nullable().optional(),
   description_rich: z.unknown().nullable().optional(),
@@ -103,7 +105,7 @@ export const createKanbanCardSchema = z.object({
 });
 
 export const updateKanbanCardSchema = createKanbanCardSchema
-  .omit({ board_id: true, column_id: true })
+  .omit({ board_id: true, column_id: true, position: true })
   .extend({
     id: z.string().uuid(),
     /** Empty for a task in the inbox. */
@@ -131,6 +133,39 @@ export const moveKanbanTaskSchema = z
     path: ["column_id"],
   });
 
+export const KANBAN_TASK_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
+
+/**
+ * Saves some fields of a task (the editor saves each field on its own).
+ * Only the fields present are changed.
+ */
+export const patchKanbanTaskSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string().trim().min(1).max(300).optional(),
+  description: z.string().trim().max(4000).nullable().optional(),
+  description_rich: z.unknown().nullable().optional(),
+  priority: z.enum(KANBAN_TASK_PRIORITIES).optional(),
+  due_at: z.string().datetime().nullable().optional(),
+  label: z.string().trim().max(80).nullable().optional(),
+  label_color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .nullable()
+    .optional(),
+  status: z.enum(KANBAN_TASK_STATUSES).optional(),
+  assigned_to: z.string().uuid().nullable().optional(),
+});
+
+export const kanbanBoardStarSchema = z.object({
+  board_id: z.string().uuid(),
+  starred: z.boolean(),
+});
+
+/** A task by id, or by its number (TSK-0042) as the address shows it. */
+export const kanbanTaskLookupSchema = z.object({
+  ref: z.string().trim().min(1).max(64),
+});
+
 export const kanbanBoardRefSchema = z.object({
   id: z.string().uuid(),
 });
@@ -148,6 +183,9 @@ export type CreateKanbanBoardInput = z.infer<typeof createKanbanBoardSchema>;
 export type UpdateKanbanBoardInput = z.infer<typeof updateKanbanBoardSchema>;
 export type KanbanBoardRefInput = z.infer<typeof kanbanBoardRefSchema>;
 export type KanbanCardRefInput = z.infer<typeof kanbanCardRefSchema>;
+export type PatchKanbanTaskInput = z.infer<typeof patchKanbanTaskSchema>;
+export type KanbanBoardStarInput = z.infer<typeof kanbanBoardStarSchema>;
+export type KanbanTaskPriority = (typeof KANBAN_TASK_PRIORITIES)[number];
 export type CreateKanbanColumnInput = z.infer<typeof createKanbanColumnSchema>;
 export type UpdateKanbanColumnInput = z.infer<typeof updateKanbanColumnSchema>;
 export type KanbanColumnRefInput = z.infer<typeof kanbanColumnRefSchema>;

@@ -7,10 +7,12 @@ import { toast } from "react-toastify";
 import {
   archiveKanbanCardAction,
   archiveKanbanColumnAction,
+  archiveKanbanColumnCardsAction,
   createKanbanCardAction,
   createKanbanColumnAction,
   deleteKanbanColumnAction,
   moveKanbanTaskAction,
+  patchKanbanTaskAction,
   reorderKanbanColumnsAction,
   restoreKanbanCardAction,
   restoreKanbanColumnAction,
@@ -21,6 +23,7 @@ import type { KanbanBoardCard, KanbanBoardDetail, KanbanMoveResult } from "@/lib
 import type {
   CreateKanbanColumnInput,
   MoveKanbanTaskInput,
+  PatchKanbanTaskInput,
   UpdateKanbanCardInput,
   UpdateKanbanColumnInput,
 } from "@/lib/validations/kanban";
@@ -114,6 +117,9 @@ export function useBoardActions(orgId: string, boardId: string | null) {
     onSettled: () => refreshWhenIdle(1),
   });
 
+  // mutate is stable; the mutation object itself is new on every render.
+  const mutateMove = moveMutation.mutate;
+
   /** Drops a card at a place (column or inbox). The board shows it there at once. */
   const moveCardTo = useCallback(
     (cardId: string, to: CardPlace) => {
@@ -122,7 +128,7 @@ export function useBoardActions(orgId: string, boardId: string | null) {
       if (!from) return;
       if (from.columnId === to.columnId && from.index === to.index) return;
       writeState((current) => moveCard(current, cardId, to));
-      moveMutation.mutate({
+      mutateMove({
         input: {
           card_id: cardId,
           board_id: to.columnId === null ? null : (state.board?.id ?? null),
@@ -132,7 +138,7 @@ export function useBoardActions(orgId: string, boardId: string | null) {
         from,
       });
     },
-    [moveMutation, readState, writeState]
+    [mutateMove, readState, writeState]
   );
 
   const setColumnsOrder = useCallback(
@@ -154,14 +160,26 @@ export function useBoardActions(orgId: string, boardId: string | null) {
     [boardId, boardKey, queryClient]
   );
 
+  /**
+   * Adds a card at the bottom of a column, or at the top (position 0). The
+   * board refetches afterwards when it went to the top (the others moved).
+   */
   const createCard = useCallback(
-    async (columnId: string, title: string) => {
+    async (columnId: string, title: string, options: { atTop?: boolean } = {}) => {
       if (!boardId) return false;
       try {
         const card = await unwrap(
-          createKanbanCardAction({ board_id: boardId, column_id: columnId, title })
+          createKanbanCardAction({
+            board_id: boardId,
+            column_id: columnId,
+            title,
+            ...(options.atTop ? { position: 0 } : {}),
+          })
         );
-        writeState((state) => upsertCard(state, card));
+        writeState((state) => {
+          const added = upsertCard(state, card);
+          return options.atTop ? moveCard(added, card.id, { columnId, index: 0 }) : added;
+        });
         return true;
       } catch (error) {
         toast.error(errorMessage(error));
@@ -169,6 +187,29 @@ export function useBoardActions(orgId: string, boardId: string | null) {
       }
     },
     [boardId, writeState]
+  );
+
+  /** A card saved somewhere else (the task editor): it goes into the board and inbox. */
+  const cardChanged = useCallback(
+    (card: KanbanBoardCard) => writeState((state) => upsertCard(state, card)),
+    [writeState]
+  );
+
+  /** Quick edit from the card's menu: shown at once, put back if the save fails. */
+  const patchCard = useCallback(
+    async (card: KanbanBoardCard, fields: Omit<PatchKanbanTaskInput, "id">) => {
+      writeState((state) => upsertCard(state, { ...card, ...fields } as KanbanBoardCard));
+      try {
+        const saved = await unwrap(patchKanbanTaskAction({ id: card.id, ...fields }));
+        writeState((state) => upsertCard(state, saved));
+        return true;
+      } catch (error) {
+        writeState((state) => upsertCard(state, card));
+        toast.error(errorMessage(error));
+        return false;
+      }
+    },
+    [writeState]
   );
 
   const updateCard = useCallback(
@@ -308,6 +349,45 @@ export function useBoardActions(orgId: string, boardId: string | null) {
     [boardId, boardKey, orgId, queryClient, restoreColumn, t]
   );
 
+  /** Archives every card of a column ("clear Done"), with an Undo for all of them. */
+  const archiveColumnCards = useCallback(
+    async (columnId: string) => {
+      if (!boardId || !boardKey) return false;
+      const previous = queryClient.getQueryData<KanbanBoardDetail>(boardKey);
+      void queryClient.cancelQueries({ queryKey: boardKey });
+      if (previous) {
+        queryClient.setQueryData(boardKey, {
+          ...previous,
+          cards: previous.cards.filter((card) => card.column_id !== columnId),
+        });
+      }
+      try {
+        const ids = await unwrap(
+          archiveKanbanColumnCardsAction({ board_id: boardId, id: columnId })
+        );
+        toastWithUndo(
+          t("boards.list.cardsArchived", { count: ids.length }),
+          t("boards.archive.undo"),
+          () => {
+            void Promise.all(
+              ids.map((id) => unwrap(restoreKanbanCardAction({ card_id: id })))
+            ).then(
+              () => queryClient.invalidateQueries({ queryKey: boardKey }),
+              (error) => toast.error(errorMessage(error))
+            );
+          }
+        );
+        void queryClient.invalidateQueries({ queryKey: boardKeys.archive(orgId, boardId) });
+        return true;
+      } catch (error) {
+        if (previous) queryClient.setQueryData(boardKey, previous);
+        toast.error(errorMessage(error));
+        return false;
+      }
+    },
+    [boardId, boardKey, orgId, queryClient, t]
+  );
+
   const deleteColumn = useCallback(
     async (columnId: string) => {
       if (!boardId) return false;
@@ -324,19 +404,42 @@ export function useBoardActions(orgId: string, boardId: string | null) {
     [boardId, orgId, queryClient, t]
   );
 
-  return {
-    moveCardTo,
-    setColumnsOrder,
-    createCard,
-    updateCard,
-    archiveCard,
-    restoreCard,
-    createColumn,
-    updateColumn,
-    archiveColumn,
-    restoreColumn,
-    deleteColumn,
-  };
+  // One object for the life of the board, so memoized cards and columns
+  // don't re-render when the board does.
+  return useMemo(
+    () => ({
+      moveCardTo,
+      setColumnsOrder,
+      createCard,
+      cardChanged,
+      patchCard,
+      updateCard,
+      archiveCard,
+      restoreCard,
+      createColumn,
+      updateColumn,
+      archiveColumn,
+      archiveColumnCards,
+      restoreColumn,
+      deleteColumn,
+    }),
+    [
+      moveCardTo,
+      setColumnsOrder,
+      createCard,
+      cardChanged,
+      patchCard,
+      updateCard,
+      archiveCard,
+      restoreCard,
+      createColumn,
+      updateColumn,
+      archiveColumn,
+      archiveColumnCards,
+      restoreColumn,
+      deleteColumn,
+    ]
+  );
 }
 
 export type BoardActions = ReturnType<typeof useBoardActions>;

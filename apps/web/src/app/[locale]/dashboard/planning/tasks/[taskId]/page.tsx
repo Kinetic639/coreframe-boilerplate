@@ -4,22 +4,22 @@ import { redirect } from "@/i18n/navigation";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
+  PLANNING_BOARDS_UPDATE,
   PLANNING_TASKS_ASSIGN,
   PLANNING_TASKS_DELETE,
   PLANNING_TASKS_READ,
   PLANNING_TASKS_UPDATE,
 } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
-import { PlanningTasksService } from "@/server/services/planning-tasks.service";
-import { PlanningSettingsService } from "@/server/services/planning-settings.service";
+import { KanbanBoardsService } from "@/server/services/kanban-boards.service";
 import { OrgMembersService } from "@/server/services/organization.service";
-import { getQrAssignmentForTaskAction } from "@/app/actions/planning";
-import { PlanningTaskDetailPanel } from "../_components/planning-task-detail-panel";
+import { TaskEditor } from "@/components/planning/task-editor";
 
 type PageProps = {
   params: Promise<{ taskId: string }>;
 };
 
+/** A task on its own page: the same editor as on the boards, the list and the calendar. */
 export default async function PlanningTaskDetailPage({ params }: PageProps) {
   const locale = await getLocale();
   const context = await loadDashboardContextV2();
@@ -39,18 +39,18 @@ export default async function PlanningTaskDetailPage({ params }: PageProps) {
   const { taskId: taskNumber } = await params;
   const supabase = await createClient();
   const orgId = context.app.activeOrgId;
+  const userId = context.user.user?.id ?? "";
 
-  const [taskResult, membersResult, settingsResult] = await Promise.all([
-    PlanningTasksService.getDetail(supabase, orgId, taskNumber),
+  const [taskResult, membersResult] = await Promise.all([
+    KanbanBoardsService.getTaskEditor(supabase, orgId, userId, taskNumber),
     OrgMembersService.listMembers(supabase, orgId),
-    PlanningSettingsService.getSettings(supabase, orgId),
   ]);
 
   if (!taskResult.success || !taskResult.data) {
     notFound();
   }
 
-  const members = membersResult.success
+  const people = membersResult.success
     ? membersResult.data.map((m) => ({
         user_id: m.user_id,
         name: [m.user_first_name, m.user_last_name].filter(Boolean).join(" ") || null,
@@ -59,23 +59,20 @@ export default async function PlanningTaskDetailPage({ params }: PageProps) {
     : [];
 
   const snap = context.user.permissionSnapshot;
-  const settings = settingsResult.success ? settingsResult.data : null;
-  const qrAssignmentResult = taskResult.success
-    ? await getQrAssignmentForTaskAction(taskResult.data.id)
-    : { success: true as const, data: null };
 
   return (
-    <div className="h-full min-h-0">
-      <PlanningTaskDetailPanel
-        detail={taskResult.data}
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border bg-background">
+      <TaskEditor
+        orgId={orgId}
+        taskRef={taskNumber}
+        initialData={taskResult.data}
+        people={people}
+        currentUserId={userId}
         canUpdate={checkPermission(snap, PLANNING_TASKS_UPDATE)}
         canAssign={checkPermission(snap, PLANNING_TASKS_ASSIGN)}
-        canDelete={checkPermission(snap, PLANNING_TASKS_DELETE)}
-        members={members}
-        initialQrAssignment={qrAssignmentResult.success ? qrAssignmentResult.data : null}
-        showFullLink={false}
-        statusConfigs={settings?.status_configs ?? null}
-        priorityConfigs={settings?.priority_configs ?? null}
+        canArchive={checkPermission(snap, PLANNING_TASKS_DELETE)}
+        canMove={checkPermission(snap, PLANNING_BOARDS_UPDATE)}
+        showOpenFull={false}
       />
     </div>
   );

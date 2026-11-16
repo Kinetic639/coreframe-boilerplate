@@ -35,7 +35,10 @@ export function KanbanBoard<TItem>({
   onCardMove,
   onColumnsChange,
   renderColumnActions,
+  renderColumnTitle,
+  columnAccent = "dot",
   renderColumnFooter,
+  renderColumnTop,
   renderColumnEmpty,
   renderAddColumn,
   renderScrollableHeader,
@@ -303,7 +306,10 @@ export function KanbanBoard<TItem>({
                   getItemId={getItemId}
                   renderCard={(item) => renderCard(item, false)}
                   actions={renderColumnActions?.(column)}
+                  title={renderColumnTitle?.(column)}
+                  accent={columnAccent}
                   footer={renderColumnFooter?.(column)}
+                  top={renderColumnTop?.(column)}
                   emptyContent={renderColumnEmpty?.(column)}
                   labels={labels}
                   className={cn(columnClassName, fixedColumnClassName)}
@@ -333,7 +339,10 @@ export function KanbanBoard<TItem>({
                     getItemId={getItemId}
                     renderCard={(item) => renderCard(item, false)}
                     actions={renderColumnActions?.(column)}
+                    title={renderColumnTitle?.(column)}
+                    accent={columnAccent}
                     footer={renderColumnFooter?.(column)}
+                    top={renderColumnTop?.(column)}
                     emptyContent={renderColumnEmpty?.(column)}
                     labels={labels}
                     className={columnClassName}
@@ -372,6 +381,7 @@ export function KanbanBoard<TItem>({
             getItemId={getItemId}
             renderCard={(item) => renderCard(item, false)}
             labels={labels}
+            accent={columnAccent}
             columnDraggable={columnsDraggable}
             isOverlay
           />

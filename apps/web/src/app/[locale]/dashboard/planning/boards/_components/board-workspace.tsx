@@ -2,21 +2,25 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Archive, RotateCcw } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { KanbanBoard, type KanbanCardMoveParams } from "@/components/primitives/kanban";
 import { PageLoader } from "@/components/page-loader";
-import type { KanbanBoardCard, KanbanBoardDetail } from "@/lib/types/kanban";
+import { TaskEditorDialog } from "@/components/planning/task-editor";
+import type { KanbanBoardCard, KanbanBoardDetail, KanbanTaskEditorData } from "@/lib/types/kanban";
+import { cn } from "@/utils";
 import { BoardArchiveDialog } from "./board-archive-dialog";
 import { BoardCard } from "./board-card";
-import { AddCardForm, AddColumnPanel, ColumnMenu } from "./board-columns";
+import { boardBackground } from "./board-colors";
+import {
+  AddCardButton,
+  AddCardComposer,
+  AddColumnPanel,
+  ColumnMenu,
+  ColumnTitle,
+} from "./board-columns";
 import { INBOX_COLUMN_ID } from "./board-format";
-import { BoardSettingsDialog } from "./board-settings-dialog";
-import { BoardVisibilityIcon } from "./board-sharing";
-import { CardDetailDialog } from "./card-detail-dialog";
+import { BoardHeader } from "./board-header";
+import { useBoardSharing } from "./board-sharing";
 import { useBoardActions } from "./use-board-actions";
 import type { BoardsAdmin } from "./use-boards-admin";
 
@@ -37,8 +41,10 @@ interface BoardWorkspaceProps {
   onOpenCardChange: (taskNumber: string | null) => void;
   admin: BoardsAdmin;
   onBoardArchived: (boardId: string) => void;
+  onOpenAllBoards: () => void;
 }
 
+const emptyColumns: KanbanBoardDetail["columns"] = [];
 const getCardId = (card: KanbanBoardCard) => card.id;
 const getCardColumnId = (card: KanbanBoardCard) =>
   card.is_inbox ? INBOX_COLUMN_ID : card.column_id;
@@ -59,10 +65,14 @@ export function BoardWorkspace({
   onOpenCardChange,
   admin,
   onBoardArchived,
+  onOpenAllBoards,
 }: BoardWorkspaceProps) {
   const t = useTranslations("modules.planning");
   const actions = useBoardActions(orgId, board?.id ?? null);
+  const { people, currentUserId, canAssign } = useBoardSharing();
   const [archiveOpen, setArchiveOpen] = useState(false);
+  /** The column where a card is being added, and whether at its top. */
+  const [composer, setComposer] = useState<{ columnId: string; atTop: boolean } | null>(null);
 
   const isArchived = Boolean(board?.archived_at);
   // A viewer only looks; the database refuses their writes anyway. An archived
@@ -118,6 +128,25 @@ export function BoardWorkspace({
     );
   }, [board?.cards, inboxCards, openCardNumber]);
 
+  // What the editor shows at once, before it loads the task itself.
+  const editorInitialData = useMemo((): KanbanTaskEditorData | undefined => {
+    if (!openCard) return undefined;
+    if (openCard.is_inbox || !board) return { card: openCard, board: null, columns: [] };
+    return {
+      card: openCard,
+      board: {
+        id: board.id,
+        title: board.title,
+        color: board.color,
+        archived_at: board.archived_at,
+        my_access: board.my_access,
+      },
+      columns: board.columns,
+    };
+  }, [board, openCard]);
+
+  const closeComposer = useCallback(() => setComposer(null), []);
+
   const handleOpenCard = useCallback(
     (card: KanbanBoardCard) => onOpenCardChange(card.task_number),
     [onOpenCardChange]
@@ -151,8 +180,10 @@ export function BoardWorkspace({
     [onColumnCollapsedChange]
   );
 
+  const background = showBoard ? boardBackground(board?.color) : undefined;
+
   return (
-    <div className="h-full min-h-0 overflow-hidden">
+    <div className="h-full min-h-0 overflow-hidden" style={background ? { background } : undefined}>
       <KanbanBoard
         columns={columns}
         items={items}
@@ -165,78 +196,35 @@ export function BoardWorkspace({
           collapseColumn: t("boards.collapseColumn"),
           expandColumn: t("boards.expandColumn"),
         }}
-        scrollAreaClassName="m-3 ml-3 overflow-hidden rounded-lg border bg-muted/10"
+        scrollAreaClassName={cn(
+          "m-3 ml-3 overflow-hidden rounded-lg border",
+          background ? "border-white/20 bg-black/10" : "bg-muted/10"
+        )}
         className="flex-1 gap-3 p-3 pb-3"
-        columnClassName="min-h-0 rounded-md"
+        // On a coloured board the lists are nearly opaque cards over it.
+        columnClassName={cn(
+          "min-h-0 rounded-md",
+          background && "border-transparent bg-background/90"
+        )}
         fixedStartColumnIds={inboxOpen ? [INBOX_COLUMN_ID] : []}
-        fixedStartClassName="m-3 mr-0 w-[18rem] overflow-hidden rounded-lg border bg-muted/10 shadow-sm"
+        fixedStartClassName={cn(
+          "m-3 mr-0 w-[18rem] overflow-hidden rounded-lg border shadow-sm",
+          background ? "bg-background/90" : "bg-muted/10"
+        )}
         fixedColumnClassName="w-full rounded-none border-0 bg-transparent"
         nonDraggableColumnIds={[INBOX_COLUMN_ID]}
         renderScrollableHeader={
           board && showBoard
             ? () => (
-                <div className="border-b bg-background/40">
-                  {isArchived ? (
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-amber-500/10 px-5 py-2 text-sm">
-                      <span className="flex items-center gap-2">
-                        <Archive className="h-4 w-4" />
-                        {t("boards.archive.bannerText")}
-                      </span>
-                      {canManageBoard ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7"
-                          onClick={() => void admin.restoreBoard(board.id)}
-                        >
-                          <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                          {t("boards.archive.restore")}
-                        </Button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  <div className="flex items-start justify-between gap-3 px-5 py-4">
-                    <div className="min-w-0">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <h2 className="truncate text-xl font-semibold">{board.title}</h2>
-                        <Badge variant="outline" className="shrink-0 gap-1.5 bg-background/60">
-                          <BoardVisibilityIcon visibility={board.visibility} />
-                          {t(`boards.visibility.${board.visibility}`)}
-                        </Badge>
-                      </div>
-                      {board.description ? (
-                        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                          {board.description}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8"
-                            aria-label={t("boards.archive.title")}
-                            onClick={() => setArchiveOpen(true)}
-                          >
-                            <Archive className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>{t("boards.archive.title")}</TooltipContent>
-                      </Tooltip>
-                      {!isArchived ? (
-                        <BoardSettingsDialog
-                          board={board}
-                          canUpdate={canUpdate}
-                          canArchive={canManageBoard}
-                          admin={admin}
-                          onArchived={onBoardArchived}
-                        />
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
+                <BoardHeader
+                  board={board}
+                  canUpdate={canUpdate}
+                  canManageBoard={canManageBoard}
+                  admin={admin}
+                  onOpenArchive={() => setArchiveOpen(true)}
+                  onOpenAllBoards={onOpenAllBoards}
+                  onBoardArchived={onBoardArchived}
+                />
               )
             : undefined
         }
@@ -256,6 +244,11 @@ export function BoardWorkspace({
         onColumnCollapsedChange={handleCollapsedChange}
         onCardMove={handleCardMove}
         onColumnsChange={handleColumnsChange}
+        columnAccent="bar"
+        renderColumnTitle={(column) => {
+          const full = board?.columns.find((candidate) => candidate.id === column.id);
+          return full ? <ColumnTitle column={full} canEdit={canUpdate} actions={actions} /> : null;
+        }}
         renderColumnActions={(column) => {
           if (column.id === INBOX_COLUMN_ID || !board || !(canUpdate || canDelete)) return null;
           const full = board.columns.find((candidate) => candidate.id === column.id);
@@ -263,17 +256,38 @@ export function BoardWorkspace({
             <ColumnMenu
               boardId={board.id}
               column={full}
+              cardCount={board.cards.filter((card) => card.column_id === full.id).length}
               canUpdate={canUpdate}
               canDelete={canDelete}
               actions={actions}
+              onAddCardTop={() => setComposer({ columnId: full.id, atTop: true })}
             />
           ) : null;
         }}
-        renderColumnFooter={(column) =>
-          column.id === INBOX_COLUMN_ID || !board || !canUpdate ? null : (
-            <AddCardForm columnId={column.id} actions={actions} />
-          )
+        renderColumnTop={(column) =>
+          composer?.atTop && composer.columnId === column.id ? (
+            <AddCardComposer
+              key="top"
+              columnId={column.id}
+              atTop
+              actions={actions}
+              onClose={closeComposer}
+            />
+          ) : null
         }
+        renderColumnFooter={(column) => {
+          if (column.id === INBOX_COLUMN_ID || !board || !canUpdate) return null;
+          return composer && !composer.atTop && composer.columnId === column.id ? (
+            <AddCardComposer
+              key="bottom"
+              columnId={column.id}
+              actions={actions}
+              onClose={closeComposer}
+            />
+          ) : (
+            <AddCardButton onClick={() => setComposer({ columnId: column.id, atTop: false })} />
+          );
+        }}
         renderColumnEmpty={(column) =>
           column.id === INBOX_COLUMN_ID && inboxLoading ? <InboxLoadingSkeleton /> : null
         }
@@ -286,18 +300,29 @@ export function BoardWorkspace({
           <BoardCard
             card={card}
             columnColor={card.is_inbox ? null : columnColors.get(card.column_id)}
+            columns={board?.columns ?? emptyColumns}
+            canEdit={card.is_inbox ? canUpdatePermission : canUpdate}
+            canArchive={card.is_inbox ? canDeletePermission : canDelete}
+            currentUserId={currentUserId}
+            actions={actions}
             onOpen={handleOpenCard}
           />
         )}
       />
 
-      <CardDetailDialog
+      <TaskEditorDialog
         orgId={orgId}
-        card={openCard}
-        columns={board?.columns ?? []}
+        taskRef={openCardNumber}
+        initialData={editorInitialData}
+        people={people}
+        currentUserId={currentUserId}
+        canAssign={canAssign}
         canUpdate={openCard?.is_inbox ? canUpdatePermission : canUpdate}
-        canDelete={openCard?.is_inbox ? canDeletePermission : canDelete}
-        actions={actions}
+        canArchive={openCard?.is_inbox ? canDeletePermission : canDelete}
+        canMove={canUpdate}
+        showOpenFull
+        onChanged={actions.cardChanged}
+        onArchive={actions.archiveCard}
         onClose={() => onOpenCardChange(null)}
       />
 

@@ -6,17 +6,14 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { useQueryStates } from "nuqs";
 import { ExternalLink, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TaskEditor, taskEditorQuery } from "@/components/planning/task-editor";
 import { FilterBar, type FilterField } from "@/components/data-table/filter-bar";
 import type { ColumnLayout, ColumnSet, ColumnWidths } from "@/components/data-table/columns";
 import { TableNavigationProvider } from "@/components/data-table/table-navigation";
-import type {
-  PlanningTaskDetail,
-  PlanningTaskListRow,
-} from "@/server/services/planning-tasks.service";
+import type { PlanningTaskDetail } from "@/server/services/planning-tasks.service";
 import { PlanningTaskCreateDialog } from "./planning-task-create-dialog";
-import { PlanningTaskDetailPanel } from "./planning-task-detail-panel";
-import { TasksTable, TaskStatus as TaskStatusBadge, type TaskBadgeConfigs } from "./tasks-table";
-import { taskDetailQuery, taskKeys, taskListQuery, type TaskList } from "./tasks-query";
+import { TasksTable, type TaskBadgeConfigs } from "./tasks-table";
+import { taskKeys, taskListQuery, type TaskList } from "./tasks-query";
 import {
   DUE_WITHIN,
   NO_BOARD,
@@ -130,7 +127,7 @@ export function TasksWorkspace({
       hover.current = null;
       if (!taskNumber) return;
       hover.current = setTimeout(() => {
-        void queryClient.prefetchQuery(taskDetailQuery(orgId, taskNumber));
+        void queryClient.prefetchQuery(taskEditorQuery(orgId, taskNumber));
       }, HOVER_INTENT_MS);
     },
     [queryClient, orgId]
@@ -245,11 +242,6 @@ export function TasksWorkspace({
             : id
   );
 
-  const selectedRow = useMemo<PlanningTaskListRow | null>(
-    () => data.rows.find((row) => row.task_number === state.selected) ?? null,
-    [data.rows, state.selected]
-  );
-
   return (
     <TableNavigationProvider navigate={navigate}>
       <section className="dt-list-view flex min-w-0 flex-col overflow-hidden rounded-lg border bg-background">
@@ -330,14 +322,13 @@ export function TasksWorkspace({
                 key={state.selected}
                 orgId={orgId}
                 taskNumber={state.selected}
-                row={selectedRow}
-                labels={labels}
-                configs={configs}
                 members={members}
+                currentUserId={currentUserId}
                 canUpdate={canUpdate}
                 canAssign={canAssign}
                 canDelete={canDelete}
                 onChanged={refresh}
+                onClose={() => preview(null)}
               />
             </aside>
           ) : null}
@@ -354,7 +345,6 @@ export function TasksWorkspace({
         canAssign={canAssign}
         priorityConfigs={configs.priority}
         onCreated={(task: PlanningTaskDetail) => {
-          queryClient.setQueryData(taskKeys.detail(orgId, task.task_number), task);
           refresh();
           preview(task.task_number);
         }}
@@ -363,73 +353,44 @@ export function TasksWorkspace({
   );
 }
 
-/** A task's card in the side panel: fetched by its number. */
+/** A task in the side panel: the same editor as on the boards and the calendar. */
 function TaskCard({
   orgId,
   taskNumber,
-  row,
-  labels,
-  configs,
   members,
+  currentUserId,
   canUpdate,
   canAssign,
   canDelete,
   onChanged,
+  onClose,
 }: {
   orgId: string;
   taskNumber: string;
-  /** The list's row of this task, shown while its card comes. */
-  row: PlanningTaskListRow | null;
-  labels: Record<string, string>;
-  configs: TaskBadgeConfigs;
   members: Member[];
+  currentUserId: string;
   canUpdate: boolean;
   canAssign: boolean;
   canDelete: boolean;
   onChanged: () => void;
+  onClose: () => void;
 }) {
-  const query = useQuery(taskDetailQuery(orgId, taskNumber));
-  if (query.isPending) {
-    return (
-      <div className="space-y-4 p-5" aria-busy="true" aria-label={labels.loading}>
-        {row ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold">{row.title}</h2>
-            <TaskStatusBadge row={row} configs={configs} />
-          </div>
-        ) : (
-          <div className="h-6 w-1/2 animate-pulse rounded bg-muted" />
-        )}
-        {[0, 1, 2, 3, 4].map((key) => (
-          <div key={key} className="h-4 animate-pulse rounded bg-muted" />
-        ))}
-      </div>
-    );
-  }
-  if (query.isError) {
-    return (
-      <div className="grid flex-1 place-items-center p-8 text-center text-sm">
-        <div>
-          <p className="text-destructive">{labels.notFound}</p>
-          <button className="mt-3 underline" type="button" onClick={() => query.refetch()}>
-            {labels.retry}
-          </button>
-        </div>
-      </div>
-    );
-  }
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <PlanningTaskDetailPanel
-        key={`${query.data.id}-${query.data.updated_at}`}
-        detail={query.data}
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <TaskEditor
+        orgId={orgId}
+        taskRef={taskNumber}
+        people={members}
+        currentUserId={currentUserId}
         canUpdate={canUpdate}
         canAssign={canAssign}
-        canDelete={canDelete}
-        members={members}
-        onRefresh={onChanged}
-        statusConfigs={configs.status}
-        priorityConfigs={configs.priority}
+        canArchive={canDelete}
+        showOpenFull={false}
+        onChanged={onChanged}
+        onClose={() => {
+          onChanged();
+          onClose();
+        }}
       />
     </div>
   );

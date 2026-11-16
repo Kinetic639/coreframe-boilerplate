@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Archive, MoreHorizontal, Save } from "lucide-react";
+import { Archive, Save } from "lucide-react";
 import { toast } from "react-toastify";
 import {
   AlertDialog,
@@ -21,7 +21,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,82 +29,97 @@ import { Textarea } from "@/components/ui/textarea";
 import { updateKanbanBoardAction } from "@/app/actions/kanban";
 import type { KanbanBoardDetail } from "@/lib/types/kanban";
 import type { KanbanVisibility } from "@/lib/validations/kanban";
+import { BoardColorPicker } from "./board-color-picker";
 import { BoardMembersSection, BoardVisibilityFields } from "./board-sharing";
 import type { BoardsAdmin } from "./use-boards-admin";
 
 interface BoardSettingsDialogProps {
   board: KanbanBoardDetail;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   canUpdate: boolean;
   canArchive: boolean;
   admin: BoardsAdmin;
-  /** The board was archived: the page moves on to another board. */
-  onArchived: (boardId: string) => void;
+  /** Asks to archive the board (the confirmation lives with the header). */
+  onRequestArchive: () => void;
 }
 
+/** Name, description, background, who sees the board and its members. */
 export function BoardSettingsDialog({
   board,
+  open,
+  onOpenChange,
   canUpdate,
   canArchive,
   admin,
-  onArchived,
+  onRequestArchive,
 }: BoardSettingsDialogProps) {
   const t = useTranslations("modules.planning");
-  const [open, setOpen] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <MoreHorizontal className="h-4 w-4" />
-            {t("boards.boardMenu")}
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t("boards.boardSettings")}</DialogTitle>
-          </DialogHeader>
-          {open ? (
-            // Mounted per opening: the fields start from the board as it is now.
-            <BoardSettingsForm
-              board={board}
-              canUpdate={canUpdate}
-              canArchive={canArchive}
-              onBoardChanged={admin.boardChanged}
-              onSaved={() => setOpen(false)}
-              onArchive={() => setConfirmOpen(true)}
-            />
-          ) : null}
-        </DialogContent>
-      </Dialog>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{t("boards.boardSettings")}</DialogTitle>
+        </DialogHeader>
+        {open ? (
+          // Mounted per opening: the fields start from the board as it is now.
+          <BoardSettingsForm
+            board={board}
+            canUpdate={canUpdate}
+            canArchive={canArchive}
+            onBoardChanged={admin.boardChanged}
+            onSaved={() => onOpenChange(false)}
+            onArchive={() => {
+              onOpenChange(false);
+              onRequestArchive();
+            }}
+          />
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("boards.archive.confirmBoardTitle", { title: board.title })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>{t("boards.archive.confirmBoardText")}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("boards.cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                void admin.archiveBoard(board.id).then((archived) => {
-                  if (!archived) return;
-                  setOpen(false);
-                  onArchived(board.id);
-                });
-              }}
-            >
-              <Archive className="mr-1.5 h-4 w-4" />
-              {t("boards.archiveBoard")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+/** Archiving a board asks first; it can be restored from the boards list. */
+export function ArchiveBoardConfirm({
+  board,
+  open,
+  onOpenChange,
+  admin,
+  onArchived,
+}: {
+  board: KanbanBoardDetail;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  admin: BoardsAdmin;
+  onArchived: (boardId: string) => void;
+}) {
+  const t = useTranslations("modules.planning");
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {t("boards.archive.confirmBoardTitle", { title: board.title })}
+          </AlertDialogTitle>
+          <AlertDialogDescription>{t("boards.archive.confirmBoardText")}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t("boards.cancel")}</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              void admin.archiveBoard(board.id).then((archived) => {
+                if (archived) onArchived(board.id);
+              });
+            }}
+          >
+            <Archive className="mr-1.5 h-4 w-4" />
+            {t("boards.archiveBoard")}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -129,6 +143,7 @@ function BoardSettingsForm({
   const [description, setDescription] = useState(board.description ?? "");
   const [visibility, setVisibility] = useState<KanbanVisibility>(board.visibility);
   const [branchId, setBranchId] = useState<string | null>(board.branch_id);
+  const [color, setColor] = useState<string | null>(board.color);
   const [isPending, setIsPending] = useState(false);
   const isOwner = board.my_access === "owner";
 
@@ -138,6 +153,7 @@ function BoardSettingsForm({
       id: board.id,
       title,
       description,
+      color,
       visibility,
       branch_id: visibility === "branch" ? branchId : null,
     });
@@ -172,6 +188,7 @@ function BoardSettingsForm({
             onChange={(event) => setDescription(event.target.value)}
           />
         </div>
+        <BoardColorPicker value={color} onChange={setColor} disabled={!canUpdate} />
         <BoardVisibilityFields
           visibility={visibility}
           branchId={branchId}

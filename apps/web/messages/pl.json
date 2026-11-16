@@ -4619,7 +4619,8 @@
           "card_moved_to_inbox": "Przeniesione do skrzynki",
           "card_moved_from_inbox": "Przeniesione ze skrzynki na tablicę",
           "card_archived": "Zarchiwizowane na tablicy"
-        }
+        },
+        "taskArchived": "Zadanie zarchiwizowane"
       },
       "boards": {
         "newBoard": "Nowa tablica",
@@ -4763,6 +4764,55 @@
           "columnDeleted": "Kolumna usunięta",
           "boardRestored": "Tablica przywrócona",
           "boardDeleted": "Tablica usunięta"
+        },
+        "all": {
+          "title": "Wszystkie tablice",
+          "openTab": "Tablice",
+          "starred": "Ulubione",
+          "recent": "Ostatnio otwierane",
+          "mine": "Moje tablice",
+          "shared": "Udostępnione mi"
+        },
+        "background": {
+          "label": "Tło tablicy",
+          "none": "Bez tła"
+        },
+        "star": {
+          "add": "Dodaj do ulubionych",
+          "remove": "Usuń z ulubionych"
+        },
+        "header": {
+          "people": "Osoby na tablicy",
+          "share": "Udostępnij",
+          "renameHint": "Kliknij, aby zmienić nazwę"
+        },
+        "cardBadges": {
+          "due": {
+            "done": "Termin, zadanie ukończone",
+            "overdue": "Po terminie",
+            "soon": "Termin dziś lub jutro",
+            "normal": "Termin"
+          },
+          "hasDescription": "Ma opis",
+          "comments": "{count, plural, one {# komentarz} few {# komentarze} other {# komentarzy}}"
+        },
+        "quick": {
+          "menu": "Szybkie akcje",
+          "open": "Otwórz kartę",
+          "editTitle": "Zmień tytuł",
+          "letGo": "Oddaj zadanie",
+          "moveTo": "Przenieś do",
+          "toInbox": "Wróć do skrzynki"
+        },
+        "list": {
+          "addCard": "Dodaj kartę",
+          "addCardSubmit": "Dodaj kartę",
+          "addCardTop": "Dodaj kartę na górze",
+          "archiveAllCards": "Zarchiwizuj wszystkie karty ({count})",
+          "noColor": "Bez koloru",
+          "pasteHint": "Wklej kilka linii = kilka kart",
+          "renameHint": "Kliknij, aby zmienić nazwę",
+          "cardsArchived": "{count, plural, one {Zarchiwizowano # kartę} few {Zarchiwizowano # karty} other {Zarchiwizowano # kart}}"
         }
       },
       "settings": {
@@ -4786,6 +4836,16 @@
         "loadPlanningRetry": "Nie udało się załadować planowania. Spróbuj ponownie.",
         "tryAgain": "Spróbuj ponownie",
         "operationFailed": "Operacja nie powiodła się"
+      },
+      "taskEditor": {
+        "noBoard": "Bez tablicy",
+        "archivedBanner": "To zadanie jest zarchiwizowane. Przywrócisz je z archiwum tablicy.",
+        "saving": "Zapisywanie…",
+        "saved": "Zapisano",
+        "noDueDate": "Bez terminu",
+        "clear": "Wyczyść",
+        "labelPlaceholder": "Nazwa etykiety",
+        "labelColor": "Kolor etykiety"
       }
     },
     "crm": {
