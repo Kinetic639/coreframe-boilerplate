@@ -19,7 +19,12 @@ import {
   updateKanbanCardAction,
   updateKanbanColumnAction,
 } from "@/app/actions/kanban";
-import type { KanbanBoardCard, KanbanBoardDetail, KanbanMoveResult } from "@/lib/types/kanban";
+import type {
+  KanbanBoardCard,
+  KanbanBoardDetail,
+  KanbanBoardLabel,
+  KanbanMoveResult,
+} from "@/lib/types/kanban";
 import type {
   CreateKanbanColumnInput,
   MoveKanbanTaskInput,
@@ -193,6 +198,19 @@ export function useBoardActions(orgId: string, boardId: string | null) {
   const cardChanged = useCallback(
     (card: KanbanBoardCard) => writeState((state) => upsertCard(state, card)),
     [writeState]
+  );
+
+  /** A label made from the task editor: the board's filters and label list show it. */
+  const boardLabelCreated = useCallback(
+    (label: KanbanBoardLabel) => {
+      if (!boardKey) return;
+      queryClient.setQueryData<KanbanBoardDetail>(boardKey, (current) =>
+        current && !(current.labels ?? []).some((item) => item.id === label.id)
+          ? { ...current, labels: [...(current.labels ?? []), label] }
+          : current
+      );
+    },
+    [boardKey, queryClient]
   );
 
   /** Quick edit from the card's menu: shown at once, put back if the save fails. */
@@ -412,6 +430,7 @@ export function useBoardActions(orgId: string, boardId: string | null) {
       setColumnsOrder,
       createCard,
       cardChanged,
+      boardLabelCreated,
       patchCard,
       updateCard,
       archiveCard,
@@ -428,6 +447,7 @@ export function useBoardActions(orgId: string, boardId: string | null) {
       setColumnsOrder,
       createCard,
       cardChanged,
+      boardLabelCreated,
       patchCard,
       updateCard,
       archiveCard,

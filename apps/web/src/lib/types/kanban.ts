@@ -88,6 +88,57 @@ export interface KanbanBoardCard {
   archived_at: string | null;
   /** Comments on the task (the board shows the count on the card). */
   comment_count: number;
+  /** The board's labels on this task, in the board's order. */
+  labels: KanbanBoardLabel[];
+  /** Checklist items, and how many are done ("3/7" on the card). */
+  checklist_total: number;
+  checklist_done: number;
+  /** Files attached to the task. */
+  attachment_count: number;
+  /** People following the task. */
+  watcher_ids: string[];
+  /** The due date has an hour (otherwise it is a plain day). */
+  due_has_time: boolean;
+  /** The first day of the task (a range from start to due), or null. */
+  start_date: string | null;
+  /** Cover: a colour, or an image attachment (with a short-lived link). */
+  cover_color: string | null;
+  cover_attachment_id: string | null;
+  cover_url: string | null;
+}
+
+/** A label of a board (name + colour); a task carries several. */
+export interface KanbanBoardLabel {
+  id: string;
+  name: string;
+  color: string;
+  position: number;
+}
+
+export interface KanbanChecklistItem {
+  id: string;
+  checklist_id: string;
+  task_id: string;
+  title: string;
+  is_done: boolean;
+  assigned_to: string | null;
+  assignee_name: string | null;
+  due_at: string | null;
+  position: number;
+}
+
+export interface KanbanChecklist {
+  id: string;
+  task_id: string;
+  title: string;
+  position: number;
+  items: KanbanChecklistItem[];
+}
+
+/** One line of a board's activity: what happened to which task. */
+export interface KanbanBoardActivity extends KanbanCardActivity {
+  task_number: string;
+  task_title: string;
 }
 
 export interface KanbanCardActivity {
@@ -106,6 +157,8 @@ export interface KanbanCardActivity {
 
 export interface KanbanBoardDetail extends KanbanBoardSummary {
   columns: KanbanBoardColumn[];
+  /** The board's labels, in order. */
+  labels: KanbanBoardLabel[];
   cards: KanbanBoardCard[];
   members: KanbanBoardMember[];
 }
@@ -139,4 +192,6 @@ export interface KanbanTaskEditorData {
   card: KanbanBoardCard;
   board: KanbanTaskEditorBoard | null;
   columns: KanbanBoardColumn[];
+  /** The labels a task on this board can carry (empty off a board). */
+  labels: KanbanBoardLabel[];
 }

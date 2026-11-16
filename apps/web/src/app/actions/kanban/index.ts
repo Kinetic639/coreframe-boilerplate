@@ -32,6 +32,25 @@ import {
   updateKanbanBoardSchema,
   updateKanbanCardSchema,
   updateKanbanColumnSchema,
+  createKanbanBoardLabelSchema,
+  updateKanbanBoardLabelSchema,
+  kanbanBoardLabelRefSchema,
+  setKanbanTaskLabelsSchema,
+  createKanbanChecklistSchema,
+  updateKanbanChecklistSchema,
+  kanbanChecklistRefSchema,
+  createKanbanChecklistItemSchema,
+  updateKanbanChecklistItemSchema,
+  kanbanTaskWatchSchema,
+  type CreateKanbanBoardLabelInput,
+  type UpdateKanbanBoardLabelInput,
+  type KanbanBoardLabelRefInput,
+  type SetKanbanTaskLabelsInput,
+  type CreateKanbanChecklistInput,
+  type UpdateKanbanChecklistInput,
+  type CreateKanbanChecklistItemInput,
+  type UpdateKanbanChecklistItemInput,
+  type KanbanTaskWatchInput,
   type AddKanbanBoardMemberInput,
   type CreateKanbanBoardInput,
   type CreateKanbanCardInput,
@@ -50,6 +69,10 @@ import {
   type UpdateKanbanColumnInput,
 } from "@/lib/validations/kanban";
 import type {
+  KanbanBoardActivity,
+  KanbanBoardLabel,
+  KanbanChecklist,
+  KanbanChecklistItem,
   KanbanBoardArchive,
   KanbanBoardCard,
   KanbanBoardColumn,
@@ -529,5 +552,156 @@ export async function restoreKanbanCardAction(
 ): Promise<ActionResult<KanbanBoardCard>> {
   return guarded(PLANNING_BOARDS_DELETE, kanbanCardRefSchema, input, (ctx, data) =>
     KanbanBoardsService.restoreCard(ctx.supabase, ctx.orgId, ctx.userId, data.card_id)
+  );
+}
+
+// ── Board labels ────────────────────────────────────────────────────────────
+
+export async function createKanbanBoardLabelAction(
+  input: CreateKanbanBoardLabelInput
+): Promise<ActionResult<KanbanBoardLabel>> {
+  return guarded(PLANNING_BOARDS_UPDATE, createKanbanBoardLabelSchema, input, (ctx, data) =>
+    KanbanBoardsService.createBoardLabel(ctx.supabase, ctx.orgId, ctx.userId, data)
+  );
+}
+
+export async function updateKanbanBoardLabelAction(
+  input: UpdateKanbanBoardLabelInput
+): Promise<ActionResult<KanbanBoardLabel>> {
+  return guarded(PLANNING_BOARDS_UPDATE, updateKanbanBoardLabelSchema, input, (ctx, data) =>
+    KanbanBoardsService.updateBoardLabel(ctx.supabase, ctx.orgId, data)
+  );
+}
+
+export async function deleteKanbanBoardLabelAction(
+  input: KanbanBoardLabelRefInput
+): Promise<ActionResult<void>> {
+  return guarded(PLANNING_BOARDS_UPDATE, kanbanBoardLabelRefSchema, input, (ctx, data) =>
+    KanbanBoardsService.deleteBoardLabel(ctx.supabase, ctx.orgId, data.board_id, data.id)
+  );
+}
+
+export async function setKanbanTaskLabelsAction(
+  input: SetKanbanTaskLabelsInput
+): Promise<ActionResult<KanbanBoardCard>> {
+  return guarded(PLANNING_TASKS_UPDATE, setKanbanTaskLabelsSchema, input, (ctx, data) =>
+    KanbanBoardsService.setTaskLabels(
+      ctx.supabase,
+      ctx.orgId,
+      ctx.userId,
+      data.task_id,
+      data.label_ids
+    )
+  );
+}
+
+// ── Checklists ──────────────────────────────────────────────────────────────
+
+export async function listKanbanChecklistsAction(
+  taskId: string
+): Promise<ActionResult<KanbanChecklist[]>> {
+  return guarded(
+    [PLANNING_TASKS_READ, PLANNING_BOARDS_READ],
+    kanbanCardRefSchema,
+    { card_id: taskId },
+    (ctx, data) => KanbanBoardsService.listChecklists(ctx.supabase, ctx.orgId, data.card_id)
+  );
+}
+
+export async function createKanbanChecklistAction(
+  input: CreateKanbanChecklistInput
+): Promise<ActionResult<KanbanChecklist>> {
+  return guarded(PLANNING_TASKS_UPDATE, createKanbanChecklistSchema, input, (ctx, data) =>
+    KanbanBoardsService.createChecklist(
+      ctx.supabase,
+      ctx.orgId,
+      ctx.userId,
+      data.task_id,
+      data.title
+    )
+  );
+}
+
+export async function renameKanbanChecklistAction(
+  input: UpdateKanbanChecklistInput
+): Promise<ActionResult<void>> {
+  return guarded(PLANNING_TASKS_UPDATE, updateKanbanChecklistSchema, input, (ctx, data) =>
+    KanbanBoardsService.renameChecklist(ctx.supabase, ctx.orgId, data.id, data.title)
+  );
+}
+
+export async function deleteKanbanChecklistAction(input: {
+  id: string;
+}): Promise<ActionResult<void>> {
+  return guarded(PLANNING_TASKS_UPDATE, kanbanChecklistRefSchema, input, (ctx, data) =>
+    KanbanBoardsService.deleteChecklist(ctx.supabase, ctx.orgId, data.id)
+  );
+}
+
+export async function addKanbanChecklistItemAction(
+  input: CreateKanbanChecklistItemInput
+): Promise<ActionResult<KanbanChecklistItem>> {
+  return guarded(PLANNING_TASKS_UPDATE, createKanbanChecklistItemSchema, input, (ctx, data) =>
+    KanbanBoardsService.addChecklistItem(ctx.supabase, ctx.orgId, ctx.userId, data)
+  );
+}
+
+export async function updateKanbanChecklistItemAction(
+  input: UpdateKanbanChecklistItemInput
+): Promise<ActionResult<KanbanChecklistItem>> {
+  return guarded(PLANNING_TASKS_UPDATE, updateKanbanChecklistItemSchema, input, (ctx, data) => {
+    // Giving an item to someone else takes the same right as giving a task.
+    if (
+      data.assigned_to &&
+      data.assigned_to !== ctx.userId &&
+      !checkPermission(ctx.context.user.permissionSnapshot, PLANNING_TASKS_ASSIGN)
+    ) {
+      return Promise.resolve({ success: false as const, error: "Insufficient permissions" });
+    }
+    return KanbanBoardsService.updateChecklistItem(ctx.supabase, ctx.orgId, ctx.userId, data);
+  });
+}
+
+export async function deleteKanbanChecklistItemAction(input: {
+  id: string;
+}): Promise<ActionResult<void>> {
+  return guarded(PLANNING_TASKS_UPDATE, kanbanChecklistRefSchema, input, (ctx, data) =>
+    KanbanBoardsService.deleteChecklistItem(ctx.supabase, ctx.orgId, data.id)
+  );
+}
+
+export async function convertKanbanChecklistItemAction(input: {
+  id: string;
+}): Promise<ActionResult<KanbanBoardCard>> {
+  return guarded(PLANNING_TASKS_UPDATE, kanbanChecklistRefSchema, input, (ctx, data) =>
+    KanbanBoardsService.convertChecklistItem(ctx.supabase, ctx.orgId, ctx.userId, data.id)
+  );
+}
+
+// ── Watchers and board activity ─────────────────────────────────────────────
+
+export async function setKanbanTaskWatchingAction(
+  input: KanbanTaskWatchInput
+): Promise<ActionResult<void>> {
+  return guarded(
+    [PLANNING_TASKS_READ, PLANNING_BOARDS_READ],
+    kanbanTaskWatchSchema,
+    input,
+    (ctx, data) =>
+      KanbanBoardsService.setWatching(
+        ctx.supabase,
+        ctx.orgId,
+        ctx.userId,
+        data.task_id,
+        data.watching
+      )
+  );
+}
+
+export async function listKanbanBoardActivityAction(
+  boardId: string
+): Promise<ActionResult<KanbanBoardActivity[]>> {
+  return guarded(PLANNING_BOARDS_READ, kanbanBoardRefSchema, { id: boardId }, (ctx, data) =>
+    KanbanBoardsService.listBoardActivity(ctx.supabase, ctx.orgId, data.id)
   );
 }

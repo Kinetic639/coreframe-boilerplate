@@ -7,7 +7,6 @@ import {
   Activity,
   AlignLeft,
   Archive,
-  Calendar,
   Check,
   CircleDot,
   Columns3,
@@ -36,7 +35,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { AttachmentsPanel } from "@/components/features/attachments";
 import { CommentsThread } from "@/components/features/comments";
+import { MentionChip } from "@/components/v2/mentions/mention-chip";
+import { ENTITY_MENTIONS } from "@/components/v2/mentions/mention-suggestion-list";
+import { useMentionAccess } from "@/hooks/queries/mentions";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
+import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { RichTextEditorField } from "@/components/primitives/rich-text/rich-text-editor-field";
 import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-renderer";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
@@ -49,6 +54,7 @@ import { moveKanbanTaskAction, patchKanbanTaskAction } from "@/app/actions/kanba
 import { deleteTaskAction } from "@/app/actions/planning";
 import type {
   KanbanBoardCard,
+  KanbanBoardLabel,
   KanbanCardActivity,
   KanbanTaskEditorData,
   KanbanTaskStatus,
@@ -59,7 +65,14 @@ import {
   type PatchKanbanTaskInput,
 } from "@/lib/validations/kanban";
 import { cn } from "@/utils";
-import { DUE_STATE_CLASSES, dueState, fromDateInput, toDateInput } from "./task-dates";
+import {
+  ChecklistsSection,
+  CoverPicker,
+  DatesChip,
+  LabelsChip,
+  WatchButton,
+  chipClass,
+} from "./task-editor-extras";
 import {
   LABEL_COLORS,
   PRIORITY_FLAG_COLORS,
@@ -109,6 +122,8 @@ export interface TaskEditorProps {
   onClose?: () => void;
   /** The dialog title slot (a dialog needs a title element for screen readers). */
   renderTitle?: (title: React.ReactNode) => React.ReactNode;
+  /** A label was added to the task's board from the editor. */
+  onBoardLabelCreated?: (label: KanbanBoardLabel) => void;
 }
 
 type Patch = Omit<PatchKanbanTaskInput, "id">;
@@ -153,11 +168,12 @@ function TaskEditorBody({
   onArchive,
   onClose,
   renderTitle,
+  onBoardLabelCreated,
 }: TaskEditorProps & { data: KanbanTaskEditorData }) {
   const t = useTranslations("modules.planning");
   const format = useFormatter();
   const queryClient = useQueryClient();
-  const { card, board, columns } = data;
+  const { card, board, columns, labels: boardLabels = [] } = data;
   const taskKey = useMemo(() => taskEditorKeys.task(orgId, taskRef), [orgId, taskRef]);
 
   const isArchived = Boolean(card.archived_at);
@@ -180,6 +196,26 @@ function TaskEditorBody({
     [card.id, orgId, queryClient]
   );
 
+  /** A change saved elsewhere (labels, checklists, watching): show it and tell the host. */
+  const cardChanged = useCallback(
+    (next: KanbanBoardCard) => {
+      setCard(next);
+      onChanged?.(next);
+      void refreshActivity();
+    },
+    [onChanged, refreshActivity, setCard]
+  );
+
+  const labelCreated = useCallback(
+    (label: KanbanBoardLabel) => {
+      queryClient.setQueryData<KanbanTaskEditorData>(taskKey, (current) =>
+        current ? { ...current, labels: [...(current.labels ?? []), label] } : current
+      );
+      onBoardLabelCreated?.(label);
+    },
+    [onBoardLabelCreated, queryClient, taskKey]
+  );
+
   const patch = useMutation({
     // One save after another, in the order they were made.
     scope: { id: `planning-task-${card.id}` },
@@ -197,7 +233,20 @@ function TaskEditorBody({
         ...(fields.title !== undefined ? { title: fields.title } : {}),
         ...(fields.priority !== undefined ? { priority: fields.priority } : {}),
         ...(fields.status !== undefined ? { status: fields.status } : {}),
-        ...(fields.due_at !== undefined ? { due_at: fields.due_at } : {}),
+        ...(fields.due_at !== undefined ? { due_at: fields.due_at, due_has_time: false } : {}),
+        ...(fields.dates
+          ? {
+              due_at: fields.dates.due_at,
+              due_has_time: fields.dates.due_has_time,
+              start_date: fields.dates.start_date,
+            }
+          : {}),
+        ...(fields.cover_color !== undefined
+          ? { cover_color: fields.cover_color, cover_attachment_id: null, cover_url: null }
+          : {}),
+        ...(fields.cover_attachment_id !== undefined
+          ? { cover_attachment_id: fields.cover_attachment_id, cover_color: null }
+          : {}),
         ...(fields.label !== undefined
           ? { label: fields.label, label_color: fields.label ? (fields.label_color ?? null) : null }
           : {}),
@@ -321,18 +370,29 @@ function TaskEditorBody({
             disabled={!canUpdate}
             onChange={(assignedTo) => save({ assigned_to: assignedTo })}
           />
-          <DueChip
-            dueAt={card.due_at}
+          <DatesChip
+            card={card}
             status={card.status}
             disabled={!canUpdate}
-            onChange={(dueAt) => save({ due_at: dueAt })}
+            onChange={(dates) => save({ dates })}
           />
-          <LabelChip
-            label={card.label}
-            color={card.label_color}
-            disabled={!canUpdate}
-            onChange={(label, color) => save({ label, label_color: color })}
-          />
+          {board && !card.is_inbox ? (
+            <LabelsChip
+              card={card}
+              boardId={board.id}
+              labels={boardLabels}
+              disabled={!canUpdate}
+              onCardChange={cardChanged}
+              onLabelCreated={labelCreated}
+            />
+          ) : (
+            <LabelChip
+              label={card.label}
+              color={card.label_color}
+              disabled={!canUpdate}
+              onChange={(label, color) => save({ label, label_color: color })}
+            />
+          )}
         </div>
       </header>
 
@@ -351,6 +411,52 @@ function TaskEditorBody({
               }
             />
           </section>
+
+          <ChecklistsSection
+            orgId={orgId}
+            card={card}
+            people={people}
+            currentUserId={currentUserId}
+            canAssign={canAssign}
+            disabled={!canUpdate}
+            onCardChange={(next) => {
+              setCard(next);
+              onChanged?.(next);
+            }}
+            onTaskCreated={(created) => {
+              onChanged?.(created);
+              void refreshActivity();
+            }}
+          />
+
+          <AttachmentsPanel
+            targetType="planning.task"
+            targetId={card.id}
+            canUpload={canUpdate}
+            canDelete={canUpdate}
+            labels={{ sectionTitle: t("taskEditor.attachments") }}
+            onUploaded={(files) => {
+              const current = queryClient.getQueryData<KanbanTaskEditorData>(taskKey)?.card ?? card;
+              const next = {
+                ...current,
+                attachment_count: current.attachment_count + files.length,
+              };
+              setCard(next);
+              onChanged?.(next);
+            }}
+            onDeleted={(attachmentId) => {
+              const current = queryClient.getQueryData<KanbanTaskEditorData>(taskKey)?.card ?? card;
+              const next = {
+                ...current,
+                attachment_count: Math.max(0, current.attachment_count - 1),
+                ...(current.cover_attachment_id === attachmentId
+                  ? { cover_attachment_id: null, cover_url: null }
+                  : {}),
+              };
+              setCard(next);
+              onChanged?.(next);
+            }}
+          />
 
           <Separator />
 
@@ -391,6 +497,13 @@ function TaskEditorBody({
               </Link>
             </Button>
           ) : null}
+
+          <div className="space-y-2">
+            <WatchButton card={card} currentUserId={currentUserId} onCardChange={cardChanged} />
+            {board && !card.is_inbox ? (
+              <CoverPicker card={card} disabled={!canUpdate} onChange={(cover) => save(cover)} />
+            ) : null}
+          </div>
 
           {board && !card.is_inbox ? (
             <section className="space-y-2">
@@ -553,6 +666,13 @@ function DescriptionField({
   const [value, setValue] = useState<RichTextValue>(
     () => normalizeRichText(card.description_rich) ?? createEmptyRichText()
   );
+  const orgId = useAppStoreV2((s) => s.activeOrgId);
+  const meId = useUserStoreV2((s) => s.user?.id ?? null);
+  const documents = useMemo(
+    () => (disabled ? [card.description_rich] : []),
+    [card.description_rich, disabled]
+  );
+  const mentionAccess = useMentionAccess(orgId, documents);
   const dirty = useRef(false);
   const latest = useRef(value);
   const saveRef = useRef(onSave);
@@ -578,6 +698,9 @@ function DescriptionField({
       <RichTextRenderer
         value={normalizeRichText(card.description_rich) ?? undefined}
         emptyText={card.description ?? t("boards.noDescription")}
+        renderMention={(mention) => (
+          <MentionChip mention={mention} access={mentionAccess(mention)} meId={meId} />
+        )}
       />
     );
   }
@@ -593,15 +716,13 @@ function DescriptionField({
         }}
         placeholder={t("boards.cardDescriptionPlaceholder")}
         mode="full"
+        mention={ENTITY_MENTIONS}
         maxLength={4000}
         contentClassName="min-h-[140px] [&_.ProseMirror]:min-h-[120px]"
       />
     </div>
   );
 }
-
-const chipClass =
-  "h-7 gap-1.5 rounded-md px-2 text-xs font-medium disabled:opacity-100 disabled:cursor-default";
 
 function StatusChip({
   status,
@@ -740,81 +861,6 @@ function AssigneeChip({
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-function DueChip({
-  dueAt,
-  status,
-  disabled,
-  onChange,
-}: {
-  dueAt: string | null;
-  status: KanbanTaskStatus;
-  disabled: boolean;
-  onChange: (dueAt: string | null) => void;
-}) {
-  const t = useTranslations("modules.planning");
-  const format = useFormatter();
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(toDateInput(dueAt));
-  const state = dueState(dueAt, status);
-
-  return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        if (next) setDraft(toDateInput(dueAt));
-        setOpen(next);
-      }}
-    >
-      <PopoverTrigger asChild disabled={disabled}>
-        <Button
-          variant="secondary"
-          size="sm"
-          className={cn(chipClass, state && state !== "normal" && DUE_STATE_CLASSES[state])}
-        >
-          <Calendar className="h-3.5 w-3.5" />
-          {dueAt
-            ? format.dateTime(new Date(dueAt), { dateStyle: "medium" })
-            : t("taskEditor.noDueDate")}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-64 space-y-3">
-        <p className="text-sm font-medium">{t("boards.dueDate")}</p>
-        <Input
-          type="date"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          aria-label={t("boards.dueDate")}
-        />
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            className="flex-1"
-            onClick={() => {
-              const next = fromDateInput(draft);
-              if (next !== dueAt) onChange(next);
-              setOpen(false);
-            }}
-          >
-            {t("boards.save")}
-          </Button>
-          {dueAt ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                onChange(null);
-                setOpen(false);
-              }}
-            >
-              {t("taskEditor.clear")}
-            </Button>
-          ) : null}
-        </div>
-      </PopoverContent>
-    </Popover>
   );
 }
 

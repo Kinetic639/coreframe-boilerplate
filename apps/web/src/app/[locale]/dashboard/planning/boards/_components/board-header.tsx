@@ -3,15 +3,18 @@
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
+  Activity,
   Archive,
   ArchiveRestore,
   Check,
+  Keyboard,
   LayoutGrid,
   MoreHorizontal,
   Palette,
   RotateCcw,
   Settings2,
   Star,
+  Tag,
   UserPlus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +50,13 @@ interface BoardHeaderProps {
   onOpenArchive: () => void;
   onOpenAllBoards: () => void;
   onBoardArchived: (boardId: string) => void;
+  /** Search and filters, under the title row. */
+  toolbar?: React.ReactNode;
+  /** Who else has the board open. */
+  viewers?: React.ReactNode;
+  onOpenLabels?: () => void;
+  onOpenActivity?: () => void;
+  onOpenShortcuts?: () => void;
 }
 
 /**
@@ -62,6 +72,11 @@ export function BoardHeader({
   onOpenArchive,
   onOpenAllBoards,
   onBoardArchived,
+  toolbar,
+  viewers,
+  onOpenLabels,
+  onOpenActivity,
+  onOpenShortcuts,
 }: BoardHeaderProps) {
   const t = useTranslations("modules.planning");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -125,6 +140,7 @@ export function BoardHeader({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          {viewers}
           <div className="flex -space-x-1.5" aria-label={t("boards.header.people")}>
             {people.slice(0, MAX_AVATARS).map((person) => (
               <span
@@ -203,6 +219,25 @@ export function BoardHeader({
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
               ) : null}
+              {onOpenLabels ? (
+                <DropdownMenuItem onSelect={onOpenLabels}>
+                  <Tag className="mr-2 h-4 w-4" />
+                  {t("boardTools.labelsTitle")}
+                </DropdownMenuItem>
+              ) : null}
+              {onOpenActivity ? (
+                <DropdownMenuItem onSelect={onOpenActivity}>
+                  <Activity className="mr-2 h-4 w-4" />
+                  {t("boardTools.activityTitle")}
+                </DropdownMenuItem>
+              ) : null}
+              {onOpenShortcuts ? (
+                <DropdownMenuItem onSelect={onOpenShortcuts}>
+                  <Keyboard className="mr-2 h-4 w-4" />
+                  {t("boardTools.shortcutsTitle")}
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={onOpenArchive}>
                 <ArchiveRestore className="mr-2 h-4 w-4" />
                 {t("boards.archive.title")}
@@ -233,6 +268,7 @@ export function BoardHeader({
           </p>
         ) : null}
       </div>
+      {toolbar}
 
       <BoardSettingsDialog
         board={board}
