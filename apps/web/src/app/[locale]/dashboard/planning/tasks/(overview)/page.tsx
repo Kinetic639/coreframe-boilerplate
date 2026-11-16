@@ -11,11 +11,13 @@ import {
   PLANNING_TASKS_UPDATE,
   PLANNING_TASKS_DELETE,
   PLANNING_TASKS_ASSIGN,
+  PLANNING_BOARDS_READ,
 } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
 import { PlanningTasksService } from "@/server/services/planning-tasks.service";
 import { PlanningSettingsService } from "@/server/services/planning-settings.service";
 import { OrgMembersService } from "@/server/services/organization.service";
+import { KanbanBoardsService } from "@/server/services/kanban-boards.service";
 import { parseLayout, parseWidths } from "@/components/data-table/columns";
 import { taskKeys } from "../_components/tasks-query";
 import { taskColumnSet } from "../_components/tasks-table";
@@ -89,7 +91,9 @@ export default async function PlanningTasksPage({ searchParams }: PageProps = {}
   const supabase = await createClient();
   const orgId = context.app.activeOrgId;
 
-  const [listResult, membersResult, settingsResult] = await Promise.all([
+  const snap = context.user.permissionSnapshot;
+  const userId = context.user.user?.id ?? "";
+  const [listResult, membersResult, settingsResult, boardsResult] = await Promise.all([
     PlanningTasksService.listForDataView(
       supabase,
       orgId,
@@ -98,6 +102,9 @@ export default async function PlanningTasksPage({ searchParams }: PageProps = {}
     ),
     OrgMembersService.listMembers(supabase, orgId),
     PlanningSettingsService.getSettings(supabase, orgId),
+    checkPermission(snap, PLANNING_BOARDS_READ)
+      ? KanbanBoardsService.listBoards(supabase, orgId, userId)
+      : null,
   ]);
 
   if (listResult.success) {
@@ -120,7 +127,9 @@ export default async function PlanningTasksPage({ searchParams }: PageProps = {}
       }))
     : [];
 
-  const snap = context.user.permissionSnapshot;
+  const boards = boardsResult?.success
+    ? boardsResult.data.map((board) => ({ id: board.id, title: board.title }))
+    : [];
   const settings = settingsResult.success ? settingsResult.data : null;
   const statusConfigs = settings?.status_configs ?? null;
   const priorityConfigs = settings?.priority_configs ?? null;
@@ -134,6 +143,9 @@ export default async function PlanningTasksPage({ searchParams }: PageProps = {}
     column_priority: t("tasks.priority"),
     column_assignee: t("tasks.assignee"),
     column_branch: pl ? "Oddział" : "Branch",
+    column_board: pl ? "Tablica" : "Board",
+    noBoard: pl ? "Bez tablicy" : "No board",
+    inbox: pl ? "Skrzynka" : "Inbox",
     column_due_at: t("tasks.due"),
     column_creator: t("tasks.createdBy"),
     column_created_at: t("tasks.created"),
@@ -192,6 +204,7 @@ export default async function PlanningTasksPage({ searchParams }: PageProps = {}
           id: branch.id,
           name: branch.name,
         }))}
+        boards={boards}
         activeBranchId={context.app.activeBranchId}
         currentUserId={context.user.user?.id ?? ""}
         canCreate={checkPermission(snap, PLANNING_TASKS_CREATE)}

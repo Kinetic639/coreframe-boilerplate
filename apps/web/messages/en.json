@@ -4393,6 +4393,7 @@
       "titleSidebar": "Planning",
       "description": "Organize and track tasks across your organization.",
       "items": {
+        "calendar": "Calendar",
         "overview": "Overview",
         "tasks": "Tasks",
         "boards": "Boards",
@@ -4676,12 +4677,6 @@
         "loadPlanningRetry": "Failed to load Planning. Please try again.",
         "tryAgain": "Try again",
         "operationFailed": "Operation failed"
-      },
-      "views": {
-        "label": "Task views",
-        "boards": "Boards",
-        "list": "List",
-        "calendar": "Calendar"
       }
     },
     "crm": {

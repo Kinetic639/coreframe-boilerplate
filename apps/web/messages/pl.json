@@ -4473,6 +4473,7 @@
       "titleSidebar": "Planowanie",
       "description": "Organizuj i śledź zadania w całej organizacji.",
       "items": {
+        "calendar": "Kalendarz",
         "overview": "Przegląd",
         "tasks": "Zadania",
         "boards": "Tablice",
@@ -4756,12 +4757,6 @@
         "loadPlanningRetry": "Nie udało się załadować planowania. Spróbuj ponownie.",
         "tryAgain": "Spróbuj ponownie",
         "operationFailed": "Operacja nie powiodła się"
-      },
-      "views": {
-        "label": "Widok zadań",
-        "boards": "Tablice",
-        "list": "Lista",
-        "calendar": "Kalendarz"
       }
     },
     "crm": {

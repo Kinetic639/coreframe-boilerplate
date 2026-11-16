@@ -21,7 +21,6 @@ import {
 } from "date-fns";
 import { ExternalLink, Loader2, Trash2 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
-import { PlanningViewBar } from "./planning-view-switcher";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -981,7 +980,6 @@ export function PlanningCalendarClient({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <PlanningViewBar current="calendar" />
       <div className="relative min-h-0 flex-1">
         {calendarQuery.isFetching && calendarData && !calendarQuery.isLoading && (
           <div className="bg-background/95 text-muted-foreground pointer-events-none absolute bottom-4 right-4 z-30 flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-sm">

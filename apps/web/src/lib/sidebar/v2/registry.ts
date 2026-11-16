@@ -368,20 +368,42 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
       requiresPermissions: [MODULE_PLANNING_ACCESS],
     },
     children: [
-      // One entry for the tasks: boards, list and calendar are its views
-      // (switched at the top of each page).
+      // The calendar is its own entry: it holds custom calendars and events,
+      // not only tasks.
+      {
+        id: "planning.calendar",
+        title: "Calendar",
+        titleKey: "modules.planning.items.calendar",
+        iconKey: "calendar",
+        href: "/dashboard/planning",
+        match: { exact: "/dashboard/planning" },
+        visibility: {
+          requiresPermissions: [PLANNING_READ],
+        },
+      },
+      // Tasks and boards share one record (a task can sit on a board), but
+      // they are separate places: the list holds every task, a board only
+      // its own.
       {
         id: "planning.tasks",
         title: "Tasks",
         titleKey: "modules.planning.items.tasks",
+        iconKey: "checkSquare",
+        href: "/dashboard/planning/tasks",
+        match: { startsWith: "/dashboard/planning/tasks" },
+        visibility: {
+          requiresPermissions: [PLANNING_TASKS_READ],
+        },
+      },
+      {
+        id: "planning.boards",
+        title: "Boards",
+        titleKey: "modules.planning.items.boards",
         iconKey: "kanban",
         href: "/dashboard/planning/boards",
-        match: {
-          startsWith: "/dashboard/planning/boards",
-          also: [{ startsWith: "/dashboard/planning/tasks" }, { exact: "/dashboard/planning" }],
-        },
+        match: { startsWith: "/dashboard/planning/boards" },
         visibility: {
-          requiresAnyPermissions: [PLANNING_BOARDS_READ, PLANNING_TASKS_READ, PLANNING_READ],
+          requiresPermissions: [PLANNING_BOARDS_READ],
         },
       },
       {
