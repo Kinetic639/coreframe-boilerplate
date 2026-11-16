@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "react-toastify";
+import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -68,7 +69,7 @@ import {
   type TaskDatesPayload,
 } from "./task-dates";
 import { LABEL_COLORS, initials } from "./task-labels";
-import { unwrapTaskResult } from "./task-editor-queries";
+import { taskEditorKeys, unwrapTaskResult } from "./task-editor-queries";
 import { checklistProgress } from "./task-checklist-progress";
 import type { TaskEditorPerson } from "./task-editor";
 
@@ -597,6 +598,9 @@ export function ChecklistsSection({
     void queryClient.invalidateQueries({ queryKey: key });
   };
   const scope = { id: `planning-checklists-${card.id}` };
+  // Sub-tasks are items here: the parent / dependencies panel follows.
+  const refreshRelations = () =>
+    queryClient.invalidateQueries({ queryKey: taskEditorKeys.relations(orgId, card.id) });
 
   const createList = useMutation({
     scope,
@@ -619,6 +623,7 @@ export function ChecklistsSection({
     scope,
     mutationFn: (id: string) => unwrapTaskResult(deleteKanbanChecklistAction({ id })),
     onMutate: (id) => commit(current().filter((list) => list.id !== id)),
+    onSuccess: () => void refreshRelations(),
     onError: fail,
   });
   const addItem = useMutation({
@@ -667,13 +672,15 @@ export function ChecklistsSection({
           }),
         }))
       ),
-    onSuccess: (saved) =>
+    onSuccess: (saved) => {
       queryClient.setQueryData<KanbanChecklist[]>(key, (lists = []) =>
         lists.map((list) => ({
           ...list,
           items: list.items.map((item) => (item.id === saved.id ? saved : item)),
         }))
-      ),
+      );
+      if (saved.linked_task_id) void refreshRelations();
+    },
     onError: fail,
   });
   const removeItem = (id: string) =>
@@ -682,13 +689,18 @@ export function ChecklistsSection({
     scope,
     mutationFn: (id: string) => unwrapTaskResult(deleteKanbanChecklistItemAction({ id })),
     onMutate: removeItem,
+    onSuccess: () => void refreshRelations(),
     onError: fail,
   });
   const convertItem = useMutation({
     scope,
     mutationFn: (id: string) => unwrapTaskResult(convertKanbanChecklistItemAction({ id })),
-    onSuccess: (created, id) => {
-      removeItem(id);
+    onSuccess: async (created) => {
+      // The item is now the sub-task's item, in the same place.
+      await queryClient.invalidateQueries({ queryKey: key });
+      const { total, done } = checklistProgress(current());
+      onCardChange({ ...card, checklist_total: total, checklist_done: done });
+      void refreshRelations();
       onTaskCreated?.(created);
       toast.success(t("taskEditor.convertedToTask", { number: created.task_number }));
     },
@@ -946,6 +958,7 @@ function ChecklistRow({
   const format = useFormatter();
   const assignable = canAssign ? people : people.filter((p) => p.user_id === currentUserId);
   const [dueDraft, setDueDraft] = useState(toDateInput(item.due_at));
+  const linked = item.linked_task;
 
   return (
     <li className="group flex items-start gap-2 rounded-md px-1 py-1 hover:bg-muted/50">
@@ -957,14 +970,41 @@ function ChecklistRow({
         aria-label={item.title}
       />
       <div className="min-w-0 flex-1">
-        <InlineText
-          value={item.title}
-          disabled={disabled}
-          className={cn("text-sm", item.is_done && "text-muted-foreground line-through")}
-          label={t("taskEditor.itemTitle")}
-          onSave={(title) => onUpdate({ id: item.id, title })}
-        />
-        {item.assigned_to || item.due_at ? (
+        {linked ? (
+          <Link
+            href={{
+              pathname: "/dashboard/planning/tasks/[taskId]",
+              params: { taskId: linked.task_number },
+            }}
+            className={cn(
+              "flex min-w-0 items-baseline gap-1.5 rounded px-1 text-sm hover:underline",
+              item.is_done && "text-muted-foreground line-through"
+            )}
+          >
+            <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+              {linked.task_number}
+            </span>
+            <span className="break-words">{linked.title}</span>
+          </Link>
+        ) : item.linked_task_id ? (
+          <span
+            className={cn(
+              "block break-words px-1 text-sm",
+              item.is_done && "text-muted-foreground line-through"
+            )}
+          >
+            {item.title}
+          </span>
+        ) : (
+          <InlineText
+            value={item.title}
+            disabled={disabled}
+            className={cn("text-sm", item.is_done && "text-muted-foreground line-through")}
+            label={t("taskEditor.itemTitle")}
+            onSave={(title) => onUpdate({ id: item.id, title })}
+          />
+        )}
+        {!item.linked_task_id && (item.assigned_to || item.due_at) ? (
           <div className="mt-0.5 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
             {item.assigned_to ? (
               <span className="inline-flex items-center gap-1">
@@ -998,81 +1038,90 @@ function ChecklistRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <User className="mr-2 h-3.5 w-3.5" />
-                {t("boards.task.assignee")}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
-                <DropdownMenuItem onSelect={() => onUpdate({ id: item.id, assigned_to: null })}>
-                  <X className="mr-2 h-3.5 w-3.5" />
-                  {t("boards.task.unassigned")}
+            {item.linked_task_id ? (
+              <DropdownMenuItem onSelect={onDelete}>
+                <X className="mr-2 h-3.5 w-3.5" />
+                {t("taskEditor.unlinkSubtask")}
+              </DropdownMenuItem>
+            ) : (
+              <>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <User className="mr-2 h-3.5 w-3.5" />
+                    {t("boards.task.assignee")}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+                    <DropdownMenuItem onSelect={() => onUpdate({ id: item.id, assigned_to: null })}>
+                      <X className="mr-2 h-3.5 w-3.5" />
+                      {t("boards.task.unassigned")}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {assignable.map((person) => (
+                      <DropdownMenuItem
+                        key={person.user_id}
+                        onSelect={() => onUpdate({ id: item.id, assigned_to: person.user_id })}
+                      >
+                        <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">
+                          {initials(person.name, person.email)}
+                        </span>
+                        <span className="truncate">{person.name || person.email}</span>
+                        {person.user_id === item.assigned_to ? (
+                          <Check className="ml-auto h-3.5 w-3.5" />
+                        ) : null}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Calendar className="mr-2 h-3.5 w-3.5" />
+                    {t("boards.dueDate")}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-56 space-y-2 p-2">
+                    <DropdownMenuLabel className="px-0">{t("boards.dueDate")}</DropdownMenuLabel>
+                    <Input
+                      type="date"
+                      value={dueDraft}
+                      onKeyDown={(event) => event.stopPropagation()}
+                      onChange={(event) => setDueDraft(event.target.value)}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        onClick={() =>
+                          onUpdate({
+                            id: item.id,
+                            due_at: buildTaskDates({ start: "", due: dueDraft, time: "" }, "UTC")
+                              .due_at,
+                          })
+                        }
+                      >
+                        {t("boards.save")}
+                      </Button>
+                      {item.due_at ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onUpdate({ id: item.id, due_at: null })}
+                        >
+                          {t("taskEditor.clear")}
+                        </Button>
+                      ) : null}
+                    </div>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuItem onSelect={onConvert}>
+                  <ArrowUpRight className="mr-2 h-3.5 w-3.5" />
+                  {t("taskEditor.convertToTask")}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                {assignable.map((person) => (
-                  <DropdownMenuItem
-                    key={person.user_id}
-                    onSelect={() => onUpdate({ id: item.id, assigned_to: person.user_id })}
-                  >
-                    <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">
-                      {initials(person.name, person.email)}
-                    </span>
-                    <span className="truncate">{person.name || person.email}</span>
-                    {person.user_id === item.assigned_to ? (
-                      <Check className="ml-auto h-3.5 w-3.5" />
-                    ) : null}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <Calendar className="mr-2 h-3.5 w-3.5" />
-                {t("boards.dueDate")}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-56 space-y-2 p-2">
-                <DropdownMenuLabel className="px-0">{t("boards.dueDate")}</DropdownMenuLabel>
-                <Input
-                  type="date"
-                  value={dueDraft}
-                  onKeyDown={(event) => event.stopPropagation()}
-                  onChange={(event) => setDueDraft(event.target.value)}
-                />
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    className="flex-1"
-                    onClick={() =>
-                      onUpdate({
-                        id: item.id,
-                        due_at: buildTaskDates({ start: "", due: dueDraft, time: "" }, "UTC")
-                          .due_at,
-                      })
-                    }
-                  >
-                    {t("boards.save")}
-                  </Button>
-                  {item.due_at ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onUpdate({ id: item.id, due_at: null })}
-                    >
-                      {t("taskEditor.clear")}
-                    </Button>
-                  ) : null}
-                </div>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuItem onSelect={onConvert}>
-              <ArrowUpRight className="mr-2 h-3.5 w-3.5" />
-              {t("taskEditor.convertToTask")}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={onDelete} className="text-destructive">
-              <Trash2 className="mr-2 h-3.5 w-3.5" />
-              {t("taskEditor.deleteItem")}
-            </DropdownMenuItem>
+                <DropdownMenuItem onSelect={onDelete} className="text-destructive">
+                  <Trash2 className="mr-2 h-3.5 w-3.5" />
+                  {t("taskEditor.deleteItem")}
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}

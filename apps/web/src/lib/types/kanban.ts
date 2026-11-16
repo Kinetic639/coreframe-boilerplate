@@ -202,6 +202,16 @@ export interface KanbanChecklistItem {
   assignee_name: string | null;
   due_at: string | null;
   position: number;
+  /** The sub-task this item stands for (ticking it completes the task). */
+  linked_task_id: string | null;
+  /** That sub-task, when the viewer may read it. */
+  linked_task: {
+    id: string;
+    task_number: string;
+    title: string;
+    status: KanbanTaskStatus;
+    board_id: string | null;
+  } | null;
 }
 
 export interface KanbanChecklist {

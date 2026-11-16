@@ -13,7 +13,6 @@ import {
   Copy,
   ExternalLink,
   LayoutTemplate,
-  ListTree,
   Eye,
   Flag,
   Hand,
@@ -113,7 +112,6 @@ export const BoardCard = memo(function BoardCard({
       ),
     }))
     .filter((chip): chip is { field: KanbanCustomField; text: string } => Boolean(chip.text));
-  const subtasksDone = card.subtask_total > 0 && card.subtask_done === card.subtask_total;
   const dates = formatCardDates(format, card);
   const watching = card.watcher_ids?.includes(currentUserId) ?? false;
   const checklistComplete =
@@ -278,21 +276,6 @@ export const BoardCard = memo(function BoardCard({
             >
               <CheckSquare className="h-3 w-3" />
               {card.checklist_done}/{card.checklist_total}
-            </span>
-          ) : null}
-          {card.subtask_total ? (
-            <span
-              className={cn(
-                "flex items-center gap-0.5 rounded px-1 py-0.5",
-                subtasksDone && "bg-emerald-600 font-medium text-white"
-              )}
-              title={t("boardExtras.relations.subtaskProgress", {
-                done: card.subtask_done,
-                total: card.subtask_total,
-              })}
-            >
-              <ListTree className="h-3 w-3" />
-              {card.subtask_done}/{card.subtask_total}
             </span>
           ) : null}
           {card.attachment_count ? (

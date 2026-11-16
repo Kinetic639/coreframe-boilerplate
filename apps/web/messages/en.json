@@ -4802,7 +4802,7 @@
         "coverImage": "Image from attachments",
         "coverNoImages": "Attach an image to use it as the cover.",
         "removeCover": "Remove cover",
-        "convertedToTask": "Task {number} created",
+        "convertedToTask": "Sub-task {number} created",
         "checklistTitle": "Checklist name",
         "addChecklist": "Add checklist",
         "defaultChecklistTitle": "Checklist",
@@ -4813,8 +4813,9 @@
         "addItem": "Add item",
         "close": "Close",
         "itemActions": "Item actions",
-        "convertToTask": "Convert to task",
+        "convertToTask": "Convert to sub-task",
         "deleteItem": "Delete item",
+        "unlinkSubtask": "Remove from list (the task stays)",
         "attachments": "Attachments"
       },
       "boardTools": {

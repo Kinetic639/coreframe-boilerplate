@@ -358,7 +358,7 @@ const TASK_CARD_FIELDS = `id, board_id, column_id, organization_id, task_number,
   creator:users!created_by(first_name, last_name, email),
   assignee:users!assigned_to(first_name, last_name, email),
   task_labels:planning_task_labels(label:planning_kanban_board_labels(id, name, color, position)),
-  checklist_items:planning_task_checklist_items(is_done),
+  checklist_items:planning_task_checklist_items!planning_task_checklist_items_task_id_fkey(is_done),
   watchers:planning_task_watchers(user_id)`;
 
 const LABEL_FIELDS = "id, name, color, position";
@@ -367,11 +367,13 @@ function mapLabel(row: any): KanbanBoardLabel {
   return { id: row.id, name: row.name ?? "", color: row.color, position: row.position ?? 0 };
 }
 
-const CHECKLIST_ITEM_FIELDS = `id, checklist_id, task_id, title, is_done, assigned_to, due_at, position,
-  assignee:users!assigned_to(first_name, last_name, email)`;
+const CHECKLIST_ITEM_FIELDS = `id, checklist_id, task_id, title, is_done, assigned_to, due_at, position, linked_task_id,
+  assignee:users!assigned_to(first_name, last_name, email),
+  linked_task:planning_tasks!planning_task_checklist_items_linked_task_id_fkey(id, task_number, title, status, board_id, deleted_at)`;
 
 function mapChecklistItem(row: any): KanbanChecklistItem {
   const assignee = Array.isArray(row.assignee) ? row.assignee[0] : row.assignee;
+  const linked = Array.isArray(row.linked_task) ? row.linked_task[0] : row.linked_task;
   return {
     id: row.id,
     checklist_id: row.checklist_id,
@@ -384,6 +386,17 @@ function mapChecklistItem(row: any): KanbanChecklistItem {
       : null,
     due_at: row.due_at ?? null,
     position: row.position ?? 0,
+    linked_task_id: row.linked_task_id ?? null,
+    linked_task:
+      linked && !linked.deleted_at
+        ? {
+            id: linked.id,
+            task_number: linked.task_number,
+            title: linked.title,
+            status: linked.status,
+            board_id: linked.board_id ?? null,
+          }
+        : null,
   };
 }
 
@@ -2321,10 +2334,7 @@ export const KanbanBoardsService = {
           .order("created_at", { ascending: true }),
         supabase
           .from("planning_task_checklist_items")
-          .select(
-            `id, checklist_id, task_id, title, is_done, assigned_to, due_at, position, created_at,
-             assignee:users!assigned_to(first_name, last_name, email)`
-          )
+          .select(CHECKLIST_ITEM_FIELDS)
           .eq("organization_id", orgId)
           .eq("task_id", taskId)
           .order("position", { ascending: true })
@@ -2507,9 +2517,9 @@ export const KanbanBoardsService = {
   },
 
   /**
-   * Turns a checklist item into a task of its own: on the same board column
-   * (at the bottom) or, for a task outside a board, in the inbox. The item
-   * goes away once the task exists.
+   * Turns a checklist item into a sub-task of the item's task: a task of its
+   * own (on the parent's board column, or in the inbox) that stays in the
+   * checklist, in the item's place, as a linked item.
    */
   async convertChecklistItem(
     supabase: SupabaseClient,
@@ -2520,58 +2530,41 @@ export const KanbanBoardsService = {
     try {
       const { data: itemRaw, error: itemError } = await supabase
         .from("planning_task_checklist_items")
-        .select("id, title, assigned_to, due_at, task_id")
+        .select("id, checklist_id, title, assigned_to, due_at, task_id, position, linked_task_id")
         .eq("organization_id", orgId)
         .eq("id", itemId)
         .single();
       if (itemError) return { success: false, error: itemError.message };
       const item = itemRaw as {
+        checklist_id: string;
         title: string;
         assigned_to: string | null;
         due_at: string | null;
         task_id: string;
+        position: number;
+        linked_task_id: string | null;
       };
-      const { data: parentRaw, error: parentError } = await supabase
-        .from("planning_tasks")
-        .select("id, task_number, board_id, column_id, branch_id")
-        .eq("organization_id", orgId)
-        .eq("id", item.task_id)
-        .single();
-      if (parentError) return { success: false, error: parentError.message };
-      const parent = parentRaw as {
-        task_number: string;
-        board_id: string | null;
-        column_id: string | null;
-        branch_id: string | null;
-      };
+      if (item.linked_task_id) return { success: false, error: "Item is already a task" };
 
-      let created: ServiceResult<KanbanBoardCard>;
-      if (parent.board_id && parent.column_id) {
-        created = await KanbanBoardsService.createCard(supabase, orgId, userId, {
-          board_id: parent.board_id,
-          column_id: parent.column_id,
-          title: item.title.slice(0, 300),
-        });
-      } else {
-        const { data, error } = await supabase
-          .from("planning_tasks")
-          .insert({
-            organization_id: orgId,
-            branch_id: parent.branch_id,
-            title: item.title.slice(0, 300),
-            status: "open",
-            priority: "normal",
-            is_inbox: true,
-            created_by: userId,
-            updated_by: userId,
-          })
-          .select(TASK_CARD_FIELDS)
-          .single();
-        created = error
-          ? { success: false, error: error.message }
-          : { success: true, data: mapCard(data) };
-      }
+      // The database adds the sub-task's item to the parent's checklist.
+      let created = await KanbanBoardsService.createSubtask(supabase, orgId, userId, {
+        parent_id: item.task_id,
+        title: item.title.slice(0, 300),
+      });
       if (!created.success) return created;
+
+      // That item takes this one's place.
+      const { error: deleteError } = await supabase
+        .from("planning_task_checklist_items")
+        .delete()
+        .eq("organization_id", orgId)
+        .eq("id", itemId);
+      if (deleteError) return { success: false, error: deleteError.message };
+      await supabase
+        .from("planning_task_checklist_items")
+        .update({ checklist_id: item.checklist_id, position: item.position })
+        .eq("organization_id", orgId)
+        .eq("linked_task_id", created.data.id);
 
       if (item.assigned_to || item.due_at) {
         const patched = await KanbanBoardsService.patchTask(supabase, orgId, userId, {
@@ -2581,20 +2574,6 @@ export const KanbanBoardsService = {
         });
         if (patched.success) created = patched;
       }
-      await KanbanBoardsService.recordCardActivity(
-        supabase,
-        orgId,
-        parent.board_id,
-        created.data.id,
-        userId,
-        "created_from_checklist",
-        { from_task: parent.task_number }
-      );
-      await supabase
-        .from("planning_task_checklist_items")
-        .delete()
-        .eq("organization_id", orgId)
-        .eq("id", itemId);
       return created;
     } catch (e) {
       return failure(e);
