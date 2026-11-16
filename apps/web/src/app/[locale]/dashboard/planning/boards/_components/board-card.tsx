@@ -119,6 +119,9 @@ export const BoardCard = memo(function BoardCard({
   const checklistComplete =
     card.checklist_total > 0 && card.checklist_done === card.checklist_total;
 
+  // Under a cover the card's body meets it with a straight edge.
+  const hasCover = Boolean(card.cover_url || card.cover_color);
+
   return (
     <KanbanCard id={card.id} className="overflow-hidden p-0">
       {card.cover_url ? (
@@ -139,7 +142,10 @@ export const BoardCard = memo(function BoardCard({
         role="button"
         tabIndex={0}
         aria-label={card.title}
-        className="relative flex w-full min-w-0 cursor-grab flex-col gap-2 rounded-md p-3 text-left outline-none active:cursor-grabbing"
+        className={cn(
+          "relative flex w-full min-w-0 cursor-grab flex-col gap-2 p-3 text-left outline-none active:cursor-grabbing",
+          hasCover ? "rounded-b-md" : "rounded-md"
+        )}
         onClick={() => !editingTitle && onOpen(card)}
         onKeyDown={(event) => {
           if (event.target !== event.currentTarget) return;
@@ -362,7 +368,10 @@ export const BoardCard = memo(function BoardCard({
 
         {columnColor ? (
           <span
-            className="absolute bottom-0 left-0 top-0 w-1 rounded-l-md"
+            className={cn(
+              "absolute bottom-0 left-0 top-0 w-1",
+              hasCover ? "rounded-bl-md" : "rounded-l-md"
+            )}
             style={{ backgroundColor: columnColor }}
             aria-hidden="true"
           />
