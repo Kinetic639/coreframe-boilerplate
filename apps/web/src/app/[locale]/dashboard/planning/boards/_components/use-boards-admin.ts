@@ -8,6 +8,8 @@ import {
   archiveKanbanBoardAction,
   deleteKanbanBoardAction,
   restoreKanbanBoardAction,
+  setKanbanBoardStarAction,
+  updateKanbanBoardAction,
 } from "@/app/actions/kanban";
 import type { KanbanBoardDetail, KanbanBoardSummary } from "@/lib/types/kanban";
 import { boardKeys, unwrap } from "./boards-query";
@@ -117,7 +119,66 @@ export function useBoardsAdmin(orgId: string) {
     [orgId, queryClient, t]
   );
 
-  return { boardChanged, archiveBoard, restoreBoard, deleteBoard };
+  /** Writes the star into the list and the board at once; puts it back if saving fails. */
+  const setStarred = useCallback(
+    (boardId: string, starred: boolean) => {
+      queryClient.setQueryData<KanbanBoardSummary[]>(boardKeys.list(orgId), (list) =>
+        list?.map((item) => (item.id === boardId ? { ...item, starred } : item))
+      );
+      queryClient.setQueryData<KanbanBoardDetail>(boardKeys.board(orgId, boardId), (detail) =>
+        detail ? { ...detail, starred } : detail
+      );
+    },
+    [orgId, queryClient]
+  );
+
+  const toggleStar = useCallback(
+    async (boardId: string, starred: boolean) => {
+      setStarred(boardId, starred);
+      try {
+        await unwrap(setKanbanBoardStarAction({ board_id: boardId, starred }));
+        return true;
+      } catch (error) {
+        setStarred(boardId, !starred);
+        toast.error(error instanceof Error ? error.message : "Operation failed");
+        return false;
+      }
+    },
+    [setStarred]
+  );
+
+  /** One change from the board's header (name, colour); the rest of the board stays as it is. */
+  const updateBoard = useCallback(
+    async (
+      board: KanbanBoardDetail,
+      patch: Partial<Pick<KanbanBoardDetail, "title" | "color">>
+    ) => {
+      const previous = board;
+      boardChanged({ ...board, ...patch });
+      try {
+        const saved = await unwrap(
+          updateKanbanBoardAction({
+            id: board.id,
+            title: board.title,
+            description: board.description,
+            color: board.color,
+            visibility: board.visibility,
+            branch_id: board.branch_id,
+            ...patch,
+          })
+        );
+        boardChanged(saved);
+        return true;
+      } catch (error) {
+        boardChanged(previous);
+        toast.error(error instanceof Error ? error.message : "Operation failed");
+        return false;
+      }
+    },
+    [boardChanged]
+  );
+
+  return { boardChanged, archiveBoard, restoreBoard, deleteBoard, toggleStar, updateBoard };
 }
 
 export type BoardsAdmin = ReturnType<typeof useBoardsAdmin>;

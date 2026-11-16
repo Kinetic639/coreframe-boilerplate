@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_BOARD_UI_PREFS,
   parseBoardUiPrefs,
+  MAX_RECENT_BOARDS,
   serializeBoardUiPrefs,
+  withBoardOpened,
   withColumnCollapsed,
 } from "../board-ui-prefs";
 
@@ -17,7 +19,7 @@ describe("board UI prefs", () => {
 
   it("round-trips through the cookie", () => {
     const prefs = withColumnCollapsed(
-      { lastBoardId: BOARD, inboxOpen: false, collapsed: {} },
+      { lastBoardId: BOARD, recent: [BOARD], inboxOpen: false, collapsed: {} },
       BOARD,
       COLUMN,
       true
@@ -31,6 +33,7 @@ describe("board UI prefs", () => {
     );
     expect(parseBoardUiPrefs(raw)).toEqual({
       lastBoardId: null,
+      recent: [],
       inboxOpen: true,
       collapsed: { [BOARD]: [COLUMN] },
     });
@@ -52,5 +55,28 @@ describe("board UI prefs", () => {
     const kept = Object.keys(parseBoardUiPrefs(serializeBoardUiPrefs(prefs)).collapsed);
     expect(kept).toHaveLength(12);
     expect(kept).not.toContain("00000000-1111-4111-8111-111111111111");
+  });
+
+  it("puts an opened board first in the recent list, without repeats", () => {
+    const other = "33333333-3333-4333-8333-333333333333";
+    let prefs = withBoardOpened(DEFAULT_BOARD_UI_PREFS, BOARD);
+    prefs = withBoardOpened(prefs, other);
+    prefs = withBoardOpened(prefs, BOARD);
+    expect(prefs.lastBoardId).toBe(BOARD);
+    expect(prefs.recent).toEqual([BOARD, other]);
+    expect(withBoardOpened(prefs, BOARD)).toBe(prefs);
+  });
+
+  it("keeps only the last few opened boards", () => {
+    let prefs = DEFAULT_BOARD_UI_PREFS;
+    for (let index = 0; index < 10; index += 1) {
+      prefs = withBoardOpened(
+        prefs,
+        `${String(index).padStart(8, "0")}-1111-4111-8111-111111111111`
+      );
+    }
+    const parsed = parseBoardUiPrefs(serializeBoardUiPrefs(prefs));
+    expect(parsed.recent).toHaveLength(MAX_RECENT_BOARDS);
+    expect(parsed.recent[0]).toBe("00000009-1111-4111-8111-111111111111");
   });
 });

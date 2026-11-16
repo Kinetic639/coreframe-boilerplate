@@ -63,6 +63,7 @@ import {
 } from "@/app/actions/planning/calendar";
 import { useDebounce } from "@/hooks/use-debounce";
 import { dateOnlyToLocalDate, dateToDateOnly } from "@/lib/planning/calendar-dates";
+import { TaskEditorDialog } from "@/components/planning/task-editor";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import {
   HELPDESK_TICKETS_SOURCE_ID,
@@ -85,9 +86,16 @@ interface Member {
 }
 
 interface PlanningCalendarClientProps {
+  orgId: string;
   members: Member[];
   currentUserId: string;
   canAssign: boolean;
+  /** Can edit a task from the calendar (planning.tasks.update or planning.boards.update). */
+  canUpdateTasks: boolean;
+  /** Can archive a task from the calendar. */
+  canArchiveTasks: boolean;
+  /** Can move a board task between its columns. */
+  canMoveTasks: boolean;
   canCreateTasks: boolean;
   priorityConfigs: Record<string, PlanningPriorityBadgeConfig> | null;
   initialVisibleSources: Record<string, boolean>;
@@ -286,6 +294,13 @@ function calendarEventDTOIntersectsRange(
 }
 
 export function PlanningCalendarClient({
+  orgId,
+  members,
+  currentUserId,
+  canAssign,
+  canUpdateTasks,
+  canArchiveTasks,
+  canMoveTasks,
   priorityConfigs,
   initialVisibleSources,
 }: PlanningCalendarClientProps) {
@@ -309,6 +324,8 @@ export function PlanningCalendarClient({
   const [unscheduledLimit, setUnscheduledLimit] = useState(50);
   const [unscheduledSearch, setUnscheduledSearch] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  /** A task (from the task list or a board) open in the task editor. */
+  const [editorTaskId, setEditorTaskId] = useState<string | null>(null);
   const [nativeEventDraft, setNativeEventDraft] = useState<NativeEventDraft | null>(null);
   const [schedulerTimezone] = useState(browserTimeZone);
 
@@ -801,6 +818,11 @@ export function PlanningCalendarClient({
     [queryClient]
   );
 
+  const refreshCalendar = useCallback(
+    () => void queryClient.invalidateQueries({ queryKey: planningCalendarKeys.all }),
+    [queryClient]
+  );
+
   const handleSelectRealEvent = useCallback((event: CalendarEvent) => {
     if (
       event.sourceType === "native_event" &&
@@ -817,6 +839,15 @@ export function PlanningCalendarClient({
         start: event.start,
         end: event.end,
       });
+      return;
+    }
+
+    // Tasks open in the same editor as on the boards and the task list.
+    if (
+      (event.sourceType === "planning_task" || event.sourceType === "kanban_card") &&
+      event.sourceId
+    ) {
+      setEditorTaskId(event.sourceId);
       return;
     }
 
@@ -1180,6 +1211,22 @@ export function PlanningCalendarClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <TaskEditorDialog
+        orgId={orgId}
+        taskRef={editorTaskId}
+        people={members}
+        currentUserId={currentUserId}
+        canUpdate={canUpdateTasks}
+        canAssign={canAssign}
+        canArchive={canArchiveTasks}
+        canMove={canMoveTasks}
+        onChanged={refreshCalendar}
+        onClose={() => {
+          setEditorTaskId(null);
+          refreshCalendar();
+        }}
+      />
 
       <Dialog
         open={Boolean(selectedEvent)}

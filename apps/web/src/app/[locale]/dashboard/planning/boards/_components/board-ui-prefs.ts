@@ -1,5 +1,6 @@
-// What the boards page remembers per browser: the last board, whether the
-// inbox is open and which columns are collapsed on each board. It lives in a
+// What the boards page remembers per browser: the last board, the boards
+// opened recently, whether the inbox is open and which columns are collapsed
+// on each board. It lives in a
 // cookie so the server renders the page the way it was left (no jump after
 // load).
 
@@ -7,15 +8,20 @@ export const BOARD_UI_COOKIE = "planning_boards_ui";
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 /** Boards whose collapsed columns are kept; the oldest are dropped first. */
 const MAX_BOARDS = 12;
+/** Recently opened boards kept, newest first. */
+export const MAX_RECENT_BOARDS = 6;
 
 export interface BoardUiPrefs {
   lastBoardId: string | null;
+  /** Boards opened recently, newest first. */
+  recent: string[];
   inboxOpen: boolean;
   collapsed: Record<string, string[]>;
 }
 
 export const DEFAULT_BOARD_UI_PREFS: BoardUiPrefs = {
   lastBoardId: null,
+  recent: [],
   inboxOpen: true,
   collapsed: {},
 };
@@ -29,6 +35,7 @@ export function parseBoardUiPrefs(raw: string | undefined | null): BoardUiPrefs 
       b?: unknown;
       i?: unknown;
       c?: unknown;
+      r?: unknown;
     };
     const collapsed: Record<string, string[]> = {};
     if (value.c && typeof value.c === "object") {
@@ -38,8 +45,14 @@ export function parseBoardUiPrefs(raw: string | undefined | null): BoardUiPrefs 
         if (columnIds.length) collapsed[boardId] = columnIds;
       }
     }
+    const recent = Array.isArray(value.r)
+      ? Array.from(
+          new Set(value.r.filter((id): id is string => typeof id === "string" && UUID.test(id)))
+        ).slice(0, MAX_RECENT_BOARDS)
+      : [];
     return {
       lastBoardId: typeof value.b === "string" && UUID.test(value.b) ? value.b : null,
+      recent,
       inboxOpen: value.i !== 0,
       collapsed,
     };
@@ -52,7 +65,12 @@ export function serializeBoardUiPrefs(prefs: BoardUiPrefs): string {
   const entries = Object.entries(prefs.collapsed).filter(([, ids]) => ids.length);
   const kept = Object.fromEntries(entries.slice(-MAX_BOARDS));
   return encodeURIComponent(
-    JSON.stringify({ b: prefs.lastBoardId ?? undefined, i: prefs.inboxOpen ? 1 : 0, c: kept })
+    JSON.stringify({
+      b: prefs.lastBoardId ?? undefined,
+      i: prefs.inboxOpen ? 1 : 0,
+      c: kept,
+      r: prefs.recent.length ? prefs.recent.slice(0, MAX_RECENT_BOARDS) : undefined,
+    })
   );
 }
 
@@ -74,4 +92,14 @@ export function withColumnCollapsed(
     : current.filter((id) => id !== columnId);
   const rest = Object.fromEntries(Object.entries(prefs.collapsed).filter(([id]) => id !== boardId));
   return { ...prefs, collapsed: next.length ? { ...rest, [boardId]: next } : rest };
+}
+
+/** A board was opened: it becomes the last board and goes to the front of the recent list. */
+export function withBoardOpened(prefs: BoardUiPrefs, boardId: string): BoardUiPrefs {
+  if (prefs.lastBoardId === boardId && prefs.recent[0] === boardId) return prefs;
+  return {
+    ...prefs,
+    lastBoardId: boardId,
+    recent: [boardId, ...prefs.recent.filter((id) => id !== boardId)].slice(0, MAX_RECENT_BOARDS),
+  };
 }

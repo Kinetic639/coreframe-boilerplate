@@ -2,7 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Archive, Edit3, MoreHorizontal, Plus, SendHorizontal } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  ArrowUpToLine,
+  Check,
+  Edit3,
+  MoreHorizontal,
+  Palette,
+  Plus,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,6 +25,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -33,18 +48,112 @@ import { cn } from "@/utils";
 import { COLUMN_COLORS, statusLabel } from "./board-format";
 import type { BoardActions } from "./use-board-actions";
 
+/** Saves one field of a column; the update takes the whole column. */
+function saveColumn(
+  actions: BoardActions,
+  column: KanbanBoardColumn,
+  patch: Partial<Pick<KanbanBoardColumn, "title" | "color">>
+) {
+  return actions.updateColumn({
+    id: column.id,
+    board_id: column.board_id,
+    title: column.title,
+    description: column.description,
+    color: column.color,
+    status_category: column.status_category,
+    ...patch,
+  });
+}
+
+/** The column's name: a click turns it into a field. Enter or leaving saves, Esc cancels. */
+export function ColumnTitle({
+  column,
+  canEdit,
+  actions,
+}: {
+  column: KanbanBoardColumn;
+  canEdit: boolean;
+  actions: BoardActions;
+}) {
+  const t = useTranslations("modules.planning");
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(column.title);
+  const doneRef = useRef(false);
+
+  if (!canEdit) {
+    return (
+      <h2 className="truncate text-sm font-semibold" title={column.title}>
+        {column.title}
+      </h2>
+    );
+  }
+
+  const finish = (save: boolean) => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    setEditing(false);
+    const title = value.trim();
+    if (save && title && title !== column.title) void saveColumn(actions, column, { title });
+  };
+
+  if (editing) {
+    return (
+      <Input
+        autoFocus
+        value={value}
+        maxLength={120}
+        aria-label={t("boards.columnTitle")}
+        className="h-7 px-1.5 text-sm font-semibold"
+        onFocus={(event) => event.currentTarget.select()}
+        onChange={(event) => setValue(event.target.value)}
+        onPointerDown={(event) => event.stopPropagation()}
+        onBlur={() => finish(true)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            finish(true);
+          }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            finish(false);
+          }
+        }}
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className="min-w-0 truncate rounded px-1 -mx-1 text-left text-sm font-semibold hover:bg-muted/70"
+      title={t("boards.list.renameHint")}
+      onClick={() => {
+        doneRef.current = false;
+        setValue(column.title);
+        setEditing(true);
+      }}
+    >
+      {column.title}
+    </button>
+  );
+}
+
 export function ColumnMenu({
   boardId,
   column,
+  cardCount,
   canUpdate,
   canDelete,
   actions,
+  onAddCardTop,
 }: {
   boardId: string;
   column: KanbanBoardColumn;
+  cardCount: number;
   canUpdate: boolean;
   canDelete: boolean;
   actions: BoardActions;
+  onAddCardTop: () => void;
 }) {
   const t = useTranslations("modules.planning");
   const [editOpen, setEditOpen] = useState(false);
@@ -89,19 +198,69 @@ export function ColumnMenu({
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="w-60">
+          <DropdownMenuLabel className="truncate">{column.title}</DropdownMenuLabel>
+          <DropdownMenuSeparator />
           {canUpdate ? (
-            <DropdownMenuItem onClick={openEdit}>
-              <Edit3 className="mr-2 h-4 w-4" />
-              {t("boards.editColumn")}
-            </DropdownMenuItem>
+            <>
+              <DropdownMenuItem onSelect={onAddCardTop}>
+                <ArrowUpToLine className="mr-2 h-4 w-4" />
+                {t("boards.list.addCardTop")}
+              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Palette className="mr-2 h-4 w-4" />
+                  {t("boards.color")}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="p-2">
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {COLUMN_COLORS.map((candidate) => (
+                      <button
+                        key={candidate}
+                        type="button"
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-white"
+                        style={{ backgroundColor: candidate }}
+                        aria-label={candidate}
+                        onClick={() => void saveColumn(actions, column, { color: candidate })}
+                      >
+                        {column.color === candidate ? <Check className="h-3.5 w-3.5" /> : null}
+                      </button>
+                    ))}
+                  </div>
+                  {column.color ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2 h-7 w-full text-xs"
+                      onClick={() => void saveColumn(actions, column, { color: null })}
+                    >
+                      <X className="mr-1.5 h-3 w-3" />
+                      {t("boards.list.noColor")}
+                    </Button>
+                  ) : null}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuItem onSelect={openEdit}>
+                <Edit3 className="mr-2 h-4 w-4" />
+                {t("boards.editColumn")}
+              </DropdownMenuItem>
+            </>
           ) : null}
           {canDelete ? (
-            // Archiving can be undone from the toast or the board archive.
-            <DropdownMenuItem onClick={() => void actions.archiveColumn(column.id)}>
-              <Archive className="mr-2 h-4 w-4" />
-              {t("boards.archiveColumn")}
-            </DropdownMenuItem>
+            <>
+              <DropdownMenuSeparator />
+              {cardCount ? (
+                <DropdownMenuItem onSelect={() => void actions.archiveColumnCards(column.id)}>
+                  <ArchiveRestore className="mr-2 h-4 w-4" />
+                  {t("boards.list.archiveAllCards", { count: cardCount })}
+                </DropdownMenuItem>
+              ) : null}
+              {/* Archiving can be undone from the toast or the board archive. */}
+              <DropdownMenuItem onSelect={() => void actions.archiveColumn(column.id)}>
+                <Archive className="mr-2 h-4 w-4" />
+                {t("boards.archiveColumn")}
+              </DropdownMenuItem>
+            </>
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -132,24 +291,68 @@ export function ColumnMenu({
   );
 }
 
-/** Quick add at the bottom of a column: Enter adds and keeps the field open for the next one. */
-export function AddCardForm({ columnId, actions }: { columnId: string; actions: BoardActions }) {
+/** The closed "+ Add a card" at the bottom of a column. */
+export function AddCardButton({ onClick }: { onClick: () => void }) {
+  const t = useTranslations("modules.planning");
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="h-8 w-full justify-start gap-1.5 px-2 text-muted-foreground hover:text-foreground"
+      onClick={onClick}
+    >
+      <Plus className="h-4 w-4" />
+      {t("boards.list.addCard")}
+    </Button>
+  );
+}
+
+/**
+ * Adding cards, Trello style: Enter adds and keeps the field open for the next
+ * one, Esc closes it, and pasting several lines adds one card per line.
+ */
+export function AddCardComposer({
+  columnId,
+  atTop = false,
+  actions,
+  onClose,
+}: {
+  columnId: string;
+  atTop?: boolean;
+  actions: BoardActions;
+  onClose: () => void;
+}) {
   const t = useTranslations("modules.planning");
   const [title, setTitle] = useState("");
   const [isPending, setIsPending] = useState(false);
   const pendingRef = useRef(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    formRef.current?.scrollIntoView({ block: "nearest" });
+  }, []);
+
+  /** Adds the titles in order; at the top they go in reverse so they read top-down. */
+  const addAll = async (titles: string[]) => {
+    // A ref, not state: two quick Enters must not create two cards.
+    if (!titles.length || pendingRef.current) return false;
+    pendingRef.current = true;
+    setIsPending(true);
+    let ok = true;
+    for (const value of atTop ? [...titles].reverse() : titles) {
+      ok = await actions.createCard(columnId, value, { atTop });
+      if (!ok) break;
+    }
+    pendingRef.current = false;
+    setIsPending(false);
+    return ok;
+  };
 
   const submit = async () => {
     const value = title.trim();
-    // A ref, not state: two quick Enters must not create two cards.
-    if (!value || pendingRef.current) return;
-    pendingRef.current = true;
-    setIsPending(true);
-    const created = await actions.createCard(columnId, value);
-    pendingRef.current = false;
-    setIsPending(false);
-    if (created) {
+    if (await addAll(value ? [value] : [])) {
       setTitle("");
       inputRef.current?.focus();
     }
@@ -157,29 +360,68 @@ export function AddCardForm({ columnId, actions }: { columnId: string; actions: 
 
   return (
     <form
-      className="flex gap-2"
+      ref={formRef}
+      className="space-y-2"
       onSubmit={(event) => {
         event.preventDefault();
         void submit();
       }}
     >
-      <Input
+      <Textarea
         ref={inputRef}
+        autoFocus
+        rows={2}
         value={title}
-        onChange={(event) => setTitle(event.target.value)}
+        disabled={isPending && !title}
+        onChange={(event) => setTitle(event.target.value.replace(/\n/g, " "))}
+        onPaste={(event) => {
+          const lines = event.clipboardData
+            .getData("text")
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean);
+          if (lines.length < 2) return;
+          event.preventDefault();
+          void addAll(lines.map((line) => line.slice(0, 300))).then((ok) => {
+            if (ok) setTitle("");
+          });
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            void submit();
+          }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onClose();
+          }
+        }}
+        onBlur={(event) => {
+          // Leaving an empty field closes it; a typed title stays until Esc.
+          if (!title.trim() && !formRef.current?.contains(event.relatedTarget as Node)) onClose();
+        }}
         placeholder={t("boards.cardPlaceholder")}
         aria-label={t("boards.cardPlaceholder")}
-        className="h-8"
+        className="min-h-0 resize-none bg-card text-sm shadow-xs"
       />
-      <Button
-        type="submit"
-        size="icon"
-        className="h-8 w-8"
-        disabled={!title.trim() || isPending}
-        aria-label={t("boards.addCard")}
-      >
-        <SendHorizontal className="h-4 w-4" />
-      </Button>
+      <div className="flex items-center gap-1.5">
+        <Button type="submit" size="sm" className="h-8" disabled={!title.trim() || isPending}>
+          {t("boards.list.addCardSubmit")}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          aria-label={t("boards.cancel")}
+          onClick={onClose}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+        <span className="ml-auto text-[10px] text-muted-foreground">
+          {t("boards.list.pasteHint")}
+        </span>
+      </div>
     </form>
   );
 }

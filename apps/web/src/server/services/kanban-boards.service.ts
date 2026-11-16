@@ -15,6 +15,7 @@ import type {
   UpdateKanbanBoardMemberInput,
   UpdateKanbanCardInput,
   UpdateKanbanColumnInput,
+  PatchKanbanTaskInput,
 } from "@/lib/validations/kanban";
 import { normalizeCommentRichText } from "@/lib/validations/comments";
 import {
@@ -28,6 +29,7 @@ import {
   type KanbanBoardDetail,
   type KanbanBoardSummary,
   type KanbanMoveResult,
+  type KanbanTaskEditorData,
   type KanbanTaskStatus,
 } from "@/lib/types/kanban";
 
@@ -127,10 +129,51 @@ async function myMemberRoles(
   );
 }
 
+/** The boards this user starred. */
+async function myStars(
+  supabase: SupabaseClient,
+  orgId: string,
+  userId: string | undefined
+): Promise<Set<string>> {
+  if (!userId) return new Set();
+  const { data } = await supabase
+    .from("planning_kanban_board_stars")
+    .select("board_id")
+    .eq("organization_id", orgId)
+    .eq("user_id", userId);
+  return new Set(((data ?? []) as Array<{ board_id: string }>).map((row) => row.board_id));
+}
+
+/** How many comments each task has (one query per 200 tasks). */
+async function withCommentCounts(
+  supabase: SupabaseClient,
+  orgId: string,
+  cards: KanbanBoardCard[]
+): Promise<KanbanBoardCard[]> {
+  if (!cards.length) return cards;
+  const counts = new Map<string, number>();
+  const ids = cards.map((card) => card.id);
+  // Chunked: a long id list would not fit in one request URL.
+  for (let start = 0; start < ids.length; start += 200) {
+    const { data } = await supabase
+      .from("app_comments")
+      .select("target_id")
+      .eq("org_id", orgId)
+      .eq("target_type", "planning.task")
+      .in("target_id", ids.slice(start, start + 200))
+      .is("deleted_at", null);
+    for (const row of (data ?? []) as Array<{ target_id: string }>) {
+      counts.set(row.target_id, (counts.get(row.target_id) ?? 0) + 1);
+    }
+  }
+  return cards.map((card) => ({ ...card, comment_count: counts.get(card.id) ?? 0 }));
+}
+
 function mapBoard(
   row: any,
   userId?: string,
-  memberRoles: Map<string, KanbanMemberRole> = new Map()
+  memberRoles: Map<string, KanbanMemberRole> = new Map(),
+  stars: Set<string> = new Set()
 ): KanbanBoardSummary {
   const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator;
   return {
@@ -150,6 +193,7 @@ function mapBoard(
     updated_at: row.updated_at,
     archived_at: row.archived_at ?? null,
     my_access: boardAccess(row, userId, memberRoles.get(row.id)),
+    starred: stars.has(row.id),
   };
 }
 
@@ -213,6 +257,7 @@ function mapCard(row: any): KanbanBoardCard {
     created_at: row.created_at,
     updated_at: row.updated_at,
     archived_at: row.deleted_at ?? null,
+    comment_count: row.comment_count ?? 0,
   };
 }
 
@@ -360,15 +405,16 @@ export const KanbanBoardsService = {
         ? query.not("archived_at", "is", null).order("archived_at", { ascending: false })
         : query.is("archived_at", null).order("updated_at", { ascending: false });
 
-      const [{ data, error }, memberRoles] = await Promise.all([
+      const [{ data, error }, memberRoles, stars] = await Promise.all([
         query,
         myMemberRoles(supabase, orgId, userId),
+        myStars(supabase, orgId, userId),
       ]);
 
       if (error) return { success: false, error: error.message };
       return {
         success: true,
-        data: (data ?? []).map((row) => mapBoard(row, userId, memberRoles)),
+        data: (data ?? []).map((row) => mapBoard(row, userId, memberRoles, stars)),
       };
     } catch (e) {
       return failure(e);
@@ -393,7 +439,7 @@ export const KanbanBoardsService = {
 
       if (boardError) return { success: false, error: boardError.message };
 
-      const [columnsResult, cardsResult, membersResult] = await Promise.all([
+      const [columnsResult, cardsResult, membersResult, stars] = await Promise.all([
         supabase
           .from("planning_kanban_columns")
           .select(COLUMN_FIELDS)
@@ -420,6 +466,7 @@ export const KanbanBoardsService = {
           .eq("organization_id", orgId)
           .eq("board_id", boardId)
           .order("created_at", { ascending: true }),
+        myStars(supabase, orgId, userId),
       ]);
 
       if (columnsResult.error) return { success: false, error: columnsResult.error.message };
@@ -433,15 +480,18 @@ export const KanbanBoardsService = {
       const columns = (columnsResult.data ?? []).map(mapColumn);
       // Tasks of an archived column stay in it, out of sight, until it comes back.
       const openColumnIds = new Set(columns.map((column) => column.id));
+      const cards = await withCommentCounts(
+        supabase,
+        orgId,
+        (cardsResult.data ?? []).map(mapCard).filter((card) => openColumnIds.has(card.column_id))
+      );
 
       return {
         success: true,
         data: {
-          ...mapBoard(boardRaw, userId, memberRoles),
+          ...mapBoard(boardRaw, userId, memberRoles, stars),
           columns,
-          cards: (cardsResult.data ?? [])
-            .map(mapCard)
-            .filter((card) => openColumnIds.has(card.column_id)),
+          cards,
           members,
         },
       };
@@ -635,8 +685,11 @@ export const KanbanBoardsService = {
         .select(BOARD_FIELDS)
         .single();
       if (error) return { success: false, error: error.message };
-      const memberRoles = await myMemberRoles(supabase, orgId, userId);
-      return { success: true, data: mapBoard(data, userId, memberRoles) };
+      const [memberRoles, stars] = await Promise.all([
+        myMemberRoles(supabase, orgId, userId),
+        myStars(supabase, orgId, userId),
+      ]);
+      return { success: true, data: mapBoard(data, userId, memberRoles, stars) };
     } catch (e) {
       return failure(e);
     }
@@ -857,7 +910,7 @@ export const KanbanBoardsService = {
         .select(TASK_CARD_FIELDS)
         .single();
       if (error) return { success: false, error: error.message };
-      const card = mapCard(data);
+      let card = mapCard(data);
       await KanbanBoardsService.recordCardActivity(
         supabase,
         orgId,
@@ -866,6 +919,18 @@ export const KanbanBoardsService = {
         userId,
         "task_created"
       );
+      if (input.position !== undefined && input.position < position) {
+        // "Add to the top": the move renumbers the column in one transaction.
+        const { data: moved, error: moveError } = await supabase.rpc("planning_move_task", {
+          p_task_id: card.id,
+          p_board_id: input.board_id,
+          p_column_id: input.column_id,
+          p_position: input.position,
+        });
+        if (!moveError && moved) {
+          card = { ...card, position: (moved as MoveRpcResult).position };
+        }
+      }
       return { success: true, data: card };
     } catch (e) {
       return failure(e);
@@ -1088,6 +1153,274 @@ export const KanbanBoardsService = {
   },
 
   /** Archives a task (the same archive the task list uses). */
+  /** Stars or unstars a board for the current user (their favourites). */
+  async setBoardStar(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    boardId: string,
+    starred: boolean
+  ): Promise<ServiceResult<void>> {
+    try {
+      const { error } = starred
+        ? await supabase
+            .from("planning_kanban_board_stars")
+            .upsert(
+              { user_id: userId, board_id: boardId, organization_id: orgId },
+              { onConflict: "user_id,board_id", ignoreDuplicates: true }
+            )
+        : await supabase
+            .from("planning_kanban_board_stars")
+            .delete()
+            .eq("user_id", userId)
+            .eq("board_id", boardId);
+      if (error) return { success: false, error: error.message };
+      return { success: true, data: undefined };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  /**
+   * A task as the task editor shows it, by id or by number (TSK-0042), with
+   * its board and the board's open columns when it sits on one.
+   */
+  async getTaskEditor(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    ref: string
+  ): Promise<ServiceResult<KanbanTaskEditorData>> {
+    try {
+      const byId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref);
+      const { data: row, error } = await supabase
+        .from("planning_tasks")
+        .select(TASK_CARD_FIELDS)
+        .eq("organization_id", orgId)
+        .eq(byId ? "id" : "task_number", byId ? ref : ref.toUpperCase())
+        .maybeSingle();
+      if (error) return { success: false, error: error.message };
+      if (!row) return { success: false, error: "Task not found" };
+      const [card] = await withCommentCounts(supabase, orgId, [mapCard(row)]);
+
+      if (!card.board_id) return { success: true, data: { card, board: null, columns: [] } };
+
+      const [boardResult, columnsResult, memberRoles] = await Promise.all([
+        supabase
+          .from("planning_kanban_boards")
+          .select("id, title, color, archived_at, created_by")
+          .eq("organization_id", orgId)
+          .eq("id", card.board_id)
+          .is("deleted_at", null)
+          .maybeSingle(),
+        supabase
+          .from("planning_kanban_columns")
+          .select(COLUMN_FIELDS)
+          .eq("organization_id", orgId)
+          .eq("board_id", card.board_id)
+          .is("deleted_at", null)
+          .is("archived_at", null)
+          .order("position", { ascending: true }),
+        myMemberRoles(supabase, orgId, userId),
+      ]);
+      const boardRow = boardResult.data as {
+        id: string;
+        title: string;
+        color: string | null;
+        archived_at: string | null;
+        created_by: string;
+      } | null;
+      // The board may be out of reach (not shared with this user): the task
+      // still opens, without its board.
+      if (!boardRow) return { success: true, data: { card, board: null, columns: [] } };
+      return {
+        success: true,
+        data: {
+          card,
+          board: {
+            id: boardRow.id,
+            title: boardRow.title,
+            color: boardRow.color ?? null,
+            archived_at: boardRow.archived_at ?? null,
+            my_access: boardAccess(boardRow, userId, memberRoles.get(boardRow.id)),
+          },
+          columns: (columnsResult.data ?? []).map(mapColumn),
+        },
+      };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  /**
+   * Saves only the fields that came in (the task editor saves each field on
+   * its own) and writes one history entry per real change.
+   */
+  async patchTask(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: PatchKanbanTaskInput
+  ): Promise<ServiceResult<KanbanBoardCard>> {
+    try {
+      const { data: currentRaw, error: currentError } = await supabase
+        .from("planning_tasks")
+        .select(
+          "id, board_id, status, assigned_to, title, priority, due_at, description_plain, description_rich, label, label_color"
+        )
+        .eq("organization_id", orgId)
+        .eq("id", input.id)
+        .is("deleted_at", null)
+        .single();
+      if (currentError) return { success: false, error: currentError.message };
+      const current = currentRaw as {
+        board_id: string | null;
+        status: KanbanTaskStatus;
+        assigned_to: string | null;
+        title: string;
+        priority: string;
+        due_at: string | null;
+        description_plain: string | null;
+        description_rich: unknown;
+        label: string | null;
+        label_color: string | null;
+      };
+
+      const update: Record<string, unknown> = {};
+      const history: Array<[string, Record<string, unknown>]> = [];
+
+      if (input.title !== undefined && input.title !== current.title) {
+        update.title = input.title;
+        history.push(["title_changed", { from: current.title, to: input.title }]);
+      }
+      if (input.description !== undefined || input.description_rich !== undefined) {
+        const plain = input.description ?? null;
+        const rich =
+          input.description_rich === undefined
+            ? current.description_rich
+            : (normalizeCommentRichText(input.description_rich) ?? null);
+        if (
+          plain !== (current.description_plain ?? null) ||
+          JSON.stringify(rich ?? null) !== JSON.stringify(current.description_rich ?? null)
+        ) {
+          update.description_plain = plain || null;
+          update.description_rich = rich ?? null;
+          history.push(["description_changed", {}]);
+        }
+      }
+      if (input.priority !== undefined && input.priority !== current.priority) {
+        update.priority = input.priority;
+        history.push(["priority_changed", { from: current.priority, to: input.priority }]);
+      }
+      if (input.due_at !== undefined && (input.due_at ?? null) !== (current.due_at ?? null)) {
+        const dueAt = input.due_at ?? null;
+        update.due_at = dueAt;
+        // The calendar reads the day: keep it with the time.
+        update.due_date = dueAt ? dueAt.slice(0, 10) : null;
+        history.push(["due_date_changed", { due_at_from: current.due_at, due_at_to: dueAt }]);
+      }
+      if (
+        (input.label !== undefined && (input.label || null) !== current.label) ||
+        (input.label_color !== undefined && (input.label_color || null) !== current.label_color)
+      ) {
+        const label = input.label !== undefined ? input.label || null : current.label;
+        update.label = label;
+        update.label_color = label
+          ? input.label_color !== undefined
+            ? input.label_color || null
+            : current.label_color
+          : null;
+        history.push(["card_updated", {}]);
+      }
+      if (input.status !== undefined && input.status !== current.status) {
+        update.status = input.status;
+      }
+      if (input.assigned_to !== undefined && input.assigned_to !== current.assigned_to) {
+        update.assigned_to = input.assigned_to;
+        history.push([
+          input.assigned_to ? "assigned" : "unassigned",
+          { from: current.assigned_to, to: input.assigned_to },
+        ]);
+      }
+
+      if (!Object.keys(update).length) {
+        const unchanged = await selectCard(supabase, orgId, input.id);
+        if (!unchanged.success) return unchanged;
+        const [card] = await withCommentCounts(supabase, orgId, [unchanged.data]);
+        return { success: true, data: card };
+      }
+
+      const { data: updatedRaw, error } = await supabase
+        .from("planning_tasks")
+        .update({ ...update, updated_by: userId })
+        .eq("organization_id", orgId)
+        .eq("id", input.id)
+        .is("deleted_at", null)
+        .select(TASK_CARD_FIELDS)
+        .single();
+      if (error) return { success: false, error: error.message };
+      const [card] = await withCommentCounts(supabase, orgId, [mapCard(updatedRaw)]);
+
+      // A status change may also move the task on its board (board trigger).
+      if (card.status !== current.status) {
+        history.push([
+          statusActivityType(current.status, card.status),
+          { from: current.status, to: card.status },
+        ]);
+      }
+      for (const [type, metadata] of history) {
+        await KanbanBoardsService.recordCardActivity(
+          supabase,
+          orgId,
+          current.board_id,
+          input.id,
+          userId,
+          type,
+          metadata
+        );
+      }
+      return { success: true, data: card };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  /** Archives every task of a column at once (e.g. clearing "Done"). Returns their ids. */
+  async archiveColumnCards(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    boardId: string,
+    columnId: string
+  ): Promise<ServiceResult<string[]>> {
+    try {
+      const { data, error } = await supabase
+        .from("planning_tasks")
+        .update({ deleted_at: new Date().toISOString(), updated_by: userId })
+        .eq("organization_id", orgId)
+        .eq("board_id", boardId)
+        .eq("column_id", columnId)
+        .is("deleted_at", null)
+        .select("id");
+      if (error) return { success: false, error: error.message };
+      const ids = ((data ?? []) as Array<{ id: string }>).map((row) => row.id);
+      if (ids.length) {
+        await supabase.from("planning_task_activity").insert(
+          ids.map((id) => ({
+            organization_id: orgId,
+            task_id: id,
+            actor_id: userId,
+            activity_type: "archived",
+            metadata: { board_id: boardId, column_id: columnId },
+          }))
+        );
+      }
+      return { success: true, data: ids };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
   async archiveCard(
     supabase: SupabaseClient,
     orgId: string,

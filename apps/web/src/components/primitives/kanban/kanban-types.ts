@@ -31,7 +31,13 @@ export interface KanbanBoardProps<TItem> {
   onCardMove?: (params: KanbanCardMoveParams) => void | Promise<void>;
   onColumnsChange?: (columns: KanbanColumnDefinition[]) => void | Promise<void>;
   renderColumnActions?: (column: KanbanColumnDefinition) => ReactNode;
+  /** Replaces the column's title (e.g. a title edited in place). */
+  renderColumnTitle?: (column: KanbanColumnDefinition) => ReactNode;
+  /** How a column shows its colour: a dot by the title, or a bar over the header. */
+  columnAccent?: "dot" | "bar";
   renderColumnFooter?: (column: KanbanColumnDefinition) => ReactNode;
+  /** Shown above the column's cards (e.g. a card being added at the top). */
+  renderColumnTop?: (column: KanbanColumnDefinition) => ReactNode;
   renderColumnEmpty?: (column: KanbanColumnDefinition) => ReactNode;
   renderAddColumn?: () => ReactNode;
   renderScrollableHeader?: () => ReactNode;

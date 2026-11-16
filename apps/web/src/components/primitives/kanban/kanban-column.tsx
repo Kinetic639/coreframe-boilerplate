@@ -13,7 +13,11 @@ interface KanbanColumnProps<TItem> {
   getItemId: (item: TItem) => string;
   renderCard: (item: TItem) => ReactNode;
   actions?: ReactNode;
+  /** Replaces the plain title (e.g. a title edited in place). */
+  title?: ReactNode;
+  accent?: "dot" | "bar";
   footer?: ReactNode;
+  top?: ReactNode;
   emptyContent?: ReactNode;
   labels?: KanbanBoardLabels;
   className?: string;
@@ -30,7 +34,10 @@ export function KanbanColumn<TItem>({
   getItemId,
   renderCard,
   actions,
+  title,
+  accent: accentStyle = "dot",
   footer,
+  top,
   emptyContent,
   labels,
   className,
@@ -109,7 +116,17 @@ export function KanbanColumn<TItem>({
         className
       )}
     >
-      <div className="flex min-w-0 items-start justify-between gap-2 border-b border-border px-3 py-3">
+      <div
+        className="flex min-w-0 items-start justify-between gap-2 rounded-t-md border-b border-border px-3 py-3"
+        style={
+          accentStyle === "bar" && column.color
+            ? {
+                boxShadow: `inset 0 3px 0 ${column.color}`,
+                backgroundColor: `color-mix(in srgb, ${column.color} 10%, transparent)`,
+              }
+            : undefined
+        }
+      >
         <div className="flex min-w-0 items-start gap-2">
           {columnDraggable ? (
             <button
@@ -127,16 +144,20 @@ export function KanbanColumn<TItem>({
               <GripVertical className="h-4 w-4" />
             </button>
           ) : null}
-          <span
-            className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
-            style={{ backgroundColor: accent }}
-            aria-hidden="true"
-          />
-          <div className="min-w-0">
+          {accentStyle === "dot" ? (
+            <span
+              className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+              style={{ backgroundColor: accent }}
+              aria-hidden="true"
+            />
+          ) : null}
+          <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-2">
-              <h2 className="truncate text-sm font-semibold" title={column.title}>
-                {column.title}
-              </h2>
+              {title ?? (
+                <h2 className="truncate text-sm font-semibold" title={column.title}>
+                  {column.title}
+                </h2>
+              )}
               <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-muted px-1.5 text-[11px] font-medium text-muted-foreground">
                 {items.length}
               </span>
@@ -166,6 +187,7 @@ export function KanbanColumn<TItem>({
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
           <div className="flex min-h-full flex-col gap-2">
+            {top}
             {items.length ? (
               items.map((item) => <div key={getItemId(item)}>{renderCard(item)}</div>)
             ) : emptyContent ? (
