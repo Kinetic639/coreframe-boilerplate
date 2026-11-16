@@ -118,7 +118,52 @@ export interface KanbanBoardCard {
   subtask_done: number;
   /** Open tasks this one waits for ("blocked"). */
   blocked_by_open: number;
+  /** "Repeat every …": completing the task makes the next one. */
+  recurrence: KanbanRecurrence | null;
+  /** Custom field values, by field id (fields of the task's board). */
+  custom_values: Record<string, KanbanCustomFieldValue>;
 }
+
+export const KANBAN_RECURRENCE_FREQS = ["daily", "weekly", "monthly", "yearly"] as const;
+export type KanbanRecurrenceFreq = (typeof KANBAN_RECURRENCE_FREQS)[number];
+
+/** How a task repeats (stored as JSON on the task). */
+export interface KanbanRecurrence {
+  freq: KanbanRecurrenceFreq;
+  /** Every N days / weeks / months / years (1 when left out). */
+  interval?: number;
+  /** Weekly: ISO days, 1 = Monday … 7 = Sunday. */
+  weekdays?: number[];
+  /** Monthly: the day of the month (clamped to the month's last day). */
+  monthday?: number;
+  /** No copies after this day (YYYY-MM-DD). */
+  until?: string;
+}
+
+export const KANBAN_CUSTOM_FIELD_TYPES = ["text", "number", "date", "select", "checkbox"] as const;
+export type KanbanCustomFieldType = (typeof KANBAN_CUSTOM_FIELD_TYPES)[number];
+
+export interface KanbanCustomFieldOption {
+  id: string;
+  name: string;
+  color: string;
+}
+
+/** A board's own field: its cards fill it in. */
+export interface KanbanCustomField {
+  id: string;
+  board_id: string;
+  name: string;
+  field_type: KanbanCustomFieldType;
+  /** Choices of a select field. */
+  options: KanbanCustomFieldOption[];
+  /** Shown on the card on the board, not only in its window. */
+  show_on_card: boolean;
+  position: number;
+}
+
+/** text and date (YYYY-MM-DD) and select (an option id) are strings. */
+export type KanbanCustomFieldValue = string | number | boolean;
 
 /** A task named from another one: its parent, a sub-task, a dependency. */
 export interface KanbanTaskRef {
@@ -193,6 +238,8 @@ export interface KanbanBoardDetail extends KanbanBoardSummary {
   labels: KanbanBoardLabel[];
   cards: KanbanBoardCard[];
   members: KanbanBoardMember[];
+  /** The board's custom fields, in order. */
+  custom_fields: KanbanCustomField[];
 }
 
 /** Where a task ended up after a move (the database may change its status). */
@@ -226,4 +273,6 @@ export interface KanbanTaskEditorData {
   columns: KanbanBoardColumn[];
   /** The labels a task on this board can carry (empty off a board). */
   labels: KanbanBoardLabel[];
+  /** The board's custom fields (empty off a board). */
+  custom_fields?: KanbanCustomField[];
 }

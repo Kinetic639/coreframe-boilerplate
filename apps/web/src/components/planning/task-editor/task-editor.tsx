@@ -58,6 +58,7 @@ import type {
   KanbanBoardCard,
   KanbanBoardLabel,
   KanbanCardActivity,
+  KanbanRecurrence,
   KanbanTaskEditorData,
   KanbanTaskStatus,
 } from "@/lib/types/kanban";
@@ -93,6 +94,8 @@ import {
 import { TaskQrSection } from "./task-qr-section";
 import { TaskRelationsSection } from "./task-relations";
 import { CopyCardDialog } from "./copy-card-dialog";
+import { CustomFieldsSection } from "./custom-fields";
+import { RecurrencePicker } from "./recurrence-picker";
 
 export interface TaskEditorPerson {
   user_id: string;
@@ -177,7 +180,7 @@ function TaskEditorBody({
   const t = useTranslations("modules.planning");
   const format = useFormatter();
   const queryClient = useQueryClient();
-  const { card, board, columns, labels: boardLabels = [] } = data;
+  const { card, board, columns, labels: boardLabels = [], custom_fields: customFields = [] } = data;
   const taskKey = useMemo(() => taskEditorKeys.task(orgId, taskRef), [orgId, taskRef]);
 
   const isArchived = Boolean(card.archived_at);
@@ -237,6 +240,9 @@ function TaskEditorBody({
         ...(fields.title !== undefined ? { title: fields.title } : {}),
         ...(fields.priority !== undefined ? { priority: fields.priority } : {}),
         ...(fields.is_template !== undefined ? { is_template: fields.is_template } : {}),
+        ...(fields.recurrence !== undefined
+          ? { recurrence: (fields.recurrence ?? null) as KanbanRecurrence | null }
+          : {}),
         ...(fields.status !== undefined ? { status: fields.status } : {}),
         ...(fields.due_at !== undefined ? { due_at: fields.due_at, due_has_time: false } : {}),
         ...(fields.dates
@@ -443,6 +449,15 @@ function TaskEditorBody({
             }}
           />
 
+          {board && !card.is_inbox ? (
+            <CustomFieldsSection
+              card={card}
+              fields={customFields}
+              disabled={!canUpdate}
+              onCardChange={relationsCardChange}
+            />
+          ) : null}
+
           <TaskRelationsSection
             orgId={orgId}
             card={card}
@@ -528,6 +543,11 @@ function TaskEditorBody({
             {board && !card.is_inbox ? (
               <CoverPicker card={card} disabled={!canUpdate} onChange={(cover) => save(cover)} />
             ) : null}
+            <RecurrencePicker
+              card={card}
+              disabled={!canUpdate || card.is_template}
+              onChange={(recurrence) => save({ recurrence })}
+            />
             {canUpdatePermission && !isArchived ? (
               <Button
                 variant="outline"

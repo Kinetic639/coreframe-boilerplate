@@ -185,7 +185,26 @@ export const patchKanbanTaskSchema = z.object({
   is_template: z.boolean().optional(),
   /** The task this one is a sub-task of (null = none). */
   parent_task_id: z.string().uuid().nullable().optional(),
+  /** How the task repeats (null = it does not). */
+  recurrence: z
+    .lazy(() => kanbanRecurrenceSchema)
+    .nullable()
+    .optional(),
 });
+
+/** "Repeat every …"; the database checks the same shape. */
+export const kanbanRecurrenceSchema = z
+  .object({
+    freq: z.enum(["daily", "weekly", "monthly", "yearly"]),
+    interval: z.number().int().min(1).max(365).optional(),
+    weekdays: z.array(z.number().int().min(1).max(7)).max(7).optional(),
+    monthday: z.number().int().min(1).max(31).optional(),
+    until: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+  })
+  .strict();
 
 /** What a card copy takes along (comments, attachments and history never). */
 export const KANBAN_COPY_PARTS = [
@@ -196,6 +215,7 @@ export const KANBAN_COPY_PARTS = [
   "dates",
   "cover",
   "priority",
+  "fields",
 ] as const;
 export type KanbanCopyPart = (typeof KANBAN_COPY_PARTS)[number];
 
@@ -354,3 +374,49 @@ export type ReorderKanbanColumnsInput = z.infer<typeof reorderKanbanColumnsSchem
 export type AddKanbanBoardMemberInput = z.infer<typeof addKanbanBoardMemberSchema>;
 export type UpdateKanbanBoardMemberInput = z.infer<typeof updateKanbanBoardMemberSchema>;
 export type RemoveKanbanBoardMemberInput = z.infer<typeof removeKanbanBoardMemberSchema>;
+
+// ── Custom fields (stage 6b) ────────────────────────────────────────────────
+
+const customFieldOptionSchema = z.object({
+  id: z.string().trim().min(1).max(40),
+  name: z.string().trim().min(1).max(60),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+});
+
+const customFieldFields = {
+  name: z.string().trim().min(1).max(80),
+  options: z.array(customFieldOptionSchema).max(50).optional(),
+  show_on_card: z.boolean().optional(),
+};
+
+export const createKanbanCustomFieldSchema = z.object({
+  board_id: z.string().uuid(),
+  field_type: z.enum(["text", "number", "date", "select", "checkbox"]),
+  ...customFieldFields,
+});
+
+export const updateKanbanCustomFieldSchema = z.object({
+  id: z.string().uuid(),
+  board_id: z.string().uuid(),
+  name: customFieldFields.name.optional(),
+  options: customFieldFields.options,
+  show_on_card: customFieldFields.show_on_card,
+  position: z.number().int().min(0).max(1000).optional(),
+});
+
+export const deleteKanbanCustomFieldSchema = z.object({
+  id: z.string().uuid(),
+  board_id: z.string().uuid(),
+});
+
+/** A task's value for a field; null clears it. The database checks it fits the field. */
+export const setKanbanCustomFieldValueSchema = z.object({
+  task_id: z.string().uuid(),
+  field_id: z.string().uuid(),
+  value: z.union([z.string().max(2000), z.number().finite(), z.boolean()]).nullable(),
+});
+
+export type CreateKanbanCustomFieldInput = z.infer<typeof createKanbanCustomFieldSchema>;
+export type UpdateKanbanCustomFieldInput = z.infer<typeof updateKanbanCustomFieldSchema>;
+export type DeleteKanbanCustomFieldInput = z.infer<typeof deleteKanbanCustomFieldSchema>;
+export type SetKanbanCustomFieldValueInput = z.infer<typeof setKanbanCustomFieldValueSchema>;

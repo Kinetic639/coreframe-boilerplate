@@ -27,6 +27,10 @@ import type {
   CreateKanbanSubtaskInput,
   KanbanDependencyInput,
   SearchKanbanTasksInput,
+  CreateKanbanCustomFieldInput,
+  UpdateKanbanCustomFieldInput,
+  DeleteKanbanCustomFieldInput,
+  SetKanbanCustomFieldValueInput,
 } from "@/lib/validations/kanban";
 import { normalizeCommentRichText } from "@/lib/validations/comments";
 import {
@@ -48,6 +52,9 @@ import {
   type KanbanTaskRef,
   type KanbanTaskRelations,
   type KanbanTaskStatus,
+  type KanbanCustomField,
+  type KanbanCustomFieldValue,
+  type KanbanRecurrence,
 } from "@/lib/types/kanban";
 
 const TASK_REF_FIELDS = `id, task_number, title, status, board_id,
@@ -346,7 +353,8 @@ const COLUMN_FIELDS =
 // Every card is a planning_tasks row.
 const TASK_CARD_FIELDS = `id, board_id, column_id, organization_id, task_number, title, description_plain, description_rich,
   status, priority, assigned_to, due_at, due_has_time, label, label_color, is_inbox, board_position, created_by, created_at, updated_at, deleted_at,
-  calendar_all_day, calendar_start_date, calendar_start_at, cover_color, cover_attachment_id, is_template, parent_task_id,
+  calendar_all_day, calendar_start_date, calendar_start_at, cover_color, cover_attachment_id, is_template, parent_task_id, recurrence,
+  field_values:planning_task_custom_field_values(field_id, value),
   creator:users!created_by(first_name, last_name, email),
   assignee:users!assigned_to(first_name, last_name, email),
   task_labels:planning_task_labels(label:planning_kanban_board_labels(id, name, color, position)),
@@ -494,7 +502,42 @@ function mapCard(row: any): KanbanBoardCard {
     subtask_total: 0,
     subtask_done: 0,
     blocked_by_open: 0,
+    recurrence: (row.recurrence ?? null) as KanbanRecurrence | null,
+    custom_values: Object.fromEntries(
+      ((row.field_values ?? []) as Array<{ field_id: string; value: KanbanCustomFieldValue }>).map(
+        (entry) => [entry.field_id, entry.value]
+      )
+    ),
   };
+}
+
+const CUSTOM_FIELD_FIELDS = "id, board_id, name, field_type, options, show_on_card, position";
+
+function mapCustomField(row: any): KanbanCustomField {
+  return {
+    id: row.id,
+    board_id: row.board_id,
+    name: row.name,
+    field_type: row.field_type,
+    options: Array.isArray(row.options) ? row.options : [],
+    show_on_card: Boolean(row.show_on_card),
+    position: row.position ?? 0,
+  };
+}
+
+async function boardCustomFields(
+  supabase: SupabaseClient,
+  orgId: string,
+  boardId: string
+): Promise<KanbanCustomField[]> {
+  const { data } = await supabase
+    .from("planning_board_custom_fields")
+    .select(CUSTOM_FIELD_FIELDS)
+    .eq("organization_id", orgId)
+    .eq("board_id", boardId)
+    .order("position", { ascending: true })
+    .order("created_at", { ascending: true });
+  return (data ?? []).map(mapCustomField);
 }
 
 function mapActivity(row: any): KanbanCardActivity {
@@ -675,36 +718,38 @@ export const KanbanBoardsService = {
 
       if (boardError) return { success: false, error: boardError.message };
 
-      const [columnsResult, cardsResult, membersResult, stars, labels] = await Promise.all([
-        supabase
-          .from("planning_kanban_columns")
-          .select(COLUMN_FIELDS)
-          .eq("organization_id", orgId)
-          .eq("board_id", boardId)
-          .is("deleted_at", null)
-          .is("archived_at", null)
-          .order("position", { ascending: true }),
-        supabase
-          .from("planning_tasks")
-          .select(TASK_CARD_FIELDS)
-          .eq("organization_id", orgId)
-          .eq("board_id", boardId)
-          .not("column_id", "is", null)
-          .is("deleted_at", null)
-          .order("board_position", { ascending: true })
-          .order("created_at", { ascending: true }),
-        supabase
-          .from("planning_kanban_board_members")
-          .select(
-            `user_id, role, created_at,
+      const [columnsResult, cardsResult, membersResult, stars, labels, customFields] =
+        await Promise.all([
+          supabase
+            .from("planning_kanban_columns")
+            .select(COLUMN_FIELDS)
+            .eq("organization_id", orgId)
+            .eq("board_id", boardId)
+            .is("deleted_at", null)
+            .is("archived_at", null)
+            .order("position", { ascending: true }),
+          supabase
+            .from("planning_tasks")
+            .select(TASK_CARD_FIELDS)
+            .eq("organization_id", orgId)
+            .eq("board_id", boardId)
+            .not("column_id", "is", null)
+            .is("deleted_at", null)
+            .order("board_position", { ascending: true })
+            .order("created_at", { ascending: true }),
+          supabase
+            .from("planning_kanban_board_members")
+            .select(
+              `user_id, role, created_at,
              user:users!user_id(first_name, last_name, email)`
-          )
-          .eq("organization_id", orgId)
-          .eq("board_id", boardId)
-          .order("created_at", { ascending: true }),
-        myStars(supabase, orgId, userId),
-        boardLabels(supabase, orgId, boardId),
-      ]);
+            )
+            .eq("organization_id", orgId)
+            .eq("board_id", boardId)
+            .order("created_at", { ascending: true }),
+          myStars(supabase, orgId, userId),
+          boardLabels(supabase, orgId, boardId),
+          boardCustomFields(supabase, orgId, boardId),
+        ]);
 
       if (columnsResult.error) return { success: false, error: columnsResult.error.message };
       if (cardsResult.error) return { success: false, error: cardsResult.error.message };
@@ -731,6 +776,7 @@ export const KanbanBoardsService = {
           labels,
           cards,
           members,
+          custom_fields: customFields,
         },
       };
     } catch (e) {
@@ -1477,7 +1523,7 @@ export const KanbanBoardsService = {
         return { success: true, data: { card, board: null, columns: [], labels: [] } };
       }
 
-      const [boardResult, columnsResult, memberRoles, labels] = await Promise.all([
+      const [boardResult, columnsResult, memberRoles, labels, customFields] = await Promise.all([
         supabase
           .from("planning_kanban_boards")
           .select("id, title, color, archived_at, created_by")
@@ -1495,6 +1541,7 @@ export const KanbanBoardsService = {
           .order("position", { ascending: true }),
         myMemberRoles(supabase, orgId, userId),
         boardLabels(supabase, orgId, card.board_id),
+        boardCustomFields(supabase, orgId, card.board_id),
       ]);
       const boardRow = boardResult.data as {
         id: string;
@@ -1519,6 +1566,7 @@ export const KanbanBoardsService = {
           },
           columns: (columnsResult.data ?? []).map(mapColumn),
           labels,
+          custom_fields: customFields,
         },
       };
     } catch (e) {
@@ -1687,6 +1735,11 @@ export const KanbanBoardsService = {
         // The database refuses another organization's task and any cycle.
         update.parent_task_id = input.parent_task_id;
         history.push(["parent_changed", { to: input.parent_task_id }]);
+      }
+      if (input.recurrence !== undefined) {
+        // Shape checked again by the database.
+        update.recurrence = input.recurrence;
+        history.push(["recurrence_changed", { to: input.recurrence }]);
       }
       if (input.assigned_to !== undefined && input.assigned_to !== current.assigned_to) {
         update.assigned_to = input.assigned_to;
@@ -2653,6 +2706,146 @@ export const KanbanBoardsService = {
       });
       if (error) return { success: false, error: error.message };
       return KanbanBoardsService.getBoard(supabase, orgId, newId as string, userId);
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  // ── Custom fields (stage 6b) ──────────────────────────────────────────────
+
+  async createCustomField(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: CreateKanbanCustomFieldInput
+  ): Promise<ServiceResult<KanbanCustomField>> {
+    try {
+      const { data: last } = await supabase
+        .from("planning_board_custom_fields")
+        .select("position")
+        .eq("organization_id", orgId)
+        .eq("board_id", input.board_id)
+        .order("position", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const { data, error } = await supabase
+        .from("planning_board_custom_fields")
+        .insert({
+          organization_id: orgId,
+          board_id: input.board_id,
+          name: input.name,
+          field_type: input.field_type,
+          options: input.field_type === "select" ? (input.options ?? []) : [],
+          show_on_card: input.show_on_card ?? false,
+          position: ((last as { position: number } | null)?.position ?? -1) + 1,
+          created_by: userId,
+        })
+        .select(CUSTOM_FIELD_FIELDS)
+        .single();
+      if (error) return { success: false, error: error.message };
+      return { success: true, data: mapCustomField(data) };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  async updateCustomField(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: UpdateKanbanCustomFieldInput
+  ): Promise<ServiceResult<KanbanCustomField>> {
+    try {
+      const update: Record<string, unknown> = {};
+      if (input.name !== undefined) update.name = input.name;
+      if (input.options !== undefined) update.options = input.options;
+      if (input.show_on_card !== undefined) update.show_on_card = input.show_on_card;
+      if (input.position !== undefined) update.position = input.position;
+      const { data, error } = await supabase
+        .from("planning_board_custom_fields")
+        .update(update)
+        .eq("organization_id", orgId)
+        .eq("board_id", input.board_id)
+        .eq("id", input.id)
+        .select(CUSTOM_FIELD_FIELDS)
+        .single();
+      if (error) return { success: false, error: error.message };
+      if (input.options !== undefined) {
+        // A removed choice: the cards that had it are left empty.
+        const ids = new Set(input.options.map((option) => option.id));
+        const { data: values } = await supabase
+          .from("planning_task_custom_field_values")
+          .select("task_id, value")
+          .eq("organization_id", orgId)
+          .eq("field_id", input.id);
+        const stale = ((values ?? []) as Array<{ task_id: string; value: unknown }>)
+          .filter((row) => !ids.has(String(row.value)))
+          .map((row) => row.task_id);
+        if (stale.length) {
+          await supabase
+            .from("planning_task_custom_field_values")
+            .delete()
+            .eq("organization_id", orgId)
+            .eq("field_id", input.id)
+            .in("task_id", stale);
+        }
+      }
+      return { success: true, data: mapCustomField(data) };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  /** Removes a field and every card's value for it. */
+  async deleteCustomField(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: DeleteKanbanCustomFieldInput
+  ): Promise<ServiceResult<void>> {
+    try {
+      const { error } = await supabase
+        .from("planning_board_custom_fields")
+        .delete()
+        .eq("organization_id", orgId)
+        .eq("board_id", input.board_id)
+        .eq("id", input.id);
+      if (error) return { success: false, error: error.message };
+      return { success: true, data: undefined };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  /** Sets (or clears, with null) a task's value for a field; returns the card. */
+  async setCustomFieldValue(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: SetKanbanCustomFieldValueInput
+  ): Promise<ServiceResult<KanbanBoardCard>> {
+    try {
+      const empty = input.value === null || input.value === "";
+      const { error } = empty
+        ? await supabase
+            .from("planning_task_custom_field_values")
+            .delete()
+            .eq("organization_id", orgId)
+            .eq("task_id", input.task_id)
+            .eq("field_id", input.field_id)
+        : await supabase.from("planning_task_custom_field_values").upsert(
+            {
+              task_id: input.task_id,
+              field_id: input.field_id,
+              organization_id: orgId,
+              value: input.value,
+              updated_by: userId,
+            },
+            { onConflict: "task_id,field_id" }
+          );
+      if (error) return { success: false, error: error.message };
+      const card = await selectCard(supabase, orgId, input.task_id);
+      if (!card.success) return card;
+      const [withExtras] = await withCardExtras(supabase, orgId, [card.data]);
+      return { success: true, data: withExtras };
     } catch (e) {
       return failure(e);
     }

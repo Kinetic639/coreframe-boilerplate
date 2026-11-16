@@ -21,6 +21,7 @@ import {
   MessageSquare,
   Paperclip,
   Pencil,
+  Repeat,
   X,
 } from "lucide-react";
 import { KanbanCard } from "@/components/primitives/kanban";
@@ -35,7 +36,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
-import type { KanbanBoardCard, KanbanBoardColumn } from "@/lib/types/kanban";
+import type { KanbanBoardCard, KanbanBoardColumn, KanbanCustomField } from "@/lib/types/kanban";
+import { formatCustomFieldValue } from "@/components/planning/task-editor/custom-fields";
+import { useRecurrenceText } from "@/components/planning/task-editor/recurrence-picker";
 import { KANBAN_TASK_PRIORITIES } from "@/lib/validations/kanban";
 import { PRIORITY_FLAG_COLORS } from "@/components/planning/task-editor/task-labels";
 import { formatCardDates } from "@/components/planning/task-editor/task-editor-extras";
@@ -66,6 +69,8 @@ interface BoardCardProps {
   compactLabels?: boolean;
   /** Opens "Copy card" (left out where cards can't be added). */
   onCopy?: (card: KanbanBoardCard) => void;
+  /** The board's custom fields shown on cards. */
+  cardFields?: KanbanCustomField[];
 }
 
 /**
@@ -86,6 +91,7 @@ export const BoardCard = memo(function BoardCard({
   onHover,
   compactLabels = false,
   onCopy,
+  cardFields,
 }: BoardCardProps) {
   const t = useTranslations("modules.planning");
   const format = useFormatter();
@@ -95,6 +101,18 @@ export const BoardCard = memo(function BoardCard({
   const showPriority = card.priority === "high" || card.priority === "urgent";
   const assignee = card.assignee_name ?? card.assignee_email;
   const hasQuickActions = canEdit || canArchive || Boolean(onCopy);
+  const recurrenceText = useRecurrenceText();
+  const fieldChips = (cardFields ?? [])
+    .map((field) => ({
+      field,
+      text: formatCustomFieldValue(
+        field,
+        card.custom_values?.[field.id],
+        format,
+        t("boardExtras.fields.yes")
+      ),
+    }))
+    .filter((chip): chip is { field: KanbanCustomField; text: string } => Boolean(chip.text));
   const subtasksDone = card.subtask_total > 0 && card.subtask_done === card.subtask_total;
   const dates = formatCardDates(format, card);
   const watching = card.watcher_ids?.includes(currentUserId) ?? false;
@@ -185,6 +203,15 @@ export const BoardCard = memo(function BoardCard({
             <span className="flex items-center gap-1 rounded bg-sky-600/15 px-1.5 py-0.5 font-medium text-sky-700 dark:text-sky-300">
               <LayoutTemplate className="h-3 w-3" />
               {t("boardExtras.templates.badge")}
+            </span>
+          ) : null}
+          {card.recurrence ? (
+            <span
+              className="flex items-center"
+              title={recurrenceText.describe(card.recurrence)}
+              aria-label={recurrenceText.describe(card.recurrence)}
+            >
+              <Repeat className="h-3 w-3" />
             </span>
           ) : null}
           {card.blocked_by_open ? (
@@ -304,6 +331,34 @@ export const BoardCard = memo(function BoardCard({
             ) : null}
           </span>
         </div>
+
+        {fieldChips.length ? (
+          <div className="flex flex-wrap gap-1 text-[11px]">
+            {fieldChips.map(({ field, text }) => {
+              const option =
+                field.field_type === "select"
+                  ? field.options.find((item) => item.id === card.custom_values?.[field.id])
+                  : undefined;
+              return (
+                <span
+                  key={field.id}
+                  className="flex max-w-full items-center gap-1 rounded border bg-background/60 px-1.5 py-0.5"
+                  title={`${field.name}: ${text}`}
+                >
+                  {option ? (
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: option.color }}
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                  <span className="shrink-0 text-muted-foreground">{field.name}:</span>
+                  <span className="truncate font-medium">{text}</span>
+                </span>
+              );
+            })}
+          </div>
+        ) : null}
 
         {columnColor ? (
           <span

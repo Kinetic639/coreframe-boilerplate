@@ -48,6 +48,13 @@ import {
 import { boardKeys, unwrap } from "./boards-query";
 import { toastWithUndo } from "./undo-toast";
 
+/** A repeating task just got completed (its rule moved to the next one). */
+function spawnedNext(before: KanbanBoardCard | undefined, after: KanbanBoardCard) {
+  return Boolean(
+    before?.recurrence && before.status !== "completed" && after.status === "completed"
+  );
+}
+
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Operation failed";
 }
@@ -198,8 +205,16 @@ export function useBoardActions(orgId: string, boardId: string | null) {
 
   /** A card saved somewhere else (the task editor): it goes into the board and inbox. */
   const cardChanged = useCallback(
-    (card: KanbanBoardCard) => writeState((state) => upsertCard(state, card)),
-    [writeState]
+    (card: KanbanBoardCard) => {
+      const state = readState();
+      const before =
+        state.board?.cards.find((candidate) => candidate.id === card.id) ??
+        state.inbox?.find((candidate) => candidate.id === card.id);
+      writeState((current) => upsertCard(current, card));
+      // A repeating task was completed: the database made the next one.
+      if (spawnedNext(before, card)) refreshWhenIdle();
+    },
+    [readState, refreshWhenIdle, writeState]
   );
 
   /** A label made from the task editor: the board's filters and label list show it. */
@@ -222,6 +237,7 @@ export function useBoardActions(orgId: string, boardId: string | null) {
       try {
         const saved = await unwrap(patchKanbanTaskAction({ id: card.id, ...fields }));
         writeState((state) => upsertCard(state, saved));
+        if (spawnedNext(card, saved)) refreshWhenIdle();
         return true;
       } catch (error) {
         writeState((state) => upsertCard(state, card));
@@ -229,7 +245,7 @@ export function useBoardActions(orgId: string, boardId: string | null) {
         return false;
       }
     },
-    [writeState]
+    [refreshWhenIdle, writeState]
   );
 
   const updateCard = useCallback(

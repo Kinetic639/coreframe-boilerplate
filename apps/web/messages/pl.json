@@ -4702,7 +4702,9 @@
           "createdFromChecklist": "Utworzono z elementu listy kontrolnej",
           "attachmentAdded": "Dodano załącznik",
           "copiedFrom": "Utworzono jako kopię",
-          "parentChanged": "Zmieniono zadanie nadrzędne"
+          "parentChanged": "Zmieniono zadanie nadrzędne",
+          "recurredFrom": "Utworzono jako kolejne powtórzenie",
+          "recurrenceChanged": "Zmieniono powtarzanie"
         },
         "visibility": {
           "label": "Widoczność",
@@ -4939,7 +4941,8 @@
             "assignee": "Osobę przypisaną",
             "dates": "Daty",
             "cover": "Okładkę",
-            "priority": "Priorytet"
+            "priority": "Priorytet",
+            "fields": "Pola własne"
           },
           "board": "Tablica",
           "pickBoard": "Wybierz tablicę",
@@ -5012,6 +5015,68 @@
           "noResults": "Nic nie znaleziono",
           "blocked": "Zablokowana",
           "blockedHelp": "Czeka na niezamknięte zadania: {count}"
+        },
+        "fields": {
+          "title": "Pola własne",
+          "description": "Własne pola tablicy, np. koszt, klient albo numer zamówienia. Wypełnia się je w oknie karty, a wybrane widać też na karcie.",
+          "empty": "Ta tablica nie ma jeszcze pól własnych.",
+          "none": "Brak",
+          "yes": "Tak",
+          "name": "Nazwa pola",
+          "namePlaceholder": "np. Koszt",
+          "type": "Rodzaj pola",
+          "types": {
+            "text": "Tekst",
+            "number": "Liczba",
+            "date": "Data",
+            "select": "Lista wyboru",
+            "checkbox": "Pole wyboru"
+          },
+          "add": "Nowe pole",
+          "addSubmit": "Dodaj pole",
+          "showOnCard": "Pokazuj na karcie",
+          "options": "Opcje do wyboru",
+          "optionColor": "Zmień kolor",
+          "optionName": "Nazwa opcji",
+          "removeOption": "Usuń opcję",
+          "addOption": "Nowa opcja",
+          "firstOption": "Opcja 1",
+          "moveUp": "Przesuń wyżej",
+          "moveDown": "Przesuń niżej",
+          "delete": "Usuń pole",
+          "deleted": "Pole usunięte",
+          "deleteTitle": "Usunąć pole „{name}”?",
+          "deleteDescription": "Wartości tego pola znikną ze wszystkich kart tej tablicy. Tego nie da się cofnąć.",
+          "deleteConfirm": "Usuń pole",
+          "cancel": "Anuluj"
+        },
+        "recurrence": {
+          "button": "Powtarzaj",
+          "title": "Powtarzanie",
+          "every": {
+            "label": "Co",
+            "daily": "{count, plural, one {Codziennie} few {Co # dni} many {Co # dni} other {Co # dnia}}",
+            "weekly": "{count, plural, one {Co tydzień} few {Co # tygodnie} many {Co # tygodni} other {Co # tygodnia}}",
+            "monthly": "{count, plural, one {Co miesiąc} few {Co # miesiące} many {Co # miesięcy} other {Co # miesiąca}}",
+            "yearly": "{count, plural, one {Co roku} few {Co # lata} many {Co # lat} other {Co # roku}}"
+          },
+          "unit": {
+            "label": "Jednostka",
+            "daily": "{count, plural, one {dzień} few {dni} many {dni} other {dnia}}",
+            "weekly": "{count, plural, one {tydzień} few {tygodnie} many {tygodni} other {tygodnia}}",
+            "monthly": "{count, plural, one {miesiąc} few {miesiące} many {miesięcy} other {miesiąca}}",
+            "yearly": "{count, plural, one {rok} few {lata} many {lat} other {roku}}"
+          },
+          "weekdays": "W dni",
+          "monthday": "Dzień miesiąca",
+          "until": "Powtarzaj do (opcjonalnie)",
+          "help": "Po ukończeniu zadania powstanie następne, z terminem przesuniętym na kolejny dzień z reguły.",
+          "helpNoDue": "Zadanie nie ma terminu: następne dostanie termin z reguły, licząc od dnia ukończenia.",
+          "remove": "Nie powtarzaj",
+          "save": "Zapisz",
+          "onDays": "w: {days}",
+          "onMonthday": "({day}. dnia)",
+          "untilDay": "do {day}"
         }
       }
     },

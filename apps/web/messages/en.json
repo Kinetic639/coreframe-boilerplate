@@ -4622,7 +4622,9 @@
           "createdFromChecklist": "Created from a checklist item",
           "attachmentAdded": "Attachment added",
           "copiedFrom": "Created as a copy",
-          "parentChanged": "Parent task changed"
+          "parentChanged": "Parent task changed",
+          "recurredFrom": "Created as the next repeat",
+          "recurrenceChanged": "Repeat changed"
         },
         "visibility": {
           "label": "Visibility",
@@ -4859,7 +4861,8 @@
             "assignee": "Assignee",
             "dates": "Dates",
             "cover": "Cover",
-            "priority": "Priority"
+            "priority": "Priority",
+            "fields": "Custom fields"
           },
           "board": "Board",
           "pickBoard": "Pick a board",
@@ -4932,6 +4935,68 @@
           "noResults": "Nothing found",
           "blocked": "Blocked",
           "blockedHelp": "Waiting for open tasks: {count}"
+        },
+        "fields": {
+          "title": "Custom fields",
+          "description": "The board's own fields, such as cost, client or order number. They are filled in from a card's window, and the ones you pick show on the card too.",
+          "empty": "This board has no custom fields yet.",
+          "none": "None",
+          "yes": "Yes",
+          "name": "Field name",
+          "namePlaceholder": "e.g. Cost",
+          "type": "Field type",
+          "types": {
+            "text": "Text",
+            "number": "Number",
+            "date": "Date",
+            "select": "Dropdown",
+            "checkbox": "Checkbox"
+          },
+          "add": "New field",
+          "addSubmit": "Add field",
+          "showOnCard": "Show on the card",
+          "options": "Choices",
+          "optionColor": "Change colour",
+          "optionName": "Choice name",
+          "removeOption": "Remove choice",
+          "addOption": "New choice",
+          "firstOption": "Choice 1",
+          "moveUp": "Move up",
+          "moveDown": "Move down",
+          "delete": "Delete field",
+          "deleted": "Field deleted",
+          "deleteTitle": "Delete the field “{name}”?",
+          "deleteDescription": "Its values disappear from every card on this board. This can't be undone.",
+          "deleteConfirm": "Delete field",
+          "cancel": "Cancel"
+        },
+        "recurrence": {
+          "button": "Repeat",
+          "title": "Repeat",
+          "every": {
+            "label": "Every",
+            "daily": "{count, plural, one {Daily} other {Every # days}}",
+            "weekly": "{count, plural, one {Weekly} other {Every # weeks}}",
+            "monthly": "{count, plural, one {Monthly} other {Every # months}}",
+            "yearly": "{count, plural, one {Yearly} other {Every # years}}"
+          },
+          "unit": {
+            "label": "Unit",
+            "daily": "{count, plural, one {day} other {days}}",
+            "weekly": "{count, plural, one {week} other {weeks}}",
+            "monthly": "{count, plural, one {month} other {months}}",
+            "yearly": "{count, plural, one {year} other {years}}"
+          },
+          "weekdays": "On",
+          "monthday": "Day of the month",
+          "until": "Repeat until (optional)",
+          "help": "When the task is completed, the next one is made with its due date moved to the rule's next day.",
+          "helpNoDue": "The task has no due date: the next one gets one from the rule, counted from the day it is completed.",
+          "remove": "Stop repeating",
+          "save": "Save",
+          "onDays": "on {days}",
+          "onMonthday": "(on day {day})",
+          "untilDay": "until {day}"
         }
       }
     },
