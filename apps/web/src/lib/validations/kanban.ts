@@ -154,6 +154,82 @@ export const patchKanbanTaskSchema = z.object({
     .optional(),
   status: z.enum(KANBAN_TASK_STATUSES).optional(),
   assigned_to: z.string().uuid().nullable().optional(),
+  /**
+   * Start and due together: a start day (YYYY-MM-DD) and the due moment
+   * (a plain day is sent as 12:00 UTC with due_has_time false).
+   */
+  dates: z
+    .object({
+      start_date: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .nullable(),
+      due_at: z.string().datetime().nullable(),
+      due_has_time: z.boolean(),
+      timezone: z.string().trim().min(1).max(64),
+    })
+    .optional(),
+  cover_color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .nullable()
+    .optional(),
+  cover_attachment_id: z.string().uuid().nullable().optional(),
+});
+
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+export const createKanbanBoardLabelSchema = z.object({
+  board_id: z.string().uuid(),
+  name: z.string().trim().max(60).default(""),
+  color: hexColor,
+});
+
+export const updateKanbanBoardLabelSchema = createKanbanBoardLabelSchema.extend({
+  id: z.string().uuid(),
+});
+
+export const kanbanBoardLabelRefSchema = z.object({
+  board_id: z.string().uuid(),
+  id: z.string().uuid(),
+});
+
+export const setKanbanTaskLabelsSchema = z.object({
+  task_id: z.string().uuid(),
+  label_ids: z.array(z.string().uuid()).max(30),
+});
+
+export const createKanbanChecklistSchema = z.object({
+  task_id: z.string().uuid(),
+  title: z.string().trim().min(1).max(200),
+});
+
+export const updateKanbanChecklistSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string().trim().min(1).max(200),
+});
+
+export const kanbanChecklistRefSchema = z.object({
+  id: z.string().uuid(),
+});
+
+export const createKanbanChecklistItemSchema = z.object({
+  checklist_id: z.string().uuid(),
+  task_id: z.string().uuid(),
+  title: z.string().trim().min(1).max(500),
+});
+
+export const updateKanbanChecklistItemSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string().trim().min(1).max(500).optional(),
+  is_done: z.boolean().optional(),
+  assigned_to: z.string().uuid().nullable().optional(),
+  due_at: z.string().datetime().nullable().optional(),
+});
+
+export const kanbanTaskWatchSchema = z.object({
+  task_id: z.string().uuid(),
+  watching: z.boolean(),
 });
 
 export const kanbanBoardStarSchema = z.object({
@@ -185,6 +261,16 @@ export type KanbanBoardRefInput = z.infer<typeof kanbanBoardRefSchema>;
 export type KanbanCardRefInput = z.infer<typeof kanbanCardRefSchema>;
 export type PatchKanbanTaskInput = z.infer<typeof patchKanbanTaskSchema>;
 export type KanbanBoardStarInput = z.infer<typeof kanbanBoardStarSchema>;
+export type CreateKanbanBoardLabelInput = z.infer<typeof createKanbanBoardLabelSchema>;
+export type UpdateKanbanBoardLabelInput = z.infer<typeof updateKanbanBoardLabelSchema>;
+export type KanbanBoardLabelRefInput = z.infer<typeof kanbanBoardLabelRefSchema>;
+export type SetKanbanTaskLabelsInput = z.infer<typeof setKanbanTaskLabelsSchema>;
+export type CreateKanbanChecklistInput = z.infer<typeof createKanbanChecklistSchema>;
+export type UpdateKanbanChecklistInput = z.infer<typeof updateKanbanChecklistSchema>;
+export type CreateKanbanChecklistItemInput = z.infer<typeof createKanbanChecklistItemSchema>;
+export type UpdateKanbanChecklistItemInput = z.infer<typeof updateKanbanChecklistItemSchema>;
+export type KanbanTaskWatchInput = z.infer<typeof kanbanTaskWatchSchema>;
+export type KanbanTaskDatesInput = NonNullable<PatchKanbanTaskInput["dates"]>;
 export type KanbanTaskPriority = (typeof KANBAN_TASK_PRIORITIES)[number];
 export type CreateKanbanColumnInput = z.infer<typeof createKanbanColumnSchema>;
 export type UpdateKanbanColumnInput = z.infer<typeof updateKanbanColumnSchema>;

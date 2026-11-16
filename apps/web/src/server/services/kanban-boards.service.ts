@@ -16,13 +16,22 @@ import type {
   UpdateKanbanCardInput,
   UpdateKanbanColumnInput,
   PatchKanbanTaskInput,
+  CreateKanbanBoardLabelInput,
+  UpdateKanbanBoardLabelInput,
+  CreateKanbanChecklistItemInput,
+  UpdateKanbanChecklistItemInput,
+  KanbanTaskDatesInput,
 } from "@/lib/validations/kanban";
 import { normalizeCommentRichText } from "@/lib/validations/comments";
 import {
   MAX_KANBAN_BOARDS_PER_USER,
   type KanbanBoardAccess,
+  type KanbanBoardActivity,
   type KanbanBoardArchive,
+  type KanbanBoardLabel,
   type KanbanBoardMember,
+  type KanbanChecklist,
+  type KanbanChecklistItem,
   type KanbanCardActivity,
   type KanbanBoardCard,
   type KanbanBoardColumn,
@@ -144,29 +153,89 @@ async function myStars(
   return new Set(((data ?? []) as Array<{ board_id: string }>).map((row) => row.board_id));
 }
 
-/** How many comments each task has (one query per 200 tasks). */
-async function withCommentCounts(
+/**
+ * What a card shows besides its row: how many comments and files it has, and
+ * a short-lived link to its cover image. One query per 200 tasks each.
+ */
+async function withCardExtras(
   supabase: SupabaseClient,
   orgId: string,
   cards: KanbanBoardCard[]
 ): Promise<KanbanBoardCard[]> {
   if (!cards.length) return cards;
-  const counts = new Map<string, number>();
+  const comments = new Map<string, number>();
+  const files = new Map<string, number>();
+  const coverPaths = new Map<string, string>();
   const ids = cards.map((card) => card.id);
+  const coverIds = new Set(
+    cards.map((card) => card.cover_attachment_id).filter((id): id is string => Boolean(id))
+  );
   // Chunked: a long id list would not fit in one request URL.
   for (let start = 0; start < ids.length; start += 200) {
-    const { data } = await supabase
-      .from("app_comments")
-      .select("target_id")
-      .eq("org_id", orgId)
-      .eq("target_type", "planning.task")
-      .in("target_id", ids.slice(start, start + 200))
-      .is("deleted_at", null);
-    for (const row of (data ?? []) as Array<{ target_id: string }>) {
-      counts.set(row.target_id, (counts.get(row.target_id) ?? 0) + 1);
+    const chunk = ids.slice(start, start + 200);
+    const [commentRows, fileRows] = await Promise.all([
+      supabase
+        .from("app_comments")
+        .select("target_id")
+        .eq("org_id", orgId)
+        .eq("target_type", "planning.task")
+        .in("target_id", chunk)
+        .is("deleted_at", null),
+      supabase
+        .from("app_attachments")
+        .select("id, target_id, storage_path, content_type")
+        .eq("org_id", orgId)
+        .eq("target_type", "planning.task")
+        .in("target_id", chunk)
+        .is("deleted_at", null),
+    ]);
+    for (const row of (commentRows.data ?? []) as Array<{ target_id: string }>) {
+      comments.set(row.target_id, (comments.get(row.target_id) ?? 0) + 1);
+    }
+    for (const row of (fileRows.data ?? []) as Array<{
+      id: string;
+      target_id: string;
+      storage_path: string;
+      content_type: string;
+    }>) {
+      files.set(row.target_id, (files.get(row.target_id) ?? 0) + 1);
+      if (coverIds.has(row.id) && row.content_type.startsWith("image/")) {
+        coverPaths.set(row.id, row.storage_path);
+      }
     }
   }
-  return cards.map((card) => ({ ...card, comment_count: counts.get(card.id) ?? 0 }));
+  const coverUrls = new Map<string, string>();
+  if (coverPaths.size) {
+    const entries = [...coverPaths.entries()];
+    const { data } = await supabase.storage.from("app-attachments").createSignedUrls(
+      entries.map(([, path]) => path),
+      60 * 60
+    );
+    (data ?? []).forEach((signed, index) => {
+      if (signed?.signedUrl) coverUrls.set(entries[index][0], signed.signedUrl);
+    });
+  }
+  return cards.map((card) => ({
+    ...card,
+    comment_count: comments.get(card.id) ?? 0,
+    attachment_count: files.get(card.id) ?? 0,
+    cover_url: card.cover_attachment_id ? (coverUrls.get(card.cover_attachment_id) ?? null) : null,
+  }));
+}
+
+async function boardLabels(
+  supabase: SupabaseClient,
+  orgId: string,
+  boardId: string
+): Promise<KanbanBoardLabel[]> {
+  const { data } = await supabase
+    .from("planning_kanban_board_labels")
+    .select(LABEL_FIELDS)
+    .eq("organization_id", orgId)
+    .eq("board_id", boardId)
+    .order("position", { ascending: true })
+    .order("created_at", { ascending: true });
+  return (data ?? []).map(mapLabel);
 }
 
 function mapBoard(
@@ -221,9 +290,100 @@ const COLUMN_FIELDS =
 
 // Every card is a planning_tasks row.
 const TASK_CARD_FIELDS = `id, board_id, column_id, organization_id, task_number, title, description_plain, description_rich,
-  status, priority, assigned_to, due_at, label, label_color, is_inbox, board_position, created_by, created_at, updated_at, deleted_at,
+  status, priority, assigned_to, due_at, due_has_time, label, label_color, is_inbox, board_position, created_by, created_at, updated_at, deleted_at,
+  calendar_all_day, calendar_start_date, calendar_start_at, cover_color, cover_attachment_id,
   creator:users!created_by(first_name, last_name, email),
+  assignee:users!assigned_to(first_name, last_name, email),
+  task_labels:planning_task_labels(label:planning_kanban_board_labels(id, name, color, position)),
+  checklist_items:planning_task_checklist_items(is_done),
+  watchers:planning_task_watchers(user_id)`;
+
+const LABEL_FIELDS = "id, name, color, position";
+
+function mapLabel(row: any): KanbanBoardLabel {
+  return { id: row.id, name: row.name ?? "", color: row.color, position: row.position ?? 0 };
+}
+
+const CHECKLIST_ITEM_FIELDS = `id, checklist_id, task_id, title, is_done, assigned_to, due_at, position,
   assignee:users!assigned_to(first_name, last_name, email)`;
+
+function mapChecklistItem(row: any): KanbanChecklistItem {
+  const assignee = Array.isArray(row.assignee) ? row.assignee[0] : row.assignee;
+  return {
+    id: row.id,
+    checklist_id: row.checklist_id,
+    task_id: row.task_id,
+    title: row.title,
+    is_done: Boolean(row.is_done),
+    assigned_to: row.assigned_to ?? null,
+    assignee_name: assignee
+      ? displayName(assignee.first_name, assignee.last_name, assignee.email)
+      : null,
+    due_at: row.due_at ?? null,
+    position: row.position ?? 0,
+  };
+}
+
+/** The day a moment falls on in a time zone (YYYY-MM-DD). */
+function dayIn(iso: string, timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(iso));
+  } catch {
+    return iso.slice(0, 10);
+  }
+}
+
+/**
+ * The columns behind a task's start and due dates. The due moment goes to
+ * due_at (a plain day at 12:00 UTC) and its day to due_date; a start day
+ * makes an all-day calendar range from start to due. Without a start the
+ * calendar shows the task on its due day.
+ */
+export function datesUpdate(dates: KanbanTaskDatesInput): Record<string, unknown> {
+  const dueAt = dates.due_at ?? null;
+  const hasTime = Boolean(dueAt) && dates.due_has_time;
+  const dueDay = dueAt ? (hasTime ? dayIn(dueAt, dates.timezone) : dueAt.slice(0, 10)) : null;
+  const update: Record<string, unknown> = {
+    due_at: dueAt,
+    due_has_time: hasTime,
+    due_date: dueDay,
+  };
+  if (dates.start_date) {
+    const end = dueDay && dueDay >= dates.start_date ? dueDay : dates.start_date;
+    Object.assign(update, {
+      calendar_all_day: true,
+      calendar_start_date: dates.start_date,
+      calendar_end_date: end,
+      calendar_start_at: null,
+      calendar_end_at: null,
+      calendar_timezone: dates.timezone,
+    });
+  } else {
+    Object.assign(update, {
+      calendar_all_day: null,
+      calendar_start_date: null,
+      calendar_end_date: null,
+      calendar_start_at: null,
+      calendar_end_at: null,
+      calendar_timezone: null,
+    });
+  }
+  return update;
+}
+
+/** The start day of a task: the first day of its calendar range, if it has one. */
+function startDateOf(row: any): string | null {
+  if (row.calendar_all_day === true) return row.calendar_start_date ?? null;
+  if (row.calendar_all_day === false && row.calendar_start_at) {
+    return String(row.calendar_start_at).slice(0, 10);
+  }
+  return null;
+}
 
 function mapCard(row: any): KanbanBoardCard {
   const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator;
@@ -258,6 +418,22 @@ function mapCard(row: any): KanbanBoardCard {
     updated_at: row.updated_at,
     archived_at: row.deleted_at ?? null,
     comment_count: row.comment_count ?? 0,
+    labels: ((row.task_labels ?? []) as Array<{ label: any }>)
+      .map((link) => (Array.isArray(link.label) ? link.label[0] : link.label))
+      .filter(Boolean)
+      .map(mapLabel)
+      .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name)),
+    checklist_total: (row.checklist_items ?? []).length,
+    checklist_done: ((row.checklist_items ?? []) as Array<{ is_done: boolean }>).filter(
+      (item) => item.is_done
+    ).length,
+    attachment_count: row.attachment_count ?? 0,
+    watcher_ids: ((row.watchers ?? []) as Array<{ user_id: string }>).map((w) => w.user_id),
+    due_has_time: Boolean(row.due_has_time),
+    start_date: startDateOf(row),
+    cover_color: row.cover_color ?? null,
+    cover_attachment_id: row.cover_attachment_id ?? null,
+    cover_url: row.cover_url ?? null,
   };
 }
 
@@ -439,7 +615,7 @@ export const KanbanBoardsService = {
 
       if (boardError) return { success: false, error: boardError.message };
 
-      const [columnsResult, cardsResult, membersResult, stars] = await Promise.all([
+      const [columnsResult, cardsResult, membersResult, stars, labels] = await Promise.all([
         supabase
           .from("planning_kanban_columns")
           .select(COLUMN_FIELDS)
@@ -467,6 +643,7 @@ export const KanbanBoardsService = {
           .eq("board_id", boardId)
           .order("created_at", { ascending: true }),
         myStars(supabase, orgId, userId),
+        boardLabels(supabase, orgId, boardId),
       ]);
 
       if (columnsResult.error) return { success: false, error: columnsResult.error.message };
@@ -480,7 +657,7 @@ export const KanbanBoardsService = {
       const columns = (columnsResult.data ?? []).map(mapColumn);
       // Tasks of an archived column stay in it, out of sight, until it comes back.
       const openColumnIds = new Set(columns.map((column) => column.id));
-      const cards = await withCommentCounts(
+      const cards = await withCardExtras(
         supabase,
         orgId,
         (cardsResult.data ?? []).map(mapCard).filter((card) => openColumnIds.has(card.column_id))
@@ -491,6 +668,7 @@ export const KanbanBoardsService = {
         data: {
           ...mapBoard(boardRaw, userId, memberRoles, stars),
           columns,
+          labels,
           cards,
           members,
         },
@@ -1201,11 +1379,13 @@ export const KanbanBoardsService = {
         .maybeSingle();
       if (error) return { success: false, error: error.message };
       if (!row) return { success: false, error: "Task not found" };
-      const [card] = await withCommentCounts(supabase, orgId, [mapCard(row)]);
+      const [card] = await withCardExtras(supabase, orgId, [mapCard(row)]);
 
-      if (!card.board_id) return { success: true, data: { card, board: null, columns: [] } };
+      if (!card.board_id) {
+        return { success: true, data: { card, board: null, columns: [], labels: [] } };
+      }
 
-      const [boardResult, columnsResult, memberRoles] = await Promise.all([
+      const [boardResult, columnsResult, memberRoles, labels] = await Promise.all([
         supabase
           .from("planning_kanban_boards")
           .select("id, title, color, archived_at, created_by")
@@ -1222,6 +1402,7 @@ export const KanbanBoardsService = {
           .is("archived_at", null)
           .order("position", { ascending: true }),
         myMemberRoles(supabase, orgId, userId),
+        boardLabels(supabase, orgId, card.board_id),
       ]);
       const boardRow = boardResult.data as {
         id: string;
@@ -1232,7 +1413,7 @@ export const KanbanBoardsService = {
       } | null;
       // The board may be out of reach (not shared with this user): the task
       // still opens, without its board.
-      if (!boardRow) return { success: true, data: { card, board: null, columns: [] } };
+      if (!boardRow) return { success: true, data: { card, board: null, columns: [], labels: [] } };
       return {
         success: true,
         data: {
@@ -1245,6 +1426,7 @@ export const KanbanBoardsService = {
             my_access: boardAccess(boardRow, userId, memberRoles.get(boardRow.id)),
           },
           columns: (columnsResult.data ?? []).map(mapColumn),
+          labels,
         },
       };
     } catch (e) {
@@ -1266,7 +1448,7 @@ export const KanbanBoardsService = {
       const { data: currentRaw, error: currentError } = await supabase
         .from("planning_tasks")
         .select(
-          "id, board_id, status, assigned_to, title, priority, due_at, description_plain, description_rich, label, label_color"
+          "id, board_id, status, assigned_to, title, priority, due_at, due_has_time, description_plain, description_rich, label, label_color, calendar_all_day, calendar_start_date, calendar_start_at, cover_color, cover_attachment_id"
         )
         .eq("organization_id", orgId)
         .eq("id", input.id)
@@ -1284,6 +1466,12 @@ export const KanbanBoardsService = {
         description_rich: unknown;
         label: string | null;
         label_color: string | null;
+        due_has_time: boolean;
+        calendar_all_day: boolean | null;
+        calendar_start_date: string | null;
+        calendar_start_at: string | null;
+        cover_color: string | null;
+        cover_attachment_id: string | null;
       };
 
       const update: Record<string, unknown> = {};
@@ -1315,6 +1503,7 @@ export const KanbanBoardsService = {
       if (input.due_at !== undefined && (input.due_at ?? null) !== (current.due_at ?? null)) {
         const dueAt = input.due_at ?? null;
         update.due_at = dueAt;
+        update.due_has_time = false;
         // The calendar reads the day: keep it with the time.
         update.due_date = dueAt ? dueAt.slice(0, 10) : null;
         history.push(["due_date_changed", { due_at_from: current.due_at, due_at_to: dueAt }]);
@@ -1332,6 +1521,70 @@ export const KanbanBoardsService = {
           : null;
         history.push(["card_updated", {}]);
       }
+      if (input.dates) {
+        const next = datesUpdate(input.dates);
+        const currentStart = startDateOf(current);
+        if (
+          (next.due_at ?? null) !== (current.due_at ?? null) ||
+          next.due_has_time !== Boolean(current.due_has_time) ||
+          input.dates.start_date !== currentStart
+        ) {
+          if (input.dates.start_date === currentStart && current.calendar_all_day === false) {
+            // A timed slot from the calendar stays as it is when only the due date moves.
+            for (const key of Object.keys(next)) {
+              if (key.startsWith("calendar_")) delete next[key];
+            }
+          }
+          Object.assign(update, next);
+          history.push([
+            "due_date_changed",
+            {
+              due_at_from: current.due_at,
+              due_at_to: next.due_at,
+              start_from: currentStart,
+              start_to: input.dates.start_date,
+            },
+          ]);
+        }
+      }
+      if (
+        (input.cover_color !== undefined && (input.cover_color ?? null) !== current.cover_color) ||
+        (input.cover_attachment_id !== undefined &&
+          (input.cover_attachment_id ?? null) !== current.cover_attachment_id)
+      ) {
+        if (input.cover_attachment_id) {
+          // Only an image attached to this very task can be its cover.
+          const { data: file } = await supabase
+            .from("app_attachments")
+            .select("id, content_type")
+            .eq("org_id", orgId)
+            .eq("target_type", "planning.task")
+            .eq("target_id", input.id)
+            .eq("id", input.cover_attachment_id)
+            .is("deleted_at", null)
+            .maybeSingle();
+          if (
+            !file ||
+            !String((file as { content_type: string }).content_type).startsWith("image/")
+          ) {
+            return { success: false, error: "The cover must be an image attached to this task" };
+          }
+        }
+        // One cover at a time: a colour or an image.
+        update.cover_attachment_id =
+          input.cover_attachment_id !== undefined
+            ? (input.cover_attachment_id ?? null)
+            : input.cover_color
+              ? null
+              : current.cover_attachment_id;
+        update.cover_color =
+          input.cover_color !== undefined
+            ? (input.cover_color ?? null)
+            : input.cover_attachment_id
+              ? null
+              : current.cover_color;
+        history.push(["cover_changed", {}]);
+      }
       if (input.status !== undefined && input.status !== current.status) {
         update.status = input.status;
       }
@@ -1346,7 +1599,7 @@ export const KanbanBoardsService = {
       if (!Object.keys(update).length) {
         const unchanged = await selectCard(supabase, orgId, input.id);
         if (!unchanged.success) return unchanged;
-        const [card] = await withCommentCounts(supabase, orgId, [unchanged.data]);
+        const [card] = await withCardExtras(supabase, orgId, [unchanged.data]);
         return { success: true, data: card };
       }
 
@@ -1359,7 +1612,7 @@ export const KanbanBoardsService = {
         .select(TASK_CARD_FIELDS)
         .single();
       if (error) return { success: false, error: error.message };
-      const [card] = await withCommentCounts(supabase, orgId, [mapCard(updatedRaw)]);
+      const [card] = await withCardExtras(supabase, orgId, [mapCard(updatedRaw)]);
 
       // A status change may also move the task on its board (board trigger).
       if (card.status !== current.status) {
@@ -1744,6 +1997,521 @@ export const KanbanBoardsService = {
       return { success: true, data: undefined };
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
+    }
+  },
+
+  // ── Board labels ──────────────────────────────────────────────────────────
+
+  async createBoardLabel(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: CreateKanbanBoardLabelInput
+  ): Promise<ServiceResult<KanbanBoardLabel>> {
+    try {
+      const { data: last } = await supabase
+        .from("planning_kanban_board_labels")
+        .select("position")
+        .eq("organization_id", orgId)
+        .eq("board_id", input.board_id)
+        .order("position", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const { data, error } = await supabase
+        .from("planning_kanban_board_labels")
+        .insert({
+          organization_id: orgId,
+          board_id: input.board_id,
+          name: input.name ?? "",
+          color: input.color,
+          position: ((last as { position: number } | null)?.position ?? -1) + 1,
+          created_by: userId,
+        })
+        .select(LABEL_FIELDS)
+        .single();
+      if (error) return { success: false, error: error.message };
+      return { success: true, data: mapLabel(data) };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  async updateBoardLabel(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: UpdateKanbanBoardLabelInput
+  ): Promise<ServiceResult<KanbanBoardLabel>> {
+    try {
+      const { data, error } = await supabase
+        .from("planning_kanban_board_labels")
+        .update({
+          name: input.name ?? "",
+          color: input.color,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("organization_id", orgId)
+        .eq("board_id", input.board_id)
+        .eq("id", input.id)
+        .select(LABEL_FIELDS)
+        .single();
+      if (error) return { success: false, error: error.message };
+      return { success: true, data: mapLabel(data) };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  /** Deleting a label takes it off every task of the board. */
+  async deleteBoardLabel(
+    supabase: SupabaseClient,
+    orgId: string,
+    boardId: string,
+    labelId: string
+  ): Promise<ServiceResult<void>> {
+    try {
+      const { error } = await supabase
+        .from("planning_kanban_board_labels")
+        .delete()
+        .eq("organization_id", orgId)
+        .eq("board_id", boardId)
+        .eq("id", labelId);
+      if (error) return { success: false, error: error.message };
+      return { success: true, data: undefined };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  /** Sets a task's labels to exactly these (labels of its own board). */
+  async setTaskLabels(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    taskId: string,
+    labelIds: string[]
+  ): Promise<ServiceResult<KanbanBoardCard>> {
+    try {
+      const { data: task, error: taskError } = await supabase
+        .from("planning_tasks")
+        .select("id, board_id")
+        .eq("organization_id", orgId)
+        .eq("id", taskId)
+        .is("deleted_at", null)
+        .single();
+      if (taskError) return { success: false, error: taskError.message };
+      const boardId = (task as { board_id: string | null }).board_id;
+      if (!boardId) return { success: false, error: "Only a task on a board has board labels" };
+
+      const { data: currentRows, error: currentError } = await supabase
+        .from("planning_task_labels")
+        .select("label_id")
+        .eq("task_id", taskId);
+      if (currentError) return { success: false, error: currentError.message };
+      const current = new Set(
+        ((currentRows ?? []) as Array<{ label_id: string }>).map((row) => row.label_id)
+      );
+      const wanted = new Set(labelIds);
+      const added = [...wanted].filter((id) => !current.has(id));
+      const removed = [...current].filter((id) => !wanted.has(id));
+
+      if (removed.length) {
+        const { error } = await supabase
+          .from("planning_task_labels")
+          .delete()
+          .eq("task_id", taskId)
+          .in("label_id", removed);
+        if (error) return { success: false, error: error.message };
+      }
+      if (added.length) {
+        const { error } = await supabase
+          .from("planning_task_labels")
+          .insert(
+            added.map((labelId) => ({ task_id: taskId, label_id: labelId, organization_id: orgId }))
+          );
+        if (error) return { success: false, error: error.message };
+      }
+      if (added.length || removed.length) {
+        await KanbanBoardsService.recordCardActivity(
+          supabase,
+          orgId,
+          boardId,
+          taskId,
+          userId,
+          "labels_changed",
+          { added, removed }
+        );
+      }
+      const card = await selectCard(supabase, orgId, taskId);
+      if (!card.success) return card;
+      const [withExtras] = await withCardExtras(supabase, orgId, [card.data]);
+      return { success: true, data: withExtras };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  // ── Checklists ────────────────────────────────────────────────────────────
+
+  async listChecklists(
+    supabase: SupabaseClient,
+    orgId: string,
+    taskId: string
+  ): Promise<ServiceResult<KanbanChecklist[]>> {
+    try {
+      const [listsResult, itemsResult] = await Promise.all([
+        supabase
+          .from("planning_task_checklists")
+          .select("id, task_id, title, position, created_at")
+          .eq("organization_id", orgId)
+          .eq("task_id", taskId)
+          .order("position", { ascending: true })
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("planning_task_checklist_items")
+          .select(
+            `id, checklist_id, task_id, title, is_done, assigned_to, due_at, position, created_at,
+             assignee:users!assigned_to(first_name, last_name, email)`
+          )
+          .eq("organization_id", orgId)
+          .eq("task_id", taskId)
+          .order("position", { ascending: true })
+          .order("created_at", { ascending: true }),
+      ]);
+      if (listsResult.error) return { success: false, error: listsResult.error.message };
+      if (itemsResult.error) return { success: false, error: itemsResult.error.message };
+      const items = (itemsResult.data ?? []).map(mapChecklistItem);
+      return {
+        success: true,
+        data: (listsResult.data ?? []).map((row: any) => ({
+          id: row.id,
+          task_id: row.task_id,
+          title: row.title,
+          position: row.position ?? 0,
+          items: items.filter((item) => item.checklist_id === row.id),
+        })),
+      };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  async createChecklist(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    taskId: string,
+    title: string
+  ): Promise<ServiceResult<KanbanChecklist>> {
+    try {
+      const { count } = await supabase
+        .from("planning_task_checklists")
+        .select("id", { count: "exact", head: true })
+        .eq("task_id", taskId);
+      const { data, error } = await supabase
+        .from("planning_task_checklists")
+        .insert({
+          organization_id: orgId,
+          task_id: taskId,
+          title,
+          position: count ?? 0,
+          created_by: userId,
+        })
+        .select("id, task_id, title, position")
+        .single();
+      if (error) return { success: false, error: error.message };
+      await KanbanBoardsService.recordCardActivity(
+        supabase,
+        orgId,
+        null,
+        taskId,
+        userId,
+        "checklist_added",
+        { title }
+      );
+      const row = data as { id: string; task_id: string; title: string; position: number };
+      return { success: true, data: { ...row, items: [] } };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  async renameChecklist(
+    supabase: SupabaseClient,
+    orgId: string,
+    checklistId: string,
+    title: string
+  ): Promise<ServiceResult<void>> {
+    try {
+      const { error } = await supabase
+        .from("planning_task_checklists")
+        .update({ title })
+        .eq("organization_id", orgId)
+        .eq("id", checklistId);
+      if (error) return { success: false, error: error.message };
+      return { success: true, data: undefined };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  async deleteChecklist(
+    supabase: SupabaseClient,
+    orgId: string,
+    checklistId: string
+  ): Promise<ServiceResult<void>> {
+    try {
+      const { error } = await supabase
+        .from("planning_task_checklists")
+        .delete()
+        .eq("organization_id", orgId)
+        .eq("id", checklistId);
+      if (error) return { success: false, error: error.message };
+      return { success: true, data: undefined };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  async addChecklistItem(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: CreateKanbanChecklistItemInput
+  ): Promise<ServiceResult<KanbanChecklistItem>> {
+    try {
+      const { data: last } = await supabase
+        .from("planning_task_checklist_items")
+        .select("position")
+        .eq("checklist_id", input.checklist_id)
+        .order("position", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const { data, error } = await supabase
+        .from("planning_task_checklist_items")
+        .insert({
+          organization_id: orgId,
+          checklist_id: input.checklist_id,
+          task_id: input.task_id,
+          title: input.title,
+          position: ((last as { position: number } | null)?.position ?? -1) + 1,
+          created_by: userId,
+        })
+        .select(CHECKLIST_ITEM_FIELDS)
+        .single();
+      if (error) return { success: false, error: error.message };
+      return { success: true, data: mapChecklistItem(data) };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  async updateChecklistItem(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: UpdateKanbanChecklistItemInput
+  ): Promise<ServiceResult<KanbanChecklistItem>> {
+    try {
+      const update: Record<string, unknown> = {};
+      if (input.title !== undefined) update.title = input.title;
+      if (input.is_done !== undefined) {
+        update.is_done = input.is_done;
+        update.done_at = input.is_done ? new Date().toISOString() : null;
+        update.done_by = input.is_done ? userId : null;
+      }
+      if (input.assigned_to !== undefined) update.assigned_to = input.assigned_to;
+      if (input.due_at !== undefined) update.due_at = input.due_at;
+      const { data, error } = await supabase
+        .from("planning_task_checklist_items")
+        .update(update)
+        .eq("organization_id", orgId)
+        .eq("id", input.id)
+        .select(CHECKLIST_ITEM_FIELDS)
+        .single();
+      if (error) return { success: false, error: error.message };
+      return { success: true, data: mapChecklistItem(data) };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  async deleteChecklistItem(
+    supabase: SupabaseClient,
+    orgId: string,
+    itemId: string
+  ): Promise<ServiceResult<void>> {
+    try {
+      const { error } = await supabase
+        .from("planning_task_checklist_items")
+        .delete()
+        .eq("organization_id", orgId)
+        .eq("id", itemId);
+      if (error) return { success: false, error: error.message };
+      return { success: true, data: undefined };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  /**
+   * Turns a checklist item into a task of its own: on the same board column
+   * (at the bottom) or, for a task outside a board, in the inbox. The item
+   * goes away once the task exists.
+   */
+  async convertChecklistItem(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    itemId: string
+  ): Promise<ServiceResult<KanbanBoardCard>> {
+    try {
+      const { data: itemRaw, error: itemError } = await supabase
+        .from("planning_task_checklist_items")
+        .select("id, title, assigned_to, due_at, task_id")
+        .eq("organization_id", orgId)
+        .eq("id", itemId)
+        .single();
+      if (itemError) return { success: false, error: itemError.message };
+      const item = itemRaw as {
+        title: string;
+        assigned_to: string | null;
+        due_at: string | null;
+        task_id: string;
+      };
+      const { data: parentRaw, error: parentError } = await supabase
+        .from("planning_tasks")
+        .select("id, task_number, board_id, column_id, branch_id")
+        .eq("organization_id", orgId)
+        .eq("id", item.task_id)
+        .single();
+      if (parentError) return { success: false, error: parentError.message };
+      const parent = parentRaw as {
+        task_number: string;
+        board_id: string | null;
+        column_id: string | null;
+        branch_id: string | null;
+      };
+
+      let created: ServiceResult<KanbanBoardCard>;
+      if (parent.board_id && parent.column_id) {
+        created = await KanbanBoardsService.createCard(supabase, orgId, userId, {
+          board_id: parent.board_id,
+          column_id: parent.column_id,
+          title: item.title.slice(0, 300),
+        });
+      } else {
+        const { data, error } = await supabase
+          .from("planning_tasks")
+          .insert({
+            organization_id: orgId,
+            branch_id: parent.branch_id,
+            title: item.title.slice(0, 300),
+            status: "open",
+            priority: "normal",
+            is_inbox: true,
+            created_by: userId,
+            updated_by: userId,
+          })
+          .select(TASK_CARD_FIELDS)
+          .single();
+        created = error
+          ? { success: false, error: error.message }
+          : { success: true, data: mapCard(data) };
+      }
+      if (!created.success) return created;
+
+      if (item.assigned_to || item.due_at) {
+        const patched = await KanbanBoardsService.patchTask(supabase, orgId, userId, {
+          id: created.data.id,
+          ...(item.assigned_to ? { assigned_to: item.assigned_to } : {}),
+          ...(item.due_at ? { due_at: item.due_at } : {}),
+        });
+        if (patched.success) created = patched;
+      }
+      await KanbanBoardsService.recordCardActivity(
+        supabase,
+        orgId,
+        parent.board_id,
+        created.data.id,
+        userId,
+        "created_from_checklist",
+        { from_task: parent.task_number }
+      );
+      await supabase
+        .from("planning_task_checklist_items")
+        .delete()
+        .eq("organization_id", orgId)
+        .eq("id", itemId);
+      return created;
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  // ── Watchers ──────────────────────────────────────────────────────────────
+
+  async setWatching(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    taskId: string,
+    watching: boolean
+  ): Promise<ServiceResult<void>> {
+    try {
+      const { error } = watching
+        ? await supabase
+            .from("planning_task_watchers")
+            .upsert(
+              { task_id: taskId, user_id: userId, organization_id: orgId },
+              { onConflict: "task_id,user_id", ignoreDuplicates: true }
+            )
+        : await supabase
+            .from("planning_task_watchers")
+            .delete()
+            .eq("task_id", taskId)
+            .eq("user_id", userId);
+      if (error) return { success: false, error: error.message };
+      return { success: true, data: undefined };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  // ── Board activity ────────────────────────────────────────────────────────
+
+  /** The latest changes to the tasks of a board, newest first. */
+  async listBoardActivity(
+    supabase: SupabaseClient,
+    orgId: string,
+    boardId: string,
+    limit = 60
+  ): Promise<ServiceResult<KanbanBoardActivity[]>> {
+    try {
+      const { data, error } = await supabase
+        .from("planning_task_activity")
+        .select(
+          `id, organization_id, task_id, actor_id, activity_type, message, metadata, created_at,
+           actor:users!actor_id(first_name, last_name, email),
+           task:planning_tasks!inner(task_number, title, board_id)`
+        )
+        .eq("organization_id", orgId)
+        .eq("task.board_id", boardId)
+        .order("created_at", { ascending: false })
+        .limit(Math.min(Math.max(limit, 1), 200));
+      if (error) return { success: false, error: error.message };
+      return {
+        success: true,
+        data: (data ?? []).map((row: any) => {
+          const task = Array.isArray(row.task) ? row.task[0] : row.task;
+          return {
+            ...mapActivity({ ...row, board_id: boardId }),
+            task_number: task?.task_number ?? "",
+            task_title: task?.title ?? "",
+          };
+        }),
+      };
+    } catch (e) {
+      return failure(e);
     }
   },
 };

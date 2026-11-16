@@ -8,11 +8,14 @@ import {
   ArrowRightLeft,
   Calendar,
   Check,
+  CheckSquare,
   ExternalLink,
+  Eye,
   Flag,
   Hand,
   Inbox,
   MessageSquare,
+  Paperclip,
   Pencil,
   X,
 } from "lucide-react";
@@ -31,6 +34,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { KanbanBoardCard, KanbanBoardColumn } from "@/lib/types/kanban";
 import { KANBAN_TASK_PRIORITIES } from "@/lib/validations/kanban";
 import { PRIORITY_FLAG_COLORS } from "@/components/planning/task-editor/task-labels";
+import { formatCardDates } from "@/components/planning/task-editor/task-editor-extras";
 import { cn } from "@/utils";
 import {
   DUE_STATE_CLASSES,
@@ -52,6 +56,10 @@ interface BoardCardProps {
   currentUserId: string;
   actions: BoardActions;
   onOpen: (card: KanbanBoardCard) => void;
+  /** The pointer is over the card (keyboard shortcuts act on it). */
+  onHover?: (card: KanbanBoardCard | null) => void;
+  /** Labels as thin bars (the board's compact setting). */
+  compactLabels?: boolean;
 }
 
 /**
@@ -69,6 +77,8 @@ export const BoardCard = memo(function BoardCard({
   currentUserId,
   actions,
   onOpen,
+  onHover,
+  compactLabels = false,
 }: BoardCardProps) {
   const t = useTranslations("modules.planning");
   const format = useFormatter();
@@ -78,10 +88,28 @@ export const BoardCard = memo(function BoardCard({
   const showPriority = card.priority === "high" || card.priority === "urgent";
   const assignee = card.assignee_name ?? card.assignee_email;
   const hasQuickActions = canEdit || canArchive;
+  const dates = formatCardDates(format, card);
+  const watching = card.watcher_ids?.includes(currentUserId) ?? false;
+  const checklistComplete =
+    card.checklist_total > 0 && card.checklist_done === card.checklist_total;
 
   return (
-    <KanbanCard id={card.id} className="p-0">
+    <KanbanCard id={card.id} className="overflow-hidden p-0">
+      {card.cover_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={card.cover_url}
+          alt=""
+          className="h-32 w-full rounded-t-md object-cover"
+          draggable={false}
+          loading="lazy"
+        />
+      ) : card.cover_color ? (
+        <div className="h-8 w-full rounded-t-md" style={{ backgroundColor: card.cover_color }} />
+      ) : null}
       <div
+        onMouseEnter={onHover ? () => onHover(card) : undefined}
+        onMouseLeave={onHover ? () => onHover(null) : undefined}
         role="button"
         tabIndex={0}
         aria-label={card.title}
@@ -101,7 +129,29 @@ export const BoardCard = memo(function BoardCard({
           setMenuOpen(true);
         }}
       >
-        {card.label ? (
+        {card.labels?.length ? (
+          <div className="flex flex-wrap gap-1 pr-6">
+            {card.labels.map((label) =>
+              compactLabels ? (
+                <span
+                  key={label.id}
+                  className="h-2 w-10 rounded-full"
+                  style={{ backgroundColor: label.color }}
+                  title={label.name}
+                />
+              ) : (
+                <span
+                  key={label.id}
+                  className="max-w-full truncate rounded px-1.5 py-0.5 text-[10px] font-semibold text-white"
+                  style={{ backgroundColor: label.color }}
+                  title={label.name}
+                >
+                  {label.name || "\u00a0"}
+                </span>
+              )
+            )}
+          </div>
+        ) : card.label ? (
           <span
             className="w-fit max-w-full truncate rounded px-1.5 py-0.5 text-[10px] font-semibold text-white"
             style={{ backgroundColor: card.label_color ?? "#64748b" }}
@@ -132,7 +182,12 @@ export const BoardCard = memo(function BoardCard({
               title={t(`boards.cardBadges.due.${due}`)}
             >
               {due === "done" ? <Check className="h-3 w-3" /> : <Calendar className="h-3 w-3" />}
-              {format.dateTime(new Date(card.due_at!), { day: "numeric", month: "short" })}
+              {dates}
+            </span>
+          ) : dates ? (
+            <span className="flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-medium">
+              <Calendar className="h-3 w-3" />
+              {dates}
             </span>
           ) : null}
           {showPriority ? (
@@ -150,6 +205,33 @@ export const BoardCard = memo(function BoardCard({
           ) : null}
           {card.description ? (
             <AlignLeft className="h-3 w-3" aria-label={t("boards.cardBadges.hasDescription")} />
+          ) : null}
+          {watching ? (
+            <Eye className="h-3 w-3" aria-label={t("boardTools.badges.watching")} />
+          ) : null}
+          {card.checklist_total ? (
+            <span
+              className={cn(
+                "flex items-center gap-0.5 rounded px-1 py-0.5",
+                checklistComplete && "bg-emerald-600 font-medium text-white"
+              )}
+              title={t("boardTools.badges.checklist", {
+                done: card.checklist_done,
+                total: card.checklist_total,
+              })}
+            >
+              <CheckSquare className="h-3 w-3" />
+              {card.checklist_done}/{card.checklist_total}
+            </span>
+          ) : null}
+          {card.attachment_count ? (
+            <span
+              className="flex items-center gap-0.5"
+              title={t("boardTools.badges.attachments", { count: card.attachment_count })}
+            >
+              <Paperclip className="h-3 w-3" />
+              {card.attachment_count}
+            </span>
           ) : null}
           {card.comment_count ? (
             <span

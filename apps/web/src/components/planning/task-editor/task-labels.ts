@@ -74,6 +74,11 @@ export function activityLabel(t: Translate, type: string, fallback: string | nul
     card_moved_from_inbox: "activityMessages.cardMovedFromInbox",
     card_archived: "activityMessages.cardArchived",
     comment_added: "activityMessages.commentAdded",
+    labels_changed: "activityMessages.labelsChanged",
+    checklist_added: "activityMessages.checklistAdded",
+    cover_changed: "activityMessages.coverChanged",
+    created_from_checklist: "activityMessages.createdFromChecklist",
+    attachment_added: "activityMessages.attachmentAdded",
   };
   const key = keys[type];
   return key ? t(`boards.${key}`) : (fallback ?? type);

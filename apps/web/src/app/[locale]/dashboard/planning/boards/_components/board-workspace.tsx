@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useQueryStates } from "nuqs";
+import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KanbanBoard, type KanbanCardMoveParams } from "@/components/primitives/kanban";
 import { PageLoader } from "@/components/page-loader";
@@ -18,7 +20,23 @@ import {
   ColumnMenu,
   ColumnTitle,
 } from "./board-columns";
+import {
+  boardFilterParams,
+  cardMatches,
+  fullIndexFromVisible,
+  hasActiveFilters,
+  type BoardFilters,
+} from "./board-filters";
 import { INBOX_COLUMN_ID } from "./board-format";
+import {
+  BOARD_SEARCH_INPUT_ID,
+  BoardActivitySheet,
+  BoardFilterBar,
+  BoardLabelsDialog,
+  BoardShortcutsDialog,
+  BoardViewers,
+} from "./board-tools";
+import { useBoardRealtime } from "./use-board-realtime";
 import { BoardHeader } from "./board-header";
 import { useBoardSharing } from "./board-sharing";
 import { useBoardActions } from "./use-board-actions";
@@ -73,6 +91,55 @@ export function BoardWorkspace({
   const [archiveOpen, setArchiveOpen] = useState(false);
   /** The column where a card is being added, and whether at its top. */
   const [composer, setComposer] = useState<{ columnId: string; atTop: boolean } | null>(null);
+  const [labelsOpen, setLabelsOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const hoveredCard = useRef<KanbanBoardCard | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const [filterParams, setFilterParams] = useQueryStates(boardFilterParams, { history: "replace" });
+  const filters = useMemo<BoardFilters>(
+    () => ({
+      q: filterParams.q,
+      people: filterParams.osoby,
+      labels: filterParams.etykiety,
+      due: filterParams.termin ?? null,
+      priority: filterParams.priorytet,
+    }),
+    [filterParams]
+  );
+  const filtering = hasActiveFilters(filters);
+  const setFilters = useCallback(
+    (next: Partial<BoardFilters>) =>
+      void setFilterParams({
+        ...(next.q !== undefined ? { q: next.q || null } : {}),
+        ...(next.people !== undefined ? { osoby: next.people.length ? next.people : null } : {}),
+        ...(next.labels !== undefined ? { etykiety: next.labels.length ? next.labels : null } : {}),
+        ...(next.due !== undefined ? { termin: next.due } : {}),
+        ...(next.priority !== undefined
+          ? { priorytet: next.priority.length ? next.priority : null }
+          : {}),
+      }),
+    [setFilterParams]
+  );
+  const clearFilters = useCallback(
+    () =>
+      void setFilterParams({ q: null, osoby: null, etykiety: null, termin: null, priorytet: null }),
+    [setFilterParams]
+  );
+
+  const user = useUserStoreV2((state) => state.user);
+  const me = useMemo(
+    () =>
+      user
+        ? {
+            id: user.id,
+            name: [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email,
+          }
+        : null,
+    [user]
+  );
+  const viewers = useBoardRealtime(orgId, board?.id ?? null, me);
 
   const isArchived = Boolean(board?.archived_at);
   // A viewer only looks; the database refuses their writes anyway. An archived
@@ -111,13 +178,27 @@ export function BoardWorkspace({
     ];
   }, [board, inboxOpen, showBoard, t]);
 
-  const items = useMemo(
+  const allItems = useMemo(
     () => [
       ...(inboxOpen && !inboxLoading ? inboxCards : []),
       ...(board && showBoard ? board.cards : []),
     ],
     [board, inboxCards, inboxLoading, inboxOpen, showBoard]
   );
+
+  // A filter hides cards; the card that is open stays, so it does not vanish while edited.
+  const items = useMemo(() => {
+    if (!filtering) return allItems;
+    const now = new Date();
+    return allItems.filter(
+      (card) =>
+        card.task_number === openCardNumber || cardMatches(card, filters, currentUserId, now)
+    );
+  }, [allItems, currentUserId, filtering, filters, openCardNumber]);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const allItemsRef = useRef(allItems);
+  allItemsRef.current = allItems;
 
   const openCard = useMemo(() => {
     if (!openCardNumber) return null;
@@ -131,7 +212,8 @@ export function BoardWorkspace({
   // What the editor shows at once, before it loads the task itself.
   const editorInitialData = useMemo((): KanbanTaskEditorData | undefined => {
     if (!openCard) return undefined;
-    if (openCard.is_inbox || !board) return { card: openCard, board: null, columns: [] };
+    if (openCard.is_inbox || !board)
+      return { card: openCard, board: null, columns: [], labels: [] };
     return {
       card: openCard,
       board: {
@@ -142,6 +224,7 @@ export function BoardWorkspace({
         my_access: board.my_access,
       },
       columns: board.columns,
+      labels: board.labels ?? [],
     };
   }, [board, openCard]);
 
@@ -156,13 +239,100 @@ export function BoardWorkspace({
 
   const handleCardMove = useCallback(
     ({ itemId, toColumnId, newIndex }: KanbanCardMoveParams) => {
+      let index = newIndex;
+      if (filtering) {
+        // The drop index counts the cards shown; the move needs all of the column's cards.
+        const inColumn = (card: KanbanBoardCard) =>
+          card.id !== itemId && getCardColumnId(card) === toColumnId;
+        const order = (list: KanbanBoardCard[]) =>
+          toColumnId === INBOX_COLUMN_ID
+            ? list.filter(inColumn)
+            : list.filter(inColumn).sort((a, b) => a.position - b.position);
+        index = fullIndexFromVisible(
+          order(allItemsRef.current).map(getCardId),
+          order(itemsRef.current).map(getCardId),
+          newIndex
+        );
+      }
       moveCardTo(itemId, {
         columnId: toColumnId === INBOX_COLUMN_ID ? null : toColumnId,
-        index: newIndex,
+        index,
       });
     },
-    [moveCardTo]
+    [filtering, moveCardTo]
   );
+
+  const handleHover = useCallback((card: KanbanBoardCard | null) => {
+    hoveredCard.current = card;
+  }, []);
+
+  // Keyboard shortcuts on the board (not while typing or with a window open).
+  const shortcutState = useRef({
+    filters,
+    canUpdate,
+    canDelete,
+    canUpdatePermission,
+    canDeletePermission,
+  });
+  shortcutState.current = {
+    filters,
+    canUpdate,
+    canDelete,
+    canUpdatePermission,
+    canDeletePermission,
+  };
+  useEffect(() => {
+    if (!showBoard) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
+      ) {
+        return;
+      }
+      if (document.querySelector('[role="dialog"], [role="menu"], [role="alertdialog"]')) return;
+      // A focused button or link keeps its own Enter and Space.
+      if ((event.key === " " || event.key === "Enter") && target?.closest("button, a")) return;
+      const state = shortcutState.current;
+      const hovered = hoveredCard.current;
+      const key = event.key;
+      if (key === "/" || key === "f" || key === "F") {
+        event.preventDefault();
+        (searchRef.current ?? document.getElementById(BOARD_SEARCH_INPUT_ID))?.focus();
+      } else if (key === "q" || key === "Q") {
+        event.preventDefault();
+        const onlyMine = state.filters.people.length === 1 && state.filters.people[0] === "me";
+        setFilters({ people: onlyMine ? [] : ["me"] });
+      } else if (key === "Escape") {
+        if (hasActiveFilters(state.filters)) {
+          event.preventDefault();
+          clearFilters();
+        }
+      } else if (key === "?") {
+        event.preventDefault();
+        setShortcutsOpen(true);
+      } else if (hovered && key === "Enter") {
+        event.preventDefault();
+        onOpenCardChange(hovered.task_number);
+      } else if (hovered && key === " ") {
+        const canEdit = hovered.is_inbox ? state.canUpdatePermission : state.canUpdate;
+        if (!canEdit) return;
+        event.preventDefault();
+        const mine = hovered.assigned_to === currentUserId;
+        void actions.patchCard(hovered, { assigned_to: mine ? null : currentUserId });
+      } else if (hovered && (key === "c" || key === "C")) {
+        const canArchive = hovered.is_inbox ? state.canDeletePermission : state.canDelete;
+        if (!canArchive) return;
+        event.preventDefault();
+        hoveredCard.current = null;
+        void actions.archiveCard(hovered);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [actions, clearFilters, currentUserId, onOpenCardChange, setFilters, showBoard]);
 
   const handleColumnsChange = useCallback(
     (next: Array<{ id: string }>) =>
@@ -224,6 +394,22 @@ export function BoardWorkspace({
                   onOpenArchive={() => setArchiveOpen(true)}
                   onOpenAllBoards={onOpenAllBoards}
                   onBoardArchived={onBoardArchived}
+                  viewers={<BoardViewers viewers={viewers} />}
+                  onOpenLabels={() => setLabelsOpen(true)}
+                  onOpenActivity={() => setActivityOpen(true)}
+                  onOpenShortcuts={() => setShortcutsOpen(true)}
+                  toolbar={
+                    <BoardFilterBar
+                      ref={searchRef}
+                      filters={filters}
+                      labels={board.labels ?? []}
+                      people={people}
+                      shown={items.length}
+                      total={allItems.length}
+                      onChange={setFilters}
+                      onClear={clearFilters}
+                    />
+                  }
                 />
               )
             : undefined
@@ -306,6 +492,7 @@ export function BoardWorkspace({
             currentUserId={currentUserId}
             actions={actions}
             onOpen={handleOpenCard}
+            onHover={handleHover}
           />
         )}
       />
@@ -324,7 +511,28 @@ export function BoardWorkspace({
         onChanged={actions.cardChanged}
         onArchive={actions.archiveCard}
         onClose={() => onOpenCardChange(null)}
+        onBoardLabelCreated={actions.boardLabelCreated}
       />
+
+      {board ? (
+        <>
+          <BoardLabelsDialog
+            orgId={orgId}
+            board={board}
+            open={labelsOpen}
+            onOpenChange={setLabelsOpen}
+            canEdit={canUpdate}
+          />
+          <BoardActivitySheet
+            orgId={orgId}
+            boardId={board.id}
+            open={activityOpen}
+            onOpenChange={setActivityOpen}
+            onOpenCard={onOpenCardChange}
+          />
+        </>
+      ) : null}
+      <BoardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 
       {board ? (
         <BoardArchiveDialog
