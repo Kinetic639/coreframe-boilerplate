@@ -24,9 +24,14 @@ on:
   push:
     branches: [main]
   pull_request:
+    # `closed` only cancels the PR's run still in progress (see concurrency):
+    # after a merge the push to main runs everything again, and the e2e suite
+    # talks to the shared Supabase project, so two suites at once slow it down
+    # for everyone using the app.
+    types: [opened, synchronize, reopened, closed]
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -35,6 +40,7 @@ env:
 jobs:
   quality:
     name: Lint, types, unit tests
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
