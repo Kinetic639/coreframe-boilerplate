@@ -81,6 +81,8 @@ export function activityLabel(t: Translate, type: string, fallback: string | nul
     attachment_added: "activityMessages.attachmentAdded",
     copied_from: "activityMessages.copiedFrom",
     parent_changed: "activityMessages.parentChanged",
+    recurred_from: "activityMessages.recurredFrom",
+    recurrence_changed: "activityMessages.recurrenceChanged",
   };
   const key = keys[type];
   return key ? t(`boards.${key}`) : (fallback ?? type);

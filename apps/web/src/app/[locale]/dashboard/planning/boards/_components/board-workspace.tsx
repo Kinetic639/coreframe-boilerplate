@@ -12,6 +12,7 @@ import { CopyCardDialog, TaskEditorDialog } from "@/components/planning/task-edi
 import type { KanbanBoardCard, KanbanBoardDetail, KanbanTaskEditorData } from "@/lib/types/kanban";
 import { cn } from "@/utils";
 import { BoardArchiveDialog } from "./board-archive-dialog";
+import { BoardFieldsDialog } from "./board-fields-dialog";
 import { BoardCard } from "./board-card";
 import { boardBackground } from "./board-colors";
 import {
@@ -103,6 +104,7 @@ export function BoardWorkspace({
   const [labelsOpen, setLabelsOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [fieldsOpen, setFieldsOpen] = useState(false);
   const [copyingCard, setCopyingCard] = useState<KanbanBoardCard | null>(null);
   const hoveredCard = useRef<KanbanBoardCard | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -160,6 +162,11 @@ export function BoardWorkspace({
   const canManageBoard =
     canUpdatePermission && (board?.my_access === "owner" || (canDeletePermission && !isViewer));
   const showBoard = Boolean(board) && !boardLoading;
+
+  const cardFields = useMemo(
+    () => board?.custom_fields?.filter((field) => field.show_on_card) ?? [],
+    [board?.custom_fields]
+  );
 
   const cardTemplates = useMemo(
     () => board?.cards.filter((card) => card.is_template) ?? [],
@@ -429,6 +436,7 @@ export function BoardWorkspace({
                   onOpenLabels={() => setLabelsOpen(true)}
                   onOpenActivity={() => setActivityOpen(true)}
                   onOpenShortcuts={() => setShortcutsOpen(true)}
+                  onOpenFields={() => setFieldsOpen(true)}
                   canCreate={canCreate}
                   onOpenBoard={onOpenBoard}
                   toolbar={
@@ -534,6 +542,7 @@ export function BoardWorkspace({
             onOpen={handleOpenCard}
             onHover={handleHover}
             onCopy={canUpdatePermission ? setCopyingCard : undefined}
+            cardFields={card.is_inbox ? undefined : cardFields}
           />
         )}
       />
@@ -569,6 +578,13 @@ export function BoardWorkspace({
             board={board}
             open={labelsOpen}
             onOpenChange={setLabelsOpen}
+            canEdit={canUpdate}
+          />
+          <BoardFieldsDialog
+            orgId={orgId}
+            board={board}
+            open={fieldsOpen}
+            onOpenChange={setFieldsOpen}
             canEdit={canUpdate}
           />
           <BoardActivitySheet

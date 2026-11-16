@@ -15,6 +15,7 @@ import {
   Palette,
   RotateCcw,
   Settings2,
+  SlidersHorizontal,
   Star,
   Tag,
   UserPlus,
@@ -60,6 +61,7 @@ interface BoardHeaderProps {
   onOpenLabels?: () => void;
   onOpenActivity?: () => void;
   onOpenShortcuts?: () => void;
+  onOpenFields?: () => void;
   /** Can make boards (a copy of this one). */
   canCreate: boolean;
   onOpenBoard: (boardId: string) => void;
@@ -83,6 +85,7 @@ export function BoardHeader({
   onOpenLabels,
   onOpenActivity,
   onOpenShortcuts,
+  onOpenFields,
   canCreate,
   onOpenBoard,
 }: BoardHeaderProps) {
@@ -238,6 +241,12 @@ export function BoardHeader({
                 <DropdownMenuItem onSelect={onOpenLabels}>
                   <Tag className="mr-2 h-4 w-4" />
                   {t("boardTools.labelsTitle")}
+                </DropdownMenuItem>
+              ) : null}
+              {onOpenFields ? (
+                <DropdownMenuItem onSelect={onOpenFields}>
+                  <SlidersHorizontal className="mr-2 h-4 w-4" />
+                  {t("boardExtras.fields.title")}
                 </DropdownMenuItem>
               ) : null}
               {onOpenActivity ? (

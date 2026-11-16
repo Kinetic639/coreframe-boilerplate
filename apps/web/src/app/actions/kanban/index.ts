@@ -80,6 +80,14 @@ import {
   type UpdateKanbanBoardMemberInput,
   type UpdateKanbanCardInput,
   type UpdateKanbanColumnInput,
+  createKanbanCustomFieldSchema,
+  updateKanbanCustomFieldSchema,
+  deleteKanbanCustomFieldSchema,
+  setKanbanCustomFieldValueSchema,
+  type CreateKanbanCustomFieldInput,
+  type UpdateKanbanCustomFieldInput,
+  type DeleteKanbanCustomFieldInput,
+  type SetKanbanCustomFieldValueInput,
 } from "@/lib/validations/kanban";
 import type {
   KanbanBoardActivity,
@@ -96,6 +104,7 @@ import type {
   KanbanTaskEditorData,
   KanbanTaskRef,
   KanbanTaskRelations,
+  KanbanCustomField,
 } from "@/lib/types/kanban";
 import { KanbanBoardsService } from "@/server/services/kanban-boards.service";
 
@@ -802,5 +811,40 @@ export async function searchKanbanTasksAction(
     searchKanbanTasksSchema,
     input,
     (ctx, data) => KanbanBoardsService.searchTasks(ctx.supabase, ctx.orgId, data)
+  );
+}
+
+// ── Custom fields (stage 6b) ────────────────────────────────────────────────
+
+export async function createKanbanCustomFieldAction(
+  input: CreateKanbanCustomFieldInput
+): Promise<ActionResult<KanbanCustomField>> {
+  return guarded(PLANNING_BOARDS_UPDATE, createKanbanCustomFieldSchema, input, (ctx, data) =>
+    KanbanBoardsService.createCustomField(ctx.supabase, ctx.orgId, ctx.userId, data)
+  );
+}
+
+export async function updateKanbanCustomFieldAction(
+  input: UpdateKanbanCustomFieldInput
+): Promise<ActionResult<KanbanCustomField>> {
+  return guarded(PLANNING_BOARDS_UPDATE, updateKanbanCustomFieldSchema, input, (ctx, data) =>
+    KanbanBoardsService.updateCustomField(ctx.supabase, ctx.orgId, data)
+  );
+}
+
+export async function deleteKanbanCustomFieldAction(
+  input: DeleteKanbanCustomFieldInput
+): Promise<ActionResult<void>> {
+  return guarded(PLANNING_BOARDS_UPDATE, deleteKanbanCustomFieldSchema, input, (ctx, data) =>
+    KanbanBoardsService.deleteCustomField(ctx.supabase, ctx.orgId, data)
+  );
+}
+
+/** A card's value for a custom field (null clears it). */
+export async function setKanbanCustomFieldValueAction(
+  input: SetKanbanCustomFieldValueInput
+): Promise<ActionResult<KanbanBoardCard>> {
+  return guarded(PLANNING_TASKS_UPDATE, setKanbanCustomFieldValueSchema, input, (ctx, data) =>
+    KanbanBoardsService.setCustomFieldValue(ctx.supabase, ctx.orgId, ctx.userId, data)
   );
 }
