@@ -226,6 +226,20 @@ function str(value: unknown): string | null {
 }
 
 export class InventoryReceivingService {
+  /** How many items wait in the receiving zone; the start page needs the number only. */
+  static async countPending(
+    supabase: SupabaseClient,
+    organizationId: string,
+    branchId: string
+  ): Promise<ServiceResult<number>> {
+    const { data, error } = await supabase.rpc("inventory_receiving_pending_count", {
+      p_organization_id: organizationId,
+      p_branch_id: branchId,
+    });
+    if (error) return { success: false, error: "Failed to load the receiving zone" };
+    return { success: true, data: num(data) };
+  }
+
   static async listPending(
     supabase: SupabaseClient,
     organizationId: string,

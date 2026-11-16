@@ -15,6 +15,24 @@ function rpcClient(result: { data?: unknown; error?: { code?: string; message: s
   return { client: { rpc } as never, rpc };
 }
 
+describe("InventoryReceivingService.countPending", () => {
+  it("reads the number from the count RPC", async () => {
+    const { client, rpc } = rpcClient({ data: 7 });
+    const result = await InventoryReceivingService.countPending(client, "org", "branch");
+    expect(rpc).toHaveBeenCalledWith("inventory_receiving_pending_count", {
+      p_organization_id: "org",
+      p_branch_id: "branch",
+    });
+    expect(result).toEqual({ success: true, data: 7 });
+  });
+
+  it("reports a failed read", async () => {
+    const { client } = rpcClient({ error: { code: "42501", message: "Missing" } });
+    const result = await InventoryReceivingService.countPending(client, "org", "branch");
+    expect(result).toEqual({ success: false, error: "Failed to load the receiving zone" });
+  });
+});
+
 describe("InventoryReceivingService.listPending", () => {
   it("maps RO, bulk and free rows", async () => {
     const { client, rpc } = rpcClient({

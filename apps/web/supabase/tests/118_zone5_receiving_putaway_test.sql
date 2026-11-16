@@ -12,7 +12,7 @@
 
 BEGIN;
 
-SELECT plan(22);
+SELECT plan(24);
 
 CREATE TEMP TABLE fx (
   org uuid, branch uuid, e2e_user uuid,
@@ -118,6 +118,8 @@ INSERT INTO test_log(line) SELECT ok(
 CREATE TEMP TABLE pend1 AS SELECT inventory_receiving_pending((SELECT org FROM fx), (SELECT branch FROM fx)) AS r;
 GRANT SELECT ON pend1 TO authenticated;
 INSERT INTO test_log(line) SELECT is(jsonb_array_length(r->'items'), 3, 'T5: pending lists 3 items (2 attributed + 1 free remainder)') FROM pend1;
+INSERT INTO test_log(line) SELECT is(inventory_receiving_pending_count((SELECT org FROM fx), (SELECT branch FROM fx)), 3,
+  'T5b: the start-page count matches the pending list');
 INSERT INTO test_log(line) SELECT is(
   (SELECT (it->>'quantity')::numeric FROM pend1, jsonb_array_elements(r->'items') it
    WHERE it->>'repair_order_line_id' = (SELECT rol_std FROM fx)::text),
@@ -186,6 +188,8 @@ INSERT INTO test_log(line) SELECT ok(
 INSERT INTO test_log(line) SELECT is(
   jsonb_array_length(inventory_receiving_pending((SELECT org FROM fx), (SELECT branch FROM fx))->'items'), 0,
   'T17: nothing is pending after all three putaways');
+INSERT INTO test_log(line) SELECT is(inventory_receiving_pending_count((SELECT org FROM fx), (SELECT branch FROM fx)), 0,
+  'T17b: the start-page count is 0 too');
 
 -- Guards.
 DO $$
@@ -229,6 +233,8 @@ RESET ROLE;
 INSERT INTO test_log(line) SELECT ok(
   NOT has_function_privilege('anon', 'public.inventory_putaway_from_receiving(uuid, uuid, uuid, uuid, numeric, uuid, uuid, uuid)', 'EXECUTE')
   AND NOT has_function_privilege('anon', 'public.inventory_receiving_pending(uuid, uuid)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.inventory_receiving_pending_count(uuid, uuid)', 'EXECUTE')
+  AND NOT has_function_privilege('authenticated', 'public._inventory_receiving_items(uuid, uuid, uuid)', 'EXECUTE')
   AND NOT has_function_privilege('anon', 'public.inventory_attribute_receipt_lines(uuid, uuid, jsonb)', 'EXECUTE'),
   'T22: anon cannot execute the Zone 5 functions');
 
