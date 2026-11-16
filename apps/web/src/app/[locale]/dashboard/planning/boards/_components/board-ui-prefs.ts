@@ -1,8 +1,10 @@
 // What the boards page remembers per browser: the last board, the boards
-// opened recently, whether the inbox is open and which columns are collapsed
+// opened recently, whether the inbox is open (and its colour) and which columns are collapsed
 // on each board. It lives in a
 // cookie so the server renders the page the way it was left (no jump after
 // load).
+
+import { paletteColor } from "./board-colors";
 
 export const BOARD_UI_COOKIE = "planning_boards_ui";
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
@@ -16,6 +18,8 @@ export interface BoardUiPrefs {
   /** Boards opened recently, newest first. */
   recent: string[];
   inboxOpen: boolean;
+  /** The inbox panel's background colour (one of BOARD_COLORS), or null. */
+  inboxColor: string | null;
   collapsed: Record<string, string[]>;
 }
 
@@ -23,6 +27,7 @@ export const DEFAULT_BOARD_UI_PREFS: BoardUiPrefs = {
   lastBoardId: null,
   recent: [],
   inboxOpen: true,
+  inboxColor: null,
   collapsed: {},
 };
 
@@ -36,6 +41,7 @@ export function parseBoardUiPrefs(raw: string | undefined | null): BoardUiPrefs 
       i?: unknown;
       c?: unknown;
       r?: unknown;
+      x?: unknown;
     };
     const collapsed: Record<string, string[]> = {};
     if (value.c && typeof value.c === "object") {
@@ -54,6 +60,7 @@ export function parseBoardUiPrefs(raw: string | undefined | null): BoardUiPrefs 
       lastBoardId: typeof value.b === "string" && UUID.test(value.b) ? value.b : null,
       recent,
       inboxOpen: value.i !== 0,
+      inboxColor: paletteColor(value.x),
       collapsed,
     };
   } catch {
@@ -70,6 +77,7 @@ export function serializeBoardUiPrefs(prefs: BoardUiPrefs): string {
       i: prefs.inboxOpen ? 1 : 0,
       c: kept,
       r: prefs.recent.length ? prefs.recent.slice(0, MAX_RECENT_BOARDS) : undefined,
+      x: prefs.inboxColor ?? undefined,
     })
   );
 }

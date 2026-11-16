@@ -5,6 +5,7 @@ import { User } from "lucide-react";
 import { FilterBar, type FilterField } from "@/components/data-table/filter-bar";
 import "@/components/data-table/ambra-list.css";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { KanbanBoardLabel } from "@/lib/types/kanban";
 import { KANBAN_TASK_PRIORITIES } from "@/lib/validations/kanban";
 import { cn } from "@/utils";
@@ -107,16 +108,24 @@ export function BoardFilterBar({
             {t("boardTools.shown", { shown, total })}
           </span>
         ) : null}
-        <Button
-          variant={onlyMine ? "secondary" : "ghost"}
-          size="sm"
-          className={cn("h-7 gap-1.5 px-2 text-[0.8125rem]", onlyMine && "text-primary")}
-          aria-pressed={onlyMine}
-          onClick={onToggleOnlyMine}
-        >
-          <User className="h-3.5 w-3.5" />
-          {t("boardTools.onlyMine")}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={onlyMine ? "secondary" : "ghost"}
+              size="icon"
+              className={cn("h-7 w-7", onlyMine && "text-primary")}
+              aria-pressed={onlyMine}
+              aria-label={t("boardTools.onlyMine")}
+              onClick={onToggleOnlyMine}
+            >
+              <User className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {t("boardTools.onlyMine")}
+            <kbd className="ml-1.5 rounded border px-1 font-mono text-[10px]">Q</kbd>
+          </TooltipContent>
+        </Tooltip>
       </div>
     </div>
   );

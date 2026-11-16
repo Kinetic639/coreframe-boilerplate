@@ -47,6 +47,8 @@ export function KanbanBoard<TItem>({
   className,
   columnClassName,
   scrollAreaClassName,
+  scrollAreaStyle,
+  fixedStartStyle,
   fixedStartColumnIds = [],
   fixedStartClassName,
   fixedColumnClassName,
@@ -293,7 +295,10 @@ export function KanbanBoard<TItem>({
     >
       <div className="flex h-full min-h-0 overflow-hidden">
         {fixedStartColumns.length ? (
-          <div className={cn("flex h-full min-h-0 shrink-0", fixedStartClassName)}>
+          <div
+            className={cn("flex h-full min-h-0 shrink-0", fixedStartClassName)}
+            style={fixedStartStyle}
+          >
             <SortableContext
               items={fixedStartColumnIdsInOrder}
               strategy={horizontalListSortingStrategy}
@@ -326,7 +331,10 @@ export function KanbanBoard<TItem>({
             </SortableContext>
           </div>
         ) : null}
-        <div className={cn("flex min-w-0 flex-1 flex-col overflow-hidden", scrollAreaClassName)}>
+        <div
+          className={cn("flex min-w-0 flex-1 flex-col overflow-hidden", scrollAreaClassName)}
+          style={scrollAreaStyle}
+        >
           {renderScrollableHeader ? renderScrollableHeader() : null}
           {scrollColumns.length || renderAddColumn ? (
             <div className={cn("flex h-full min-h-0 gap-4 overflow-x-auto p-1 pb-4", className)}>

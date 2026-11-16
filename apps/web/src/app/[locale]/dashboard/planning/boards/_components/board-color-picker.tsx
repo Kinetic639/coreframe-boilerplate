@@ -1,8 +1,11 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Check } from "lucide-react";
+import { Check, Palette } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/utils";
 import { BOARD_COLORS, boardBackground } from "./board-colors";
 
@@ -58,5 +61,39 @@ export function BoardColorPicker({
         ))}
       </div>
     </div>
+  );
+}
+
+/** The inbox panel's own colour, from its header (kept in this browser). */
+export function InboxColorPicker({
+  color,
+  onChange,
+}: {
+  color: string | null;
+  onChange: (color: string | null) => void;
+}) {
+  const t = useTranslations("modules.planning");
+  return (
+    <Popover>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              aria-label={t("boards.inbox.color")}
+            >
+              <Palette className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent>{t("boards.inbox.color")}</TooltipContent>
+      </Tooltip>
+      <PopoverContent align="end" className="w-72">
+        <p className="mb-2 text-sm font-medium">{t("boards.inbox.color")}</p>
+        <BoardColorPicker value={color} onChange={onChange} showLabel={false} />
+      </PopoverContent>
+    </Popover>
   );
 }
