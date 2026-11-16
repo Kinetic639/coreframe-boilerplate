@@ -463,10 +463,6 @@ function TaskEditorBody({
             card={card}
             disabled={!canUpdate}
             onCardChange={relationsCardChange}
-            onTaskCreated={(created) => {
-              onChanged?.(created);
-              void refreshActivity();
-            }}
           />
 
           <AttachmentsPanel

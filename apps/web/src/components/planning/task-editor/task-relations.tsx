@@ -3,21 +3,18 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { Ban, CornerLeftUp, GitBranch, ListTree, Plus, Search, X } from "lucide-react";
+import { Ban, CornerLeftUp, GitBranch, Plus, Search, X } from "lucide-react";
 import { toast } from "react-toastify";
 import { Link } from "@/i18n/navigation";
 import {
   addKanbanDependencyAction,
-  createKanbanSubtaskAction,
   patchKanbanTaskAction,
   removeKanbanDependencyAction,
   searchKanbanTasksAction,
 } from "@/app/actions/kanban";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDebounce } from "@/hooks/use-debounce";
 import type { KanbanBoardCard, KanbanTaskRef } from "@/lib/types/kanban";
@@ -37,26 +34,21 @@ interface TaskRelationsSectionProps {
   disabled: boolean;
   /** The card's counts or parent changed. */
   onCardChange: (card: KanbanBoardCard) => void;
-  /** A sub-task was made: the host shows it on its board. */
-  onTaskCreated: (card: KanbanBoardCard) => void;
 }
 
 /**
- * A task's sub-tasks (with progress), its parent, and its dependencies:
- * what it waits for ("blocked by") and what waits for it.
+ * A task's parent and its dependencies: what it waits for ("blocked by") and
+ * what waits for it. Its sub-tasks are items of its checklist.
  */
 export function TaskRelationsSection({
   orgId,
   card,
   disabled,
   onCardChange,
-  onTaskCreated,
 }: TaskRelationsSectionProps) {
   const t = useTranslations("modules.planning.boardExtras.relations");
   const queryClient = useQueryClient();
   const relations = useQuery(taskRelationsQuery(orgId, card.id));
-  const [newSubtask, setNewSubtask] = useState("");
-  const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const refresh = () =>
@@ -90,24 +82,11 @@ export function TaskRelationsSection({
     }
   };
 
-  const addSubtask = () => {
-    const title = newSubtask.trim();
-    if (!title) return;
-    void run(async () => {
-      const created = await unwrap(createKanbanSubtaskAction({ parent_id: card.id, title }));
-      setNewSubtask("");
-      onTaskCreated(created);
-    });
-  };
-
   const setParent = (parentId: string | null) =>
     run(async () => {
       const saved = await unwrap(patchKanbanTaskAction({ id: card.id, parent_task_id: parentId }));
       onCardChange(saved);
     });
-
-  const toggleSubtask = (task: KanbanTaskRef, done: boolean) =>
-    run(() => unwrap(patchKanbanTaskAction({ id: task.id, status: done ? "completed" : "open" })));
 
   const excluded = new Set([
     card.id,
@@ -124,9 +103,6 @@ export function TaskRelationsSection({
     );
   }
   if (!data) return null;
-
-  const total = data.subtasks.length;
-  const done = data.subtasks.filter(isClosed).length;
 
   return (
     <section className="space-y-4">
@@ -154,14 +130,9 @@ export function TaskRelationsSection({
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <h3 className="flex items-center gap-1.5 text-sm font-semibold">
-            <ListTree className="h-4 w-4 text-muted-foreground" />
-            {t("subtasks")}
+            <GitBranch className="h-4 w-4 text-muted-foreground" />
+            {t("dependencies")}
           </h3>
-          {total ? (
-            <span className="text-xs text-muted-foreground">
-              {t("subtaskProgress", { done, total })}
-            </span>
-          ) : null}
           {!disabled && !data.parent ? (
             <TaskPicker
               orgId={orgId}
@@ -176,89 +147,17 @@ export function TaskRelationsSection({
               onPick={(task) => void setParent(task.id)}
             />
           ) : null}
-        </div>
-        {total ? <Progress value={(done / total) * 100} className="h-1.5" /> : null}
-        {data.subtasks.length ? (
-          <ul className="space-y-1">
-            {data.subtasks.map((task) => (
-              <li key={task.id} className="flex items-center gap-2 rounded-md px-1 py-1 text-sm">
-                <Checkbox
-                  checked={isClosed(task)}
-                  disabled={disabled || busy}
-                  aria-label={task.title}
-                  onCheckedChange={(checked) => void toggleSubtask(task, checked === true)}
-                />
-                <TaskLink task={task} />
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {!disabled ? (
-          adding ? (
-            <form
-              className="flex gap-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                addSubtask();
-              }}
-            >
-              <Input
-                autoFocus
-                value={newSubtask}
-                maxLength={300}
-                placeholder={t("subtaskPlaceholder")}
-                aria-label={t("subtaskPlaceholder")}
-                className="h-8"
-                onChange={(event) => setNewSubtask(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    setAdding(false);
-                  }
-                }}
-              />
-              <Button type="submit" size="sm" className="h-8" disabled={!newSubtask.trim() || busy}>
-                {t("add")}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                aria-label={t("cancel")}
-                onClick={() => setAdding(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </form>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-1.5 px-2 text-muted-foreground"
-              onClick={() => setAdding(true)}
-            >
-              <Plus className="h-4 w-4" />
-              {t("addSubtask")}
-            </Button>
-          )
-        ) : null}
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <h3 className="flex items-center gap-1.5 text-sm font-semibold">
-            <GitBranch className="h-4 w-4 text-muted-foreground" />
-            {t("dependencies")}
-          </h3>
           {!disabled ? (
             <TaskPicker
               orgId={orgId}
               excluded={excluded}
               label={t("addBlocker")}
               trigger={
-                <Button variant="ghost" size="sm" className="ml-auto h-7 gap-1 px-2 text-xs">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn("h-7 gap-1 px-2 text-xs", (disabled || data.parent) && "ml-auto")}
+                >
                   <Plus className="h-3.5 w-3.5" />
                   {t("addBlocker")}
                 </Button>

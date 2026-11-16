@@ -13,7 +13,6 @@ import {
   Copy,
   ExternalLink,
   LayoutTemplate,
-  ListTree,
   Eye,
   Flag,
   Hand,
@@ -113,11 +112,13 @@ export const BoardCard = memo(function BoardCard({
       ),
     }))
     .filter((chip): chip is { field: KanbanCustomField; text: string } => Boolean(chip.text));
-  const subtasksDone = card.subtask_total > 0 && card.subtask_done === card.subtask_total;
   const dates = formatCardDates(format, card);
   const watching = card.watcher_ids?.includes(currentUserId) ?? false;
   const checklistComplete =
     card.checklist_total > 0 && card.checklist_done === card.checklist_total;
+
+  // Under a cover the card's body meets it with a straight edge.
+  const hasCover = Boolean(card.cover_url || card.cover_color);
 
   return (
     <KanbanCard id={card.id} className="overflow-hidden p-0">
@@ -139,7 +140,10 @@ export const BoardCard = memo(function BoardCard({
         role="button"
         tabIndex={0}
         aria-label={card.title}
-        className="relative flex w-full min-w-0 cursor-grab flex-col gap-2 rounded-md p-3 text-left outline-none active:cursor-grabbing"
+        className={cn(
+          "relative flex w-full min-w-0 cursor-grab flex-col gap-2 p-3 text-left outline-none active:cursor-grabbing",
+          hasCover ? "rounded-b-md" : "rounded-md"
+        )}
         onClick={() => !editingTitle && onOpen(card)}
         onKeyDown={(event) => {
           if (event.target !== event.currentTarget) return;
@@ -274,21 +278,6 @@ export const BoardCard = memo(function BoardCard({
               {card.checklist_done}/{card.checklist_total}
             </span>
           ) : null}
-          {card.subtask_total ? (
-            <span
-              className={cn(
-                "flex items-center gap-0.5 rounded px-1 py-0.5",
-                subtasksDone && "bg-emerald-600 font-medium text-white"
-              )}
-              title={t("boardExtras.relations.subtaskProgress", {
-                done: card.subtask_done,
-                total: card.subtask_total,
-              })}
-            >
-              <ListTree className="h-3 w-3" />
-              {card.subtask_done}/{card.subtask_total}
-            </span>
-          ) : null}
           {card.attachment_count ? (
             <span
               className="flex items-center gap-0.5"
@@ -362,7 +351,10 @@ export const BoardCard = memo(function BoardCard({
 
         {columnColor ? (
           <span
-            className="absolute bottom-0 left-0 top-0 w-1 rounded-l-md"
+            className={cn(
+              "absolute bottom-0 left-0 top-0 w-1",
+              hasCover ? "rounded-bl-md" : "rounded-l-md"
+            )}
             style={{ backgroundColor: columnColor }}
             aria-hidden="true"
           />

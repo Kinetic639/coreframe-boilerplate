@@ -4882,7 +4882,7 @@
         "coverImage": "Obraz z załączników",
         "coverNoImages": "Dodaj obraz jako załącznik, aby użyć go jako okładki.",
         "removeCover": "Usuń okładkę",
-        "convertedToTask": "Utworzono zadanie {number}",
+        "convertedToTask": "Utworzono podzadanie {number}",
         "checklistTitle": "Nazwa listy kontrolnej",
         "addChecklist": "Dodaj listę kontrolną",
         "defaultChecklistTitle": "Lista kontrolna",
@@ -4893,8 +4893,9 @@
         "addItem": "Dodaj element",
         "close": "Zamknij",
         "itemActions": "Akcje elementu",
-        "convertToTask": "Zamień w zadanie",
+        "convertToTask": "Zamień w podzadanie",
         "deleteItem": "Usuń element",
+        "unlinkSubtask": "Usuń z listy (zadanie zostaje)",
         "attachments": "Załączniki"
       },
       "boardTools": {
