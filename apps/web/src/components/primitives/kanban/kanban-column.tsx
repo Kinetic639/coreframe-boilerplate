@@ -21,6 +21,8 @@ interface KanbanColumnProps<TItem> {
   emptyContent?: ReactNode;
   labels?: KanbanBoardLabels;
   className?: string;
+  /** Extra classes for the column's header (e.g. light text on a coloured panel). */
+  headerClassName?: string;
   disabled?: boolean;
   columnDraggable?: boolean;
   isOverlay?: boolean;
@@ -41,6 +43,7 @@ export function KanbanColumn<TItem>({
   emptyContent,
   labels,
   className,
+  headerClassName,
   disabled = false,
   columnDraggable = true,
   isOverlay = false,
@@ -117,7 +120,10 @@ export function KanbanColumn<TItem>({
       )}
     >
       <div
-        className="flex min-w-0 items-start justify-between gap-2 rounded-t-md border-b border-border px-3 py-3"
+        className={cn(
+          "flex min-w-0 items-start justify-between gap-2 rounded-t-md border-b border-border px-3 py-3",
+          headerClassName
+        )}
         style={
           accentStyle === "bar" && column.color
             ? {

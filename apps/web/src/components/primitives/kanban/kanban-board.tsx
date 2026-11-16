@@ -52,6 +52,7 @@ export function KanbanBoard<TItem>({
   fixedStartColumnIds = [],
   fixedStartClassName,
   fixedColumnClassName,
+  fixedColumnHeaderClassName,
   disabled = false,
   columnsDraggable = true,
   nonDraggableColumnIds = [],
@@ -318,6 +319,7 @@ export function KanbanBoard<TItem>({
                   emptyContent={renderColumnEmpty?.(column)}
                   labels={labels}
                   className={cn(columnClassName, fixedColumnClassName)}
+                  headerClassName={fixedColumnHeaderClassName}
                   disabled={disabled}
                   columnDraggable={columnsDraggable && !nonDraggableColumnSet.has(column.id)}
                   collapsed={collapsedColumnSet.has(column.id)}

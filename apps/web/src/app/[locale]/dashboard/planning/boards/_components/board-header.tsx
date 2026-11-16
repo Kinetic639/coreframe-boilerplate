@@ -49,6 +49,8 @@ const MAX_AVATARS = 4;
 
 interface BoardHeaderProps {
   board: KanbanBoardDetail;
+  /** The board has a colour: the header is a translucent band over it. */
+  onColor?: boolean;
   canUpdate: boolean;
   /** Can archive or restore the board (its owner, or planning.boards.delete). */
   canManageBoard: boolean;
@@ -78,6 +80,7 @@ interface BoardHeaderProps {
  */
 export function BoardHeader({
   board,
+  onColor = false,
   canUpdate,
   canManageBoard,
   admin,
@@ -110,7 +113,7 @@ export function BoardHeader({
   ];
 
   return (
-    <div className="border-b bg-background/85">
+    <div className={cn("border-b", onColor ? "board-on-color bg-black/25" : "bg-background/85")}>
       {isArchived ? (
         <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-amber-500/10 px-5 py-2 text-sm">
           <span className="flex items-center gap-2">

@@ -18,6 +18,7 @@ import { BoardFieldsDialog } from "./board-fields-dialog";
 import { BoardCard } from "./board-card";
 import { boardBackground } from "./board-colors";
 import { InboxColorPicker } from "./board-color-picker";
+import "./board-on-color.css";
 import {
   AddCardButton,
   AddCardComposer,
@@ -431,28 +432,29 @@ export function BoardWorkspace({
           background ? "border-transparent shadow-sm" : "bg-muted/10"
         )}
         scrollAreaStyle={background ? { background } : undefined}
-        className="flex-1 gap-3 p-3 pb-3"
+        className="flex-1 items-start gap-3 p-3 pb-3"
+        // As in Trello, a list is as tall as its cards (it scrolls past the
+        // board's height) and stays an opaque card over a coloured board.
         columnClassName={cn(
-          "min-h-0 rounded-md",
-          background && "border-transparent bg-background/95 shadow-sm"
+          "h-auto max-h-full min-h-0 rounded-lg",
+          background && "border-transparent bg-background shadow-sm"
         )}
         fixedStartColumnIds={inboxOpen ? [INBOX_COLUMN_ID] : []}
         fixedStartClassName={cn(
           "m-3 mr-0 w-[18rem] overflow-hidden rounded-lg border shadow-sm",
-          inboxBackground ? "border-transparent p-2" : "bg-muted/10"
+          inboxBackground ? "border-transparent" : "bg-muted/10"
         )}
         fixedStartStyle={inboxBackground ? { background: inboxBackground } : undefined}
-        fixedColumnClassName={
-          inboxBackground
-            ? "w-full rounded-md border-0 bg-background/95 shadow-sm"
-            : "w-full rounded-none border-0 bg-transparent"
-        }
+        // The inbox fills its panel; on a colour its cards sit on the colour.
+        fixedColumnClassName="h-full max-h-none w-full rounded-none border-0 bg-transparent shadow-none"
+        fixedColumnHeaderClassName={inboxBackground ? "board-on-color" : undefined}
         nonDraggableColumnIds={[INBOX_COLUMN_ID]}
         renderScrollableHeader={
           board && showBoard
             ? () => (
                 <BoardHeader
                   board={board}
+                  onColor={Boolean(background)}
                   canUpdate={canUpdate}
                   canManageBoard={canManageBoard}
                   admin={admin}
@@ -576,7 +578,13 @@ export function BoardWorkspace({
           );
         }}
         renderColumnEmpty={(column) =>
-          column.id === INBOX_COLUMN_ID && inboxLoading ? <InboxLoadingSkeleton /> : null
+          column.id !== INBOX_COLUMN_ID ? null : inboxLoading ? (
+            <InboxLoadingSkeleton />
+          ) : inboxBackground ? (
+            <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-white/40 bg-white/10 px-3 text-center text-xs text-white/85">
+              {t("boards.emptyColumn")}
+            </div>
+          ) : null
         }
         renderAddColumn={
           canUpdate && board && showBoard

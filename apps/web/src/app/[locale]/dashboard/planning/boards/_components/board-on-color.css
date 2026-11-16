@@ -1,0 +1,25 @@
+/* Light text and translucent controls over a coloured board or inbox panel
+   (as in Trello): the theme's tokens are redefined only inside the scope, so
+   the buttons, badges and the filter bar follow without their own styles.
+   Cards and lists keep the theme; menus open in portals, outside the scope. */
+.board-on-color {
+  --foreground: #fff;
+  --muted-foreground: rgb(255 255 255 / 0.78);
+  --background: rgb(255 255 255 / 0.12);
+  --muted: rgb(255 255 255 / 0.16);
+  --accent: rgb(255 255 255 / 0.2);
+  --accent-foreground: #fff;
+  --secondary: rgb(255 255 255 / 0.24);
+  --secondary-foreground: #fff;
+  --border: rgb(255 255 255 / 0.24);
+  --input: rgb(255 255 255 / 0.3);
+  /* The data table filter bar's tokens. */
+  --surface: rgb(255 255 255 / 0.12);
+  --surface-subtle: rgb(255 255 255 / 0.18);
+  --surface-muted: rgb(255 255 255 / 0.24);
+  --text: #fff;
+  --text-muted: rgb(255 255 255 / 0.78);
+  --text-subtle: rgb(255 255 255 / 0.62);
+  --border-strong: rgb(255 255 255 / 0.45);
+  color: var(--foreground);
+}
