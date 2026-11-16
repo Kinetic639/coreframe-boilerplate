@@ -54,6 +54,8 @@ export interface KanbanBoardProps<TItem> {
   fixedStartStyle?: CSSProperties;
   fixedStartClassName?: string;
   fixedColumnClassName?: string;
+  /** Extra classes for the fixed columns' headers. */
+  fixedColumnHeaderClassName?: string;
   disabled?: boolean;
   columnsDraggable?: boolean;
   nonDraggableColumnIds?: string[];
