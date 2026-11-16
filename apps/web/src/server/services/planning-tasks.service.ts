@@ -30,6 +30,9 @@ export interface PlanningTaskListRow {
   board_position: number;
   /** In its author's private inbox (visible only to the author). */
   is_inbox: boolean;
+  /** The board's and the column's titles (list rows only; null otherwise). */
+  board_title?: string | null;
+  column_title?: string | null;
   assigned_to: string | null;
   assignee_name: string | null;
   assignee_email: string | null;
@@ -214,6 +217,9 @@ function mapTaskRow(row: any, signedAvatarUrls: Map<string, string>): PlanningTa
     column_id: row.column_id ?? null,
     board_position: row.board_position ?? 0,
     is_inbox: row.is_inbox ?? false,
+    board_title: (Array.isArray(row.board) ? row.board[0] : row.board)?.title ?? null,
+    column_title:
+      (Array.isArray(row.board_column) ? row.board_column[0] : row.board_column)?.title ?? null,
     assigned_to: assignedTo,
     assignee_name: assignee
       ? displayName(assignee.first_name, assignee.last_name, assignee.email)
@@ -268,6 +274,8 @@ function normalizeFilters(params: DataViewListParams, filters: TaskListFilters):
     unassigned: filters.unassigned,
     branch_ids: filters.branch_ids?.filter(looksLikeUuid),
     org_wide: filters.org_wide,
+    board_ids: filters.board_ids?.filter(looksLikeUuid),
+    no_board: filters.no_board,
     due_from: filters.due_from,
     due_to: filters.due_to,
   };
@@ -374,8 +382,11 @@ export const PlanningTasksService = {
         .from("planning_tasks")
         .select(
           `id, organization_id, task_number, title, status, priority,
-           branch_id, assigned_to, due_at, started_at, completed_at, cancelled_at,
+           branch_id, board_id, column_id, is_inbox,
+           assigned_to, due_at, started_at, completed_at, cancelled_at,
            created_by, created_at, updated_at,
+           board:planning_kanban_boards!board_id(title),
+           board_column:planning_kanban_columns!column_id(title),
            assignee:users!assigned_to(first_name, last_name, email, avatar_url, avatar_path),
            creator:users!created_by(first_name, last_name, email)`,
           { count: "exact" }
@@ -411,6 +422,14 @@ export const PlanningTasksService = {
         query = query.is("branch_id", null);
       } else if (branchIds.length) {
         query = query.in("branch_id", branchIds);
+      }
+      const boardIds = resolvedFilters.board_ids ?? [];
+      if (resolvedFilters.no_board && boardIds.length) {
+        query = query.or(`board_id.is.null,board_id.in.(${boardIds.join(",")})`);
+      } else if (resolvedFilters.no_board) {
+        query = query.is("board_id", null);
+      } else if (boardIds.length) {
+        query = query.in("board_id", boardIds);
       }
       if (resolvedFilters.due_from) query = query.gte("due_at", resolvedFilters.due_from);
       if (resolvedFilters.due_to) query = query.lte("due_at", resolvedFilters.due_to);

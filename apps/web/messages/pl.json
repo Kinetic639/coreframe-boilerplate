@@ -4757,11 +4757,6 @@
         "loadPlanningRetry": "Nie udało się załadować planowania. Spróbuj ponownie.",
         "tryAgain": "Spróbuj ponownie",
         "operationFailed": "Operacja nie powiodła się"
-      },
-      "views": {
-        "label": "Widok zadań",
-        "boards": "Tablice",
-        "list": "Lista"
       }
     },
     "crm": {

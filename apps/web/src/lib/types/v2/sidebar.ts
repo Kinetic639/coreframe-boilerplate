@@ -72,16 +72,9 @@ export type IconKey =
  * Active route matching rules (strict discriminated union)
  * Prevents invalid combinations like both exact and startsWith
  */
-export type SidebarMatchRules = (
+export type SidebarMatchRules =
   | { exact: string; startsWith?: never }
-  | { startsWith: string; exact?: never }
-) & {
-  /**
-   * More routes that light the item up (one entry with several pages, e.g.
-   * planning's boards, list and calendar). Each is exact or a prefix.
-   */
-  also?: ReadonlyArray<{ exact: string } | { startsWith: string }>;
-};
+  | { startsWith: string; exact?: never };
 
 /**
  * Reason an item is disabled (for UX feedback)

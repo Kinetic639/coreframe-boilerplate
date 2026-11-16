@@ -87,6 +87,9 @@ export interface TaskListFilters {
   /** Any of these branches (with `org_wide`: or organization-wide tasks). */
   branch_ids?: string[];
   org_wide?: boolean;
+  /** Any of these boards (with `no_board`: or tasks on no board). */
+  board_ids?: string[];
+  no_board?: boolean;
   /** ISO timestamps, both ends included. */
   due_from?: string;
   due_to?: string;

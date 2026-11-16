@@ -103,7 +103,6 @@ import {
   type BoardSharingOption,
   type BoardSharingPerson,
 } from "./board-sharing";
-import { PlanningViewBar } from "../../_components/planning-view-switcher";
 
 interface PlanningBoardsClientProps {
   initialBoards: KanbanBoardSummary[];
@@ -463,51 +462,48 @@ export function PlanningBoardsClient({
   return (
     <BoardSharingProvider value={sharing}>
       <TooltipProvider delayDuration={250}>
-        <div className="flex h-full min-h-0 flex-col overflow-hidden">
-          <PlanningViewBar current="boards" />
-          <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_3rem] overflow-hidden">
-            <main className="min-h-0 overflow-hidden">
-              {selectedBoard || loadingBoardId ? (
-                <BoardWorkspace
-                  board={selectedBoard}
-                  boardLoading={Boolean(loadingBoardId)}
-                  inboxOpen={inboxOpen}
-                  inboxCards={inboxCards}
-                  loadingInbox={loadingInbox}
-                  canUpdate={canUpdate}
-                  canDelete={canDelete}
-                  onBoardChange={handleBoardChange}
-                  onInboxChange={setInboxCards}
-                  onRefreshInbox={refreshInbox}
-                  onBoardDeleted={() => selectedBoard && handleBoardDeleted(selectedBoard.id)}
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
-                  {t("boards.selectBoard")}
-                </div>
-              )}
-            </main>
-            <KanbanRightToolbar
-              inboxOpen={inboxOpen}
-              onInboxToggle={() => setInboxOpen((value) => !value)}
-              onSwitchBoards={() => setSwitcherOpen(true)}
-            />
-            <BoardSwitcherDialog
-              open={switcherOpen}
-              onOpenChange={setSwitcherOpen}
-              boards={boards}
-              activeBoardId={activeBoardId}
-              canCreate={canCreate}
-              canCreateMore={canCreateMore}
-              createOpen={createOpen}
-              onCreateOpenChange={setCreateOpen}
-              onBoardCreated={handleBoardCreated}
-              onSelectBoard={(boardId) => {
-                selectBoard(boardId);
-                setSwitcherOpen(false);
-              }}
-            />
-          </div>
+        <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_3rem] overflow-hidden">
+          <main className="min-h-0 overflow-hidden">
+            {selectedBoard || loadingBoardId ? (
+              <BoardWorkspace
+                board={selectedBoard}
+                boardLoading={Boolean(loadingBoardId)}
+                inboxOpen={inboxOpen}
+                inboxCards={inboxCards}
+                loadingInbox={loadingInbox}
+                canUpdate={canUpdate}
+                canDelete={canDelete}
+                onBoardChange={handleBoardChange}
+                onInboxChange={setInboxCards}
+                onRefreshInbox={refreshInbox}
+                onBoardDeleted={() => selectedBoard && handleBoardDeleted(selectedBoard.id)}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
+                {t("boards.selectBoard")}
+              </div>
+            )}
+          </main>
+          <KanbanRightToolbar
+            inboxOpen={inboxOpen}
+            onInboxToggle={() => setInboxOpen((value) => !value)}
+            onSwitchBoards={() => setSwitcherOpen(true)}
+          />
+          <BoardSwitcherDialog
+            open={switcherOpen}
+            onOpenChange={setSwitcherOpen}
+            boards={boards}
+            activeBoardId={activeBoardId}
+            canCreate={canCreate}
+            canCreateMore={canCreateMore}
+            createOpen={createOpen}
+            onCreateOpenChange={setCreateOpen}
+            onBoardCreated={handleBoardCreated}
+            onSelectBoard={(boardId) => {
+              selectBoard(boardId);
+              setSwitcherOpen(false);
+            }}
+          />
         </div>
       </TooltipProvider>
     </BoardSharingProvider>

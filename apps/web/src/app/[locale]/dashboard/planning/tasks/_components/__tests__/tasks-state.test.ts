@@ -43,9 +43,18 @@ describe("task list state", () => {
       unassigned: true,
       branch_ids: [BRANCH],
       org_wide: undefined,
+      board_ids: [],
+      no_board: undefined,
       due_from: "2026-11-01T00:00:00.000Z",
       due_to: "2026-11-30T23:59:59.999Z",
     });
+  });
+
+  it("reads the board filter (boards and tasks on no board)", () => {
+    const BOARD = "44444444-4444-4444-8444-444444444444";
+    const state = loadTaskState({ tablica: `bez,${BOARD},x` });
+    expect(state.tablica).toEqual(["bez", BOARD]);
+    expect(taskFilters(state, TODAY)).toMatchObject({ board_ids: [BOARD], no_board: true });
   });
 
   it("reads the ready due ranges as whole days", () => {

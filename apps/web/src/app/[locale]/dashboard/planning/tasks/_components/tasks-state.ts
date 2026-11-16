@@ -27,6 +27,8 @@ export const DUE_WITHIN = ["po_terminie", "dzis", "7d"] as const;
 export const UNASSIGNED = "brak";
 /** The branch filter's value for organization-wide tasks. */
 export const ORG_WIDE = "organizacja";
+/** The board filter's value for tasks on no board. */
+export const NO_BOARD = "bez";
 
 const UUID = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 
@@ -45,6 +47,11 @@ const parseAsBranch = createParser({
   parse: (value) => (value === ORG_WIDE || UUID.test(value) ? value : null),
   serialize: (value: string) => value,
 });
+/** A board's id, or "bez". */
+const parseAsBoard = createParser({
+  parse: (value) => (value === NO_BOARD || UUID.test(value) ? value : null),
+  serialize: (value: string) => value,
+});
 
 export const taskParsers = {
   q: parseAsString.withDefault(""),
@@ -61,6 +68,7 @@ export const taskParsers = {
   priorytet: parseAsArrayOf(parseAsStringLiteral(TASK_PRIORITIES)).withDefault([]),
   przypisani: parseAsArrayOf(parseAsAssignee).withDefault([]),
   oddzial: parseAsArrayOf(parseAsBranch).withDefault([]),
+  tablica: parseAsArrayOf(parseAsBoard).withDefault([]),
   termin: parseAsStringLiteral(DUE_WITHIN),
   termin_od: parseAsDay,
   termin_do: parseAsDay,
@@ -111,6 +119,8 @@ export function taskFilters(state: TaskState, today = new Date()): TaskListFilte
     unassigned: state.przypisani.includes(UNASSIGNED) || undefined,
     branch_ids: state.oddzial.filter((value) => value !== ORG_WIDE),
     org_wide: state.oddzial.includes(ORG_WIDE) || undefined,
+    board_ids: state.tablica.filter((value) => value !== NO_BOARD),
+    no_board: state.tablica.includes(NO_BOARD) || undefined,
     due_from: due.from ? `${due.from}T00:00:00.000Z` : undefined,
     // The whole last day counts.
     due_to: due.to ? `${due.to}T23:59:59.999Z` : undefined,

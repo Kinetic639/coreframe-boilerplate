@@ -13,13 +13,13 @@ import type {
   PlanningTaskDetail,
   PlanningTaskListRow,
 } from "@/server/services/planning-tasks.service";
-import { PlanningViewSwitcher } from "../../_components/planning-view-switcher";
 import { PlanningTaskCreateDialog } from "./planning-task-create-dialog";
 import { PlanningTaskDetailPanel } from "./planning-task-detail-panel";
 import { TasksTable, TaskStatus as TaskStatusBadge, type TaskBadgeConfigs } from "./tasks-table";
 import { taskDetailQuery, taskKeys, taskListQuery, type TaskList } from "./tasks-query";
 import {
   DUE_WITHIN,
+  NO_BOARD,
   ORG_WIDE,
   taskHref,
   taskParsers,
@@ -37,7 +37,7 @@ type Member = { user_id: string; name: string | null; email: string | null };
 type Option = { value: string; label: string };
 
 /**
- * The tasks list: the title bar (views, create), the filters, and the list
+ * The tasks list: the title bar (create), the filters, and the list
  * with its side panel. The address is the one state: every change only
  * pushes a new address, and the list answers from its cache (the server put
  * the first page there) or fetches just its rows. A change to a task drops the section's cache.
@@ -53,6 +53,7 @@ export function TasksWorkspace({
   configs,
   members,
   branches,
+  boards,
   activeBranchId,
   currentUserId,
   canCreate,
@@ -71,6 +72,8 @@ export function TasksWorkspace({
   configs: TaskBadgeConfigs;
   members: Member[];
   branches: { id: string; name: string }[];
+  /** Boards the person can see (the board filter's options). */
+  boards: { id: string; title: string }[];
   activeBranchId: string | null;
   currentUserId: string;
   canCreate: boolean;
@@ -213,6 +216,15 @@ export function TasksWorkspace({
         ]
       : []),
     {
+      kind: "list",
+      id: "tablica",
+      label: labels.column_board,
+      options: [
+        { value: NO_BOARD, label: labels.noBoard },
+        ...boards.map((board) => ({ value: board.id, label: board.title })),
+      ],
+    },
+    {
       kind: "dates",
       id: "due_at",
       label: labels.column_due_at,
@@ -228,7 +240,9 @@ export function TasksWorkspace({
         ? "przypisani"
         : id === "branch"
           ? "oddzial"
-          : id
+          : id === "board"
+            ? "tablica"
+            : id
   );
 
   const selectedRow = useMemo<PlanningTaskListRow | null>(
@@ -245,7 +259,6 @@ export function TasksWorkspace({
             <span className="text-xs tabular-nums text-muted-foreground">{data.totalCount}</span>
           </div>
           <div className="flex items-center gap-2">
-            <PlanningViewSwitcher current="list" />
             {canCreate ? (
               <Button size="sm" onClick={() => setCreateOpen(true)}>
                 <Plus className="mr-1.5 size-3.5" />

@@ -41,6 +41,7 @@ export function taskColumnSet(labels: Record<string, string>): ColumnSet<string>
     "priority",
     "assignee",
     "branch",
+    "board",
     "due_at",
     "creator",
     "created_at",
@@ -54,12 +55,13 @@ export function taskColumnSet(labels: Record<string, string>): ColumnSet<string>
       priority: 120,
       assignee: 190,
       branch: 160,
+      board: 200,
       due_at: 130,
       creator: 170,
       created_at: 140,
       updated_at: 140,
     },
-    shownByDefault: ["status", "priority", "assignee", "branch", "due_at", "updated_at"],
+    shownByDefault: ["status", "priority", "assignee", "board", "due_at", "updated_at"],
     pinned: { id: "task", label: labels.column_task, width: 320 },
   };
 }
@@ -184,6 +186,20 @@ export function TasksTable({
         );
       case "branch":
         return row.branch_id ? (branchNames[row.branch_id] ?? "—") : labels.orgWide;
+      case "board":
+        if (row.is_inbox) return labels.inbox;
+        if (!row.board_id) return labels.noBoard;
+        return (
+          <span
+            className="truncate"
+            title={[row.board_title, row.column_title].filter(Boolean).join(" · ")}
+          >
+            {row.board_title ?? "—"}
+            {row.column_title ? (
+              <span className="text-muted-foreground"> · {row.column_title}</span>
+            ) : null}
+          </span>
+        );
       case "due_at":
         return row.due_at ? (
           <span
@@ -212,7 +228,9 @@ export function TasksTable({
   const plainValue = (row: Row, id: string): ReactNode =>
     id === "assignee"
       ? (row.assignee_name ?? row.assignee_email ?? labels.unassigned)
-      : value(row, id);
+      : id === "board" && row.board_id
+        ? [row.board_title, row.column_title].filter(Boolean).join(" · ") || "—"
+        : value(row, id);
   const identity = (row: Row) => (
     <span className="min-w-0">
       <span className="block truncate text-[13px] font-medium" title={row.title}>

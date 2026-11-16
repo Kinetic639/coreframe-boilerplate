@@ -587,7 +587,7 @@ describe("Sidebar SSR Integration", () => {
 
   // ── Planning Module ────────────────────────────────────────────────────────
 
-  it("should show the calendar and one tasks entry (boards, list) when planning is entitled", () => {
+  it("should show calendar, tasks and boards as separate entries when planning is entitled", () => {
     const userContext = {
       user: {
         id: "user-123",
@@ -623,11 +623,11 @@ describe("Sidebar SSR Integration", () => {
     expect(findItemById(model, "planning")).toBeDefined();
     expect(findItemById(model, "planning.tasks")).toBeDefined();
     expect(findItemById(model, "planning.calendar")).toBeDefined();
-    expect(findItemById(model, "planning.boards")).toBeUndefined();
+    expect(findItemById(model, "planning.boards")).toBeDefined();
     expect(findItemById(model, "planning.overview")).toBeUndefined();
   });
 
-  it("should keep the planning tasks entry for a user who can read tasks but not boards", () => {
+  it("should hide planning boards when user lacks board read access", () => {
     const userContext = {
       user: {
         id: "user-123",
@@ -657,6 +657,7 @@ describe("Sidebar SSR Integration", () => {
 
     expect(findItemById(model, "planning")).toBeDefined();
     expect(findItemById(model, "planning.tasks")).toBeDefined();
+    expect(findItemById(model, "planning.boards")).toBeUndefined();
   });
 
   // ── CRM Module ────────────────────────────────────────────────────────────

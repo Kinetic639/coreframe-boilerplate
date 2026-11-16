@@ -381,20 +381,29 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
           requiresPermissions: [PLANNING_READ],
         },
       },
-      // One entry for the tasks: boards and the list are its views (switched
-      // at the top of each page).
+      // Tasks and boards share one record (a task can sit on a board), but
+      // they are separate places: the list holds every task, a board only
+      // its own.
       {
         id: "planning.tasks",
         title: "Tasks",
         titleKey: "modules.planning.items.tasks",
+        iconKey: "checkSquare",
+        href: "/dashboard/planning/tasks",
+        match: { startsWith: "/dashboard/planning/tasks" },
+        visibility: {
+          requiresPermissions: [PLANNING_TASKS_READ],
+        },
+      },
+      {
+        id: "planning.boards",
+        title: "Boards",
+        titleKey: "modules.planning.items.boards",
         iconKey: "kanban",
         href: "/dashboard/planning/boards",
-        match: {
-          startsWith: "/dashboard/planning/boards",
-          also: [{ startsWith: "/dashboard/planning/tasks" }],
-        },
+        match: { startsWith: "/dashboard/planning/boards" },
         visibility: {
-          requiresAnyPermissions: [PLANNING_BOARDS_READ, PLANNING_TASKS_READ],
+          requiresPermissions: [PLANNING_BOARDS_READ],
         },
       },
       {
