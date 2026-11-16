@@ -232,6 +232,7 @@ describe("PlanningCalendarService", () => {
           my_access: "owner",
           archived_at: null,
           starred: false,
+          is_template: false,
         },
       ],
     });

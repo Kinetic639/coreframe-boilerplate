@@ -79,6 +79,8 @@ export function activityLabel(t: Translate, type: string, fallback: string | nul
     cover_changed: "activityMessages.coverChanged",
     created_from_checklist: "activityMessages.createdFromChecklist",
     attachment_added: "activityMessages.attachmentAdded",
+    copied_from: "activityMessages.copiedFrom",
+    parent_changed: "activityMessages.parentChanged",
   };
   const key = keys[type];
   return key ? t(`boards.${key}`) : (fallback ?? type);

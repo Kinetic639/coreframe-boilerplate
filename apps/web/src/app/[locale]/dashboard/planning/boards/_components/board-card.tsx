@@ -7,9 +7,13 @@ import {
   Archive,
   ArrowRightLeft,
   Calendar,
+  Ban,
   Check,
   CheckSquare,
+  Copy,
   ExternalLink,
+  LayoutTemplate,
+  ListTree,
   Eye,
   Flag,
   Hand,
@@ -60,6 +64,8 @@ interface BoardCardProps {
   onHover?: (card: KanbanBoardCard | null) => void;
   /** Labels as thin bars (the board's compact setting). */
   compactLabels?: boolean;
+  /** Opens "Copy card" (left out where cards can't be added). */
+  onCopy?: (card: KanbanBoardCard) => void;
 }
 
 /**
@@ -79,6 +85,7 @@ export const BoardCard = memo(function BoardCard({
   onOpen,
   onHover,
   compactLabels = false,
+  onCopy,
 }: BoardCardProps) {
   const t = useTranslations("modules.planning");
   const format = useFormatter();
@@ -87,7 +94,8 @@ export const BoardCard = memo(function BoardCard({
   const due = dueState(card.due_at, card.status);
   const showPriority = card.priority === "high" || card.priority === "urgent";
   const assignee = card.assignee_name ?? card.assignee_email;
-  const hasQuickActions = canEdit || canArchive;
+  const hasQuickActions = canEdit || canArchive || Boolean(onCopy);
+  const subtasksDone = card.subtask_total > 0 && card.subtask_done === card.subtask_total;
   const dates = formatCardDates(format, card);
   const watching = card.watcher_ids?.includes(currentUserId) ?? false;
   const checklistComplete =
@@ -173,6 +181,21 @@ export const BoardCard = memo(function BoardCard({
         )}
 
         <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+          {card.is_template ? (
+            <span className="flex items-center gap-1 rounded bg-sky-600/15 px-1.5 py-0.5 font-medium text-sky-700 dark:text-sky-300">
+              <LayoutTemplate className="h-3 w-3" />
+              {t("boardExtras.templates.badge")}
+            </span>
+          ) : null}
+          {card.blocked_by_open ? (
+            <span
+              className="flex items-center gap-1 rounded bg-red-600 px-1.5 py-0.5 font-medium text-white"
+              title={t("boardExtras.relations.blockedHelp", { count: card.blocked_by_open })}
+            >
+              <Ban className="h-3 w-3" />
+              {t("boardExtras.relations.blocked")}
+            </span>
+          ) : null}
           {due ? (
             <span
               className={cn(
@@ -222,6 +245,21 @@ export const BoardCard = memo(function BoardCard({
             >
               <CheckSquare className="h-3 w-3" />
               {card.checklist_done}/{card.checklist_total}
+            </span>
+          ) : null}
+          {card.subtask_total ? (
+            <span
+              className={cn(
+                "flex items-center gap-0.5 rounded px-1 py-0.5",
+                subtasksDone && "bg-emerald-600 font-medium text-white"
+              )}
+              title={t("boardExtras.relations.subtaskProgress", {
+                done: card.subtask_done,
+                total: card.subtask_total,
+              })}
+            >
+              <ListTree className="h-3 w-3" />
+              {card.subtask_done}/{card.subtask_total}
             </span>
           ) : null}
           {card.attachment_count ? (
@@ -386,6 +424,12 @@ export const BoardCard = memo(function BoardCard({
                     </DropdownMenuItem>
                   ) : null}
                 </>
+              ) : null}
+              {onCopy ? (
+                <DropdownMenuItem onSelect={() => onCopy(card)}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  {t("boardExtras.card.menu")}
+                </DropdownMenuItem>
               ) : null}
               {canArchive ? (
                 <>

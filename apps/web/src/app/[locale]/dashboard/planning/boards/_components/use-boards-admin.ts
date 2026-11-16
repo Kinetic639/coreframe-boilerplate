@@ -151,7 +151,7 @@ export function useBoardsAdmin(orgId: string) {
   const updateBoard = useCallback(
     async (
       board: KanbanBoardDetail,
-      patch: Partial<Pick<KanbanBoardDetail, "title" | "color">>
+      patch: Partial<Pick<KanbanBoardDetail, "title" | "color" | "is_template">>
     ) => {
       const previous = board;
       boardChanged({ ...board, ...patch });

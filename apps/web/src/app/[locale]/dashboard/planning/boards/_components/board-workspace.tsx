@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryStates } from "nuqs";
+import { toast } from "react-toastify";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KanbanBoard, type KanbanCardMoveParams } from "@/components/primitives/kanban";
 import { PageLoader } from "@/components/page-loader";
-import { TaskEditorDialog } from "@/components/planning/task-editor";
+import { CopyCardDialog, TaskEditorDialog } from "@/components/planning/task-editor";
 import type { KanbanBoardCard, KanbanBoardDetail, KanbanTaskEditorData } from "@/lib/types/kanban";
 import { cn } from "@/utils";
 import { BoardArchiveDialog } from "./board-archive-dialog";
@@ -19,7 +20,9 @@ import {
   AddColumnPanel,
   ColumnMenu,
   ColumnTitle,
+  WipBadge,
 } from "./board-columns";
+import { moveExceedsWip, wipCount } from "./board-wip";
 import {
   boardFilterParams,
   cardMatches,
@@ -60,6 +63,10 @@ interface BoardWorkspaceProps {
   admin: BoardsAdmin;
   onBoardArchived: (boardId: string) => void;
   onOpenAllBoards: () => void;
+  /** Can make boards (copy this one). */
+  canCreate: boolean;
+  /** Opens another board (a copy just made). */
+  onOpenBoard: (boardId: string) => void;
 }
 
 const emptyColumns: KanbanBoardDetail["columns"] = [];
@@ -84,6 +91,8 @@ export function BoardWorkspace({
   admin,
   onBoardArchived,
   onOpenAllBoards,
+  canCreate,
+  onOpenBoard,
 }: BoardWorkspaceProps) {
   const t = useTranslations("modules.planning");
   const actions = useBoardActions(orgId, board?.id ?? null);
@@ -94,6 +103,7 @@ export function BoardWorkspace({
   const [labelsOpen, setLabelsOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [copyingCard, setCopyingCard] = useState<KanbanBoardCard | null>(null);
   const hoveredCard = useRef<KanbanBoardCard | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -150,6 +160,11 @@ export function BoardWorkspace({
   const canManageBoard =
     canUpdatePermission && (board?.my_access === "owner" || (canDeletePermission && !isViewer));
   const showBoard = Boolean(board) && !boardLoading;
+
+  const cardTemplates = useMemo(
+    () => board?.cards.filter((card) => card.is_template) ?? [],
+    [board?.cards]
+  );
 
   const columnColors = useMemo(
     () => new Map(board?.columns.map((column) => [column.id, column.color]) ?? []),
@@ -236,9 +251,25 @@ export function BoardWorkspace({
   );
 
   const { moveCardTo, setColumnsOrder } = actions;
+  const boardRef = useRef(board);
+  boardRef.current = board;
 
   const handleCardMove = useCallback(
     ({ itemId, toColumnId, newIndex }: KanbanCardMoveParams) => {
+      // The limit is soft: the move goes through with a warning.
+      const current = boardRef.current;
+      const target = current?.columns.find((column) => column.id === toColumnId);
+      const moved = allItemsRef.current.find((card) => card.id === itemId);
+      if (
+        current &&
+        target &&
+        moved &&
+        moveExceedsWip(current.cards, moved, target.id, target.wip_limit)
+      ) {
+        toast.warning(
+          t("boardExtras.wip.over", { title: target.title, limit: target.wip_limit ?? 0 })
+        );
+      }
       let index = newIndex;
       if (filtering) {
         // The drop index counts the cards shown; the move needs all of the column's cards.
@@ -259,7 +290,7 @@ export function BoardWorkspace({
         index,
       });
     },
-    [filtering, moveCardTo]
+    [filtering, moveCardTo, t]
   );
 
   const handleHover = useCallback((card: KanbanBoardCard | null) => {
@@ -398,6 +429,8 @@ export function BoardWorkspace({
                   onOpenLabels={() => setLabelsOpen(true)}
                   onOpenActivity={() => setActivityOpen(true)}
                   onOpenShortcuts={() => setShortcutsOpen(true)}
+                  canCreate={canCreate}
+                  onOpenBoard={onOpenBoard}
                   toolbar={
                     <BoardFilterBar
                       ref={searchRef}
@@ -433,16 +466,23 @@ export function BoardWorkspace({
         columnAccent="bar"
         renderColumnTitle={(column) => {
           const full = board?.columns.find((candidate) => candidate.id === column.id);
-          return full ? <ColumnTitle column={full} canEdit={canUpdate} actions={actions} /> : null;
+          return full ? (
+            <div className="flex min-w-0 items-center gap-1.5">
+              <ColumnTitle column={full} canEdit={canUpdate} actions={actions} />
+              <WipBadge count={wipCount(board?.cards ?? [], full.id)} limit={full.wip_limit} />
+            </div>
+          ) : null;
         }}
         renderColumnActions={(column) => {
           if (column.id === INBOX_COLUMN_ID || !board || !(canUpdate || canDelete)) return null;
           const full = board.columns.find((candidate) => candidate.id === column.id);
           return full ? (
             <ColumnMenu
+              orgId={orgId}
               boardId={board.id}
               column={full}
               cardCount={board.cards.filter((card) => card.column_id === full.id).length}
+              cardTemplates={cardTemplates}
               canUpdate={canUpdate}
               canDelete={canDelete}
               actions={actions}
@@ -493,6 +533,7 @@ export function BoardWorkspace({
             actions={actions}
             onOpen={handleOpenCard}
             onHover={handleHover}
+            onCopy={canUpdatePermission ? setCopyingCard : undefined}
           />
         )}
       />
@@ -512,6 +553,13 @@ export function BoardWorkspace({
         onArchive={actions.archiveCard}
         onClose={() => onOpenCardChange(null)}
         onBoardLabelCreated={actions.boardLabelCreated}
+      />
+
+      <CopyCardDialog
+        orgId={orgId}
+        card={copyingCard}
+        onOpenChange={(open) => !open && setCopyingCard(null)}
+        onCopied={actions.cardChanged}
       />
 
       {board ? (

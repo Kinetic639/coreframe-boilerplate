@@ -4620,7 +4620,9 @@
           "checklistAdded": "Checklist added",
           "coverChanged": "Cover changed",
           "createdFromChecklist": "Created from a checklist item",
-          "attachmentAdded": "Attachment added"
+          "attachmentAdded": "Attachment added",
+          "copiedFrom": "Created as a copy",
+          "parentChanged": "Parent task changed"
         },
         "visibility": {
           "label": "Visibility",
@@ -4838,6 +4840,98 @@
           "take": "Assign to me / let go",
           "archive": "Archive card",
           "help": "Show shortcuts"
+        }
+      },
+      "boardExtras": {
+        "name": "Name",
+        "cancel": "Cancel",
+        "copying": "Copying…",
+        "copyName": "{title} (copy)",
+        "card": {
+          "menu": "Copy card",
+          "title": "Copy card",
+          "help": "Comments, attachments and history stay with the original.",
+          "keep": "Keep",
+          "parts": {
+            "description": "Description",
+            "labels": "Labels",
+            "checklists": "Checklists",
+            "assignee": "Assignee",
+            "dates": "Dates",
+            "cover": "Cover",
+            "priority": "Priority"
+          },
+          "board": "Board",
+          "pickBoard": "Pick a board",
+          "column": "List",
+          "noColumns": "This board has no lists",
+          "position": "Place in the list",
+          "top": "Top of the list",
+          "bottom": "Bottom of the list",
+          "asTemplate": "Make the copy a card template",
+          "asTemplateHelp": "It shows in “New card from template” on this board.",
+          "submit": "Create copy",
+          "copied": "Card copied"
+        },
+        "column": {
+          "menu": "Copy list",
+          "title": "Copy list",
+          "board": "To board",
+          "thisBoard": "This board (next to the original)",
+          "help": "The list is copied with its cards. On another board it goes to the end.",
+          "submit": "Copy list",
+          "copied": "List copied"
+        },
+        "board": {
+          "menu": "Copy board",
+          "title": "Copy board",
+          "help": "The copy is private and yours. It gets the labels, the open lists and (if you want) the cards. People, comments and attachments are not copied.",
+          "withCards": "Copy the cards too",
+          "asTemplate": "Save as a board template",
+          "asTemplateHelp": "A template can be picked when making a new board.",
+          "submit": "Copy board",
+          "copied": "Board copied"
+        },
+        "templates": {
+          "badge": "Template",
+          "markBoard": "Mark as template",
+          "unmarkBoard": "Stop using as a template",
+          "markCard": "Mark as template",
+          "unmarkCard": "Stop using as a template",
+          "cardHelp": "A template card does not count toward the list's limit and is offered in “New card from template”.",
+          "fromTemplate": "New card from template",
+          "noCardTemplates": "No card templates yet. Mark a card as a template in its window.",
+          "startFrom": "Start from",
+          "blank": "A blank board",
+          "startFromHelp": "The template's labels, lists and cards are copied to the new board."
+        },
+        "wip": {
+          "label": "Card limit (WIP)",
+          "help": "A soft limit: the list turns red when it is over. Leave empty for no limit.",
+          "title": "{count} of {limit} cards",
+          "overTitle": "{count} cards, the limit is {limit}",
+          "over": "The list “{title}” has more cards than its limit ({limit})"
+        },
+        "relations": {
+          "subtasks": "Sub-tasks",
+          "subtaskProgress": "{done} of {total} done",
+          "addSubtask": "Add a sub-task",
+          "subtaskPlaceholder": "Sub-task title",
+          "add": "Add",
+          "cancel": "Cancel",
+          "subtaskOf": "Sub-task of",
+          "setParent": "Set parent",
+          "removeParent": "Detach from the parent task",
+          "dependencies": "Dependencies",
+          "addBlocker": "Waits for…",
+          "blockedBy": "Waits for",
+          "blocking": "Blocks",
+          "noDependencies": "No dependencies.",
+          "remove": "Remove dependency",
+          "search": "Task number or title",
+          "noResults": "Nothing found",
+          "blocked": "Blocked",
+          "blockedHelp": "Waiting for open tasks: {count}"
         }
       }
     },

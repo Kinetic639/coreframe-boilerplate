@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useFormatter, useTranslations } from "next-intl";
-import { Plus, RotateCcw, Search, Star, Trash2 } from "lucide-react";
+import { LayoutTemplate, Plus, RotateCcw, Search, Star, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 import {
   AlertDialog,
@@ -24,6 +24,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -209,6 +216,7 @@ export function BoardSwitcherDialog({
         </Tabs>
 
         <CreateBoardDialog
+          templates={boards.filter((board) => board.is_template)}
           open={createOpen}
           onOpenChange={setCreateOpen}
           onCreated={(board) => {
@@ -261,6 +269,12 @@ function BoardTile({
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <BoardVisibilityIcon visibility={board.visibility} />
             {t(`boards.visibility.${board.visibility}`)}
+            {board.is_template ? (
+              <span className="ml-1 flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-medium text-foreground">
+                <LayoutTemplate className="h-3 w-3" />
+                {t("boardExtras.templates.badge")}
+              </span>
+            ) : null}
           </span>
         </span>
       </button>
@@ -461,11 +475,16 @@ function DeleteBoardDialog({
   );
 }
 
+const BLANK_BOARD = "__blank__";
+
 function CreateBoardDialog({
+  templates,
   open,
   onOpenChange,
   onCreated,
 }: {
+  /** Boards marked as templates, to start from. */
+  templates: KanbanBoardSummary[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: (board: KanbanBoardDetail) => void;
@@ -477,9 +496,11 @@ function CreateBoardDialog({
   const [branchId, setBranchId] = useState<string | null>(null);
   const [members, setMembers] = useState<PendingBoardMember[]>([]);
   const [color, setColor] = useState<string | null>(null);
+  const [templateId, setTemplateId] = useState<string>(BLANK_BOARD);
   const [isPending, setIsPending] = useState(false);
 
   const reset = () => {
+    setTemplateId(BLANK_BOARD);
     setColor(null);
     setTitle("");
     setDescription("");
@@ -497,6 +518,7 @@ function CreateBoardDialog({
       visibility,
       branch_id: visibility === "branch" ? branchId : null,
       members,
+      ...(templateId !== BLANK_BOARD ? { template_id: templateId } : {}),
     });
     setIsPending(false);
     if (!result.success) {
@@ -517,6 +539,29 @@ function CreateBoardDialog({
           <DialogTitle>{t("boards.createBoard")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {templates.length ? (
+            <div className="space-y-2">
+              <Label>{t("boardExtras.templates.startFrom")}</Label>
+              <Select value={templateId} onValueChange={setTemplateId}>
+                <SelectTrigger aria-label={t("boardExtras.templates.startFrom")}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={BLANK_BOARD}>{t("boardExtras.templates.blank")}</SelectItem>
+                  {templates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {templateId !== BLANK_BOARD ? (
+                <p className="text-xs text-muted-foreground">
+                  {t("boardExtras.templates.startFromHelp")}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <div className="space-y-2">
             <Label htmlFor="kanban-board-title">{t("boards.title")}</Label>
             <Input

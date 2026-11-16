@@ -28,6 +28,8 @@ export interface KanbanBoardSummary {
   my_access: KanbanBoardAccess;
   /** The current user starred the board (favourites come first). */
   starred: boolean;
+  /** Offered as a template when making a new board. */
+  is_template: boolean;
 }
 
 export type KanbanBoardAccess = "owner" | KanbanMemberRole;
@@ -49,6 +51,8 @@ export interface KanbanBoardColumn {
   color: string | null;
   /** open / in_progress / completed / cancelled, or null for a plain group. */
   status_category: KanbanTaskStatus | null;
+  /** Soft limit of cards (the header turns red past it), or null. */
+  wip_limit: number | null;
   position: number;
   /** Set while the column is archived: hidden with its tasks, can be restored. */
   archived_at: string | null;
@@ -105,6 +109,34 @@ export interface KanbanBoardCard {
   cover_color: string | null;
   cover_attachment_id: string | null;
   cover_url: string | null;
+  /** A template card ("New card from template"); left out of WIP counts. */
+  is_template: boolean;
+  /** The task this one is a sub-task of. */
+  parent_task_id: string | null;
+  /** Its sub-tasks, and how many are done. */
+  subtask_total: number;
+  subtask_done: number;
+  /** Open tasks this one waits for ("blocked"). */
+  blocked_by_open: number;
+}
+
+/** A task named from another one: its parent, a sub-task, a dependency. */
+export interface KanbanTaskRef {
+  id: string;
+  task_number: string;
+  title: string;
+  status: KanbanTaskStatus;
+  board_id: string | null;
+  assignee_name: string | null;
+}
+
+export interface KanbanTaskRelations {
+  parent: KanbanTaskRef | null;
+  subtasks: KanbanTaskRef[];
+  /** Tasks this one waits for. */
+  blocked_by: KanbanTaskRef[];
+  /** Tasks waiting for this one. */
+  blocking: KanbanTaskRef[];
 }
 
 /** A label of a board (name + colour); a task carries several. */

@@ -9,6 +9,8 @@ import {
   Archive,
   Check,
   CircleDot,
+  Copy,
+  LayoutTemplate,
   Columns3,
   ExternalLink,
   Flag,
@@ -89,6 +91,8 @@ import {
   unwrapTaskResult,
 } from "./task-editor-queries";
 import { TaskQrSection } from "./task-qr-section";
+import { TaskRelationsSection } from "./task-relations";
+import { CopyCardDialog } from "./copy-card-dialog";
 
 export interface TaskEditorPerson {
   user_id: string;
@@ -232,6 +236,7 @@ function TaskEditorBody({
         ...current.card,
         ...(fields.title !== undefined ? { title: fields.title } : {}),
         ...(fields.priority !== undefined ? { priority: fields.priority } : {}),
+        ...(fields.is_template !== undefined ? { is_template: fields.is_template } : {}),
         ...(fields.status !== undefined ? { status: fields.status } : {}),
         ...(fields.due_at !== undefined ? { due_at: fields.due_at, due_has_time: false } : {}),
         ...(fields.dates
@@ -318,6 +323,15 @@ function TaskEditorBody({
       onClose?.();
     }
   };
+
+  const [copying, setCopying] = useState(false);
+  const relationsCardChange = useCallback(
+    (next: KanbanBoardCard) => {
+      setCard(next);
+      onChanged?.(next);
+    },
+    [onChanged, setCard]
+  );
 
   const column = columns.find((candidate) => candidate.id === card.column_id);
   const formatDateTime = (value: string | null) =>
@@ -429,6 +443,17 @@ function TaskEditorBody({
             }}
           />
 
+          <TaskRelationsSection
+            orgId={orgId}
+            card={card}
+            disabled={!canUpdate}
+            onCardChange={relationsCardChange}
+            onTaskCreated={(created) => {
+              onChanged?.(created);
+              void refreshActivity();
+            }}
+          />
+
           <AttachmentsPanel
             targetType="planning.task"
             targetId={card.id}
@@ -503,6 +528,32 @@ function TaskEditorBody({
             {board && !card.is_inbox ? (
               <CoverPicker card={card} disabled={!canUpdate} onChange={(cover) => save(cover)} />
             ) : null}
+            {canUpdatePermission && !isArchived ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-1.5"
+                onClick={() => setCopying(true)}
+              >
+                <Copy className="h-3.5 w-3.5" />
+                {t("boardExtras.card.menu")}
+              </Button>
+            ) : null}
+            {board && !card.is_inbox && canUpdate ? (
+              <Button
+                variant={card.is_template ? "secondary" : "outline"}
+                size="sm"
+                className="w-full justify-start gap-1.5"
+                aria-pressed={card.is_template}
+                title={t("boardExtras.templates.cardHelp")}
+                onClick={() => save({ is_template: !card.is_template })}
+              >
+                <LayoutTemplate className="h-3.5 w-3.5" />
+                {card.is_template
+                  ? t("boardExtras.templates.unmarkCard")
+                  : t("boardExtras.templates.markCard")}
+              </Button>
+            ) : null}
           </div>
 
           {board && !card.is_inbox ? (
@@ -539,6 +590,12 @@ function TaskEditorBody({
           ) : null}
 
           <TaskQrSection taskId={card.id} canUpdate={canUpdate} />
+          <CopyCardDialog
+            orgId={orgId}
+            card={copying ? card : null}
+            onOpenChange={setCopying}
+            onCopied={(copy) => onChanged?.(copy)}
+          />
 
           <section className="space-y-2 text-xs">
             <p className="text-muted-foreground">

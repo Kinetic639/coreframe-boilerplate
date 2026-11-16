@@ -186,6 +186,8 @@ export function PlanningBoardsClient({
               admin={admin}
               onBoardArchived={handleBoardArchived}
               onOpenAllBoards={openSwitcher}
+              canCreate={canCreate}
+              onOpenBoard={selectBoard}
             />
           </main>
           <aside className="flex min-h-0 flex-col items-center border-l bg-muted/10 px-1.5 py-3">

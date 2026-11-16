@@ -11,6 +11,7 @@ import {
   PLANNING_BOARDS_READ,
   PLANNING_BOARDS_UPDATE,
   PLANNING_TASKS_ASSIGN,
+  PLANNING_TASKS_CREATE,
   PLANNING_TASKS_READ,
   PLANNING_TASKS_UPDATE,
 } from "@/lib/constants/permissions";
@@ -42,6 +43,18 @@ import {
   createKanbanChecklistItemSchema,
   updateKanbanChecklistItemSchema,
   kanbanTaskWatchSchema,
+  copyKanbanCardSchema,
+  copyKanbanColumnSchema,
+  copyKanbanBoardSchema,
+  createKanbanSubtaskSchema,
+  kanbanDependencySchema,
+  searchKanbanTasksSchema,
+  type CopyKanbanCardInput,
+  type CopyKanbanColumnInput,
+  type CopyKanbanBoardInput,
+  type CreateKanbanSubtaskInput,
+  type KanbanDependencyInput,
+  type SearchKanbanTasksInput,
   type CreateKanbanBoardLabelInput,
   type UpdateKanbanBoardLabelInput,
   type KanbanBoardLabelRefInput,
@@ -81,6 +94,8 @@ import type {
   KanbanCardActivity,
   KanbanMoveResult,
   KanbanTaskEditorData,
+  KanbanTaskRef,
+  KanbanTaskRelations,
 } from "@/lib/types/kanban";
 import { KanbanBoardsService } from "@/server/services/kanban-boards.service";
 
@@ -703,5 +718,89 @@ export async function listKanbanBoardActivityAction(
 ): Promise<ActionResult<KanbanBoardActivity[]>> {
   return guarded(PLANNING_BOARDS_READ, kanbanBoardRefSchema, { id: boardId }, (ctx, data) =>
     KanbanBoardsService.listBoardActivity(ctx.supabase, ctx.orgId, data.id)
+  );
+}
+
+// ── Stage 6a: copies, templates, sub-tasks, dependencies ────────────────────
+
+/** Copies a card (to this or another board); RLS decides where it may land. */
+export async function copyKanbanCardAction(
+  input: CopyKanbanCardInput
+): Promise<ActionResult<KanbanBoardCard>> {
+  return guarded(
+    [PLANNING_TASKS_CREATE, PLANNING_BOARDS_UPDATE],
+    copyKanbanCardSchema,
+    input,
+    (ctx, data) => KanbanBoardsService.copyCard(ctx.supabase, ctx.orgId, ctx.userId, data)
+  );
+}
+
+export async function copyKanbanColumnAction(
+  input: CopyKanbanColumnInput
+): Promise<ActionResult<KanbanBoardDetail>> {
+  return guarded(PLANNING_BOARDS_UPDATE, copyKanbanColumnSchema, input, (ctx, data) =>
+    KanbanBoardsService.copyColumn(ctx.supabase, ctx.orgId, ctx.userId, data)
+  );
+}
+
+/** A copy of a board, or a new board from a template. */
+export async function copyKanbanBoardAction(
+  input: CopyKanbanBoardInput
+): Promise<ActionResult<KanbanBoardDetail>> {
+  return guarded(
+    PLANNING_BOARDS_CREATE,
+    copyKanbanBoardSchema,
+    input,
+    (ctx, data) => KanbanBoardsService.copyBoard(ctx.supabase, ctx.orgId, ctx.userId, data),
+    { revalidate: true }
+  );
+}
+
+export async function getKanbanTaskRelationsAction(
+  taskId: string
+): Promise<ActionResult<KanbanTaskRelations>> {
+  return guarded(
+    [PLANNING_TASKS_READ, PLANNING_BOARDS_READ],
+    kanbanCardRefSchema,
+    { card_id: taskId },
+    (ctx, data) => KanbanBoardsService.getTaskRelations(ctx.supabase, ctx.orgId, data.card_id)
+  );
+}
+
+export async function createKanbanSubtaskAction(
+  input: CreateKanbanSubtaskInput
+): Promise<ActionResult<KanbanBoardCard>> {
+  return guarded(
+    [PLANNING_TASKS_CREATE, PLANNING_TASKS_UPDATE],
+    createKanbanSubtaskSchema,
+    input,
+    (ctx, data) => KanbanBoardsService.createSubtask(ctx.supabase, ctx.orgId, ctx.userId, data)
+  );
+}
+
+export async function addKanbanDependencyAction(
+  input: KanbanDependencyInput
+): Promise<ActionResult<void>> {
+  return guarded(PLANNING_TASKS_UPDATE, kanbanDependencySchema, input, (ctx, data) =>
+    KanbanBoardsService.addDependency(ctx.supabase, ctx.orgId, ctx.userId, data)
+  );
+}
+
+export async function removeKanbanDependencyAction(
+  input: KanbanDependencyInput
+): Promise<ActionResult<void>> {
+  return guarded(PLANNING_TASKS_UPDATE, kanbanDependencySchema, input, (ctx, data) =>
+    KanbanBoardsService.removeDependency(ctx.supabase, ctx.orgId, data)
+  );
+}
+
+export async function searchKanbanTasksAction(
+  input: SearchKanbanTasksInput
+): Promise<ActionResult<KanbanTaskRef[]>> {
+  return guarded(
+    [PLANNING_TASKS_READ, PLANNING_BOARDS_READ],
+    searchKanbanTasksSchema,
+    input,
+    (ctx, data) => KanbanBoardsService.searchTasks(ctx.supabase, ctx.orgId, data)
   );
 }

@@ -21,6 +21,8 @@ const kanbanBoardFields = z.object({
   visibility: z.enum(KANBAN_VISIBILITIES).default("private"),
   /** Required for, and only kept with, the branch scope. */
   branch_id: z.string().uuid().nullable().optional(),
+  /** Offered as a template when making a new board; left out to keep it as it is. */
+  is_template: z.boolean().optional(),
 });
 
 const branchScopeHasBranch = (value: { visibility: KanbanVisibility; branch_id?: string | null }) =>
@@ -39,6 +41,8 @@ export const createKanbanBoardSchema = kanbanBoardFields
       )
       .max(100)
       .optional(),
+    /** A template board to start from: its labels, lists and cards are copied. */
+    template_id: z.string().uuid().optional(),
   })
   .refine(branchScopeHasBranch, branchScopeMessage);
 
@@ -76,6 +80,8 @@ export const createKanbanColumnSchema = z.object({
     .optional(),
   /** A task moved into the column takes this status; null = the column is just a group. */
   status_category: z.enum(KANBAN_TASK_STATUSES).nullable().optional(),
+  /** Soft limit of cards in the column (null = none); left out to keep it. */
+  wip_limit: z.number().int().min(1).max(999).nullable().optional(),
 });
 
 export const updateKanbanColumnSchema = createKanbanColumnSchema.extend({
@@ -175,6 +181,66 @@ export const patchKanbanTaskSchema = z.object({
     .nullable()
     .optional(),
   cover_attachment_id: z.string().uuid().nullable().optional(),
+  /** Offered as a template in its column's "New card from template". */
+  is_template: z.boolean().optional(),
+  /** The task this one is a sub-task of (null = none). */
+  parent_task_id: z.string().uuid().nullable().optional(),
+});
+
+/** What a card copy takes along (comments, attachments and history never). */
+export const KANBAN_COPY_PARTS = [
+  "description",
+  "labels",
+  "checklists",
+  "assignee",
+  "dates",
+  "cover",
+  "priority",
+] as const;
+export type KanbanCopyPart = (typeof KANBAN_COPY_PARTS)[number];
+
+export const copyKanbanCardSchema = z.object({
+  card_id: z.string().uuid(),
+  column_id: z.string().uuid(),
+  /** Where in the column; left out for the bottom. */
+  position: z.number().int().min(0).optional(),
+  title: z.string().trim().max(300).optional(),
+  keep: z
+    .array(z.enum(KANBAN_COPY_PARTS))
+    .max(KANBAN_COPY_PARTS.length)
+    .default([...KANBAN_COPY_PARTS]),
+  /** The copy is itself a template. */
+  as_template: z.boolean().default(false),
+});
+
+export const copyKanbanColumnSchema = z.object({
+  column_id: z.string().uuid(),
+  /** Another board; left out for a copy next to the original. */
+  board_id: z.string().uuid().optional(),
+  title: z.string().trim().max(120).optional(),
+});
+
+export const copyKanbanBoardSchema = z.object({
+  board_id: z.string().uuid(),
+  title: z.string().trim().min(1).max(160),
+  with_cards: z.boolean().default(true),
+  as_template: z.boolean().default(false),
+});
+
+export const createKanbanSubtaskSchema = z.object({
+  parent_id: z.string().uuid(),
+  title: z.string().trim().min(1).max(300),
+});
+
+export const kanbanDependencySchema = z.object({
+  task_id: z.string().uuid(),
+  depends_on_task_id: z.string().uuid(),
+});
+
+export const searchKanbanTasksSchema = z.object({
+  query: z.string().trim().max(120),
+  /** Left out of the results (the task being edited). */
+  exclude_id: z.string().uuid().optional(),
 });
 
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
@@ -270,6 +336,12 @@ export type UpdateKanbanChecklistInput = z.infer<typeof updateKanbanChecklistSch
 export type CreateKanbanChecklistItemInput = z.infer<typeof createKanbanChecklistItemSchema>;
 export type UpdateKanbanChecklistItemInput = z.infer<typeof updateKanbanChecklistItemSchema>;
 export type KanbanTaskWatchInput = z.infer<typeof kanbanTaskWatchSchema>;
+export type CopyKanbanCardInput = z.input<typeof copyKanbanCardSchema>;
+export type CopyKanbanColumnInput = z.infer<typeof copyKanbanColumnSchema>;
+export type CopyKanbanBoardInput = z.input<typeof copyKanbanBoardSchema>;
+export type CreateKanbanSubtaskInput = z.infer<typeof createKanbanSubtaskSchema>;
+export type KanbanDependencyInput = z.infer<typeof kanbanDependencySchema>;
+export type SearchKanbanTasksInput = z.infer<typeof searchKanbanTasksSchema>;
 export type KanbanTaskDatesInput = NonNullable<PatchKanbanTaskInput["dates"]>;
 export type KanbanTaskPriority = (typeof KANBAN_TASK_PRIORITIES)[number];
 export type CreateKanbanColumnInput = z.infer<typeof createKanbanColumnSchema>;
