@@ -8,6 +8,8 @@ import {
   archiveKanbanCardAction,
   archiveKanbanColumnAction,
   archiveKanbanColumnCardsAction,
+  copyKanbanCardAction,
+  copyKanbanColumnAction,
   createKanbanCardAction,
   createKanbanColumnAction,
   deleteKanbanColumnAction,
@@ -406,6 +408,50 @@ export function useBoardActions(orgId: string, boardId: string | null) {
     [boardId, boardKey, orgId, queryClient, t]
   );
 
+  /** "New card from template": a copy of the template card at the bottom of a list. */
+  const createFromTemplate = useCallback(
+    async (template: KanbanBoardCard, columnId: string) => {
+      try {
+        const card = await unwrap(
+          copyKanbanCardAction({ card_id: template.id, column_id: columnId, as_template: false })
+        );
+        writeState((state) => upsertCard(state, card));
+        return card;
+      } catch (error) {
+        toast.error(errorMessage(error));
+        return null;
+      }
+    },
+    [writeState]
+  );
+
+  /**
+   * Copies a list with its cards, next to it or onto another board. The
+   * board it lands on comes back whole and replaces that board's cache entry.
+   */
+  const copyColumn = useCallback(
+    async (columnId: string, options: { title?: string; boardId?: string } = {}) => {
+      try {
+        const target = await unwrap(
+          copyKanbanColumnAction({
+            column_id: columnId,
+            ...(options.boardId && options.boardId !== boardId
+              ? { board_id: options.boardId }
+              : {}),
+            ...(options.title ? { title: options.title } : {}),
+          })
+        );
+        queryClient.setQueryData(boardKeys.board(orgId, target.id), target);
+        toast.success(t("boardExtras.column.copied"));
+        return target;
+      } catch (error) {
+        toast.error(errorMessage(error));
+        return null;
+      }
+    },
+    [boardId, orgId, queryClient, t]
+  );
+
   const deleteColumn = useCallback(
     async (columnId: string) => {
       if (!boardId) return false;
@@ -441,6 +487,8 @@ export function useBoardActions(orgId: string, boardId: string | null) {
       archiveColumnCards,
       restoreColumn,
       deleteColumn,
+      createFromTemplate,
+      copyColumn,
     }),
     [
       moveCardTo,
@@ -458,6 +506,8 @@ export function useBoardActions(orgId: string, boardId: string | null) {
       archiveColumnCards,
       restoreColumn,
       deleteColumn,
+      createFromTemplate,
+      copyColumn,
     ]
   );
 }

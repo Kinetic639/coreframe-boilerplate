@@ -4700,7 +4700,9 @@
           "checklistAdded": "Dodano listę kontrolną",
           "coverChanged": "Zmieniono okładkę",
           "createdFromChecklist": "Utworzono z elementu listy kontrolnej",
-          "attachmentAdded": "Dodano załącznik"
+          "attachmentAdded": "Dodano załącznik",
+          "copiedFrom": "Utworzono jako kopię",
+          "parentChanged": "Zmieniono zadanie nadrzędne"
         },
         "visibility": {
           "label": "Widoczność",
@@ -4918,6 +4920,98 @@
           "take": "Przypisz do mnie / zwolnij",
           "archive": "Archiwizuj kartę",
           "help": "Pokaż skróty"
+        }
+      },
+      "boardExtras": {
+        "name": "Nazwa",
+        "cancel": "Anuluj",
+        "copying": "Kopiowanie…",
+        "copyName": "{title} (kopia)",
+        "card": {
+          "menu": "Kopiuj kartę",
+          "title": "Kopiuj kartę",
+          "help": "Komentarze, załączniki i historia zostają przy oryginale.",
+          "keep": "Zachowaj",
+          "parts": {
+            "description": "Opis",
+            "labels": "Etykiety",
+            "checklists": "Listy kontrolne",
+            "assignee": "Osobę przypisaną",
+            "dates": "Daty",
+            "cover": "Okładkę",
+            "priority": "Priorytet"
+          },
+          "board": "Tablica",
+          "pickBoard": "Wybierz tablicę",
+          "column": "Lista",
+          "noColumns": "Ta tablica nie ma list",
+          "position": "Miejsce na liście",
+          "top": "Na górze listy",
+          "bottom": "Na dole listy",
+          "asTemplate": "Kopia jako szablon karty",
+          "asTemplateHelp": "Pojawi się w „Nowa karta z szablonu” na tej tablicy.",
+          "submit": "Utwórz kopię",
+          "copied": "Karta skopiowana"
+        },
+        "column": {
+          "menu": "Kopiuj listę",
+          "title": "Kopiuj listę",
+          "board": "Na tablicę",
+          "thisBoard": "Ta tablica (obok oryginału)",
+          "help": "Lista trafi z kartami. Na innej tablicy pojawi się na końcu.",
+          "submit": "Kopiuj listę",
+          "copied": "Lista skopiowana"
+        },
+        "board": {
+          "menu": "Kopiuj tablicę",
+          "title": "Kopiuj tablicę",
+          "help": "Kopia jest prywatna i należy do Ciebie. Trafiają do niej etykiety, otwarte listy i (jeśli chcesz) karty. Osoby, komentarze i załączniki nie są kopiowane.",
+          "withCards": "Kopiuj też karty",
+          "asTemplate": "Zapisz jako szablon tablicy",
+          "asTemplateHelp": "Szablon można wybrać przy tworzeniu nowej tablicy.",
+          "submit": "Kopiuj tablicę",
+          "copied": "Tablica skopiowana"
+        },
+        "templates": {
+          "badge": "Szablon",
+          "markBoard": "Oznacz jako szablon",
+          "unmarkBoard": "Przestań używać jako szablonu",
+          "markCard": "Oznacz jako szablon",
+          "unmarkCard": "Przestań używać jako szablonu",
+          "cardHelp": "Karta-szablon nie liczy się do limitu listy i jest dostępna w „Nowa karta z szablonu”.",
+          "fromTemplate": "Nowa karta z szablonu",
+          "noCardTemplates": "Brak szablonów kart. Oznacz kartę jako szablon w jej oknie.",
+          "startFrom": "Zacznij od",
+          "blank": "Pustej tablicy",
+          "startFromHelp": "Etykiety, listy i karty szablonu zostaną skopiowane do nowej tablicy."
+        },
+        "wip": {
+          "label": "Limit kart (WIP)",
+          "help": "Miękki limit: lista podświetli się na czerwono po jego przekroczeniu. Puste pole oznacza brak limitu.",
+          "title": "{count} z {limit} kart",
+          "overTitle": "{count} kart, limit to {limit}",
+          "over": "Lista „{title}” ma więcej kart niż jej limit ({limit})"
+        },
+        "relations": {
+          "subtasks": "Podzadania",
+          "subtaskProgress": "{done} z {total} gotowe",
+          "addSubtask": "Dodaj podzadanie",
+          "subtaskPlaceholder": "Tytuł podzadania",
+          "add": "Dodaj",
+          "cancel": "Anuluj",
+          "subtaskOf": "Podzadanie zadania",
+          "setParent": "Ustaw nadrzędne",
+          "removeParent": "Odłącz od zadania nadrzędnego",
+          "dependencies": "Zależności",
+          "addBlocker": "Czeka na…",
+          "blockedBy": "Czeka na",
+          "blocking": "Blokuje",
+          "noDependencies": "Brak zależności.",
+          "remove": "Usuń zależność",
+          "search": "Numer lub tytuł zadania",
+          "noResults": "Nic nie znaleziono",
+          "blocked": "Zablokowana",
+          "blockedHelp": "Czeka na niezamknięte zadania: {count}"
         }
       }
     },

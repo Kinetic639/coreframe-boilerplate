@@ -7,7 +7,9 @@ import {
   ArchiveRestore,
   ArrowUpToLine,
   Check,
+  Copy,
   Edit3,
+  LayoutTemplate,
   MoreHorizontal,
   Palette,
   Plus,
@@ -42,11 +44,36 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { KanbanBoardColumn, KanbanTaskStatus } from "@/lib/types/kanban";
+import { useCopyTargetBoards } from "@/components/planning/task-editor/copy-card-dialog";
+import type { KanbanBoardCard, KanbanBoardColumn, KanbanTaskStatus } from "@/lib/types/kanban";
 import { KANBAN_TASK_STATUSES } from "@/lib/validations/kanban";
 import { cn } from "@/utils";
 import { COLUMN_COLORS, statusLabel } from "./board-format";
 import type { BoardActions } from "./use-board-actions";
+
+/** The list's count against its limit ("3/4"), red past it. */
+export function WipBadge({ count, limit }: { count: number; limit: number | null }) {
+  const t = useTranslations("modules.planning.boardExtras");
+  if (!limit) return null;
+  const over = count > limit;
+  return (
+    <span
+      className={cn(
+        "shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold",
+        over ? "bg-red-600 text-white" : "bg-muted text-muted-foreground"
+      )}
+      title={t(over ? "wip.overTitle" : "wip.title", { count, limit })}
+    >
+      {count}/{limit}
+    </span>
+  );
+}
+
+/** A limit typed in a field: whole numbers from 1 to 999, anything else is none. */
+function parseWipLimit(value: string): number | null {
+  const limit = Number.parseInt(value, 10);
+  return Number.isFinite(limit) && limit >= 1 ? Math.min(limit, 999) : null;
+}
 
 /** Saves one field of a column; the update takes the whole column. */
 function saveColumn(
@@ -139,17 +166,22 @@ export function ColumnTitle({
 }
 
 export function ColumnMenu({
+  orgId,
   boardId,
   column,
   cardCount,
+  cardTemplates,
   canUpdate,
   canDelete,
   actions,
   onAddCardTop,
 }: {
+  orgId: string;
   boardId: string;
   column: KanbanBoardColumn;
   cardCount: number;
+  /** The board's template cards, for "New card from template". */
+  cardTemplates: KanbanBoardCard[];
   canUpdate: boolean;
   canDelete: boolean;
   actions: BoardActions;
@@ -157,6 +189,8 @@ export function ColumnMenu({
 }) {
   const t = useTranslations("modules.planning");
   const [editOpen, setEditOpen] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
+  const [wipLimit, setWipLimit] = useState(column.wip_limit ? String(column.wip_limit) : "");
   const [title, setTitle] = useState(column.title);
   const [description, setDescription] = useState(column.description ?? "");
   const [color, setColor] = useState(column.color ?? COLUMN_COLORS[0]);
@@ -168,6 +202,7 @@ export function ColumnMenu({
     setDescription(column.description ?? "");
     setColor(column.color ?? COLUMN_COLORS[0]);
     setStatusCategory(column.status_category);
+    setWipLimit(column.wip_limit ? String(column.wip_limit) : "");
     setEditOpen(true);
   };
 
@@ -180,6 +215,7 @@ export function ColumnMenu({
       description,
       color,
       status_category: statusCategory,
+      wip_limit: parseWipLimit(wipLimit),
     });
     setIsPending(false);
     if (saved) setEditOpen(false);
@@ -240,6 +276,32 @@ export function ColumnMenu({
                   ) : null}
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <LayoutTemplate className="mr-2 h-4 w-4" />
+                  {t("boardExtras.templates.fromTemplate")}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="max-h-72 w-60 overflow-y-auto">
+                  {cardTemplates.length ? (
+                    cardTemplates.map((template) => (
+                      <DropdownMenuItem
+                        key={template.id}
+                        onSelect={() => void actions.createFromTemplate(template, column.id)}
+                      >
+                        <span className="truncate">{template.title}</span>
+                      </DropdownMenuItem>
+                    ))
+                  ) : (
+                    <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                      {t("boardExtras.templates.noCardTemplates")}
+                    </p>
+                  )}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuItem onSelect={() => setCopyOpen(true)}>
+                <Copy className="mr-2 h-4 w-4" />
+                {t("boardExtras.column.menu")}
+              </DropdownMenuItem>
               <DropdownMenuItem onSelect={openEdit}>
                 <Edit3 className="mr-2 h-4 w-4" />
                 {t("boards.editColumn")}
@@ -279,6 +341,8 @@ export function ColumnMenu({
             onDescriptionChange={setDescription}
             onColorChange={setColor}
             onStatusCategoryChange={setStatusCategory}
+            wipLimit={wipLimit}
+            onWipLimitChange={setWipLimit}
           />
           <DialogFooter>
             <Button disabled={!title.trim() || isPending} onClick={() => void save()}>
@@ -287,7 +351,101 @@ export function ColumnMenu({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {copyOpen ? (
+        <CopyColumnDialog
+          orgId={orgId}
+          boardId={boardId}
+          column={column}
+          actions={actions}
+          onClose={() => setCopyOpen(false)}
+        />
+      ) : null}
     </>
+  );
+}
+
+/** "Copy list": a name and the board it goes to (next to the original on this one). */
+function CopyColumnDialog({
+  orgId,
+  boardId,
+  column,
+  actions,
+  onClose,
+}: {
+  orgId: string;
+  boardId: string;
+  column: KanbanBoardColumn;
+  actions: BoardActions;
+  onClose: () => void;
+}) {
+  const t = useTranslations("modules.planning.boardExtras");
+  const [title, setTitle] = useState(t("copyName", { title: column.title }).slice(0, 120));
+  const [targetId, setTargetId] = useState(boardId);
+  const [isPending, setIsPending] = useState(false);
+  const boards = useCopyTargetBoards(orgId, true);
+
+  const submit = async () => {
+    setIsPending(true);
+    const copied = await actions.copyColumn(column.id, { title: title.trim(), boardId: targetId });
+    setIsPending(false);
+    if (copied) onClose();
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t("column.title")}</DialogTitle>
+        </DialogHeader>
+        <form
+          id="copy-column-form"
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submit();
+          }}
+        >
+          <div className="space-y-2">
+            <Label htmlFor="copy-column-title">{t("name")}</Label>
+            <Input
+              id="copy-column-title"
+              autoFocus
+              value={title}
+              maxLength={120}
+              onChange={(event) => setTitle(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("column.board")}</Label>
+            <Select value={targetId} onValueChange={setTargetId}>
+              <SelectTrigger aria-label={t("column.board")}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={boardId}>{t("column.thisBoard")}</SelectItem>
+                {(boards.data ?? [])
+                  .filter((board) => board.id !== boardId)
+                  .map((board) => (
+                    <SelectItem key={board.id} value={board.id}>
+                      {board.title}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-xs text-muted-foreground">{t("column.help")}</p>
+        </form>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            {t("cancel")}
+          </Button>
+          <Button type="submit" form="copy-column-form" disabled={!title.trim() || isPending}>
+            {isPending ? t("copying") : t("column.submit")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -433,6 +591,7 @@ export function AddColumnPanel({ boardId, actions }: { boardId: string; actions:
   const [description, setDescription] = useState("");
   const [color, setColor] = useState(COLUMN_COLORS[0]);
   const [statusCategory, setStatusCategory] = useState<KanbanTaskStatus | null>(null);
+  const [wipLimit, setWipLimit] = useState("");
   const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
@@ -441,6 +600,7 @@ export function AddColumnPanel({ boardId, actions }: { boardId: string; actions:
     setDescription("");
     setColor(COLUMN_COLORS[0]);
     setStatusCategory(null);
+    setWipLimit("");
   }, [open]);
 
   const submit = async () => {
@@ -451,6 +611,7 @@ export function AddColumnPanel({ boardId, actions }: { boardId: string; actions:
       description,
       color,
       status_category: statusCategory,
+      wip_limit: parseWipLimit(wipLimit),
     });
     setIsPending(false);
     if (created) setOpen(false);
@@ -482,6 +643,8 @@ export function AddColumnPanel({ boardId, actions }: { boardId: string; actions:
         onDescriptionChange={setDescription}
         onColorChange={setColor}
         onStatusCategoryChange={setStatusCategory}
+        wipLimit={wipLimit}
+        onWipLimitChange={setWipLimit}
       />
       <div className="flex gap-2">
         <Button disabled={!title.trim() || isPending} onClick={() => void submit()}>
@@ -507,6 +670,8 @@ function ColumnFields({
   onDescriptionChange,
   onColorChange,
   onStatusCategoryChange,
+  wipLimit,
+  onWipLimitChange,
 }: {
   title: string;
   description: string;
@@ -516,6 +681,8 @@ function ColumnFields({
   onDescriptionChange: (value: string) => void;
   onColorChange: (value: string) => void;
   onStatusCategoryChange: (value: KanbanTaskStatus | null) => void;
+  wipLimit: string;
+  onWipLimitChange: (value: string) => void;
 }) {
   const t = useTranslations("modules.planning");
   return (
@@ -558,6 +725,20 @@ function ColumnFields({
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">{t("boards.columnStatus.help")}</p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="column-wip-limit">{t("boardExtras.wip.label")}</Label>
+        <Input
+          id="column-wip-limit"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={999}
+          value={wipLimit}
+          onChange={(event) => onWipLimitChange(event.target.value.replace(/\D/g, "").slice(0, 3))}
+          className="w-28"
+        />
+        <p className="text-xs text-muted-foreground">{t("boardExtras.wip.help")}</p>
       </div>
       <div className="space-y-2">
         <Label>{t("boards.color")}</Label>

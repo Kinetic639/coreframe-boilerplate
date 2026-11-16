@@ -21,6 +21,12 @@ import type {
   CreateKanbanChecklistItemInput,
   UpdateKanbanChecklistItemInput,
   KanbanTaskDatesInput,
+  CopyKanbanCardInput,
+  CopyKanbanColumnInput,
+  CopyKanbanBoardInput,
+  CreateKanbanSubtaskInput,
+  KanbanDependencyInput,
+  SearchKanbanTasksInput,
 } from "@/lib/validations/kanban";
 import { normalizeCommentRichText } from "@/lib/validations/comments";
 import {
@@ -39,8 +45,27 @@ import {
   type KanbanBoardSummary,
   type KanbanMoveResult,
   type KanbanTaskEditorData,
+  type KanbanTaskRef,
+  type KanbanTaskRelations,
   type KanbanTaskStatus,
 } from "@/lib/types/kanban";
+
+const TASK_REF_FIELDS = `id, task_number, title, status, board_id,
+  assignee:users!assigned_to(first_name, last_name, email)`;
+
+function mapTaskRef(row: any): KanbanTaskRef {
+  const assignee = Array.isArray(row.assignee) ? row.assignee[0] : row.assignee;
+  return {
+    id: row.id,
+    task_number: row.task_number,
+    title: row.title,
+    status: row.status as KanbanTaskStatus,
+    board_id: row.board_id ?? null,
+    assignee_name: assignee
+      ? displayName(assignee.first_name, assignee.last_name, assignee.email)
+      : null,
+  };
+}
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
 
@@ -86,7 +111,7 @@ function displayName(
   return name || email || null;
 }
 
-const BOARD_FIELDS = `id, organization_id, title, description, color, visibility, branch_id, created_by, created_at, updated_at, archived_at,
+const BOARD_FIELDS = `id, organization_id, title, description, color, visibility, branch_id, created_by, created_at, updated_at, archived_at, is_template,
            creator:users!created_by(first_name, last_name, email)`;
 
 function normalizeVisibility(value: string): KanbanVisibility {
@@ -165,6 +190,8 @@ async function withCardExtras(
   if (!cards.length) return cards;
   const comments = new Map<string, number>();
   const files = new Map<string, number>();
+  const subtasks = new Map<string, { total: number; done: number }>();
+  const blocked = new Map<string, number>();
   const coverPaths = new Map<string, string>();
   const ids = cards.map((card) => card.id);
   const coverIds = new Set(
@@ -173,7 +200,7 @@ async function withCardExtras(
   // Chunked: a long id list would not fit in one request URL.
   for (let start = 0; start < ids.length; start += 200) {
     const chunk = ids.slice(start, start + 200);
-    const [commentRows, fileRows] = await Promise.all([
+    const [commentRows, fileRows, childRows, dependencyRows] = await Promise.all([
       supabase
         .from("app_comments")
         .select("target_id")
@@ -188,7 +215,30 @@ async function withCardExtras(
         .eq("target_type", "planning.task")
         .in("target_id", chunk)
         .is("deleted_at", null),
+      supabase
+        .from("planning_tasks")
+        .select("parent_task_id, status")
+        .eq("organization_id", orgId)
+        .in("parent_task_id", chunk)
+        .is("deleted_at", null),
+      supabase
+        .from("planning_task_dependencies")
+        .select("task_id, blocker:planning_tasks!depends_on_task_id(status, deleted_at)")
+        .eq("organization_id", orgId)
+        .in("task_id", chunk),
     ]);
+    for (const row of (childRows.data ?? []) as Array<{ parent_task_id: string; status: string }>) {
+      const entry = subtasks.get(row.parent_task_id) ?? { total: 0, done: 0 };
+      entry.total += 1;
+      if (row.status === "completed" || row.status === "cancelled") entry.done += 1;
+      subtasks.set(row.parent_task_id, entry);
+    }
+    for (const row of (dependencyRows.data ?? []) as Array<{ task_id: string; blocker: any }>) {
+      const blocker = Array.isArray(row.blocker) ? row.blocker[0] : row.blocker;
+      if (!blocker || blocker.deleted_at) continue;
+      if (blocker.status === "completed" || blocker.status === "cancelled") continue;
+      blocked.set(row.task_id, (blocked.get(row.task_id) ?? 0) + 1);
+    }
     for (const row of (commentRows.data ?? []) as Array<{ target_id: string }>) {
       comments.set(row.target_id, (comments.get(row.target_id) ?? 0) + 1);
     }
@@ -219,6 +269,9 @@ async function withCardExtras(
     ...card,
     comment_count: comments.get(card.id) ?? 0,
     attachment_count: files.get(card.id) ?? 0,
+    subtask_total: subtasks.get(card.id)?.total ?? 0,
+    subtask_done: subtasks.get(card.id)?.done ?? 0,
+    blocked_by_open: blocked.get(card.id) ?? 0,
     cover_url: card.cover_attachment_id ? (coverUrls.get(card.cover_attachment_id) ?? null) : null,
   }));
 }
@@ -263,6 +316,7 @@ function mapBoard(
     archived_at: row.archived_at ?? null,
     my_access: boardAccess(row, userId, memberRoles.get(row.id)),
     starred: stars.has(row.id),
+    is_template: Boolean(row.is_template),
   };
 }
 
@@ -275,6 +329,7 @@ function mapColumn(row: any): KanbanBoardColumn {
     description: row.description ?? null,
     color: row.color ?? null,
     status_category: (row.status_category ?? null) as KanbanTaskStatus | null,
+    wip_limit: row.wip_limit ?? null,
     position: row.position ?? 0,
     archived_at: row.archived_at ?? null,
     created_at: row.created_at,
@@ -286,12 +341,12 @@ const CALENDAR_CARD_FIELDS =
   "id, board_id, title, due_date, calendar_all_day, calendar_start_date, calendar_end_date, calendar_start_at, calendar_end_at, calendar_timezone, label, label_color, is_inbox";
 
 const COLUMN_FIELDS =
-  "id, board_id, organization_id, title, description, color, status_category, position, archived_at, created_at, updated_at";
+  "id, board_id, organization_id, title, description, color, status_category, wip_limit, position, archived_at, created_at, updated_at";
 
 // Every card is a planning_tasks row.
 const TASK_CARD_FIELDS = `id, board_id, column_id, organization_id, task_number, title, description_plain, description_rich,
   status, priority, assigned_to, due_at, due_has_time, label, label_color, is_inbox, board_position, created_by, created_at, updated_at, deleted_at,
-  calendar_all_day, calendar_start_date, calendar_start_at, cover_color, cover_attachment_id,
+  calendar_all_day, calendar_start_date, calendar_start_at, cover_color, cover_attachment_id, is_template, parent_task_id,
   creator:users!created_by(first_name, last_name, email),
   assignee:users!assigned_to(first_name, last_name, email),
   task_labels:planning_task_labels(label:planning_kanban_board_labels(id, name, color, position)),
@@ -434,6 +489,11 @@ function mapCard(row: any): KanbanBoardCard {
     cover_color: row.cover_color ?? null,
     cover_attachment_id: row.cover_attachment_id ?? null,
     cover_url: row.cover_url ?? null,
+    is_template: Boolean(row.is_template),
+    parent_task_id: row.parent_task_id ?? null,
+    subtask_total: 0,
+    subtask_done: 0,
+    blocked_by_open: 0,
   };
 }
 
@@ -702,24 +762,51 @@ export const KanbanBoardsService = {
         };
       }
 
-      const { data, error } = await supabase
-        .from("planning_kanban_boards")
-        .insert({
-          organization_id: orgId,
-          title: input.title,
-          description: input.description || null,
-          color: input.color || null,
+      let boardId: string;
+      if (input.template_id) {
+        // From a template: the copy (labels, lists, cards) is made private,
+        // then gets what was filled in here.
+        const { data: newId, error: copyError } = await supabase.rpc("planning_copy_board", {
+          p_board_id: input.template_id,
+          p_title: input.title,
+          p_with_cards: true,
+          p_as_template: false,
+        });
+        if (copyError) return { success: false, error: copyError.message };
+        boardId = newId as string;
+        const patch: Record<string, unknown> = {
           visibility: input.visibility,
           branch_id: input.visibility === "branch" ? (input.branch_id ?? null) : null,
-          created_by: userId,
           updated_by: userId,
-        })
-        .select("id")
-        .single();
+        };
+        if (input.description) patch.description = input.description;
+        if (input.color) patch.color = input.color;
+        const { error: setupError } = await supabase
+          .from("planning_kanban_boards")
+          .update(patch)
+          .eq("organization_id", orgId)
+          .eq("id", boardId);
+        if (setupError) return { success: false, error: setupError.message };
+      } else {
+        const { data, error } = await supabase
+          .from("planning_kanban_boards")
+          .insert({
+            organization_id: orgId,
+            title: input.title,
+            description: input.description || null,
+            color: input.color || null,
+            visibility: input.visibility,
+            branch_id: input.visibility === "branch" ? (input.branch_id ?? null) : null,
+            created_by: userId,
+            updated_by: userId,
+          })
+          .select("id")
+          .single();
 
-      if (error) return { success: false, error: error.message };
+        if (error) return { success: false, error: error.message };
+        boardId = (data as any).id as string;
+      }
 
-      const boardId = (data as any).id as string;
       const members = (input.members ?? []).filter((member) => member.user_id !== userId);
       if (members.length) {
         // The board exists either way: if this fails, the returned board has
@@ -823,6 +910,9 @@ export const KanbanBoardsService = {
       };
       if (input.color !== undefined) {
         updatePayload.color = input.color || null;
+      }
+      if (input.is_template !== undefined) {
+        updatePayload.is_template = input.is_template;
       }
 
       const { error } = await supabase
@@ -964,6 +1054,7 @@ export const KanbanBoardsService = {
           description: input.description || null,
           color: input.color || null,
           status_category: input.status_category ?? null,
+          wip_limit: input.wip_limit ?? null,
           position,
         })
         .select(COLUMN_FIELDS)
@@ -991,6 +1082,7 @@ export const KanbanBoardsService = {
           ...(input.status_category !== undefined
             ? { status_category: input.status_category }
             : {}),
+          ...(input.wip_limit !== undefined ? { wip_limit: input.wip_limit } : {}),
         })
         .eq("organization_id", orgId)
         .eq("board_id", input.board_id)
@@ -1587,6 +1679,14 @@ export const KanbanBoardsService = {
       }
       if (input.status !== undefined && input.status !== current.status) {
         update.status = input.status;
+      }
+      if (input.is_template !== undefined) {
+        update.is_template = input.is_template;
+      }
+      if (input.parent_task_id !== undefined) {
+        // The database refuses another organization's task and any cycle.
+        update.parent_task_id = input.parent_task_id;
+        history.push(["parent_changed", { to: input.parent_task_id }]);
       }
       if (input.assigned_to !== undefined && input.assigned_to !== current.assigned_to) {
         update.assigned_to = input.assigned_to;
@@ -2443,6 +2543,315 @@ export const KanbanBoardsService = {
         .eq("organization_id", orgId)
         .eq("id", itemId);
       return created;
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  // ── Copies and templates (stage 6a) ───────────────────────────────────────
+
+  /** A copy of a card in a column (same or another board); returns the new card. */
+  async copyCard(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: CopyKanbanCardInput
+  ): Promise<ServiceResult<KanbanBoardCard>> {
+    try {
+      const { data: newId, error } = await supabase.rpc("planning_copy_task", {
+        p_task_id: input.card_id,
+        p_column_id: input.column_id,
+        p_position: input.position ?? null,
+        p_title: input.title || null,
+        p_keep: input.keep ?? [],
+        p_as_template: input.as_template ?? false,
+      });
+      if (error) return { success: false, error: error.message };
+      const created = await selectCard(supabase, orgId, newId as string);
+      if (!created.success) return created;
+      const { data: source } = await supabase
+        .from("planning_tasks")
+        .select("task_number")
+        .eq("organization_id", orgId)
+        .eq("id", input.card_id)
+        .maybeSingle();
+      await KanbanBoardsService.recordCardActivity(
+        supabase,
+        orgId,
+        created.data.board_id || null,
+        created.data.id,
+        userId,
+        "copied_from",
+        { from_task: (source as { task_number?: string } | null)?.task_number ?? null }
+      );
+      const [card] = await withCardExtras(supabase, orgId, [created.data]);
+      return { success: true, data: card };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  /** A copy of a column with its cards; returns the board it landed on. */
+  async copyColumn(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: CopyKanbanColumnInput
+  ): Promise<ServiceResult<KanbanBoardDetail>> {
+    try {
+      const { data: newId, error } = await supabase.rpc("planning_copy_column", {
+        p_column_id: input.column_id,
+        p_board_id: input.board_id ?? null,
+        p_title: input.title || null,
+      });
+      if (error) return { success: false, error: error.message };
+      const { data: column, error: columnError } = await supabase
+        .from("planning_kanban_columns")
+        .select("board_id")
+        .eq("organization_id", orgId)
+        .eq("id", newId as string)
+        .single();
+      if (columnError) return { success: false, error: columnError.message };
+      return KanbanBoardsService.getBoard(
+        supabase,
+        orgId,
+        (column as { board_id: string }).board_id,
+        userId
+      );
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  /** A new board from another (a copy, or one made from a template). */
+  async copyBoard(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: CopyKanbanBoardInput
+  ): Promise<ServiceResult<KanbanBoardDetail>> {
+    try {
+      const { count, error: countError } = await supabase
+        .from("planning_kanban_boards")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId)
+        .eq("created_by", userId)
+        .is("deleted_at", null)
+        .is("archived_at", null);
+      if (countError) return { success: false, error: countError.message };
+      if ((count ?? 0) >= MAX_KANBAN_BOARDS_PER_USER) {
+        return {
+          success: false,
+          error: `You can create up to ${MAX_KANBAN_BOARDS_PER_USER} boards.`,
+        };
+      }
+      const { data: newId, error } = await supabase.rpc("planning_copy_board", {
+        p_board_id: input.board_id,
+        p_title: input.title,
+        p_with_cards: input.with_cards ?? true,
+        p_as_template: input.as_template ?? false,
+      });
+      if (error) return { success: false, error: error.message };
+      return KanbanBoardsService.getBoard(supabase, orgId, newId as string, userId);
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  // ── Sub-tasks and dependencies (stage 6a) ─────────────────────────────────
+
+  /** A task's parent, sub-tasks, and what it waits for or holds up. */
+  async getTaskRelations(
+    supabase: SupabaseClient,
+    orgId: string,
+    taskId: string
+  ): Promise<ServiceResult<KanbanTaskRelations>> {
+    try {
+      const { data: taskRaw, error: taskError } = await supabase
+        .from("planning_tasks")
+        .select("id, parent_task_id")
+        .eq("organization_id", orgId)
+        .eq("id", taskId)
+        .single();
+      if (taskError) return { success: false, error: taskError.message };
+      const parentId = (taskRaw as { parent_task_id: string | null }).parent_task_id;
+
+      const [parent, children, blockedBy, blocking] = await Promise.all([
+        parentId
+          ? supabase
+              .from("planning_tasks")
+              .select(TASK_REF_FIELDS)
+              .eq("organization_id", orgId)
+              .eq("id", parentId)
+              .is("deleted_at", null)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+        supabase
+          .from("planning_tasks")
+          .select(TASK_REF_FIELDS)
+          .eq("organization_id", orgId)
+          .eq("parent_task_id", taskId)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("planning_task_dependencies")
+          .select(`task:planning_tasks!depends_on_task_id(${TASK_REF_FIELDS}, deleted_at)`)
+          .eq("organization_id", orgId)
+          .eq("task_id", taskId),
+        supabase
+          .from("planning_task_dependencies")
+          .select(`task:planning_tasks!task_id(${TASK_REF_FIELDS}, deleted_at)`)
+          .eq("organization_id", orgId)
+          .eq("depends_on_task_id", taskId),
+      ]);
+      if (children.error) return { success: false, error: children.error.message };
+      if (blockedBy.error) return { success: false, error: blockedBy.error.message };
+      if (blocking.error) return { success: false, error: blocking.error.message };
+
+      const linked = (rows: any[] | null) =>
+        (rows ?? [])
+          .map((row) => (Array.isArray(row.task) ? row.task[0] : row.task))
+          .filter((task) => task && !task.deleted_at)
+          .map(mapTaskRef);
+
+      return {
+        success: true,
+        data: {
+          parent: parent.data ? mapTaskRef(parent.data) : null,
+          subtasks: (children.data ?? []).map(mapTaskRef),
+          blocked_by: linked(blockedBy.data),
+          blocking: linked(blocking.data),
+        },
+      };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  /**
+   * A new sub-task: on the parent's board, in the parent's column (or in the
+   * inbox when the parent is not on a board).
+   */
+  async createSubtask(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: CreateKanbanSubtaskInput
+  ): Promise<ServiceResult<KanbanBoardCard>> {
+    try {
+      const { data: parentRaw, error: parentError } = await supabase
+        .from("planning_tasks")
+        .select("id, task_number, board_id, column_id, branch_id")
+        .eq("organization_id", orgId)
+        .eq("id", input.parent_id)
+        .is("deleted_at", null)
+        .single();
+      if (parentError) return { success: false, error: parentError.message };
+      const parent = parentRaw as {
+        task_number: string;
+        board_id: string | null;
+        column_id: string | null;
+        branch_id: string | null;
+      };
+      const onBoard = Boolean(parent.board_id && parent.column_id);
+      const position = onBoard ? await nextTaskPosition(supabase, parent.column_id!) : 0;
+      const { data, error } = await supabase
+        .from("planning_tasks")
+        .insert({
+          organization_id: orgId,
+          branch_id: parent.branch_id,
+          board_id: onBoard ? parent.board_id : null,
+          column_id: onBoard ? parent.column_id : null,
+          board_position: position,
+          is_inbox: !onBoard,
+          parent_task_id: input.parent_id,
+          title: input.title,
+          status: "open",
+          priority: "normal",
+          created_by: userId,
+          updated_by: userId,
+        })
+        .select(TASK_CARD_FIELDS)
+        .single();
+      if (error) return { success: false, error: error.message };
+      const card = mapCard(data);
+      await KanbanBoardsService.recordCardActivity(
+        supabase,
+        orgId,
+        parent.board_id,
+        card.id,
+        userId,
+        "task_created",
+        { parent_task: parent.task_number }
+      );
+      return { success: true, data: card };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  async addDependency(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: KanbanDependencyInput
+  ): Promise<ServiceResult<void>> {
+    try {
+      const { error } = await supabase.from("planning_task_dependencies").insert({
+        organization_id: orgId,
+        task_id: input.task_id,
+        depends_on_task_id: input.depends_on_task_id,
+        created_by: userId,
+      });
+      if (error) return { success: false, error: error.message };
+      return { success: true, data: undefined };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  async removeDependency(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: KanbanDependencyInput
+  ): Promise<ServiceResult<void>> {
+    try {
+      const { error } = await supabase
+        .from("planning_task_dependencies")
+        .delete()
+        .eq("organization_id", orgId)
+        .eq("task_id", input.task_id)
+        .eq("depends_on_task_id", input.depends_on_task_id);
+      if (error) return { success: false, error: error.message };
+      return { success: true, data: undefined };
+    } catch (e) {
+      return failure(e);
+    }
+  },
+
+  /** Tasks to link to (by number or words of the title), newest first. */
+  async searchTasks(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: SearchKanbanTasksInput
+  ): Promise<ServiceResult<KanbanTaskRef[]>> {
+    try {
+      let query = supabase
+        .from("planning_tasks")
+        .select(TASK_REF_FIELDS)
+        .eq("organization_id", orgId)
+        .is("deleted_at", null)
+        .eq("is_template", false)
+        .order("updated_at", { ascending: false })
+        .limit(12);
+      const text = input.query.replace(/[%_,()]/g, " ").trim();
+      if (text) {
+        query = query.or(`task_number.ilike.%${text}%,title.ilike.%${text}%`);
+      }
+      if (input.exclude_id) query = query.neq("id", input.exclude_id);
+      const { data, error } = await query;
+      if (error) return { success: false, error: error.message };
+      return { success: true, data: (data ?? []).map(mapTaskRef) };
     } catch (e) {
       return failure(e);
     }

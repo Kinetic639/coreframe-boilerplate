@@ -7,8 +7,10 @@ import {
   Archive,
   ArchiveRestore,
   Check,
+  Copy,
   Keyboard,
   LayoutGrid,
+  LayoutTemplate,
   MoreHorizontal,
   Palette,
   RotateCcw,
@@ -37,6 +39,7 @@ import { BOARD_COLORS, boardBackground } from "./board-colors";
 import { initials } from "./board-format";
 import { ArchiveBoardConfirm, BoardSettingsDialog } from "./board-settings-dialog";
 import { BoardVisibilityIcon } from "./board-sharing";
+import { CopyBoardDialog } from "./board-copy-dialog";
 import type { BoardsAdmin } from "./use-boards-admin";
 
 const MAX_AVATARS = 4;
@@ -57,6 +60,9 @@ interface BoardHeaderProps {
   onOpenLabels?: () => void;
   onOpenActivity?: () => void;
   onOpenShortcuts?: () => void;
+  /** Can make boards (a copy of this one). */
+  canCreate: boolean;
+  onOpenBoard: (boardId: string) => void;
 }
 
 /**
@@ -77,9 +83,12 @@ export function BoardHeader({
   onOpenLabels,
   onOpenActivity,
   onOpenShortcuts,
+  canCreate,
+  onOpenBoard,
 }: BoardHeaderProps) {
   const t = useTranslations("modules.planning");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const isArchived = Boolean(board.archived_at);
   const people = [
@@ -137,6 +146,12 @@ export function BoardHeader({
             <BoardVisibilityIcon visibility={board.visibility} />
             {t(`boards.visibility.${board.visibility}`)}
           </Badge>
+          {board.is_template ? (
+            <Badge variant="secondary" className="shrink-0 gap-1.5">
+              <LayoutTemplate className="h-3.5 w-3.5" />
+              {t("boardExtras.templates.badge")}
+            </Badge>
+          ) : null}
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
@@ -238,6 +253,24 @@ export function BoardHeader({
                 </DropdownMenuItem>
               ) : null}
               <DropdownMenuSeparator />
+              {canCreate ? (
+                <DropdownMenuItem onSelect={() => setCopyOpen(true)}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  {t("boardExtras.board.menu")}
+                </DropdownMenuItem>
+              ) : null}
+              {canManageBoard && !isArchived ? (
+                <DropdownMenuItem
+                  onSelect={() =>
+                    void admin.updateBoard(board, { is_template: !board.is_template })
+                  }
+                >
+                  <LayoutTemplate className="mr-2 h-4 w-4" />
+                  {board.is_template
+                    ? t("boardExtras.templates.unmarkBoard")
+                    : t("boardExtras.templates.markBoard")}
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuItem onSelect={onOpenArchive}>
                 <ArchiveRestore className="mr-2 h-4 w-4" />
                 {t("boards.archive.title")}
@@ -279,6 +312,14 @@ export function BoardHeader({
         admin={admin}
         onRequestArchive={() => setConfirmArchive(true)}
       />
+      {copyOpen ? (
+        <CopyBoardDialog
+          board={board}
+          admin={admin}
+          onClose={() => setCopyOpen(false)}
+          onCopied={onOpenBoard}
+        />
+      ) : null}
       <ArchiveBoardConfirm
         board={board}
         open={confirmArchive}
