@@ -110,7 +110,7 @@ export async function loadOpenTaskCount(orgId: string, branchId: string) {
 /** Zone 5: how many items wait in the branch's receiving zone. */
 export async function loadPutawayCount(orgId: string, branchId: string) {
   return readWidget(async () => {
-    const result = await InventoryReceivingService.listPending(
+    const result = await InventoryReceivingService.countPending(
       await createClient(),
       orgId,
       branchId
@@ -121,7 +121,7 @@ export async function loadPutawayCount(orgId: string, branchId: string) {
         error: (result as { success: false; error: string }).error,
       };
     }
-    return { success: true as const, data: { totalCount: result.data.items.length } };
+    return { success: true as const, data: { totalCount: result.data } };
   });
 }
 
