@@ -4794,8 +4794,7 @@
         "header": {
           "people": "Osoby na tablicy",
           "share": "Udostępnij",
-          "renameHint": "Kliknij, aby zmienić nazwę",
-          "rename": "Zmień nazwę"
+          "renameHint": "Kliknij, aby zmienić nazwę"
         },
         "cardBadges": {
           "due": {
@@ -4824,6 +4823,18 @@
           "pasteHint": "Wklej kilka linii = kilka kart",
           "renameHint": "Kliknij, aby zmienić nazwę",
           "cardsArchived": "{count, plural, one {Zarchiwizowano # kartę} few {Zarchiwizowano # karty} other {Zarchiwizowano # kart}}"
+        },
+        "picker": {
+          "listView": "Widok listy",
+          "gridView": "Widok kafelków",
+          "noResults": "Nie znaleziono tablic.",
+          "allAndArchived": "Wszystkie tablice i archiwum",
+          "scope": {
+            "all": "Wszystko",
+            "starred": "Ulubione",
+            "mine": "Moje",
+            "shared": "Udostępnione"
+          }
         }
       },
       "settings": {

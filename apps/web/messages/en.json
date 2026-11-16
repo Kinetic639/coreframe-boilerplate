@@ -4714,8 +4714,7 @@
         "header": {
           "people": "People on this board",
           "share": "Share",
-          "renameHint": "Click to rename",
-          "rename": "Rename"
+          "renameHint": "Click to rename"
         },
         "cardBadges": {
           "due": {
@@ -4744,6 +4743,18 @@
           "pasteHint": "Paste several lines = several cards",
           "renameHint": "Click to rename",
           "cardsArchived": "{count, plural, one {Archived # card} other {Archived # cards}}"
+        },
+        "picker": {
+          "listView": "List view",
+          "gridView": "Tile view",
+          "noResults": "No boards found.",
+          "allAndArchived": "All boards and archive",
+          "scope": {
+            "all": "All",
+            "starred": "Starred",
+            "mine": "Mine",
+            "shared": "Shared"
+          }
         }
       },
       "settings": {

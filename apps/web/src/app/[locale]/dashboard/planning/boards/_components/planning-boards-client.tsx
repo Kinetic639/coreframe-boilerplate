@@ -14,7 +14,7 @@ import {
   type BoardSharingPerson,
 } from "./board-sharing";
 import { BoardSwitcherDialog, CreateBoardDialog } from "./board-switcher-dialog";
-import type { BoardSwitcherProps } from "./board-switcher-menu";
+import type { BoardSwitcherProps } from "./board-picker-dialog";
 import {
   withBoardOpened,
   withColumnCollapsed,
@@ -187,10 +187,20 @@ export function PlanningBoardsClient({
       recentBoardIds: prefs.recent,
       onSelectBoard: selectBoard,
       onPrefetchBoard: prefetchBoard,
+      onToggleStar: (boardId: string, starred: boolean) => void admin.toggleStar(boardId, starred),
       onOpenAllBoards: openSwitcher,
       onCreateBoard: canCreateMore ? openCreate : undefined,
     }),
-    [boards, canCreateMore, openCreate, openSwitcher, prefetchBoard, prefs.recent, selectBoard]
+    [
+      admin,
+      boards,
+      canCreateMore,
+      openCreate,
+      openSwitcher,
+      prefetchBoard,
+      prefs.recent,
+      selectBoard,
+    ]
   );
 
   const collapsedColumnIds = useMemo(
