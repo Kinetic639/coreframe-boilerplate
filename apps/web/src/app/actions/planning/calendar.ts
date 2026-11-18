@@ -50,6 +50,7 @@ import {
   PLANNING_READ,
   PLANNING_TASKS_READ,
 } from "@/lib/constants/permissions";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
@@ -59,7 +60,7 @@ async function getAuthedContext() {
   if (!context?.app.activeOrgId) return null;
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) return null;
   return { supabase, context, userId: user.id, orgId: context.app.activeOrgId };
 }

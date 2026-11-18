@@ -116,16 +116,17 @@ import type {
 } from "@/lib/types/kanban";
 import { KanbanBoardsService } from "@/server/services/kanban-boards.service";
 import { PlanningChecklistTemplatesService } from "@/server/services/planning-checklist-templates.service";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
 async function getAuthedContext() {
-  const supabase = await createClient();
-  const context = await loadDashboardContextV2();
+  const [supabase, context] = await Promise.all([createClient(), loadDashboardContextV2()]);
   if (!context?.app.activeOrgId) return null;
+  // Checked once per request by the context loader (shared request cache).
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) return null;
   return { supabase, context, userId: user.id, orgId: context.app.activeOrgId };
 }

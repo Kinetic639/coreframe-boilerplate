@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import {
@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import type { KanbanBoardCard } from "@/lib/types/kanban";
+import type { KanbanBoardCard, KanbanBoardDetail, KanbanBoardSummary } from "@/lib/types/kanban";
 import { KANBAN_COPY_PARTS, type KanbanCopyPart } from "@/lib/validations/kanban";
 import { unwrapTaskResult as unwrap } from "./task-editor-queries";
 import { columnName } from "./task-labels";
@@ -42,22 +42,45 @@ export const copyTargetKeys = {
     ["planning-copy-targets", orgId, "columns", boardId] as const,
 };
 
+function editableBoards(boards: KanbanBoardSummary[]) {
+  return boards.filter((board) => !board.archived_at && board.my_access !== "viewer");
+}
+
+// The boards page's own cache entries (boards-query.ts: boardKeys.list and
+// boardKeys.board). When the page has them, the pickers start from them
+// instead of fetching the same data again.
+const boardsPageListKey = (orgId: string) => ["planning-boards", orgId, "list"] as const;
+const boardsPageBoardKey = (orgId: string, boardId: string) =>
+  ["planning-boards", orgId, "board", boardId] as const;
+
 export function useCopyTargetBoards(orgId: string, enabled: boolean) {
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: copyTargetKeys.boards(orgId),
-    queryFn: async () =>
-      (await unwrap(listKanbanBoardsAction())).filter(
-        (board) => !board.archived_at && board.my_access !== "viewer"
-      ),
+    queryFn: async () => editableBoards(await unwrap(listKanbanBoardsAction())),
+    initialData: () => {
+      const cached = queryClient.getQueryData<KanbanBoardSummary[]>(boardsPageListKey(orgId));
+      return cached ? editableBoards(cached) : undefined;
+    },
+    initialDataUpdatedAt: () => queryClient.getQueryState(boardsPageListKey(orgId))?.dataUpdatedAt,
     enabled,
     staleTime: 30 * 1000,
   });
 }
 
 export function useCopyTargetColumns(orgId: string, boardId: string | null, enabled: boolean) {
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: copyTargetKeys.columns(orgId, boardId ?? ""),
     queryFn: async () => (await unwrap(getKanbanBoardAction(boardId as string))).columns,
+    initialData: () =>
+      boardId
+        ? queryClient.getQueryData<KanbanBoardDetail>(boardsPageBoardKey(orgId, boardId))?.columns
+        : undefined,
+    initialDataUpdatedAt: () =>
+      boardId
+        ? queryClient.getQueryState(boardsPageBoardKey(orgId, boardId))?.dataUpdatedAt
+        : undefined,
     enabled: enabled && Boolean(boardId),
     staleTime: 30 * 1000,
   });

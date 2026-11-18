@@ -69,12 +69,16 @@ export const updateSession = async (request: NextRequest) => {
       }
     );
 
-    // This will refresh session if expired - required for Server Components
+    // Refreshes the session if it expired (required for Server Components) and
+    // verifies the token's signature locally against the project's cached
+    // signing keys: no round trip to Supabase Auth on every request.
+    // Pages and actions still confirm the user with Auth once per request
+    // (getAuthUser), so a session revoked elsewhere is still refused there.
     // https://supabase.com/docs/guides/auth/server-side/nextjs
-    const user = await supabase.auth.getUser();
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
 
     const normalizedPathname = pathnameWithoutLocale(request.nextUrl.pathname, routing.locales);
-    const isAuthenticated = !user.error;
+    const isAuthenticated = !claimsError && Boolean(claimsData?.claims?.sub);
     const locale = detectLocale(request);
 
     // dashboard routes require auth

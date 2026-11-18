@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryStates } from "nuqs";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { LayoutGrid, Plus } from "lucide-react";
@@ -45,6 +46,7 @@ import {
   BoardViewers,
 } from "./board-tools";
 import { useBoardRealtime } from "./use-board-realtime";
+import { boardKeys } from "./boards-query";
 import { BoardHeader } from "./board-header";
 import { useBoardSharing } from "./board-sharing";
 import { useBoardActions } from "./use-board-actions";
@@ -110,6 +112,7 @@ export function BoardWorkspace({
   onInboxColorChange,
 }: BoardWorkspaceProps) {
   const t = useTranslations("modules.planning");
+  const queryClient = useQueryClient();
   const actions = useBoardActions(orgId, board?.id ?? null);
   const { people, currentUserId, canAssign } = useBoardSharing();
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -260,8 +263,16 @@ export function BoardWorkspace({
       },
       columns: board.columns,
       labels: board.labels ?? [],
+      custom_fields: board.custom_fields ?? [],
     };
   }, [board, openCard]);
+  // How old the board (or inbox) copy of the open card is: a fresh one opens
+  // without fetching the task again.
+  const editorDataUpdatedAt = openCard
+    ? queryClient.getQueryState(
+        openCard.is_inbox || !board ? boardKeys.inbox(orgId) : boardKeys.board(orgId, board.id)
+      )?.dataUpdatedAt
+    : undefined;
 
   const closeComposer = useCallback(() => setComposer(null), []);
 
@@ -613,6 +624,7 @@ export function BoardWorkspace({
         orgId={orgId}
         taskRef={openCardNumber}
         initialData={editorInitialData}
+        initialDataUpdatedAt={editorDataUpdatedAt}
         people={people}
         currentUserId={currentUserId}
         canAssign={canAssign}
@@ -621,6 +633,7 @@ export function BoardWorkspace({
         canMove={canUpdate}
         showOpenFull
         onChanged={actions.cardChanged}
+        onPreview={actions.cardChanged}
         onArchive={actions.archiveCard}
         onClose={() => onOpenCardChange(null)}
         onBoardLabelCreated={actions.boardLabelCreated}

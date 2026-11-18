@@ -4,6 +4,7 @@ import { AuthService, type JWTRole } from "@/server/services/auth.service";
 import { PermissionServiceV2 } from "@/server/services/permission-v2.service";
 import type { PermissionSnapshot } from "@/lib/types/permissions";
 import type { UserContextV2, UserV2 } from "@/lib/stores/v2/user-store";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 /**
  * V2 User Context Loader
@@ -48,7 +49,7 @@ async function _loadUserContextV2(
   const {
     data: { user: authUser },
     error: authError,
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
 
   if (authError || !authUser) {
     return null;
@@ -65,6 +66,19 @@ async function _loadUserContextV2(
   if (!session) {
     return null;
   }
+
+  // The permission snapshot does not depend on the identity below: it is
+  // fetched at the same time.
+  const permissionsPromise: Promise<PermissionSnapshot> = activeOrgId
+    ? PermissionServiceV2.getPermissionSnapshotForUser(
+        supabase,
+        userId,
+        activeOrgId,
+        activeBranchId // Uses RESOLVED branch from app context
+      )
+    : Promise.resolve({ allow: [], deny: [] });
+  // Never left unhandled while the identity loads; awaited below.
+  permissionsPromise.catch(() => undefined);
 
   // 1. Load user identity from users table
   const { data: userData, error: userError } = await supabase
@@ -133,16 +147,7 @@ async function _loadUserContextV2(
 
   // 3. Load permission snapshot for the RESOLVED org/branch context
   // Returns { allow: [...], deny: [...] } for proper wildcard + deny semantics
-  let permissionSnapshot: PermissionSnapshot = { allow: [], deny: [] };
-
-  if (activeOrgId) {
-    permissionSnapshot = await PermissionServiceV2.getPermissionSnapshotForUser(
-      supabase,
-      userId,
-      activeOrgId,
-      activeBranchId // Uses RESOLVED branch from app context
-    );
-  }
+  const permissionSnapshot: PermissionSnapshot = await permissionsPromise;
 
   return {
     user,
