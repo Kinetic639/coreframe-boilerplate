@@ -13,6 +13,8 @@ body:has(.dt-tokens) {
   --primary-soft: color-mix(in srgb, var(--primary) 12%, var(--background));
   --primary-hover: color-mix(in srgb, var(--primary) 85%, var(--foreground));
   --border-strong: color-mix(in srgb, var(--border) 70%, var(--foreground));
+  /* Column lines: quieter than the row lines. */
+  --border-soft: color-mix(in srgb, var(--border) 55%, transparent);
   --danger: var(--destructive);
   --danger-soft: color-mix(in srgb, var(--destructive) 12%, var(--background));
   --radius-control: var(--radius);
@@ -65,7 +67,7 @@ body:has(.dt-tokens) {
 }
 .dt-list-desktop-table table > thead th {
   height: 34px !important;
-  border-right: 0 !important;
+  border-right: 1px solid var(--border-soft) !important;
   background: color-mix(in srgb, var(--muted) 72%, var(--background)) !important;
   padding-inline: 12px;
   font-size: 10px;
@@ -75,7 +77,7 @@ body:has(.dt-tokens) {
 .dt-list-desktop-table table > tbody td,
 .dt-list-desktop-table table > tbody th {
   height: 49px !important;
-  border-right: 0 !important;
+  border-right: 1px solid var(--border-soft) !important;
   padding-inline: 12px;
 }
 .dt-list-desktop-table table > tbody tr {
@@ -87,13 +89,22 @@ body:has(.dt-tokens) {
 .dt-list-desktop-table table > tbody tr[data-selected] {
   background: var(--primary-soft);
 }
+/* Every column has the same quiet line on its right; the pinned first column
+   keeps that line (no extra shadow), the last column has none of its own. */
 .dt-list-desktop-table table > thead th:first-child,
 .dt-list-desktop-table table > tbody th {
-  box-shadow: inset -1px 0 0 var(--border) !important;
+  box-shadow: none !important;
 }
 .dt-list-desktop-table table > thead th:last-child,
 .dt-list-desktop-table table > tbody td:last-child {
-  box-shadow: inset 1px 0 0 var(--border) !important;
+  border-right: 0 !important;
+  /* Pinned on the right: its own edge, as the rest scrolls under it. */
+  box-shadow: inset 1px 0 0 var(--border-soft) !important;
+}
+.dt-list-desktop-table table > thead th:nth-last-child(2),
+.dt-list-desktop-table table > tbody td:nth-last-child(2),
+.dt-list-desktop-table table > tbody th:nth-last-child(2) {
+  border-right: 0 !important;
 }
 .dt-list-desktop-table table > tbody a:has(img),
 .dt-list-desktop-table table > tbody a:has(svg) {

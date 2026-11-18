@@ -7,7 +7,6 @@ import {
   AlignLeft,
   Archive,
   Check,
-  ChevronDown,
   CircleDot,
   Copy,
   LayoutTemplate,
@@ -47,6 +46,9 @@ import { RichTextInlineField } from "@/components/primitives/rich-text/rich-text
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
 import { normalizeRichText } from "@/components/primitives/rich-text/rich-text-utils";
 import { moveKanbanTaskAction, patchKanbanTaskAction } from "@/app/actions/kanban";
+import { usePermissions } from "@/hooks/v2/use-permissions";
+import { PLANNING_BOARDS_UPDATE } from "@/lib/constants/permissions";
+import { PlacementFields } from "./task-placement-fields";
 import { deleteTaskAction } from "@/app/actions/planning";
 import type {
   KanbanBoardCard,
@@ -112,7 +114,7 @@ export interface TaskEditorProps {
   canAssign: boolean;
   /** Can archive it. */
   canArchive: boolean;
-  /** Can move it between the board's columns. */
+  /** Can move it between boards and columns (default: planning.boards.update). */
   canMove?: boolean;
   /** "Open full task" link (left out on the task's own page). */
   showOpenFull?: boolean;
@@ -201,7 +203,7 @@ function TaskEditorBody({
   canUpdate: canUpdatePermission,
   canAssign,
   canArchive: canArchivePermission,
-  canMove: canMovePermission = false,
+  canMove: canMovePermission,
   showOpenFull = true,
   onChanged,
   onArchive,
@@ -220,7 +222,9 @@ function TaskEditorBody({
   const isViewer = board?.my_access === "viewer";
   const readOnlyBoard = Boolean(board?.archived_at);
   const canUpdate = canUpdatePermission && !isArchived && !isViewer && !readOnlyBoard;
-  const canMove = canMovePermission && canUpdate && Boolean(board) && !card.is_inbox;
+  // Moving needs the right to rearrange boards (or the host's say) and to edit the task.
+  const { can } = usePermissions();
+  const canMove = (canMovePermission ?? can(PLANNING_BOARDS_UPDATE)) && canUpdate;
   const canArchive = canArchivePermission && !isArchived && !isViewer && !readOnlyBoard;
 
   const setCard = useCallback(
@@ -317,17 +321,21 @@ function TaskEditorBody({
 
   const move = useMutation({
     scope: { id: `planning-task-${card.id}` },
-    mutationFn: (columnId: string) =>
+    // board_id and column_id both null: the author's inbox.
+    mutationFn: (target: { board_id: string | null; column_id: string | null }) =>
       unwrapTaskResult(
         moveKanbanTaskAction({
           card_id: card.id,
-          board_id: board?.id ?? null,
-          column_id: columnId,
+          board_id: target.board_id,
+          column_id: target.column_id,
           // The bottom of the column (the database clamps it).
           position: 100000,
         })
       ),
     onSuccess: (result) => {
+      const before = queryClient.getQueryData<KanbanTaskEditorData>(taskKey)?.card ?? card;
+      const otherPlace =
+        (result.board_id ?? "") !== (before.board_id ?? "") || result.is_inbox !== before.is_inbox;
       const current = queryClient.getQueryData<KanbanTaskEditorData>(taskKey)?.card ?? card;
       const moved: KanbanBoardCard = {
         ...current,
@@ -340,6 +348,9 @@ function TaskEditorBody({
       setCard(moved);
       onChanged?.(moved);
       void refreshActivity();
+      // Another board: its columns, labels and fields come with the task.
+      if (otherPlace) void queryClient.invalidateQueries({ queryKey: taskKey });
+      toast.success(t("taskEditor.moved"));
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "Operation failed"),
   });
@@ -405,15 +416,6 @@ function TaskEditorBody({
       >
         {card.task_number}
       </span>
-      {board && !card.is_inbox ? (
-        <ColumnMenu
-          columns={columns}
-          currentId={card.column_id}
-          disabled={!canMove || move.isPending}
-          onMove={(columnId) => move.mutate(columnId)}
-          className={hasCover ? "bg-background/90 shadow-sm backdrop-blur" : undefined}
-        />
-      ) : null}
       <SaveIndicator
         saving={patch.isPending || move.isPending}
         saved={patch.isSuccess}
@@ -648,10 +650,26 @@ function TaskEditorBody({
     <div className="space-y-6 p-4">
       <section className="space-y-1">
         <SideHeading>{t("taskEditor.place")}</SideHeading>
-        <SideRow label={t("taskEditor.board")}>
-          {card.is_inbox ? t("boards.inbox.title") : (board?.title ?? t("taskEditor.noBoard"))}
-        </SideRow>
-        {column ? <SideRow label={t("taskEditor.column")}>{columnName(t, column)}</SideRow> : null}
+        {canMove ? (
+          <PlacementFields
+            orgId={orgId}
+            card={card}
+            board={board}
+            columns={columns}
+            canUseInbox={card.created_by === currentUserId}
+            pending={move.isPending}
+            onMove={(target) => move.mutate(target)}
+          />
+        ) : (
+          <>
+            <SideRow label={t("taskEditor.board")}>
+              {card.is_inbox ? t("boards.inbox.title") : (board?.title ?? t("taskEditor.noBoard"))}
+            </SideRow>
+            {column ? (
+              <SideRow label={t("taskEditor.column")}>{columnName(t, column)}</SideRow>
+            ) : null}
+          </>
+        )}
       </section>
 
       {board && !card.is_inbox ? (
@@ -917,64 +935,6 @@ function SideRow({ label, children }: { label: string; children: React.ReactNode
       <span className="text-muted-foreground">{label}</span>
       <span className="min-w-0 truncate text-right">{children}</span>
     </div>
-  );
-}
-
-function ColumnMenu({
-  columns,
-  currentId,
-  disabled,
-  onMove,
-  className,
-}: {
-  columns: KanbanTaskEditorData["columns"];
-  currentId: string;
-  disabled: boolean;
-  onMove: (columnId: string) => void;
-  className?: string;
-}) {
-  const t = useTranslations("modules.planning");
-  const current = columns.find((candidate) => candidate.id === currentId);
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild disabled={disabled}>
-        <Button
-          variant="outline"
-          size="sm"
-          className={cn(
-            "h-7 min-w-0 gap-1.5 rounded-full px-2.5 text-xs font-medium disabled:opacity-100",
-            className
-          )}
-        >
-          <span
-            className="h-2 w-2 shrink-0 rounded-full"
-            style={{ backgroundColor: current?.color ?? "#64748b" }}
-            aria-hidden="true"
-          />
-          <span className="truncate">
-            {current ? columnName(t, current) : t("taskEditor.column")}
-          </span>
-          {!disabled ? <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" /> : null}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-72 w-56 overflow-y-auto">
-        <DropdownMenuLabel>{t("taskEditor.moveTo")}</DropdownMenuLabel>
-        {columns.map((candidate) => (
-          <DropdownMenuItem
-            key={candidate.id}
-            onSelect={() => candidate.id !== currentId && onMove(candidate.id)}
-          >
-            <span
-              className="mr-2 h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: candidate.color ?? "#64748b" }}
-              aria-hidden="true"
-            />
-            <span className="truncate">{columnName(t, candidate)}</span>
-            {candidate.id === currentId ? <Check className="ml-auto h-3.5 w-3.5" /> : null}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 

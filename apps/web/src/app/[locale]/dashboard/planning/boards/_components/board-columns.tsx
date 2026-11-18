@@ -7,6 +7,7 @@ import {
   ArchiveRestore,
   ArrowUpToLine,
   Check,
+  CircleHelp,
   Copy,
   Edit3,
   LayoutTemplate,
@@ -44,6 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useCopyTargetBoards } from "@/components/planning/task-editor/copy-card-dialog";
 import type { KanbanBoardCard, KanbanBoardColumn, KanbanTaskStatus } from "@/lib/types/kanban";
 import { KANBAN_TASK_STATUSES } from "@/lib/validations/kanban";
@@ -653,7 +655,7 @@ export function AddColumnPanel({
       <Button
         type="button"
         variant="outline"
-        className="mt-3 h-11 w-[min(88vw,21rem)] shrink-0 justify-start gap-2 rounded-md border-dashed"
+        className="h-11 w-[min(88vw,21rem)] shrink-0 justify-start gap-2 rounded-lg border-border bg-background text-foreground shadow-sm hover:bg-accent"
         onClick={() => setOpen(true)}
       >
         <Plus className="h-4 w-4" />
@@ -663,7 +665,7 @@ export function AddColumnPanel({
   }
 
   return (
-    <section className="mt-3 flex min-h-[12rem] w-[min(88vw,21rem)] shrink-0 flex-col gap-3 rounded-md border border-dashed border-border bg-muted/10 p-3">
+    <section className="flex w-[min(88vw,21rem)] shrink-0 flex-col gap-3 rounded-lg border border-border bg-background p-3 text-foreground shadow-sm">
       <p className="text-sm font-semibold">{t("boards.addColumn")}</p>
       <ColumnFields
         kind={kind}
@@ -693,6 +695,27 @@ export function AddColumnPanel({
         </Button>
       </div>
     </section>
+  );
+}
+
+/** A "?" in a circle next to a label: the explanation shows on hover or focus. */
+function HelpHint({ text }: { text: string }) {
+  const t = useTranslations("modules.planning");
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={t("boards.help")}
+        >
+          <CircleHelp className="h-3.5 w-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-64 text-xs leading-snug">
+        {text}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -774,7 +797,18 @@ function ColumnFields({
   return (
     <div className="space-y-3">
       <div className="space-y-2">
-        <Label>{t("boards.columnKind.label")}</Label>
+        <div className="flex items-center gap-1.5">
+          <Label>{t("boards.columnKind.label")}</Label>
+          <HelpHint
+            text={
+              kind === "status"
+                ? t("boards.columnKind.statusHelp")
+                : allTaken
+                  ? t("boards.columnKind.allTaken")
+                  : t("boards.columnKind.plainHelp")
+            }
+          />
+        </div>
         <div className="grid grid-cols-2 gap-1 rounded-md border border-input p-1">
           {(["status", "plain"] as const).map((option) => (
             <button
@@ -794,13 +828,6 @@ function ColumnFields({
             </button>
           ))}
         </div>
-        <p className="text-xs text-muted-foreground">
-          {kind === "status"
-            ? t("boards.columnKind.statusHelp")
-            : allTaken
-              ? t("boards.columnKind.allTaken")
-              : t("boards.columnKind.plainHelp")}
-        </p>
       </div>
       {kind === "status" ? (
         <div className="space-y-2">
@@ -837,29 +864,6 @@ function ColumnFields({
         </div>
       )}
       <div className="space-y-2">
-        <Label>{t("boards.columnDescription")}</Label>
-        <Textarea
-          value={description}
-          onChange={(event) => onDescriptionChange(event.target.value)}
-          placeholder={t("boards.columnDescriptionPlaceholder")}
-          className="min-h-20"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="column-wip-limit">{t("boardExtras.wip.label")}</Label>
-        <Input
-          id="column-wip-limit"
-          type="number"
-          inputMode="numeric"
-          min={1}
-          max={999}
-          value={wipLimit}
-          onChange={(event) => onWipLimitChange(event.target.value.replace(/\D/g, "").slice(0, 3))}
-          className="w-28"
-        />
-        <p className="text-xs text-muted-foreground">{t("boardExtras.wip.help")}</p>
-      </div>
-      <div className="space-y-2">
         <Label>{t("boards.color")}</Label>
         <div className="flex gap-1">
           {COLUMN_COLORS.map((candidate) => (
@@ -876,6 +880,31 @@ function ColumnFields({
             />
           ))}
         </div>
+      </div>
+      <div className="space-y-2">
+        <Label>{t("boards.columnDescription")}</Label>
+        <Textarea
+          value={description}
+          onChange={(event) => onDescriptionChange(event.target.value)}
+          placeholder={t("boards.columnDescriptionPlaceholder")}
+          className="min-h-20"
+        />
+      </div>
+      <div className="space-y-2">
+        <div className="flex items-center gap-1.5">
+          <Label htmlFor="column-wip-limit">{t("boardExtras.wip.label")}</Label>
+          <HelpHint text={t("boardExtras.wip.help")} />
+        </div>
+        <Input
+          id="column-wip-limit"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={999}
+          value={wipLimit}
+          onChange={(event) => onWipLimitChange(event.target.value.replace(/\D/g, "").slice(0, 3))}
+          className="w-28"
+        />
       </div>
     </div>
   );
