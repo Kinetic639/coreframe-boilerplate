@@ -229,7 +229,7 @@
       "deleteFailed": "Failed to remove attachment",
       "addFiles": "Add files",
       "takePhoto": "Take a photo",
-      "downloadAll": "Download all",
+      "selectAll": "Select all",
       "downloadFailed": "Could not download the files.",
       "archiveName": "attachments",
       "select": "Select",
