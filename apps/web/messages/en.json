@@ -4809,6 +4809,7 @@
             "shared": "Shared"
           }
         },
+        "help": "Help",
         "columnKind": {
           "label": "Column type",
           "status": "Status column",
