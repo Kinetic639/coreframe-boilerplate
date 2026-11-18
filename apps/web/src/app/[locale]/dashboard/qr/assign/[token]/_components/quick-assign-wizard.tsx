@@ -155,7 +155,7 @@ export function QuickAssignWizard({
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-6 p-6">
+    <div className="mx-auto max-w-xl space-y-6 p-4 sm:p-6">
       <div className="flex items-center gap-3">
         <QrCode className="h-6 w-6 text-muted-foreground" />
         <div>
@@ -249,8 +249,10 @@ export function QuickAssignWizard({
           <Button variant="ghost" size="sm" onClick={() => setMode(null)}>
             {t("back")}
           </Button>
-          <div className="rounded-lg border p-4">
+          <div className="sm:rounded-lg sm:border sm:p-4">
             <PlanningTaskCreateForm
+              variant="page"
+              defaultAssignToMe
               members={members}
               branches={branches}
               activeBranchId={activeBranchId}

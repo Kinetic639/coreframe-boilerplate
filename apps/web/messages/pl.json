@@ -225,7 +225,29 @@
       "actions": "Akcje załącznika",
       "download": "Pobierz",
       "uploadFailed": "Nie udało się przesłać załącznika",
-      "deleteFailed": "Nie udało się usunąć załącznika"
+      "deleteFailed": "Nie udało się usunąć załącznika",
+      "addFiles": "Dodaj pliki",
+      "takePhoto": "Zrób zdjęcie",
+      "downloadAll": "Pobierz wszystkie",
+      "downloadFailed": "Nie udało się pobrać plików.",
+      "archiveName": "zalaczniki",
+      "select": "Zaznacz",
+      "selectedCount": "{count, plural, one {Zaznaczono # plik} few {Zaznaczono # pliki} other {Zaznaczono # plików}}",
+      "removeSelected": "{count, plural, one {Usuń # plik} few {Usuń # pliki} other {Usuń # plików}}",
+      "removeSelectedTitle": "{count, plural, one {Usunąć # plik?} few {Usunąć # pliki?} other {Usunąć # plików?}}",
+      "clearSelection": "Anuluj",
+      "cancel": "Anuluj",
+      "queued": "W kolejce",
+      "uploaded": "Gotowe",
+      "retry": "Spróbuj ponownie",
+      "dismiss": "Usuń z listy",
+      "emptyCta": "Dodaj pliki",
+      "emptyHint": "Możesz wybrać kilka naraz albo przeciągnąć je tutaj. Do 25 MB na plik.",
+      "problem": {
+        "tooLarge": "Plik jest za duży (limit 25 MB).",
+        "typeNotAllowed": "Tego typu pliku nie można dodać.",
+        "empty": "Plik jest pusty."
+      }
     }
   },
   "admin": {
@@ -4620,7 +4642,20 @@
           "card_moved_from_inbox": "Przeniesione ze skrzynki na tablicę",
           "card_archived": "Zarchiwizowane na tablicy"
         },
-        "taskArchived": "Zadanie zarchiwizowane"
+        "taskArchived": "Zadanie zarchiwizowane",
+        "assignMe": "Do mnie",
+        "assignNobody": "Nikt",
+        "assignOther": "Inna osoba…",
+        "dueToday": "Dziś",
+        "dueTomorrow": "Jutro",
+        "dueNextWeek": "Za tydzień",
+        "dueNone": "Bez terminu",
+        "qrWillBeAssigned": "Kod {code} zostanie przypisany do tego zadania.",
+        "attachmentsField": "Zdjęcia i pliki",
+        "addPhoto": "Zrób zdjęcie",
+        "addFiles": "Dodaj pliki",
+        "removeFile": "Usuń {name}",
+        "attachmentsUploadFailed": "Zadanie utworzone, ale części plików nie udało się dodać."
       },
       "boards": {
         "newBoard": "Nowa tablica",
@@ -4896,7 +4931,23 @@
         "convertToTask": "Zamień w podzadanie",
         "deleteItem": "Usuń element",
         "unlinkSubtask": "Usuń z listy (zadanie zostaje)",
-        "attachments": "Załączniki"
+        "attachments": "Załączniki",
+        "tabTask": "Zadanie",
+        "tabDetails": "Szczegóły",
+        "tabComments": "Komentarze",
+        "tabActivity": "Aktywność",
+        "tabsLabel": "Sekcje zadania",
+        "place": "Miejsce",
+        "board": "Tablica",
+        "column": "Kolumna",
+        "moveTo": "Przenieś do kolumny",
+        "markDone": "Oznacz jako zrobione",
+        "reopen": "Otwórz ponownie",
+        "more": "Więcej akcji",
+        "actions": "Akcje",
+        "recurrence": "Powtarzanie",
+        "assignee": "Przypisana osoba",
+        "openFull": "Otwórz pełny widok"
       },
       "boardTools": {
         "badges": {

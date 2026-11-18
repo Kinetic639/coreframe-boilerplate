@@ -301,7 +301,7 @@ export function TasksWorkspace({
           {state.selected ? (
             <aside
               aria-labelledby="planning-task-panel-title"
-              className="dt-list-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-3xl flex-col overflow-hidden border-l bg-background shadow-2xl xl:static xl:z-auto xl:min-w-0 xl:flex-1 xl:max-w-none xl:shadow-none"
+              className="dt-list-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-5xl flex-col overflow-hidden border-l bg-background shadow-2xl xl:static xl:z-auto xl:min-w-0 xl:flex-1 xl:max-w-none xl:shadow-none"
             >
               <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
                 <button
