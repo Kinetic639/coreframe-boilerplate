@@ -291,27 +291,31 @@ export function AttachmentsPanel({
               type="button"
               variant="ghost"
               size="sm"
-              className="h-8 gap-1.5"
+              className="h-8 gap-1 px-2 tabular-nums"
               disabled={downloading}
               onClick={() => void download(selectedRows)}
+              aria-label={`${t("download")} (${selectedRows.length})`}
+              title={t("download")}
             >
               {downloading ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <Download className="h-3.5 w-3.5" />
               )}
-              {t("download")}
+              {selectedRows.length}
             </Button>
             {removable.length > 0 ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-8 gap-1.5 text-destructive hover:text-destructive"
+                className="h-8 gap-1 px-2 tabular-nums text-destructive hover:text-destructive"
                 onClick={() => setConfirmDelete(true)}
+                aria-label={t("removeSelected", { count: removable.length })}
+                title={t("removeSelected", { count: removable.length })}
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                {t("removeSelected", { count: removable.length })}
+                {removable.length}
               </Button>
             ) : null}
             <Button
