@@ -224,6 +224,25 @@ export interface KanbanChecklist {
   items: KanbanChecklistItem[];
 }
 
+/** One line of a checklist template. */
+export interface ChecklistTemplateItem {
+  title: string;
+  /** Assigned when the template is added (if still in the organization). */
+  assigned_to: string | null;
+  /** Due this many days after the template is added, or no date. */
+  due_offset_days: number | null;
+}
+
+/** A reusable checklist: adding it to a task copies its items. */
+export interface ChecklistTemplate {
+  id: string;
+  title: string;
+  items: ChecklistTemplateItem[];
+  created_by: string | null;
+  creator_name: string | null;
+  updated_at: string;
+}
+
 /** One line of a board's activity: what happened to which task. */
 export interface KanbanBoardActivity extends KanbanCardActivity {
   task_number: string;

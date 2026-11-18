@@ -13,6 +13,10 @@ import { PlanningTaskPriorityBadge } from "@/components/planning/planning-task-p
 import { savePlanningSettingsAction } from "@/app/actions/planning";
 import { TASK_STATUSES, TASK_PRIORITIES } from "@/lib/validations/planning";
 import type { TaskStatus, TaskPriority } from "@/lib/validations/planning";
+import {
+  ChecklistTemplatesManager,
+  type ChecklistTemplatePerson,
+} from "@/components/planning/checklist-templates/checklist-templates";
 import type {
   PlanningSettingsRow,
   PlanningBadgeConfig,
@@ -34,9 +38,17 @@ const DEFAULT_PRIORITY_COLORS: Record<TaskPriority, string> = {
 
 interface PlanningSettingsClientProps {
   settings: PlanningSettingsRow | null;
+  orgId: string;
+  currentUserId: string;
+  members: ChecklistTemplatePerson[];
 }
 
-export function PlanningSettingsClient({ settings }: PlanningSettingsClientProps) {
+export function PlanningSettingsClient({
+  settings,
+  orgId,
+  currentUserId,
+  members,
+}: PlanningSettingsClientProps) {
   const t = useTranslations("modules.planning");
   const [isPending, startTransition] = useTransition();
 
@@ -205,6 +217,17 @@ export function PlanningSettingsClient({ settings }: PlanningSettingsClientProps
             </div>
           );
         })}
+      </div>
+
+      <Separator />
+
+      {/* Checklist templates (saved on their own, not by the button above) */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-base font-semibold">{t("checklistTemplates.title")}</h2>
+          <p className="text-muted-foreground text-sm">{t("checklistTemplates.description")}</p>
+        </div>
+        <ChecklistTemplatesManager orgId={orgId} people={members} currentUserId={currentUserId} />
       </div>
     </div>
   );

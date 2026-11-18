@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFormatter, useTranslations } from "next-intl";
 import {
   ArrowUpRight,
+  BookmarkPlus,
   Calendar,
   Check,
   CheckSquare,
@@ -39,6 +40,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Progress } from "@/components/ui/progress";
 import {
   addKanbanChecklistItemAction,
+  applyChecklistTemplateAction,
+  checklistToTemplateAction,
   convertKanbanChecklistItemAction,
   createKanbanBoardLabelAction,
   createKanbanChecklistAction,
@@ -51,7 +54,12 @@ import {
   updateKanbanChecklistItemAction,
 } from "@/app/actions/kanban";
 import { useAttachmentsQuery } from "@/hooks/queries/attachments";
+import {
+  ApplyChecklistTemplateButton,
+  checklistTemplatesKey,
+} from "@/components/planning/checklist-templates/checklist-templates";
 import type {
+  ChecklistTemplate,
   KanbanBoardCard,
   KanbanBoardLabel,
   KanbanChecklist,
@@ -722,6 +730,31 @@ export function ChecklistsSection({
     onError: fail,
   });
 
+  const applyTemplate = useMutation({
+    scope,
+    mutationFn: (template: ChecklistTemplate) =>
+      unwrapTaskResult(
+        applyChecklistTemplateAction({ task_id: card.id, template_id: template.id })
+      ),
+    onSuccess: (list) => {
+      commit([...current(), list]);
+      toast.success(t("checklistTemplates.applied", { title: list.title }));
+    },
+    onError: fail,
+  });
+  const saveAsTemplate = useMutation({
+    mutationFn: (list: KanbanChecklist) =>
+      unwrapTaskResult(checklistToTemplateAction({ checklist_id: list.id, title: list.title })),
+    onSuccess: (template) => {
+      queryClient.setQueryData<ChecklistTemplate[]>(checklistTemplatesKey(orgId), (list) =>
+        list ? [...list, template].sort((a, b) => a.title.localeCompare(b.title)) : undefined
+      );
+      toast.success(t("checklistTemplates.savedFromChecklist", { title: template.title }));
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : t("checklistTemplates.saveFailed")),
+  });
+
   if (query.isPending) return null;
   if (!lists.length && disabled) return null;
 
@@ -741,6 +774,8 @@ export function ChecklistsSection({
           onUpdate={(input) => updateItem.mutate(input)}
           onDeleteItem={(id) => deleteItem.mutate(id)}
           onConvert={(id) => convertItem.mutate(id)}
+          onSaveAsTemplate={list.items.length ? () => saveAsTemplate.mutate(list) : undefined}
+          savingTemplate={saveAsTemplate.isPending && saveAsTemplate.variables?.id === list.id}
         />
       ))}
       {!disabled ? (
@@ -776,18 +811,28 @@ export function ChecklistsSection({
             </Button>
           </form>
         ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            className={chipClass}
-            onClick={() => {
-              setNewTitle(lists.length ? "" : t("taskEditor.defaultChecklistTitle"));
-              setAdding(true);
-            }}
-          >
-            <CheckSquare className="h-3.5 w-3.5" />
-            {t("taskEditor.addChecklist")}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className={chipClass}
+              onClick={() => {
+                setNewTitle(lists.length ? "" : t("taskEditor.defaultChecklistTitle"));
+                setAdding(true);
+              }}
+            >
+              <CheckSquare className="h-3.5 w-3.5" />
+              {t("taskEditor.addChecklist")}
+            </Button>
+            <ApplyChecklistTemplateButton
+              orgId={orgId}
+              people={people}
+              currentUserId={currentUserId}
+              className={chipClass}
+              pending={applyTemplate.isPending}
+              onApply={(template) => applyTemplate.mutate(template)}
+            />
+          </div>
         )
       ) : null}
     </section>
@@ -806,6 +851,8 @@ function ChecklistBlock({
   onUpdate,
   onDeleteItem,
   onConvert,
+  onSaveAsTemplate,
+  savingTemplate,
 }: {
   list: KanbanChecklist;
   people: TaskEditorPerson[];
@@ -824,6 +871,9 @@ function ChecklistBlock({
   }) => void;
   onDeleteItem: (id: string) => void;
   onConvert: (id: string) => void;
+  /** Missing for an empty list (nothing to save). */
+  onSaveAsTemplate?: () => void;
+  savingTemplate?: boolean;
 }) {
   const t = useTranslations("modules.planning");
   const [draft, setDraft] = useState("");
@@ -852,6 +902,23 @@ function ChecklistBlock({
             onClick={() => setHideDone((value) => !value)}
           >
             {hideDone ? t("taskEditor.showDone", { count: done }) : t("taskEditor.hideDone")}
+          </Button>
+        ) : null}
+        {!disabled && onSaveAsTemplate ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            onClick={onSaveAsTemplate}
+            disabled={savingTemplate}
+            aria-label={t("checklistTemplates.saveAsTemplate")}
+            title={t("checklistTemplates.saveAsTemplate")}
+          >
+            {savingTemplate ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <BookmarkPlus className="h-3.5 w-3.5" />
+            )}
           </Button>
         ) : null}
         {!disabled ? (
