@@ -33,8 +33,8 @@ export interface PlanningTaskListRow {
   /** The board's and the column's titles (list rows only; null otherwise). */
   board_title?: string | null;
   /**
-   * Only its author (inbox) or the people a private board is shared with can
-   * see it (list rows only).
+   * Only its author sees it: in the inbox, or on a private board shared with
+   * nobody (list rows only).
    */
   is_private?: boolean;
   column_title?: string | null;
@@ -130,6 +130,21 @@ const AVATAR_SIGN_TIMEOUT_MS = 2_000;
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * A board only its owner sees: private and shared with nobody. A private board
+ * shared with people counts as shared (its tasks are not marked private).
+ */
+function isUnsharedPrivateBoard(board: unknown): boolean {
+  const row = (Array.isArray(board) ? board[0] : board) as
+    | { visibility?: string; shares?: unknown }
+    | null
+    | undefined;
+  if (row?.visibility !== "private") return false;
+  const shares = Array.isArray(row.shares) ? row.shares[0] : row.shares;
+  const count = (shares as { count?: number } | null | undefined)?.count;
+  return !(typeof count === "number" && count > 0);
+}
+
 function displayName(
   firstName: string | null,
   lastName: string | null,
@@ -223,9 +238,7 @@ function mapTaskRow(row: any, signedAvatarUrls: Map<string, string>): PlanningTa
     board_position: row.board_position ?? 0,
     is_inbox: row.is_inbox ?? false,
     board_title: (Array.isArray(row.board) ? row.board[0] : row.board)?.title ?? null,
-    is_private:
-      Boolean(row.is_inbox) ||
-      (Array.isArray(row.board) ? row.board[0] : row.board)?.visibility === "private",
+    is_private: Boolean(row.is_inbox) || isUnsharedPrivateBoard(row.board),
     column_title:
       (Array.isArray(row.board_column) ? row.board_column[0] : row.board_column)?.title ?? null,
     assigned_to: assignedTo,
@@ -394,7 +407,7 @@ export const PlanningTasksService = {
            branch_id, board_id, column_id, is_inbox,
            assigned_to, due_at, started_at, completed_at, cancelled_at,
            created_by, created_at, updated_at,
-           board:planning_kanban_boards!board_id(title, visibility),
+           board:planning_kanban_boards!board_id(title, visibility, shares:planning_kanban_board_members(count)),
            board_column:planning_kanban_columns!column_id(title),
            assignee:users!assigned_to(first_name, last_name, email, avatar_url, avatar_path),
            creator:users!created_by(first_name, last_name, email)`,
@@ -443,13 +456,16 @@ export const PlanningTasksService = {
       if (resolvedFilters.visibility) {
         // Private: in someone's inbox or on a private board (the boards the
         // viewer may see; the rest of the rows are hidden by RLS anyway).
+        // A private board shared with people counts as shared.
         const { data: privateBoards, error: boardsError } = await supabase
           .from("planning_kanban_boards")
-          .select("id")
+          .select("id, visibility, shares:planning_kanban_board_members(count)")
           .eq("organization_id", orgId)
           .eq("visibility", "private");
         if (boardsError) return { success: false, error: boardsError.message };
-        const ids = (privateBoards ?? []).map((board: { id: string }) => board.id);
+        const ids = (privateBoards ?? [])
+          .filter((board) => isUnsharedPrivateBoard(board))
+          .map((board: { id: string }) => board.id);
         if (resolvedFilters.visibility === "private") {
           query = ids.length
             ? query.or(`is_inbox.eq.true,board_id.in.(${ids.join(",")})`)

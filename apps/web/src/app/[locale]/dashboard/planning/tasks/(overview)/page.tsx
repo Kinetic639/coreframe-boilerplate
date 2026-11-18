@@ -153,8 +153,8 @@ export default async function PlanningTasksPage({ searchParams }: PageProps = {}
       ? "Prywatne: w Twojej skrzynce, widzisz je tylko Ty"
       : "Private: in your inbox, only you can see it",
     privateBoard: pl
-      ? "Prywatne: na prywatnej tablicy, widzą je tylko osoby, którym ją udostępniono"
-      : "Private: on a private board, only the people it is shared with can see it",
+      ? "Prywatne: na prywatnej tablicy, którą widzi tylko jej właściciel"
+      : "Private: on a private board only its owner can see",
     column_due_at: t("tasks.due"),
     column_creator: t("tasks.createdBy"),
     column_created_at: t("tasks.created"),

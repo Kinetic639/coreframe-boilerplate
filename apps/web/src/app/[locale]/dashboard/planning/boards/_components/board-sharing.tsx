@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useMemo, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { Building2, Globe2, Lock, Trash2, UserPlus } from "lucide-react";
+import { Building2, Globe2, Lock, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -62,6 +62,34 @@ export function BoardVisibilityIcon({ visibility }: { visibility: KanbanVisibili
   if (visibility === "organization") return <Globe2 className="h-3.5 w-3.5" />;
   if (visibility === "branch") return <Building2 className="h-3.5 w-3.5" />;
   return <Lock className="h-3.5 w-3.5" />;
+}
+
+/**
+ * Who sees a board, as its badge says it: a private board shared with people
+ * reads "Shared", so it does not look like it is only its owner's.
+ */
+export function BoardScopeLabel({
+  visibility,
+  sharedWith,
+}: {
+  visibility: KanbanVisibility;
+  sharedWith: number;
+}) {
+  const t = useTranslations("modules.planning");
+  if (visibility === "private" && sharedWith > 0) {
+    return (
+      <>
+        <Users className="h-3.5 w-3.5" />
+        {t("boards.visibility.shared", { count: sharedWith })}
+      </>
+    );
+  }
+  return (
+    <>
+      <BoardVisibilityIcon visibility={visibility} />
+      {t(`boards.visibility.${visibility}`)}
+    </>
+  );
 }
 
 /** Scope select, plus the branch select for the branch scope. */

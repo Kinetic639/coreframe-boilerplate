@@ -119,7 +119,8 @@ function displayName(
 }
 
 const BOARD_FIELDS = `id, organization_id, title, description, color, visibility, branch_id, created_by, created_at, updated_at, archived_at, is_template,
-           creator:users!created_by(first_name, last_name, email)`;
+           creator:users!created_by(first_name, last_name, email),
+           shares:planning_kanban_board_members(count)`;
 
 function normalizeVisibility(value: string): KanbanVisibility {
   return value === "public" ? "organization" : (value as KanbanVisibility);
@@ -324,7 +325,15 @@ function mapBoard(
     my_access: boardAccess(row, userId, memberRoles.get(row.id)),
     starred: stars.has(row.id),
     is_template: Boolean(row.is_template),
+    shared_with: shareCount(row.shares),
   };
+}
+
+/** How many people a board is shared with, from an embedded members(count). */
+export function shareCount(value: unknown): number {
+  const first = Array.isArray(value) ? value[0] : value;
+  const count = (first as { count?: number } | null | undefined)?.count;
+  return typeof count === "number" ? count : 0;
 }
 
 function mapColumn(row: any): KanbanBoardColumn {

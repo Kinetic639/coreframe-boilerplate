@@ -4765,7 +4765,8 @@
           "organization": "Organizacja",
           "privateHelp": "Widzisz ją Ty i osoby, które dodasz.",
           "branchHelp": "Widzą ją wszyscy z wybranego oddziału oraz dodane osoby.",
-          "organizationHelp": "Widzą ją wszyscy w organizacji."
+          "organizationHelp": "Widzą ją wszyscy w organizacji.",
+          "shared": "Udostępniona ({count} {count, plural, one {osoba} few {osoby} many {osób} other {osoby}})"
         },
         "sharing": {
           "branch": "Oddział",

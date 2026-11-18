@@ -40,7 +40,7 @@ import { cn } from "@/utils";
 import { MemberAvatar } from "@/components/planning/member-avatar";
 import { BOARD_COLORS, boardBackground } from "./board-colors";
 import { ArchiveBoardConfirm, BoardSettingsDialog } from "./board-settings-dialog";
-import { BoardVisibilityIcon } from "./board-sharing";
+import { BoardScopeLabel } from "./board-sharing";
 import { CopyBoardDialog } from "./board-copy-dialog";
 import { BoardPickerDialog, type BoardSwitcherProps } from "./board-picker-dialog";
 import type { BoardsAdmin } from "./use-boards-admin";
@@ -169,8 +169,7 @@ export function BoardHeader({
             </TooltipContent>
           </Tooltip>
           <Badge variant="outline" className="shrink-0 gap-1.5 bg-background/60">
-            <BoardVisibilityIcon visibility={board.visibility} />
-            {t(`boards.visibility.${board.visibility}`)}
+            <BoardScopeLabel visibility={board.visibility} sharedWith={board.members.length} />
           </Badge>
           {board.is_template ? (
             <Badge variant="secondary" className="shrink-0 gap-1.5">
