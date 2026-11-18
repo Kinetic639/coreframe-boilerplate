@@ -37,8 +37,8 @@ import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { KanbanBoardDetail } from "@/lib/types/kanban";
 import { cn } from "@/utils";
+import { MemberAvatar } from "@/components/planning/member-avatar";
 import { BOARD_COLORS, boardBackground } from "./board-colors";
-import { initials } from "./board-format";
 import { ArchiveBoardConfirm, BoardSettingsDialog } from "./board-settings-dialog";
 import { BoardVisibilityIcon } from "./board-sharing";
 import { CopyBoardDialog } from "./board-copy-dialog";
@@ -184,13 +184,14 @@ export function BoardHeader({
           {viewers}
           <div className="flex -space-x-1.5" aria-label={t("boards.header.people")}>
             {people.slice(0, MAX_AVATARS).map((person) => (
-              <span
+              <MemberAvatar
                 key={person.key}
-                className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-primary text-[10px] font-semibold text-primary-foreground"
-                title={person.name ?? person.email ?? undefined}
-              >
-                {initials(person.name, person.email)}
-              </span>
+                userId={person.key}
+                name={person.name}
+                email={person.email}
+                popoverSide="bottom"
+                className="h-7 w-7 border-2 border-background"
+              />
             ))}
             {people.length > MAX_AVATARS ? (
               <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-semibold">

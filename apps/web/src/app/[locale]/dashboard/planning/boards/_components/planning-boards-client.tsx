@@ -22,6 +22,7 @@ import {
   type BoardUiPrefs,
 } from "./board-ui-prefs";
 import { BoardWorkspace } from "./board-workspace";
+import { MemberProfilesProvider } from "@/components/planning/member-avatar";
 import { boardListQuery, boardQuery, inboxQuery } from "./boards-query";
 import { useBoardsAdmin } from "./use-boards-admin";
 
@@ -208,63 +209,77 @@ export function PlanningBoardsClient({
     [activeBoardId, prefs.collapsed]
   );
 
+  // Everyone whose avatar the board can show: one request for all their photos.
+  const avatarUserIds = useMemo(
+    () => [
+      ...sharing.people.map((person) => person.user_id),
+      activeBoard.data?.created_by,
+      ...(activeBoard.data?.members ?? []).map((member) => member.user_id),
+      ...(activeBoard.data?.cards ?? []).map((card) => card.assigned_to),
+      ...(inbox.data ?? []).map((card) => card.assigned_to),
+    ],
+    [activeBoard.data, inbox.data, sharing.people]
+  );
+
   return (
     <BoardSharingProvider value={sharing}>
-      <TooltipProvider delayDuration={250}>
-        <div className="flex h-full min-h-0 flex-col overflow-hidden">
-          <main className="min-h-0 flex-1 overflow-hidden">
-            <BoardWorkspace
+      <MemberProfilesProvider userIds={avatarUserIds}>
+        <TooltipProvider delayDuration={250}>
+          <div className="flex h-full min-h-0 flex-col overflow-hidden">
+            <main className="min-h-0 flex-1 overflow-hidden">
+              <BoardWorkspace
+                orgId={orgId}
+                boardId={activeBoardId}
+                board={activeBoard.data}
+                boardLoading={Boolean(activeBoardId) && activeBoard.isPending}
+                inboxOpen={prefs.inboxOpen}
+                inboxCards={inbox.data ?? []}
+                inboxLoading={inbox.isPending}
+                canUpdate={canUpdate}
+                canDelete={canDelete}
+                collapsedColumnIds={collapsedColumnIds}
+                onColumnCollapsedChange={handleColumnCollapsedChange}
+                openCardNumber={params.karta}
+                onOpenCardChange={setOpenCard}
+                admin={admin}
+                onBoardArchived={handleBoardArchived}
+                onOpenAllBoards={openSwitcher}
+                canCreate={canCreate}
+                onOpenBoard={selectBoard}
+                switcher={switcher}
+                onToggleInbox={toggleInbox}
+                inboxColor={prefs.inboxColor}
+                onInboxColorChange={changeInboxColor}
+              />
+            </main>
+            <BoardSwitcherDialog
               orgId={orgId}
-              boardId={activeBoardId}
-              board={activeBoard.data}
-              boardLoading={Boolean(activeBoardId) && activeBoard.isPending}
-              inboxOpen={prefs.inboxOpen}
-              inboxCards={inbox.data ?? []}
-              inboxLoading={inbox.isPending}
-              canUpdate={canUpdate}
-              canDelete={canDelete}
-              collapsedColumnIds={collapsedColumnIds}
-              onColumnCollapsedChange={handleColumnCollapsedChange}
-              openCardNumber={params.karta}
-              onOpenCardChange={setOpenCard}
-              admin={admin}
-              onBoardArchived={handleBoardArchived}
-              onOpenAllBoards={openSwitcher}
+              open={switcherOpen}
+              onOpenChange={setSwitcherOpen}
+              boards={boards}
+              activeBoardId={activeBoardId}
               canCreate={canCreate}
-              onOpenBoard={selectBoard}
-              switcher={switcher}
-              onToggleInbox={toggleInbox}
-              inboxColor={prefs.inboxColor}
-              onInboxColorChange={changeInboxColor}
+              canManageAll={canDelete}
+              canUpdate={canUpdate}
+              recentBoardIds={prefs.recent}
+              admin={admin}
+              onSelectBoard={selectBoard}
+              onPrefetchBoard={prefetchBoard}
             />
-          </main>
-          <BoardSwitcherDialog
-            orgId={orgId}
-            open={switcherOpen}
-            onOpenChange={setSwitcherOpen}
-            boards={boards}
-            activeBoardId={activeBoardId}
-            canCreate={canCreate}
-            canManageAll={canDelete}
-            canUpdate={canUpdate}
-            recentBoardIds={prefs.recent}
-            admin={admin}
-            onSelectBoard={selectBoard}
-            onPrefetchBoard={prefetchBoard}
-          />
-          <CreateBoardDialog
-            templates={boards.filter((board) => board.is_template)}
-            open={createOpen}
-            onOpenChange={setCreateOpen}
-            onCreated={(board) => {
-              admin.boardChanged(board);
-              setCreateOpen(false);
-              toast.success(t("boards.boardCreated"));
-              selectBoard(board.id);
-            }}
-          />
-        </div>
-      </TooltipProvider>
+            <CreateBoardDialog
+              templates={boards.filter((board) => board.is_template)}
+              open={createOpen}
+              onOpenChange={setCreateOpen}
+              onCreated={(board) => {
+                admin.boardChanged(board);
+                setCreateOpen(false);
+                toast.success(t("boards.boardCreated"));
+                selectBoard(board.id);
+              }}
+            />
+          </div>
+        </TooltipProvider>
+      </MemberProfilesProvider>
     </BoardSharingProvider>
   );
 }

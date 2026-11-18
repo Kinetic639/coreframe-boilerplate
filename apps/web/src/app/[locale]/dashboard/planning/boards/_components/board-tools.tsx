@@ -33,7 +33,7 @@ import type { KanbanBoardDetail, KanbanBoardLabel } from "@/lib/types/kanban";
 import { activityLabel } from "@/components/planning/task-editor/task-labels";
 import { LABEL_COLORS } from "@/components/planning/task-editor/task-labels";
 import { cn } from "@/utils";
-import { initials } from "./board-format";
+import { MemberAvatar } from "@/components/planning/member-avatar";
 import { boardKeys, unwrap } from "./boards-query";
 import type { BoardViewer } from "./use-board-realtime";
 
@@ -52,12 +52,13 @@ export function BoardViewers({ viewers }: { viewers: BoardViewer[] }) {
         >
           <div className="flex -space-x-1.5">
             {shown.map((viewer) => (
-              <span
+              <MemberAvatar
                 key={viewer.user_id}
-                className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-emerald-600 text-[10px] font-semibold text-white"
-              >
-                {initials(viewer.name, null)}
-              </span>
+                userId={viewer.user_id}
+                name={viewer.name}
+                disabledPopover
+                className="h-6 w-6 border-2 border-background"
+              />
             ))}
           </div>
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
@@ -356,9 +357,13 @@ export function BoardActivitySheet({
                       onOpenCard(item.task_number);
                     }}
                   >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">
-                      {initials(item.actor_name, item.actor_email)}
-                    </span>
+                    <MemberAvatar
+                      userId={item.actor_id}
+                      name={item.actor_name}
+                      email={item.actor_email}
+                      disabledPopover
+                      className="h-7 w-7 shrink-0"
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm">
                         <span className="font-medium">

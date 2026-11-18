@@ -62,6 +62,7 @@ import {
   type PatchKanbanTaskInput,
 } from "@/lib/validations/kanban";
 import { cn } from "@/utils";
+import { MemberAvatar, MemberProfilesProvider } from "@/components/planning/member-avatar";
 import {
   ChecklistsSection,
   CoverPicker,
@@ -75,7 +76,6 @@ import {
   PRIORITY_FLAG_COLORS,
   STATUS_DOT_COLORS,
   activityLabel,
-  initials,
   priorityLabel,
   statusLabel,
 } from "./task-labels";
@@ -149,7 +149,17 @@ export function TaskEditor(props: TaskEditorProps) {
     return <p className="p-6 text-sm text-destructive">{task.error.message}</p>;
   }
   // Keyed by the task: another task starts with fresh fields.
-  return <TaskEditorBody key={task.data.card.id} {...props} data={task.data} />;
+  return (
+    <MemberProfilesProvider
+      userIds={[
+        ...props.people.map((person) => person.user_id),
+        task.data.card.assigned_to,
+        task.data.card.created_by,
+      ]}
+    >
+      <TaskEditorBody key={task.data.card.id} {...props} data={task.data} />
+    </MemberProfilesProvider>
+  );
 }
 
 function TaskEditorBody({
@@ -345,7 +355,6 @@ function TaskEditorBody({
   // Wide: the task is always on the left, the right side opens on its details.
   const tab: EditorTab =
     chosenTab === null || (wide && chosenTab === "task") ? (wide ? "details" : "task") : chosenTab;
-  const isDone = card.status === "completed";
   const coverImage = card.cover_url;
   const coverColor = card.cover_color;
   const hasCover = Boolean(coverImage || coverColor);
@@ -460,32 +469,14 @@ function TaskEditorBody({
   const heading = (
     <div className="space-y-4 px-4 pt-4 sm:px-6">
       <div className="space-y-1">
-        <p className="truncate pl-9 text-xs text-muted-foreground">
+        <p className="truncate text-xs text-muted-foreground">
           {card.is_inbox
             ? t("boards.inbox.title")
             : board
               ? `${board.title}${column ? ` › ${column.title}` : ""}`
               : t("taskEditor.noBoard")}
         </p>
-        <div className="flex items-start gap-2">
-          <button
-            type="button"
-            disabled={!canUpdate}
-            onClick={() => save({ status: isDone ? "open" : "completed" })}
-            aria-pressed={isDone}
-            aria-label={isDone ? t("taskEditor.reopen") : t("taskEditor.markDone")}
-            title={isDone ? t("taskEditor.reopen") : t("taskEditor.markDone")}
-            className={cn(
-              "mt-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors disabled:cursor-default",
-              isDone
-                ? "border-emerald-500 bg-emerald-500 text-white"
-                : "border-muted-foreground/40 text-transparent enabled:hover:border-emerald-500 enabled:hover:text-emerald-500"
-            )}
-          >
-            <Check className="h-3.5 w-3.5" strokeWidth={3} />
-          </button>
-          <div className="min-w-0 flex-1">{renderTitle ? renderTitle(titleNode) : titleNode}</div>
-        </div>
+        <div className="min-w-0">{renderTitle ? renderTitle(titleNode) : titleNode}</div>
       </div>
       {isArchived ? (
         <p className="rounded-md bg-amber-500/10 px-3 py-2 text-sm">
@@ -834,18 +825,6 @@ function TaskEditorBody({
             {panel("comments", comments)}
             {panel("activity", activity)}
           </div>
-          {canUpdate && tab !== "comments" ? (
-            <div className="shrink-0 border-t bg-background px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-              <Button
-                className="h-11 w-full gap-2"
-                variant={isDone ? "outline" : "default"}
-                onClick={() => save({ status: isDone ? "open" : "completed" })}
-              >
-                <Check className="h-4 w-4" />
-                {isDone ? t("taskEditor.reopen") : t("taskEditor.markDone")}
-              </Button>
-            </div>
-          ) : null}
         </>
       )}
       <CopyCardDialog
@@ -880,9 +859,7 @@ function useWideLayout(ref: React.RefObject<HTMLElement | null>) {
 function Property({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="shrink-0 space-y-1">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
       {children}
     </div>
   );
@@ -1047,7 +1024,7 @@ function TitleField({
           event.currentTarget.blur();
         }
       }}
-      className="min-h-0 resize-none border-transparent bg-transparent px-1 py-0.5 text-xl font-semibold shadow-none hover:border-border focus-visible:border-input focus-visible:ring-1 disabled:cursor-default disabled:opacity-100"
+      className="-mx-1.5 min-h-0 resize-none rounded-md border-0 bg-transparent px-1.5 py-0.5 text-2xl font-semibold leading-snug shadow-none [field-sizing:content] focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0 disabled:cursor-default disabled:opacity-100 md:text-2xl"
     />
   );
 }
@@ -1121,7 +1098,7 @@ function StatusChip({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={disabled}>
-        <Button variant="secondary" size="sm" className={chipClass}>
+        <Button variant="outline" size="sm" className={chipClass}>
           <span className={cn("h-2 w-2 rounded-full", STATUS_DOT_COLORS[status])} />
           {statusLabel(t, status)}
         </Button>
@@ -1153,7 +1130,7 @@ function PriorityChip({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={disabled}>
-        <Button variant="secondary" size="sm" className={chipClass}>
+        <Button variant="outline" size="sm" className={chipClass}>
           <Flag
             className={cn(
               "h-3.5 w-3.5 fill-current",
@@ -1207,11 +1184,16 @@ function AssigneeChip({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={disabled}>
-        <Button variant="secondary" size="sm" className={chipClass}>
+        <Button variant="outline" size="sm" className={chipClass}>
           {name ? (
-            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-semibold text-primary-foreground">
-              {initials(card.assignee_name, card.assignee_email)}
-            </span>
+            <MemberAvatar
+              userId={card.assigned_to}
+              name={card.assignee_name}
+              email={card.assignee_email}
+              className="h-5 w-5"
+              fallbackClassName="text-[9px]"
+              disabledPopover
+            />
           ) : (
             <User className="h-3.5 w-3.5" />
           )}
@@ -1236,9 +1218,14 @@ function AssigneeChip({
             key={person.user_id}
             onSelect={() => person.user_id !== card.assigned_to && onChange(person.user_id)}
           >
-            <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">
-              {initials(person.name, person.email)}
-            </span>
+            <MemberAvatar
+              userId={person.user_id}
+              name={person.name}
+              email={person.email}
+              className="mr-2 h-5 w-5"
+              fallbackClassName="text-[9px]"
+              disabledPopover
+            />
             <span className="truncate">{person.name || person.email || person.user_id}</span>
             {person.user_id === card.assigned_to ? <Check className="ml-auto h-3.5 w-3.5" /> : null}
           </DropdownMenuItem>
@@ -1285,7 +1272,7 @@ function LabelChip({
             {label}
           </button>
         ) : (
-          <Button variant="secondary" size="sm" className={chipClass}>
+          <Button variant="outline" size="sm" className={chipClass}>
             <Tag className="h-3.5 w-3.5" />
             {t("boards.label")}
           </Button>
