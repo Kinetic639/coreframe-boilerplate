@@ -40,7 +40,7 @@ import { cn } from "@/utils";
 import { MemberAvatar } from "@/components/planning/member-avatar";
 import { BOARD_COLORS, boardBackground } from "./board-colors";
 import { ArchiveBoardConfirm, BoardSettingsDialog } from "./board-settings-dialog";
-import { BoardScopeLabel } from "./board-sharing";
+import { BoardScopeIcon } from "./board-sharing";
 import { CopyBoardDialog } from "./board-copy-dialog";
 import { BoardPickerDialog, type BoardSwitcherProps } from "./board-picker-dialog";
 import type { BoardsAdmin } from "./use-boards-admin";
@@ -134,14 +134,14 @@ export function BoardHeader({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3 pl-3 pr-5">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 shrink-0"
+                className="h-7 w-7 shrink-0"
                 aria-label={t("boards.switchBoards")}
                 onClick={() => setPickerOpen(true)}
               >
@@ -151,6 +151,12 @@ export function BoardHeader({
             <TooltipContent>{t("boards.switchBoards")}</TooltipContent>
           </Tooltip>
           <BoardTitle board={board} canEdit={canUpdate} admin={admin} />
+          <BoardScopeIcon
+            visibility={board.visibility}
+            branchId={board.branch_id}
+            sharedWith={board.members.length}
+            onClick={isArchived ? undefined : () => setSettingsOpen(true)}
+          />
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -168,9 +174,6 @@ export function BoardHeader({
               {board.starred ? t("boards.star.remove") : t("boards.star.add")}
             </TooltipContent>
           </Tooltip>
-          <Badge variant="outline" className="shrink-0 gap-1.5 bg-background/60">
-            <BoardScopeLabel visibility={board.visibility} sharedWith={board.members.length} />
-          </Badge>
           {board.is_template ? (
             <Badge variant="secondary" className="shrink-0 gap-1.5">
               <LayoutTemplate className="h-3.5 w-3.5" />
@@ -197,18 +200,22 @@ export function BoardHeader({
                 +{people.length - MAX_AVATARS}
               </span>
             ) : null}
+            {!isArchived ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="relative flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={t("boards.header.share")}
+                    onClick={() => setSettingsOpen(true)}
+                  >
+                    <UserPlus className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{t("boards.header.share")}</TooltipContent>
+              </Tooltip>
+            ) : null}
           </div>
-          {!isArchived ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5"
-              onClick={() => setSettingsOpen(true)}
-            >
-              <UserPlus className="h-4 w-4" />
-              {t("boards.header.share")}
-            </Button>
-          ) : null}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -384,7 +391,7 @@ function BoardTitle({
   const [value, setValue] = useState(board.title);
   const doneRef = useRef(false);
 
-  if (!canEdit) return <h2 className="truncate text-lg font-semibold">{board.title}</h2>;
+  if (!canEdit) return <h2 className="truncate px-1.5 text-xl font-semibold">{board.title}</h2>;
 
   const finish = (save: boolean) => {
     if (doneRef.current) return;
@@ -401,7 +408,7 @@ function BoardTitle({
         value={value}
         maxLength={160}
         aria-label={t("boards.title")}
-        className="h-8 max-w-md text-lg font-semibold"
+        className="h-9 max-w-md text-xl font-semibold"
         onFocus={(event) => event.currentTarget.select()}
         onChange={(event) => setValue(event.target.value)}
         onBlur={() => finish(true)}
@@ -422,7 +429,7 @@ function BoardTitle({
   return (
     <button
       type="button"
-      className="min-w-0 truncate rounded px-1.5 py-0.5 text-left text-lg font-semibold hover:bg-muted/70"
+      className="min-w-0 truncate rounded px-1.5 py-0.5 text-left text-xl font-semibold hover:bg-muted/70"
       title={t("boards.header.renameHint")}
       onClick={() => {
         doneRef.current = false;

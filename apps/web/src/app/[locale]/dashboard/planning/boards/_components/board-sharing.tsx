@@ -6,6 +6,7 @@ import { Building2, Globe2, Lock, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Select,
   SelectContent,
@@ -89,6 +90,77 @@ export function BoardScopeLabel({
       <BoardVisibilityIcon visibility={visibility} />
       {t(`boards.visibility.${visibility}`)}
     </>
+  );
+}
+
+/**
+ * Who sees the board, as one muted icon with the full answer in a tooltip
+ * (the board header). A click opens the sharing settings when given.
+ */
+export function BoardScopeIcon({
+  visibility,
+  branchId,
+  sharedWith,
+  onClick,
+}: {
+  visibility: KanbanVisibility;
+  branchId: string | null;
+  sharedWith: number;
+  onClick?: () => void;
+}) {
+  const t = useTranslations("modules.planning");
+  const { branches } = useBoardSharing();
+  const shared = visibility === "private" && sharedWith > 0;
+  const branchName = branches.find((branch) => branch.id === branchId)?.name;
+
+  let label: string;
+  if (shared) label = t("boards.scope.shared", { count: sharedWith });
+  else if (visibility === "organization") label = t("boards.scope.organization");
+  else if (visibility === "branch")
+    label = branchName
+      ? t("boards.scope.branchNamed", { branch: branchName })
+      : t("boards.scope.branch");
+  else label = t("boards.scope.private");
+  if (!shared && visibility !== "private" && sharedWith > 0) {
+    label = `${label} ${t("boards.scope.plusPeople", { count: sharedWith })}`;
+  }
+
+  const icon = shared ? (
+    <Users className="h-4 w-4" />
+  ) : visibility === "organization" ? (
+    <Globe2 className="h-4 w-4" />
+  ) : visibility === "branch" ? (
+    <Building2 className="h-4 w-4" />
+  ) : (
+    <Lock className="h-4 w-4" />
+  );
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {onClick ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0 text-muted-foreground"
+            aria-label={label}
+            onClick={onClick}
+          >
+            {icon}
+          </Button>
+        ) : (
+          <span
+            className="flex h-7 w-7 shrink-0 items-center justify-center text-muted-foreground"
+            role="img"
+            aria-label={label}
+            tabIndex={0}
+          >
+            {icon}
+          </span>
+        )}
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   );
 }
 

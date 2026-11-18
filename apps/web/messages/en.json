@@ -4817,6 +4817,14 @@
           "statusHelp": "The column is named after the status. A task moved here gets this status, and changing a task's status moves it to this column. Each status can have only one column on a board.",
           "plainHelp": "A column with a name of its own that only groups tasks and leaves their status alone.",
           "allTaken": "Every status already has a column on this board, so you can only add a plain column."
+        },
+        "scope": {
+          "private": "Private: only the owner sees it",
+          "shared": "Shared: the owner and {count} {count, plural, one {person} other {people}}",
+          "branch": "Branch: everyone in the branch sees it",
+          "branchNamed": "Branch: everyone in {branch} sees it",
+          "organization": "Organization: everyone in the organization sees it",
+          "plusPeople": "+ {count} {count, plural, one {person} other {people}}"
         }
       },
       "settings": {

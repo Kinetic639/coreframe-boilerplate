@@ -4897,6 +4897,14 @@
           "statusHelp": "Nazwa kolumny to nazwa statusu. Zadanie przeniesione tu dostaje ten status, a zmiana statusu przenosi zadanie do tej kolumny. Każdy status może mieć na tablicy tylko jedną kolumnę.",
           "plainHelp": "Kolumna z własną nazwą, która tylko grupuje zadania i nie zmienia ich statusu.",
           "allTaken": "Wszystkie statusy mają już kolumnę na tej tablicy, więc możesz dodać tylko zwykłą kolumnę."
+        },
+        "scope": {
+          "private": "Prywatna: widzi ją tylko właściciel",
+          "shared": "Udostępniona: właściciel i {count} {count, plural, one {osoba} few {osoby} many {osób} other {osoby}}",
+          "branch": "Oddział: widzą ją wszyscy w oddziale",
+          "branchNamed": "Oddział: widzą ją wszyscy w oddziale {branch}",
+          "organization": "Organizacja: widzą ją wszyscy w organizacji",
+          "plusPeople": "+ {count} {count, plural, one {osoba} few {osoby} many {osób} other {osoby}}"
         }
       },
       "settings": {
