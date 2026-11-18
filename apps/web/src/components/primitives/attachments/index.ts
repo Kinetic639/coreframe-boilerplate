@@ -5,3 +5,4 @@ export type { AttachmentListLabels } from "./attachment-list";
 export { AttachmentsStagingField } from "./attachments-staging-field";
 export type { AttachmentsStagingFieldLabels } from "./attachments-staging-field";
 export { fileKey, formatFileSize, isImageMimeType } from "./attachment-utils";
+export { attachmentFilePath, downloadAttachments } from "./attachment-download";
