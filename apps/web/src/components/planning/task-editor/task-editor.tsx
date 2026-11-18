@@ -43,14 +43,9 @@ import { ENTITY_MENTIONS } from "@/components/v2/mentions/mention-suggestion-lis
 import { useMentionAccess } from "@/hooks/queries/mentions";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
-import { RichTextEditorField } from "@/components/primitives/rich-text/rich-text-editor-field";
-import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-renderer";
+import { RichTextInlineField } from "@/components/primitives/rich-text/rich-text-inline-field";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
-import {
-  createEmptyRichText,
-  extractPlainText,
-  normalizeRichText,
-} from "@/components/primitives/rich-text/rich-text-utils";
+import { normalizeRichText } from "@/components/primitives/rich-text/rich-text-utils";
 import { moveKanbanTaskAction, patchKanbanTaskAction } from "@/app/actions/kanban";
 import { deleteTaskAction } from "@/app/actions/planning";
 import type {
@@ -133,8 +128,6 @@ export interface TaskEditorProps {
 }
 
 type Patch = Omit<PatchKanbanTaskInput, "id">;
-
-const DESCRIPTION_SAVE_DELAY_MS = 1200;
 
 /**
  * One editor for a task wherever it opens: the board, the task list and the
@@ -564,19 +557,14 @@ function TaskEditorBody({
 
   const work = (
     <div className="space-y-7 px-4 py-5 sm:px-6">
-      <section className="space-y-2">
-        <h3 className="flex items-center gap-1.5 text-sm font-semibold">
-          <AlignLeft className="h-4 w-4 text-muted-foreground" />
-          {t("tasks.description")}
-        </h3>
-        <DescriptionField
-          card={card}
-          disabled={!canUpdate}
-          onSave={(description, descriptionRich) =>
-            save({ description, description_rich: descriptionRich })
-          }
-        />
-      </section>
+      <DescriptionField
+        card={card}
+        disabled={!canUpdate}
+        saving={patch.isPending}
+        onSave={(description, descriptionRich) =>
+          save({ description, description_rich: descriptionRich })
+        }
+      />
 
       <ChecklistsSection
         orgId={orgId}
@@ -739,6 +727,8 @@ function TaskEditorBody({
         targetType="planning.task"
         targetId={card.id}
         density="compact"
+        composer="top"
+        showTitle={false}
         labels={{
           title: t("boards.comments.title"),
           empty: t("boards.comments.empty"),
@@ -1062,75 +1052,59 @@ function TitleField({
   );
 }
 
-/** The description saves itself a moment after typing stops, and when the window closes. */
+/**
+ * The description as text; a click turns it into the editor with Save and
+ * Cancel. Unsaved typing is kept as a draft in this browser (see
+ * RichTextInlineField), shown by an "Unsaved changes" badge.
+ */
 function DescriptionField({
   card,
   disabled,
+  saving,
   onSave,
 }: {
   card: KanbanBoardCard;
   disabled: boolean;
+  saving: boolean;
   onSave: (plain: string, rich: RichTextValue) => void;
 }) {
   const t = useTranslations("modules.planning");
-  const [value, setValue] = useState<RichTextValue>(
-    () => normalizeRichText(card.description_rich) ?? createEmptyRichText()
-  );
   const orgId = useAppStoreV2((s) => s.activeOrgId);
   const meId = useUserStoreV2((s) => s.user?.id ?? null);
-  const documents = useMemo(
-    () => (disabled ? [card.description_rich] : []),
-    [card.description_rich, disabled]
-  );
+  const documents = useMemo(() => [card.description_rich], [card.description_rich]);
   const mentionAccess = useMentionAccess(orgId, documents);
-  const dirty = useRef(false);
-  const latest = useRef(value);
-  const saveRef = useRef(onSave);
-  saveRef.current = onSave;
-
-  const flush = useCallback(() => {
-    if (!dirty.current) return;
-    dirty.current = false;
-    saveRef.current(extractPlainText(latest.current).trim(), latest.current);
-  }, []);
-
-  useEffect(() => {
-    if (!dirty.current) return;
-    const timer = window.setTimeout(flush, DESCRIPTION_SAVE_DELAY_MS);
-    return () => window.clearTimeout(timer);
-  }, [flush, value]);
-
-  // Closing the window saves what was typed.
-  useEffect(() => flush, [flush]);
-
-  if (disabled) {
-    return (
-      <RichTextRenderer
-        value={normalizeRichText(card.description_rich) ?? undefined}
-        emptyText={card.description ?? t("boards.noDescription")}
-        renderMention={(mention) => (
-          <MentionChip mention={mention} access={mentionAccess(mention)} meId={meId} />
-        )}
-      />
-    );
-  }
 
   return (
-    <div onBlur={flush}>
-      <RichTextEditorField
-        value={value}
-        onChange={(next) => {
-          dirty.current = true;
-          latest.current = next;
-          setValue(next);
-        }}
-        placeholder={t("boards.cardDescriptionPlaceholder")}
-        mode="full"
-        mention={ENTITY_MENTIONS}
-        maxLength={4000}
-        contentClassName="min-h-[140px] [&_.ProseMirror]:min-h-[120px]"
-      />
-    </div>
+    <RichTextInlineField
+      heading={
+        <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+          <AlignLeft className="h-4 w-4 text-muted-foreground" />
+          {t("tasks.description")}
+        </h3>
+      }
+      value={normalizeRichText(card.description_rich)}
+      fallbackText={card.description}
+      emptyText={t("boards.noDescription")}
+      draftKey={`task-description:${card.id}`}
+      disabled={disabled}
+      saving={saving}
+      placeholder={t("boards.cardDescriptionPlaceholder")}
+      mention={ENTITY_MENTIONS}
+      maxLength={4000}
+      contentClassName="min-h-[160px] [&_.ProseMirror]:min-h-[140px]"
+      renderMention={(mention) => (
+        <MentionChip mention={mention} access={mentionAccess(mention)} meId={meId} />
+      )}
+      onSave={(rich, plain) => onSave(plain, rich)}
+      labels={{
+        edit: t("taskEditor.edit"),
+        save: t("boards.save"),
+        saving: t("taskEditor.saving"),
+        cancel: t("boards.cancel"),
+        unsaved: t("taskEditor.unsavedChanges"),
+        emptyCta: t("taskEditor.addDescription"),
+      }}
+    />
   );
 }
 

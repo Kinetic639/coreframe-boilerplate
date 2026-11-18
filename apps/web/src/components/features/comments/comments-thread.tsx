@@ -47,6 +47,12 @@ interface CommentsThreadProps extends Partial<CommentsProviderValue> {
    * policy on realtime.messages for the topic. Omit to keep the indicator off.
    */
   typingTopic?: string | null;
+  /**
+   * "top": newest first, with a "Write a comment…" field above them that
+   * opens the editor when clicked (as on a Trello card). Default "bottom":
+   * oldest first and the editor always open below.
+   */
+  composer?: "bottom" | "top";
 }
 
 function formatCommentDate(iso: string): string {
@@ -107,6 +113,8 @@ export function CommentsThread(props: CommentsThreadProps) {
   const onCommentAdded = props.onCommentAdded;
 
   const [draft, setDraft] = useState<RichTextValue>(createEmptyRichText);
+  const composerOnTop = props.composer === "top";
+  const [composerOpen, setComposerOpen] = useState(!composerOnTop);
   const [rows, setRows] = useState<AppComment[]>(props.initialData?.rows ?? []);
   const [nextCursor, setNextCursor] = useState<string | null>(
     props.initialData?.nextCursor ?? null
@@ -185,12 +193,21 @@ export function CommentsThread(props: CommentsThreadProps) {
               rows.some((row) => row.id === comment.id) ? current : current + 1
             );
             setDraft(createEmptyRichText());
+            if (composerOnTop) setComposerOpen(false);
             void onCommentAdded?.(comment);
           },
         }
       );
     },
-    [addCommentMutation, config.targetId, config.targetType, notifyStopped, onCommentAdded, rows]
+    [
+      addCommentMutation,
+      composerOnTop,
+      config.targetId,
+      config.targetType,
+      notifyStopped,
+      onCommentAdded,
+      rows,
+    ]
   );
 
   const handleLoadMore = useCallback(async () => {
@@ -210,6 +227,62 @@ export function CommentsThread(props: CommentsThreadProps) {
       setLoadingMore(false);
     }
   }, [nextCursor, queryInput]);
+
+  const composerNode = config.canComment ? (
+    composerOpen ? (
+      <div className={composerOnTop ? undefined : "pt-1"}>
+        <CommentEditor
+          mention={ENTITY_MENTIONS}
+          value={draft}
+          onChange={(next) => {
+            setDraft(next);
+            if (isRichTextEmpty(next)) notifyStopped();
+            else notifyTyping();
+          }}
+          onSubmit={handleSubmit}
+          placeholder={labels.placeholder}
+          submitLabel={labels.submit}
+          submittingLabel={labels.submitting}
+          submitting={addCommentMutation.isPending}
+          autoFocus={composerOnTop}
+          onCancel={
+            composerOnTop
+              ? () => {
+                  setDraft(createEmptyRichText());
+                  notifyStopped();
+                  setComposerOpen(false);
+                }
+              : undefined
+          }
+          density={config.density}
+          actions={
+            props.internal ? (
+              <Button
+                type="button"
+                variant="outline"
+                size={compact ? "sm" : "default"}
+                className="border-amber-300 text-amber-900 hover:bg-amber-50 dark:text-amber-200"
+                onClick={() => handleSubmit(draft, "internal")}
+                disabled={addCommentMutation.isPending || !extractPlainText(draft).trim()}
+              >
+                {props.internal.noteLabel}
+              </Button>
+            ) : undefined
+          }
+        />
+      </div>
+    ) : (
+      <button
+        type="button"
+        onClick={() => setComposerOpen(true)}
+        className="w-full rounded-md border bg-background px-3 py-2.5 text-left text-sm text-muted-foreground shadow-sm transition-colors hover:bg-muted/50"
+      >
+        {labels.placeholder}
+      </button>
+    )
+  ) : null;
+
+  const shownRows = composerOnTop ? [...rows].reverse() : rows;
 
   if (loadingInitialComments) {
     return (
@@ -235,11 +308,13 @@ export function CommentsThread(props: CommentsThreadProps) {
         </div>
       )}
 
+      {composerOnTop ? composerNode : null}
+
       {rows.length === 0 ? (
         <p className="text-muted-foreground text-sm">{labels.empty}</p>
       ) : (
         <div className={cn(compact ? "space-y-4" : "space-y-5", props.contentClassName)}>
-          {rows.map((comment) => (
+          {shownRows.map((comment) => (
             <CommentRenderer
               key={comment.id}
               className={
@@ -286,39 +361,7 @@ export function CommentsThread(props: CommentsThreadProps) {
 
       <TypingIndicator people={typing} />
 
-      {config.canComment && (
-        <div className="pt-1">
-          <CommentEditor
-            mention={ENTITY_MENTIONS}
-            value={draft}
-            onChange={(next) => {
-              setDraft(next);
-              if (isRichTextEmpty(next)) notifyStopped();
-              else notifyTyping();
-            }}
-            onSubmit={handleSubmit}
-            placeholder={labels.placeholder}
-            submitLabel={labels.submit}
-            submittingLabel={labels.submitting}
-            submitting={addCommentMutation.isPending}
-            density={config.density}
-            actions={
-              props.internal ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size={compact ? "sm" : "default"}
-                  className="border-amber-300 text-amber-900 hover:bg-amber-50 dark:text-amber-200"
-                  onClick={() => handleSubmit(draft, "internal")}
-                  disabled={addCommentMutation.isPending || !extractPlainText(draft).trim()}
-                >
-                  {props.internal.noteLabel}
-                </Button>
-              ) : undefined
-            }
-          />
-        </div>
-      )}
+      {!composerOnTop ? composerNode : null}
     </section>
   );
 }

@@ -176,7 +176,9 @@ export function AttachmentList({
                 </Link>
               </Button>
 
-              <DropdownMenu>
+              {/* Not modal: removing the file unmounts this menu while it closes, and a modal menu
+                  then leaves the page locked (pointer-events: none on body). */}
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <Button
                     type="button"

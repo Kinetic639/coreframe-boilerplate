@@ -205,7 +205,8 @@
       "formerMember": "Były członek",
       "addFailed": "Nie udało się dodać komentarza",
       "typing": "{name} pisze…",
-      "typingMany": "{count, plural, few {# osoby piszą…} other {# osób pisze…}}"
+      "typingMany": "{count, plural, few {# osoby piszą…} other {# osób pisze…}}",
+      "writeComment": "Napisz komentarz…"
     },
     "attachments": {
       "title": "Załączniki",
@@ -4947,7 +4948,10 @@
         "actions": "Akcje",
         "recurrence": "Powtarzanie",
         "assignee": "Przypisana osoba",
-        "openFull": "Otwórz pełny widok"
+        "openFull": "Otwórz pełny widok",
+        "edit": "Edytuj",
+        "unsavedChanges": "Niezapisane zmiany",
+        "addDescription": "Dodaj bardziej szczegółowy opis…"
       },
       "boardTools": {
         "badges": {
