@@ -17,6 +17,7 @@ import { taskKeys, taskListQuery, type TaskList } from "./tasks-query";
 import {
   DUE_WITHIN,
   NO_BOARD,
+  TASK_VISIBILITIES,
   ORG_WIDE,
   taskHref,
   taskParsers,
@@ -220,6 +221,12 @@ export function TasksWorkspace({
         { value: NO_BOARD, label: labels.noBoard },
         ...boards.map((board) => ({ value: board.id, label: board.title })),
       ],
+    },
+    {
+      kind: "list",
+      id: "widocznosc",
+      label: labels.visibility,
+      options: TASK_VISIBILITIES.map((value) => ({ value, label: labels[`visibility_${value}`] })),
     },
     {
       kind: "dates",

@@ -32,6 +32,11 @@ export interface PlanningTaskListRow {
   is_inbox: boolean;
   /** The board's and the column's titles (list rows only; null otherwise). */
   board_title?: string | null;
+  /**
+   * Only its author (inbox) or the people a private board is shared with can
+   * see it (list rows only).
+   */
+  is_private?: boolean;
   column_title?: string | null;
   assigned_to: string | null;
   assignee_name: string | null;
@@ -218,6 +223,9 @@ function mapTaskRow(row: any, signedAvatarUrls: Map<string, string>): PlanningTa
     board_position: row.board_position ?? 0,
     is_inbox: row.is_inbox ?? false,
     board_title: (Array.isArray(row.board) ? row.board[0] : row.board)?.title ?? null,
+    is_private:
+      Boolean(row.is_inbox) ||
+      (Array.isArray(row.board) ? row.board[0] : row.board)?.visibility === "private",
     column_title:
       (Array.isArray(row.board_column) ? row.board_column[0] : row.board_column)?.title ?? null,
     assigned_to: assignedTo,
@@ -276,6 +284,7 @@ function normalizeFilters(params: DataViewListParams, filters: TaskListFilters):
     org_wide: filters.org_wide,
     board_ids: filters.board_ids?.filter(looksLikeUuid),
     no_board: filters.no_board,
+    visibility: filters.visibility,
     due_from: filters.due_from,
     due_to: filters.due_to,
   };
@@ -385,7 +394,7 @@ export const PlanningTasksService = {
            branch_id, board_id, column_id, is_inbox,
            assigned_to, due_at, started_at, completed_at, cancelled_at,
            created_by, created_at, updated_at,
-           board:planning_kanban_boards!board_id(title),
+           board:planning_kanban_boards!board_id(title, visibility),
            board_column:planning_kanban_columns!column_id(title),
            assignee:users!assigned_to(first_name, last_name, email, avatar_url, avatar_path),
            creator:users!created_by(first_name, last_name, email)`,
@@ -430,6 +439,25 @@ export const PlanningTasksService = {
         query = query.is("board_id", null);
       } else if (boardIds.length) {
         query = query.in("board_id", boardIds);
+      }
+      if (resolvedFilters.visibility) {
+        // Private: in someone's inbox or on a private board (the boards the
+        // viewer may see; the rest of the rows are hidden by RLS anyway).
+        const { data: privateBoards, error: boardsError } = await supabase
+          .from("planning_kanban_boards")
+          .select("id")
+          .eq("organization_id", orgId)
+          .eq("visibility", "private");
+        if (boardsError) return { success: false, error: boardsError.message };
+        const ids = (privateBoards ?? []).map((board: { id: string }) => board.id);
+        if (resolvedFilters.visibility === "private") {
+          query = ids.length
+            ? query.or(`is_inbox.eq.true,board_id.in.(${ids.join(",")})`)
+            : query.eq("is_inbox", true);
+        } else {
+          query = query.eq("is_inbox", false);
+          if (ids.length) query = query.or(`board_id.is.null,board_id.not.in.(${ids.join(",")})`);
+        }
       }
       if (resolvedFilters.due_from) query = query.gte("due_at", resolvedFilters.due_from);
       if (resolvedFilters.due_to) query = query.lte("due_at", resolvedFilters.due_to);

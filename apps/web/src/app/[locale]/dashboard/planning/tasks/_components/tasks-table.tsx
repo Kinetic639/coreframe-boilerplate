@@ -1,4 +1,4 @@
-import { ExternalLink, Eye } from "lucide-react";
+import { ExternalLink, Eye, Lock } from "lucide-react";
 import type { ReactNode } from "react";
 import { ListPane } from "@/components/data-table/list-pane";
 import {
@@ -194,6 +194,12 @@ export function TasksTable({
             className="truncate"
             title={[row.board_title, row.column_title].filter(Boolean).join(" · ")}
           >
+            {row.is_private ? (
+              <Lock
+                className="mr-1 inline size-3 align-[-1px] text-muted-foreground"
+                aria-hidden="true"
+              />
+            ) : null}
             {row.board_title ?? "—"}
             {row.column_title ? (
               <span className="text-muted-foreground"> · {row.column_title}</span>
@@ -233,8 +239,19 @@ export function TasksTable({
         : value(row, id);
   const identity = (row: Row) => (
     <span className="min-w-0">
-      <span className="block truncate text-[13px] font-medium" title={row.title}>
-        {row.title}
+      <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium">
+        {row.is_private ? (
+          <Lock
+            className="size-3 shrink-0 text-muted-foreground"
+            role="img"
+            aria-label={row.is_inbox ? labels.privateInbox : labels.privateBoard}
+          >
+            <title>{row.is_inbox ? labels.privateInbox : labels.privateBoard}</title>
+          </Lock>
+        ) : null}
+        <span className="truncate" title={row.title}>
+          {row.title}
+        </span>
       </span>
       <span className="block truncate font-mono text-[11px] leading-4 font-normal text-muted-foreground">
         {row.task_number}

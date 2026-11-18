@@ -57,6 +57,19 @@ describe("task list state", () => {
     expect(taskFilters(state, TODAY)).toMatchObject({ board_ids: [BOARD], no_board: true });
   });
 
+  it("reads the visibility filter (one choice filters, both or none do not)", () => {
+    expect(taskFilters(loadTaskState({ widocznosc: "prywatne" }), TODAY).visibility).toBe(
+      "private"
+    );
+    expect(taskFilters(loadTaskState({ widocznosc: "wspolne,x" }), TODAY).visibility).toBe(
+      "shared"
+    );
+    expect(
+      taskFilters(loadTaskState({ widocznosc: "prywatne,wspolne" }), TODAY).visibility
+    ).toBeUndefined();
+    expect(taskFilters(loadTaskState({}), TODAY).visibility).toBeUndefined();
+  });
+
   it("reads the ready due ranges as whole days", () => {
     expect(dueWindow(loadTaskState({ termin: "po_terminie" }), TODAY)).toEqual({
       from: null,
