@@ -8,6 +8,7 @@ import {
 } from "@/components/data-table/columns";
 import { RowActions, RowActionLink } from "@/components/data-table/row-actions";
 import { UserAvatar } from "@/components/primitives/avatar/user-avatar";
+import { MemberAvatar, MemberProfilesProvider } from "@/components/planning/member-avatar";
 import {
   PlanningTaskStatusBadge,
   type PlanningStatusBadgeConfig,
@@ -221,7 +222,19 @@ export function TasksTable({
           "—"
         );
       case "creator":
-        return row.creator_name ?? row.creator_email ?? "—";
+        return row.created_by ? (
+          <span className="flex min-w-0 items-center gap-2">
+            <MemberAvatar
+              userId={row.created_by}
+              name={row.creator_name}
+              email={row.creator_email}
+              className="size-6"
+            />
+            <span className="truncate">{row.creator_name ?? row.creator_email}</span>
+          </span>
+        ) : (
+          "—"
+        );
       case "created_at":
         return date(row.created_at);
       case "updated_at":
@@ -234,9 +247,11 @@ export function TasksTable({
   const plainValue = (row: Row, id: string): ReactNode =>
     id === "assignee"
       ? (row.assignee_name ?? row.assignee_email ?? labels.unassigned)
-      : id === "board" && row.board_id
-        ? [row.board_title, row.column_title].filter(Boolean).join(" · ") || "—"
-        : value(row, id);
+      : id === "creator"
+        ? (row.creator_name ?? row.creator_email ?? "—")
+        : id === "board" && row.board_id
+          ? [row.board_title, row.column_title].filter(Boolean).join(" · ") || "—"
+          : value(row, id);
   const identity = (row: Row) => (
     <span className="min-w-0">
       <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium">
@@ -259,43 +274,45 @@ export function TasksTable({
     </span>
   );
   return (
-    <ListPane
-      rows={data.rows}
-      totalCount={data.totalCount}
-      page={state.strona}
-      size={state.wierszy}
-      sizes={TASK_PAGE_SIZES}
-      selected={state.selected}
-      rowKey={(row) => row.task_number}
-      rowHref={rowHref}
-      pageHref={(page) => href({ strona: page, selected: null })}
-      sizeHref={(size) =>
-        href({ wierszy: size as TaskState["wierszy"], strona: 1, selected: null })
-      }
-      set={set}
-      layout={layout}
-      widths={widths}
-      cookie={cookie}
-      onLayoutChange={onLayoutChange}
-      sortOf={(id) => (SORT_FIELD[id] ? sortOf(SORT_FIELD[id]) : undefined)}
-      pinnedSort={sortOf("task_number")}
-      identity={identity}
-      value={value}
-      plainValue={plainValue}
-      badge={(row) => <TaskStatus row={row} configs={configs} />}
-      cardHidden={["status"]}
-      actions={actions}
-      cellClassName={(id) =>
-        id === "branch" || id === "creator" ? "text-muted-foreground" : undefined
-      }
-      labels={labels}
-      empty={labels.empty}
-      loading={loading}
-      refreshing={refreshing}
-      error={error}
-      onRetry={onRetry}
-      onPreview={onPreview}
-      onPrefetch={onPrefetch}
-    />
+    <MemberProfilesProvider userIds={data.rows.map((row) => row.created_by)}>
+      <ListPane
+        rows={data.rows}
+        totalCount={data.totalCount}
+        page={state.strona}
+        size={state.wierszy}
+        sizes={TASK_PAGE_SIZES}
+        selected={state.selected}
+        rowKey={(row) => row.task_number}
+        rowHref={rowHref}
+        pageHref={(page) => href({ strona: page, selected: null })}
+        sizeHref={(size) =>
+          href({ wierszy: size as TaskState["wierszy"], strona: 1, selected: null })
+        }
+        set={set}
+        layout={layout}
+        widths={widths}
+        cookie={cookie}
+        onLayoutChange={onLayoutChange}
+        sortOf={(id) => (SORT_FIELD[id] ? sortOf(SORT_FIELD[id]) : undefined)}
+        pinnedSort={sortOf("task_number")}
+        identity={identity}
+        value={value}
+        plainValue={plainValue}
+        badge={(row) => <TaskStatus row={row} configs={configs} />}
+        cardHidden={["status"]}
+        actions={actions}
+        cellClassName={(id) =>
+          id === "branch" || id === "creator" ? "text-muted-foreground" : undefined
+        }
+        labels={labels}
+        empty={labels.empty}
+        loading={loading}
+        refreshing={refreshing}
+        error={error}
+        onRetry={onRetry}
+        onPreview={onPreview}
+        onPrefetch={onPrefetch}
+      />
+    </MemberProfilesProvider>
   );
 }

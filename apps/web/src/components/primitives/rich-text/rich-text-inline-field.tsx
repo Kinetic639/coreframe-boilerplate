@@ -188,9 +188,9 @@ export function RichTextInlineField({
         {!disabled && !editing && !empty ? (
           <Button
             type="button"
-            variant="secondary"
+            variant="outline"
             size="sm"
-            className="ml-auto h-8 gap-1.5"
+            className="ml-auto h-8 gap-1.5 rounded-md border-input bg-transparent px-2.5 text-sm font-normal text-foreground shadow-none hover:bg-accent hover:text-accent-foreground"
             onClick={open}
           >
             <Pencil className="h-3.5 w-3.5" />

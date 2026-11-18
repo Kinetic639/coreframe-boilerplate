@@ -42,11 +42,11 @@ import { KANBAN_TASK_PRIORITIES } from "@/lib/validations/kanban";
 import { PRIORITY_FLAG_COLORS } from "@/components/planning/task-editor/task-labels";
 import { formatCardDates } from "@/components/planning/task-editor/task-editor-extras";
 import { cn } from "@/utils";
+import { MemberAvatar } from "@/components/planning/member-avatar";
 import {
   DUE_STATE_CLASSES,
   STATUS_DOT_COLORS,
   dueState,
-  initials,
   priorityLabel,
   statusLabel,
 } from "./board-format";
@@ -311,12 +311,12 @@ export const BoardCard = memo(function BoardCard({
               {card.task_number}
             </span>
             {assignee ? (
-              <span
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground"
-                title={assignee}
-              >
-                {initials(card.assignee_name, card.assignee_email)}
-              </span>
+              <MemberAvatar
+                userId={card.assigned_to}
+                name={card.assignee_name}
+                email={card.assignee_email}
+                className="h-6 w-6"
+              />
             ) : null}
           </span>
         </div>

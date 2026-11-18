@@ -129,7 +129,7 @@ export const UserAvatar = React.forwardRef<React.ElementRef<typeof Avatar>, User
 
     const content = (
       <div className="flex min-w-0 items-center gap-3">
-        <Avatar className={cn("h-10 w-10", className)}>
+        <Avatar className={cn(className, "h-10 w-10")}>
           {src && <AvatarImage src={src} alt={alt ?? displayName} className={imageClassName} />}
           <AvatarFallback className={cn("text-xs font-medium", fallbackClassName)}>
             {initials || <User className="h-1/2 w-1/2" />}

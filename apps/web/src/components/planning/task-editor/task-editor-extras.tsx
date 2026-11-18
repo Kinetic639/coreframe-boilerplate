@@ -59,6 +59,7 @@ import type {
   KanbanTaskStatus,
 } from "@/lib/types/kanban";
 import { cn } from "@/utils";
+import { MemberAvatar } from "@/components/planning/member-avatar";
 import {
   DUE_STATE_CLASSES,
   buildTaskDates,
@@ -68,13 +69,14 @@ import {
   viewerTimeZone,
   type TaskDatesPayload,
 } from "./task-dates";
-import { LABEL_COLORS, initials } from "./task-labels";
+import { LABEL_COLORS } from "./task-labels";
 import { taskEditorKeys, unwrapTaskResult } from "./task-editor-queries";
 import { checklistProgress } from "./task-checklist-progress";
 import type { TaskEditorPerson } from "./task-editor";
 
+/** A property of the task (status, assignee, dates…): a quiet outlined button in the theme's colours. */
 export const chipClass =
-  "h-7 gap-1.5 rounded-md px-2 text-xs font-medium disabled:opacity-100 disabled:cursor-default";
+  "h-8 gap-1.5 rounded-md border-input bg-transparent px-2.5 text-sm font-normal text-foreground shadow-none hover:bg-accent hover:text-accent-foreground disabled:cursor-default disabled:opacity-100";
 
 export const checklistsKey = (orgId: string, taskId: string) =>
   ["planning-task-editor", orgId, "checklists", taskId] as const;
@@ -154,7 +156,7 @@ export function LabelsChip({
             ))}
           </button>
         ) : (
-          <Button variant="secondary" size="sm" className={chipClass}>
+          <Button variant="outline" size="sm" className={chipClass}>
             <Tag className="h-3.5 w-3.5" />
             {t("taskEditor.labels")}
           </Button>
@@ -326,7 +328,7 @@ export function DatesChip({
     >
       <PopoverTrigger asChild disabled={disabled}>
         <Button
-          variant="secondary"
+          variant="outline"
           size="sm"
           className={cn(chipClass, state && state !== "normal" && DUE_STATE_CLASSES[state])}
         >
@@ -429,9 +431,14 @@ export function WatchButton({
 
   return (
     <Button
-      variant={watching ? "secondary" : "outline"}
+      variant="outline"
       size="sm"
-      className={cn("w-full justify-start gap-1.5", className)}
+      className={cn(
+        chipClass,
+        "w-full justify-start",
+        watching && "bg-accent text-accent-foreground",
+        className
+      )}
       onClick={() => toggle.mutate(!watching)}
       disabled={toggle.isPending}
       aria-pressed={watching}
@@ -470,7 +477,7 @@ export function CoverPicker({
         <Button
           variant="outline"
           size="sm"
-          className={cn("w-full justify-start gap-1.5", className)}
+          className={cn(chipClass, "w-full justify-start", className)}
         >
           <ImageIcon className="h-3.5 w-3.5" />
           {t("taskEditor.cover")}
@@ -772,7 +779,7 @@ export function ChecklistsSection({
           <Button
             variant="outline"
             size="sm"
-            className="gap-1.5"
+            className={chipClass}
             onClick={() => {
               setNewTitle(lists.length ? "" : t("taskEditor.defaultChecklistTitle"));
               setAdding(true);
@@ -1016,7 +1023,12 @@ function ChecklistRow({
           <div className="mt-0.5 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
             {item.assigned_to ? (
               <span className="inline-flex items-center gap-1">
-                <User className="h-3 w-3" />
+                <MemberAvatar
+                  userId={item.assigned_to}
+                  name={item.assignee_name}
+                  className="h-4 w-4"
+                  fallbackClassName="text-[8px]"
+                />
                 {item.assignee_name ?? "—"}
               </span>
             ) : null}
@@ -1069,9 +1081,14 @@ function ChecklistRow({
                         key={person.user_id}
                         onSelect={() => onUpdate({ id: item.id, assigned_to: person.user_id })}
                       >
-                        <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">
-                          {initials(person.name, person.email)}
-                        </span>
+                        <MemberAvatar
+                          userId={person.user_id}
+                          name={person.name}
+                          email={person.email}
+                          className="mr-2 h-5 w-5"
+                          fallbackClassName="text-[9px]"
+                          disabledPopover
+                        />
                         <span className="truncate">{person.name || person.email}</span>
                         {person.user_id === item.assigned_to ? (
                           <Check className="ml-auto h-3.5 w-3.5" />
