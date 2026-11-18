@@ -21,6 +21,7 @@ export function RichTextEditorField({
   error,
   id,
   mention,
+  autoFocus = false,
 }: RichTextEditorFieldProps) {
   const isInternalUpdate = useRef(false);
 
@@ -29,6 +30,7 @@ export function RichTextEditorField({
     content: value ?? createEmptyRichText(),
     immediatelyRender: false,
     editable: !disabled,
+    autofocus: autoFocus ? "end" : false,
     onUpdate: ({ editor: e }) => {
       isInternalUpdate.current = true;
       onChange(toPlainRichText(e.getJSON()));

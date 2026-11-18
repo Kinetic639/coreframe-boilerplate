@@ -20,6 +20,8 @@ export interface RichTextEditorFieldProps {
   id?: string;
   /** "@" mentions: the app's suggestion list (people, objects). Off when omitted. */
   mention?: MentionOptions;
+  /** Puts the cursor at the end once the editor is ready (an editor opened by a click). */
+  autoFocus?: boolean;
 }
 
 export interface RichTextRendererProps {

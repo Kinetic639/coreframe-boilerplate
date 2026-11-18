@@ -205,7 +205,8 @@
       "formerMember": "Former member",
       "addFailed": "Failed to add comment",
       "typing": "{name} is typing…",
-      "typingMany": "{count} people are typing…"
+      "typingMany": "{count} people are typing…",
+      "writeComment": "Write a comment…"
     },
     "attachments": {
       "title": "Attachments",
@@ -4867,7 +4868,10 @@
         "actions": "Actions",
         "recurrence": "Repeat",
         "assignee": "Assignee",
-        "openFull": "Open full view"
+        "openFull": "Open full view",
+        "edit": "Edit",
+        "unsavedChanges": "Unsaved changes",
+        "addDescription": "Add a more detailed description…"
       },
       "boardTools": {
         "badges": {

@@ -28,6 +28,7 @@ export function CommentEditor({
   actions,
   id,
   mention,
+  autoFocus = false,
 }: CommentEditorProps) {
   const t = useTranslations("components.comments");
   const empty = isRichTextEmpty(value);
@@ -49,6 +50,7 @@ export function CommentEditor({
         disabled={disabled || submitting}
         maxLength={maxLength}
         mention={mention}
+        autoFocus={autoFocus}
         className={editorClassName}
         contentClassName={cn(
           compact

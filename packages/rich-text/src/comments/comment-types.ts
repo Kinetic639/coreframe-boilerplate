@@ -35,6 +35,8 @@ export interface CommentEditorProps {
   id?: string;
   /** "@" mentions of people and objects; off when omitted */
   mention?: MentionOptions;
+  /** Focus the editor when it appears (opened from a collapsed "Write a comment" field). */
+  autoFocus?: boolean;
 }
 
 export interface CommentRendererProps {
