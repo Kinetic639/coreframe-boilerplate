@@ -228,7 +228,7 @@ export function AttachmentsPanel({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 gap-1.5 sm:hidden"
+                className="h-8 gap-1.5 rounded-md border-input bg-transparent px-2.5 text-sm font-normal text-foreground shadow-none hover:bg-accent hover:text-accent-foreground sm:hidden"
                 onClick={() => cameraInput.current?.click()}
                 aria-label={t("takePhoto")}
               >
@@ -238,7 +238,7 @@ export function AttachmentsPanel({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 gap-1.5"
+                className="h-8 gap-1.5 rounded-md border-input bg-transparent px-2.5 text-sm font-normal text-foreground shadow-none hover:bg-accent hover:text-accent-foreground"
                 onClick={() => fileInput.current?.click()}
               >
                 <Plus className="h-3.5 w-3.5" />

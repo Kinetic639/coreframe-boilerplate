@@ -431,9 +431,14 @@ export function WatchButton({
 
   return (
     <Button
-      variant={watching ? "secondary" : "outline"}
+      variant="outline"
       size="sm"
-      className={cn("w-full justify-start gap-1.5", className)}
+      className={cn(
+        chipClass,
+        "w-full justify-start",
+        watching && "bg-accent text-accent-foreground",
+        className
+      )}
       onClick={() => toggle.mutate(!watching)}
       disabled={toggle.isPending}
       aria-pressed={watching}
@@ -472,7 +477,7 @@ export function CoverPicker({
         <Button
           variant="outline"
           size="sm"
-          className={cn("w-full justify-start gap-1.5", className)}
+          className={cn(chipClass, "w-full justify-start", className)}
         >
           <ImageIcon className="h-3.5 w-3.5" />
           {t("taskEditor.cover")}
@@ -774,7 +779,7 @@ export function ChecklistsSection({
           <Button
             variant="outline"
             size="sm"
-            className="gap-1.5"
+            className={chipClass}
             onClick={() => {
               setNewTitle(lists.length ? "" : t("taskEditor.defaultChecklistTitle"));
               setAdding(true);
