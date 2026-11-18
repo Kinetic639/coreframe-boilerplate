@@ -30,6 +30,8 @@ export interface KanbanBoardSummary {
   starred: boolean;
   /** Offered as a template when making a new board. */
   is_template: boolean;
+  /** How many people the board is shared with (members besides its owner). */
+  shared_with: number;
 }
 
 export type KanbanBoardAccess = "owner" | KanbanMemberRole;

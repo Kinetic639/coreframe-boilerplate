@@ -233,6 +233,7 @@ describe("PlanningCalendarService", () => {
           archived_at: null,
           starred: false,
           is_template: false,
+          shared_with: 0,
         },
       ],
     });

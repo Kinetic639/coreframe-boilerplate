@@ -4685,7 +4685,8 @@
           "organization": "Organization",
           "privateHelp": "You and the people you add.",
           "branchHelp": "Everyone in the chosen branch, plus the people you add.",
-          "organizationHelp": "Everyone in the organization."
+          "organizationHelp": "Everyone in the organization.",
+          "shared": "Shared ({count} {count, plural, one {person} other {people}})"
         },
         "sharing": {
           "branch": "Branch",

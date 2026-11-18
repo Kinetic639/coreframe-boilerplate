@@ -44,7 +44,7 @@ import type { KanbanVisibility } from "@/lib/validations/kanban";
 import { cn } from "@/utils";
 import {
   BoardVisibilityFields,
-  BoardVisibilityIcon,
+  BoardScopeLabel,
   NewBoardMembersField,
   type PendingBoardMember,
 } from "./board-sharing";
@@ -267,8 +267,7 @@ function BoardTile({
             <span className="line-clamp-2 text-xs text-muted-foreground">{board.description}</span>
           ) : null}
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <BoardVisibilityIcon visibility={board.visibility} />
-            {t(`boards.visibility.${board.visibility}`)}
+            <BoardScopeLabel visibility={board.visibility} sharedWith={board.shared_with} />
             {board.is_template ? (
               <span className="ml-1 flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-medium text-foreground">
                 <LayoutTemplate className="h-3 w-3" />
