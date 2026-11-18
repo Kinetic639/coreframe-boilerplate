@@ -15,12 +15,16 @@ export function TaskEditorDialog({
   return (
     <Dialog open={Boolean(taskRef)} onOpenChange={(open) => !open && onClose()}>
       {/* Full screen on a phone; a large window elsewhere (wide enough for the side tabs). */}
-      <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-full max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[min(90dvh,900px)] sm:w-[calc(100vw-2rem)] sm:max-w-6xl sm:rounded-lg sm:border">
+      <DialogContent
+        hideClose
+        className="flex h-[100dvh] max-h-[100dvh] w-full max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[min(90dvh,900px)] sm:w-[calc(100vw-2rem)] sm:max-w-6xl sm:rounded-lg sm:border"
+      >
         {taskRef ? (
           <TaskEditor
             {...props}
             taskRef={taskRef}
             onClose={onClose}
+            showClose
             renderTitle={(title) => <DialogTitle asChild>{title}</DialogTitle>}
           />
         ) : (
