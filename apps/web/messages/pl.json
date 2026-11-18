@@ -229,7 +229,7 @@
       "deleteFailed": "Nie udało się usunąć załącznika",
       "addFiles": "Dodaj pliki",
       "takePhoto": "Zrób zdjęcie",
-      "downloadAll": "Pobierz wszystkie",
+      "selectAll": "Zaznacz wszystkie",
       "downloadFailed": "Nie udało się pobrać plików.",
       "archiveName": "zalaczniki",
       "select": "Zaznacz",
@@ -4780,7 +4780,8 @@
         "columnStatus": {
           "label": "Status zadań w tej kolumnie",
           "none": "Bez statusu (zwykła grupa)",
-          "help": "Zadanie przeniesione do tej kolumny dostaje ten status, a zmiana statusu na liście zadań przenosi je do pierwszej kolumny z tym statusem. Kolumna bez statusu tylko grupuje zadania."
+          "help": "Zadanie przeniesione do tej kolumny dostaje ten status, a zmiana statusu na liście zadań przenosi je do pierwszej kolumny z tym statusem. Kolumna bez statusu tylko grupuje zadania.",
+          "taken": "jest już na tablicy"
         },
         "columnMenu": "Menu kolumny",
         "addCard": "Dodaj kartę",
@@ -4871,6 +4872,14 @@
             "mine": "Moje",
             "shared": "Udostępnione"
           }
+        },
+        "columnKind": {
+          "label": "Rodzaj kolumny",
+          "status": "Kolumna statusowa",
+          "plain": "Zwykła kolumna",
+          "statusHelp": "Nazwa kolumny to nazwa statusu. Zadanie przeniesione tu dostaje ten status, a zmiana statusu przenosi zadanie do tej kolumny. Każdy status może mieć na tablicy tylko jedną kolumnę.",
+          "plainHelp": "Kolumna z własną nazwą, która tylko grupuje zadania i nie zmienia ich statusu.",
+          "allTaken": "Wszystkie statusy mają już kolumnę na tej tablicy, więc możesz dodać tylko zwykłą kolumnę."
         }
       },
       "settings": {

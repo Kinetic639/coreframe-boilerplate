@@ -76,6 +76,7 @@ import {
   PRIORITY_FLAG_COLORS,
   STATUS_DOT_COLORS,
   activityLabel,
+  columnName,
   priorityLabel,
   statusLabel,
 } from "./task-labels";
@@ -121,6 +122,8 @@ export interface TaskEditorProps {
   onArchive?: (card: KanbanBoardCard) => Promise<boolean>;
   /** After archiving, or from the close button of a dialog. */
   onClose?: () => void;
+  /** A close button at the end of the top bar (in a dialog). */
+  showClose?: boolean;
   /** The dialog title slot (a dialog needs a title element for screen readers). */
   renderTitle?: (title: React.ReactNode) => React.ReactNode;
   /** A label was added to the task's board from the editor. */
@@ -144,9 +147,21 @@ export function TaskEditor(props: TaskEditorProps) {
     initialDataUpdatedAt: 0,
   });
 
-  if (task.isPending) return <TaskEditorSkeleton />;
-  if (task.isError) {
-    return <p className="p-6 text-sm text-destructive">{task.error.message}</p>;
+  if (task.isPending || task.isError) {
+    return (
+      <>
+        {props.showClose && props.onClose ? (
+          <div className="flex h-12 shrink-0 items-center justify-end border-b px-3 sm:px-4">
+            <CloseButton onClose={props.onClose} />
+          </div>
+        ) : null}
+        {task.isPending ? (
+          <TaskEditorSkeleton />
+        ) : (
+          <p className="p-6 text-sm text-destructive">{task.error.message}</p>
+        )}
+      </>
+    );
   }
   // Keyed by the task: another task starts with fresh fields.
   return (
@@ -159,6 +174,21 @@ export function TaskEditor(props: TaskEditorProps) {
     >
       <TaskEditorBody key={task.data.card.id} {...props} data={task.data} />
     </MemberProfilesProvider>
+  );
+}
+
+function CloseButton({ onClose, className }: { onClose: () => void; className?: string }) {
+  const t = useTranslations("modules.planning");
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className={cn("h-8 w-8 shrink-0", className)}
+      onClick={onClose}
+      aria-label={t("taskEditor.close")}
+    >
+      <X className="h-4 w-4" />
+    </Button>
   );
 }
 
@@ -176,6 +206,7 @@ function TaskEditorBody({
   onChanged,
   onArchive,
   onClose,
+  showClose = false,
   renderTitle,
   onBoardLabelCreated,
 }: TaskEditorProps & { data: KanbanTaskEditorData }) {
@@ -362,7 +393,7 @@ function TaskEditorBody({
   const toolbar = (
     <div
       className={cn(
-        "flex h-12 shrink-0 items-center gap-2 px-3 pr-12 sm:px-4 sm:pr-14",
+        "flex h-12 shrink-0 items-center gap-2 px-3 sm:px-4",
         hasCover ? "absolute inset-x-0 top-0 z-10" : "border-b"
       )}
     >
@@ -448,6 +479,14 @@ function TaskEditorBody({
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
+      {showClose && onClose ? (
+        <CloseButton
+          onClose={onClose}
+          className={
+            hasCover ? "bg-background/90 shadow-sm backdrop-blur hover:bg-background" : undefined
+          }
+        />
+      ) : null}
     </div>
   );
 
@@ -473,7 +512,7 @@ function TaskEditorBody({
           {card.is_inbox
             ? t("boards.inbox.title")
             : board
-              ? `${board.title}${column ? ` › ${column.title}` : ""}`
+              ? `${board.title}${column ? ` › ${columnName(t, column)}` : ""}`
               : t("taskEditor.noBoard")}
         </p>
         <div className="min-w-0">{renderTitle ? renderTitle(titleNode) : titleNode}</div>
@@ -613,7 +652,7 @@ function TaskEditorBody({
         <SideRow label={t("taskEditor.board")}>
           {card.is_inbox ? t("boards.inbox.title") : (board?.title ?? t("taskEditor.noBoard"))}
         </SideRow>
-        {column ? <SideRow label={t("taskEditor.column")}>{column.title}</SideRow> : null}
+        {column ? <SideRow label={t("taskEditor.column")}>{columnName(t, column)}</SideRow> : null}
       </section>
 
       {board && !card.is_inbox ? (
@@ -913,7 +952,9 @@ function ColumnMenu({
             style={{ backgroundColor: current?.color ?? "#64748b" }}
             aria-hidden="true"
           />
-          <span className="truncate">{current?.title ?? t("taskEditor.column")}</span>
+          <span className="truncate">
+            {current ? columnName(t, current) : t("taskEditor.column")}
+          </span>
           {!disabled ? <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" /> : null}
         </Button>
       </DropdownMenuTrigger>
@@ -929,7 +970,7 @@ function ColumnMenu({
               style={{ backgroundColor: candidate.color ?? "#64748b" }}
               aria-hidden="true"
             />
-            <span className="truncate">{candidate.title}</span>
+            <span className="truncate">{columnName(t, candidate)}</span>
             {candidate.id === currentId ? <Check className="ml-auto h-3.5 w-3.5" /> : null}
           </DropdownMenuItem>
         ))}

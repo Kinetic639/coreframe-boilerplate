@@ -633,6 +633,34 @@ interface MoveRpcResult {
   position: number;
 }
 
+// ── Columns ───────────────────────────────────────────────────────────────
+
+/** Shown when a board already has an active column for the status. */
+const STATUS_COLUMN_TAKEN = "This board already has a column for this status.";
+
+/** Whether another active column of the board already has the status. */
+async function statusColumnTaken(
+  supabase: SupabaseClient,
+  boardId: string,
+  status: KanbanTaskStatus,
+  exceptId?: string
+): Promise<boolean> {
+  let query = supabase
+    .from("planning_kanban_columns")
+    .select("id", { count: "exact", head: true })
+    .eq("board_id", boardId)
+    .eq("status_category", status)
+    .is("archived_at", null)
+    .is("deleted_at", null);
+  if (exceptId) query = query.neq("id", exceptId);
+  const { count } = await query;
+  return (count ?? 0) > 0;
+}
+
+function columnWriteError(error: { code?: string; message: string }): string {
+  return error.code === "23505" ? STATUS_COLUMN_TAKEN : error.message;
+}
+
 export const KanbanBoardsService = {
   async recordCardActivity(
     supabase: SupabaseClient,
@@ -1094,8 +1122,6 @@ export const KanbanBoardsService = {
     }
   },
 
-  // ── Columns ───────────────────────────────────────────────────────────────
-
   async createColumn(
     supabase: SupabaseClient,
     orgId: string,
@@ -1103,6 +1129,12 @@ export const KanbanBoardsService = {
     input: CreateKanbanColumnInput
   ): Promise<ServiceResult<KanbanBoardColumn>> {
     try {
+      if (
+        input.status_category &&
+        (await statusColumnTaken(supabase, input.board_id, input.status_category))
+      ) {
+        return { success: false, error: STATUS_COLUMN_TAKEN };
+      }
       const position = await nextColumnPosition(supabase, input.board_id);
       const { data, error } = await supabase
         .from("planning_kanban_columns")
@@ -1118,7 +1150,7 @@ export const KanbanBoardsService = {
         })
         .select(COLUMN_FIELDS)
         .single();
-      if (error) return { success: false, error: error.message };
+      if (error) return { success: false, error: columnWriteError(error) };
       return { success: true, data: mapColumn(data) };
     } catch (e) {
       return failure(e);
@@ -1132,6 +1164,12 @@ export const KanbanBoardsService = {
     input: UpdateKanbanColumnInput
   ): Promise<ServiceResult<KanbanBoardColumn>> {
     try {
+      if (
+        input.status_category &&
+        (await statusColumnTaken(supabase, input.board_id, input.status_category, input.id))
+      ) {
+        return { success: false, error: STATUS_COLUMN_TAKEN };
+      }
       const { data, error } = await supabase
         .from("planning_kanban_columns")
         .update({
@@ -1149,7 +1187,7 @@ export const KanbanBoardsService = {
         .is("deleted_at", null)
         .select(COLUMN_FIELDS)
         .single();
-      if (error) return { success: false, error: error.message };
+      if (error) return { success: false, error: columnWriteError(error) };
       return { success: true, data: mapColumn(data) };
     } catch (e) {
       return failure(e);

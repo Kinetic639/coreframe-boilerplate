@@ -46,6 +46,7 @@ import {
 import { createTaskAction } from "@/app/actions/planning";
 import { TASK_PRIORITIES, type TaskPriority } from "@/lib/validations/planning";
 import type { KanbanBoardDetail, KanbanBoardSummary } from "@/lib/types/kanban";
+import { columnName } from "@/components/planning/task-editor/task-labels";
 
 type QuickAddDialog = "task" | "kanban-card" | null;
 
@@ -355,6 +356,7 @@ function QuickKanbanCardDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useTranslations("dashboard.header.quickAdd.kanbanDialog");
+  const tPlanning = useTranslations("modules.planning");
   const router = useRouter();
   const [boards, setBoards] = useState<KanbanBoardSummary[]>([]);
   const [selectedBoardId, setSelectedBoardId] = useState("");
@@ -515,7 +517,7 @@ function QuickKanbanCardDialog({
                 <SelectContent>
                   {columns.map((column) => (
                     <SelectItem key={column.id} value={column.id}>
-                      {column.title}
+                      {columnName(tPlanning, column)}
                     </SelectItem>
                   ))}
                 </SelectContent>

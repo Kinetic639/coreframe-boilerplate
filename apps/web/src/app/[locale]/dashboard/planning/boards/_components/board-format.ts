@@ -4,6 +4,7 @@ export {
   LABEL_COLORS,
   STATUS_DOT_COLORS,
   activityLabel,
+  columnName,
   initials,
   priorityLabel,
   statusLabel,

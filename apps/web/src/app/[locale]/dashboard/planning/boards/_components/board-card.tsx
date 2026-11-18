@@ -43,13 +43,7 @@ import { PRIORITY_FLAG_COLORS } from "@/components/planning/task-editor/task-lab
 import { formatCardDates } from "@/components/planning/task-editor/task-editor-extras";
 import { cn } from "@/utils";
 import { MemberAvatar } from "@/components/planning/member-avatar";
-import {
-  DUE_STATE_CLASSES,
-  STATUS_DOT_COLORS,
-  dueState,
-  priorityLabel,
-  statusLabel,
-} from "./board-format";
+import { DUE_STATE_CLASSES, columnName, dueState, priorityLabel } from "./board-format";
 import type { BoardActions } from "./use-board-actions";
 
 interface BoardCardProps {
@@ -199,7 +193,24 @@ export const BoardCard = memo(function BoardCard({
             }}
           />
         ) : (
-          <h3 className="line-clamp-3 break-words pr-6 text-sm font-medium">{card.title}</h3>
+          <div className="flex items-start gap-2">
+            <h3 className="line-clamp-3 min-w-0 flex-1 break-words text-sm font-medium">
+              {card.title}
+            </h3>
+            {/* With nothing above the title, the quick-edit pencil takes this corner on hover. */}
+            <span
+              className={cn(
+                "mt-0.5 shrink-0 font-mono text-[10px] text-muted-foreground/80",
+                hasQuickActions &&
+                  !hasCover &&
+                  !card.labels?.length &&
+                  !card.label &&
+                  "transition-opacity group-hover:opacity-0"
+              )}
+            >
+              {card.task_number}
+            </span>
+          </div>
         )}
 
         <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -296,29 +307,16 @@ export const BoardCard = memo(function BoardCard({
               {card.comment_count}
             </span>
           ) : null}
-          <span
-            className="flex items-center gap-1"
-            title={`${t("tasks.status")}: ${statusLabel(t, card.status)}`}
-          >
-            <span
-              className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_DOT_COLORS[card.status])}
-              aria-hidden="true"
-            />
-            <span className="sr-only">{statusLabel(t, card.status)}</span>
-          </span>
-          <span className="ml-auto flex items-center gap-1.5">
-            <span className="font-mono text-[10px] text-muted-foreground/80">
-              {card.task_number}
-            </span>
-            {assignee ? (
+          {assignee ? (
+            <span className="ml-auto flex items-center">
               <MemberAvatar
                 userId={card.assigned_to}
                 name={card.assignee_name}
                 email={card.assignee_email}
                 className="h-6 w-6"
               />
-            ) : null}
-          </span>
+            </span>
+          ) : null}
         </div>
 
         {fieldChips.length ? (
@@ -456,7 +454,7 @@ export const BoardCard = memo(function BoardCard({
                                 className="mr-2 h-2.5 w-2.5 rounded-full"
                                 style={{ backgroundColor: column.color ?? "#64748b" }}
                               />
-                              {column.title}
+                              {columnName(t, column)}
                             </DropdownMenuItem>
                           ))}
                       </DropdownMenuSubContent>

@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { KanbanBoardArchive } from "@/lib/types/kanban";
+import { columnName } from "./board-format";
 import { boardArchiveQuery } from "./boards-query";
 import type { BoardActions } from "./use-board-actions";
 
@@ -92,7 +93,7 @@ export function BoardArchiveDialog({
                           aria-hidden="true"
                         />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">{column.title}</p>
+                          <p className="truncate text-sm font-medium">{columnName(t, column)}</p>
                           <p className="text-xs text-muted-foreground">
                             {t("boards.archive.cardCount", { count: column.card_count })}
                             {column.archived_at ? ` · ${archivedAt(column.archived_at)}` : ""}
@@ -117,7 +118,9 @@ export function BoardArchiveDialog({
                             variant="ghost"
                             className="h-8 w-8 text-destructive"
                             disabled={pendingId === column.id}
-                            aria-label={t("boards.archive.deleteColumn", { title: column.title })}
+                            aria-label={t("boards.archive.deleteColumn", {
+                              title: columnName(t, column),
+                            })}
                             onClick={() => setDeleting(column)}
                           >
                             <Trash2 className="h-4 w-4" />

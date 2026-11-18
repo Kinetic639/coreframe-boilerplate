@@ -35,7 +35,7 @@ import {
   hasActiveFilters,
   type BoardFilters,
 } from "./board-filters";
-import { INBOX_COLUMN_ID } from "./board-format";
+import { INBOX_COLUMN_ID, columnName } from "./board-format";
 import { BoardFilterBar } from "./board-filter-bar";
 import type { BoardSwitcherProps } from "./board-picker-dialog";
 import {
@@ -196,7 +196,7 @@ export function BoardWorkspace({
       board && showBoard
         ? board.columns.map((column) => ({
             id: column.id,
-            title: column.title,
+            title: columnName(t, column),
             description: column.description,
             color: column.color,
           }))
@@ -544,6 +544,7 @@ export function BoardWorkspace({
               orgId={orgId}
               boardId={board.id}
               column={full}
+              columns={board.columns}
               cardCount={board.cards.filter((card) => card.column_id === full.id).length}
               cardTemplates={cardTemplates}
               canUpdate={canUpdate}
@@ -588,7 +589,7 @@ export function BoardWorkspace({
         }
         renderAddColumn={
           canUpdate && board && showBoard
-            ? () => <AddColumnPanel boardId={board.id} actions={actions} />
+            ? () => <AddColumnPanel boardId={board.id} columns={board.columns} actions={actions} />
             : undefined
         }
         renderCard={(card) => (
