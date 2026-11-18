@@ -40,6 +40,7 @@ import {
   useDeleteAttachmentMutation,
   type AttachmentUploadItem,
 } from "@/hooks/queries/attachments";
+import { keepFilesInMemory } from "@/hooks/queries/attachments/direct-upload";
 import { ALLOWED_ATTACHMENT_MIME_TYPES } from "@/lib/validations/attachments";
 import type { AppAttachment } from "@/server/services/attachments.service";
 import { cn } from "@/utils";
@@ -164,8 +165,10 @@ export function AttachmentsPanel({
     setSelected(new Set());
   };
 
+  // Copied into memory first: on iPhones a picked file can stop being readable later.
   const pick = (files: FileList | null) => {
-    if (files?.length) queue.add(Array.from(files));
+    if (!files?.length) return;
+    void keepFilesInMemory(files).then((copies) => queue.add(copies));
   };
 
   return (

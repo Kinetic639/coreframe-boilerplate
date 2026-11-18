@@ -20,6 +20,29 @@ export function attachmentUploadProblem(file: File): AttachmentUploadProblem | n
   return null;
 }
 
+/**
+ * A copy of a picked file held in memory. On iPhones a file from the photo
+ * picker or the camera can stop being readable once the input is cleared or
+ * some time has passed, so an upload started later sends nothing and fails;
+ * a copy taken right when the file is picked always uploads.
+ */
+export async function keepFileInMemory(file: File): Promise<File> {
+  try {
+    const bytes = await file.arrayBuffer();
+    return new File([bytes], file.name, { type: file.type, lastModified: file.lastModified });
+  } catch {
+    return file;
+  }
+}
+
+/** Every picked file copied into memory (see keepFileInMemory). */
+export function keepFilesInMemory(files: FileList | File[] | null | undefined): Promise<File[]> {
+  return Promise.all(Array.from(files ?? []).map(keepFileInMemory));
+}
+
+/** No byte moved for this long: the upload is given up instead of spinning forever. */
+const UPLOAD_TIMEOUT_MS = 2 * 60 * 1000;
+
 function extension(name: string): string {
   const match = /\.([a-zA-Z0-9]{1,12})$/.exec(name);
   return match ? `.${match[1].toLowerCase()}` : "";
@@ -34,6 +57,7 @@ function putObject(
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open("POST", url);
+    request.timeout = UPLOAD_TIMEOUT_MS;
     Object.entries(headers).forEach(([name, value]) => request.setRequestHeader(name, value));
     request.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress?.(event.loaded / event.total);
@@ -54,6 +78,7 @@ function putObject(
       reject(new Error(message));
     };
     request.onerror = () => reject(new Error("Network error"));
+    request.ontimeout = () => reject(new Error("Upload timed out"));
     request.send(file);
   });
 }
