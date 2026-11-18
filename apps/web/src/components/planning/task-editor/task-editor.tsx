@@ -618,7 +618,6 @@ function TaskEditorBody({
         targetId={card.id}
         canUpload={canUpdate}
         canDelete={canUpdate}
-        archiveName={card.task_number}
         labels={{ sectionTitle: t("taskEditor.attachments") }}
         onUploaded={(files) => {
           const current = queryClient.getQueryData<KanbanTaskEditorData>(taskKey)?.card ?? card;
