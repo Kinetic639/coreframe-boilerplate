@@ -60,6 +60,14 @@ export function statusLabel(t: Translate, status: KanbanTaskStatus) {
   return t(STATUS_LABEL_KEYS[status]);
 }
 
+/** A status column is named after its status (translated); a plain one by its own title. */
+export function columnName(
+  t: Translate,
+  column: { title: string; status_category?: KanbanTaskStatus | null }
+) {
+  return column.status_category ? statusLabel(t, column.status_category) : column.title;
+}
+
 export function priorityLabel(t: Translate, priority: string) {
   return ["low", "normal", "high", "urgent"].includes(priority) ? t(`tasks.${priority}`) : priority;
 }

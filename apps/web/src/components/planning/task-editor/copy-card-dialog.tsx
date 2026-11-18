@@ -33,6 +33,7 @@ import { Switch } from "@/components/ui/switch";
 import type { KanbanBoardCard } from "@/lib/types/kanban";
 import { KANBAN_COPY_PARTS, type KanbanCopyPart } from "@/lib/validations/kanban";
 import { unwrapTaskResult as unwrap } from "./task-editor-queries";
+import { columnName } from "./task-labels";
 
 /** Where copies may go: the boards the user can add cards to, and a board's lists. */
 export const copyTargetKeys = {
@@ -78,6 +79,7 @@ interface CopyCardDialogProps {
  */
 export function CopyCardDialog({ orgId, card, onOpenChange, onCopied }: CopyCardDialogProps) {
   const t = useTranslations("modules.planning.boardExtras");
+  const tPlanning = useTranslations("modules.planning");
   const open = Boolean(card);
   const [title, setTitle] = useState("");
   const [boardId, setBoardId] = useState<string | null>(null);
@@ -223,7 +225,7 @@ export function CopyCardDialog({ orgId, card, onOpenChange, onCopied }: CopyCard
                 <SelectContent>
                   {(columns.data ?? []).map((column) => (
                     <SelectItem key={column.id} value={column.id}>
-                      {column.title}
+                      {columnName(tPlanning, column)}
                     </SelectItem>
                   ))}
                 </SelectContent>

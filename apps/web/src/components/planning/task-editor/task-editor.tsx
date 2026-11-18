@@ -76,6 +76,7 @@ import {
   PRIORITY_FLAG_COLORS,
   STATUS_DOT_COLORS,
   activityLabel,
+  columnName,
   priorityLabel,
   statusLabel,
 } from "./task-labels";
@@ -511,7 +512,7 @@ function TaskEditorBody({
           {card.is_inbox
             ? t("boards.inbox.title")
             : board
-              ? `${board.title}${column ? ` › ${column.title}` : ""}`
+              ? `${board.title}${column ? ` › ${columnName(t, column)}` : ""}`
               : t("taskEditor.noBoard")}
         </p>
         <div className="min-w-0">{renderTitle ? renderTitle(titleNode) : titleNode}</div>
@@ -651,7 +652,7 @@ function TaskEditorBody({
         <SideRow label={t("taskEditor.board")}>
           {card.is_inbox ? t("boards.inbox.title") : (board?.title ?? t("taskEditor.noBoard"))}
         </SideRow>
-        {column ? <SideRow label={t("taskEditor.column")}>{column.title}</SideRow> : null}
+        {column ? <SideRow label={t("taskEditor.column")}>{columnName(t, column)}</SideRow> : null}
       </section>
 
       {board && !card.is_inbox ? (
@@ -951,7 +952,9 @@ function ColumnMenu({
             style={{ backgroundColor: current?.color ?? "#64748b" }}
             aria-hidden="true"
           />
-          <span className="truncate">{current?.title ?? t("taskEditor.column")}</span>
+          <span className="truncate">
+            {current ? columnName(t, current) : t("taskEditor.column")}
+          </span>
           {!disabled ? <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" /> : null}
         </Button>
       </DropdownMenuTrigger>
@@ -967,7 +970,7 @@ function ColumnMenu({
               style={{ backgroundColor: candidate.color ?? "#64748b" }}
               aria-hidden="true"
             />
-            <span className="truncate">{candidate.title}</span>
+            <span className="truncate">{columnName(t, candidate)}</span>
             {candidate.id === currentId ? <Check className="ml-auto h-3.5 w-3.5" /> : null}
           </DropdownMenuItem>
         ))}

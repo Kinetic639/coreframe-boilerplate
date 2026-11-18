@@ -43,7 +43,7 @@ import { PRIORITY_FLAG_COLORS } from "@/components/planning/task-editor/task-lab
 import { formatCardDates } from "@/components/planning/task-editor/task-editor-extras";
 import { cn } from "@/utils";
 import { MemberAvatar } from "@/components/planning/member-avatar";
-import { DUE_STATE_CLASSES, dueState, priorityLabel } from "./board-format";
+import { DUE_STATE_CLASSES, columnName, dueState, priorityLabel } from "./board-format";
 import type { BoardActions } from "./use-board-actions";
 
 interface BoardCardProps {
@@ -454,7 +454,7 @@ export const BoardCard = memo(function BoardCard({
                                 className="mr-2 h-2.5 w-2.5 rounded-full"
                                 style={{ backgroundColor: column.color ?? "#64748b" }}
                               />
-                              {column.title}
+                              {columnName(t, column)}
                             </DropdownMenuItem>
                           ))}
                       </DropdownMenuSubContent>

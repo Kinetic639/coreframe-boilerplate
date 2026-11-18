@@ -4700,7 +4700,8 @@
         "columnStatus": {
           "label": "Task status in this column",
           "none": "No status (just a group)",
-          "help": "A task moved into this column gets this status, and changing the status in the task list moves it to the first column with that status. A column without a status only groups tasks."
+          "help": "A task moved into this column gets this status, and changing the status in the task list moves it to the first column with that status. A column without a status only groups tasks.",
+          "taken": "already on the board"
         },
         "columnMenu": "Column menu",
         "addCard": "Add card",
@@ -4791,6 +4792,14 @@
             "mine": "Mine",
             "shared": "Shared"
           }
+        },
+        "columnKind": {
+          "label": "Column type",
+          "status": "Status column",
+          "plain": "Plain column",
+          "statusHelp": "The column is named after the status. A task moved here gets this status, and changing a task's status moves it to this column. Each status can have only one column on a board.",
+          "plainHelp": "A column with a name of its own that only groups tasks and leaves their status alone.",
+          "allTaken": "Every status already has a column on this board, so you can only add a plain column."
         }
       },
       "settings": {
