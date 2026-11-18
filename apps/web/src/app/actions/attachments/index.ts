@@ -7,10 +7,15 @@ import {
   deleteAttachmentSchema,
   listAttachmentsSchema,
   MAX_ATTACHMENT_BATCH_SIZE,
+  registerAttachmentsSchema,
   type ListAttachmentsInput,
 } from "@/lib/validations/attachments";
 import { getCommentTargetDescriptor } from "@/server/comments/target-registry";
-import { AttachmentsService, type AppAttachment } from "@/server/services/attachments.service";
+import {
+  AttachmentsService,
+  type AppAttachment,
+  type UploadedAttachmentFile,
+} from "@/server/services/attachments.service";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
@@ -104,6 +109,40 @@ export async function uploadAttachmentsAction(
     );
   } catch (error) {
     console.error("[uploadAttachmentsAction] Unexpected error", error);
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+/** Records files the browser already uploaded to storage (see useUploadAttachmentsMutation). */
+export async function registerAttachmentsAction(
+  rawInput: unknown
+): Promise<ActionResult<AppAttachment[]>> {
+  try {
+    const parsed = registerAttachmentsSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
+
+    const descriptor = getCommentTargetDescriptor(parsed.data.targetType);
+    if (!descriptor) return { success: false, error: "Unsupported attachment target type" };
+
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+
+    const attachPermission =
+      descriptor.requiredAttachmentPermission ?? descriptor.requiredCommentPermission;
+    if (!checkPermission(ctx.context.user.permissionSnapshot, attachPermission)) {
+      return { success: false, error: "Insufficient permissions" };
+    }
+
+    const { files, ...target } = parsed.data;
+    return AttachmentsService.registerUploaded(
+      ctx.supabase,
+      ctx.orgId,
+      ctx.userId,
+      target as ListAttachmentsInput,
+      files as UploadedAttachmentFile[]
+    );
+  } catch (error) {
+    console.error("[registerAttachmentsAction] Unexpected error", error);
     return { success: false, error: "Unexpected error" };
   }
 }

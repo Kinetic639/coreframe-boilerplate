@@ -37,7 +37,8 @@ import { AttachmentsStagingField } from "@/components/primitives/attachments";
 import { QrCodeStagingField, type StagedQrCode } from "@/components/features/qr";
 import { usePermissions } from "@/hooks/v2/use-permissions";
 import { QR_ASSIGN, QR_CREATE } from "@/lib/constants/permissions";
-import { uploadAttachmentsAction } from "@/app/actions/attachments";
+import { uploadAttachmentDirect } from "@/hooks/queries/attachments/direct-upload";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { assignQrToTicketAction } from "@/app/actions/qr/assign";
 
 interface NewTicketFormProps {
@@ -63,6 +64,7 @@ export function NewTicketForm({
       ((tt as any).scope === "branch" && (tt as any).branch_id === activeBranchId)
   );
   const t = useTranslations("modules.helpDesk");
+  const activeOrgId = useAppStoreV2((state) => state.activeOrgId);
   const router = useRouter();
   const { can } = usePermissions();
 
@@ -155,19 +157,21 @@ export function NewTicketForm({
             followUps.push(
               (async () => {
                 try {
-                  const formData = new FormData();
-                  formData.set("targetType", "helpdesk.ticket");
-                  formData.set("targetId", data.id);
-                  stagedFiles.forEach((file) => formData.append("files", file));
-                  const result = await uploadAttachmentsAction(formData);
-                  if (!result.success) {
-                    toast.error(
-                      (result as { success: false; error: string }).error ||
-                        t("tickets.attachmentUploadFailed")
-                    );
+                  // One request per file, straight to storage (no request-size limit).
+                  for (const file of stagedFiles) {
+                    await uploadAttachmentDirect({
+                      orgId: activeOrgId ?? "",
+                      targetType: "helpdesk.ticket",
+                      targetId: data.id,
+                      file,
+                    });
                   }
-                } catch {
-                  toast.error(t("tickets.attachmentUploadFailed"));
+                } catch (error) {
+                  toast.error(
+                    error instanceof Error && error.message
+                      ? error.message
+                      : t("tickets.attachmentUploadFailed")
+                  );
                 }
               })()
             );

@@ -40,12 +40,28 @@ export const uploadAttachmentsSchema = attachmentTargetSchema.extend({
   files: z.array(fileLikeSchema).min(1).max(MAX_ATTACHMENT_BATCH_SIZE),
 });
 
+/** Files the browser uploaded straight to storage, to be recorded on a target. */
+export const registerAttachmentsSchema = attachmentTargetSchema.extend({
+  files: z
+    .array(
+      z.object({
+        storagePath: z.string().min(1).max(300),
+        fileName: z.string().trim().min(1).max(255),
+        contentType: z.string().min(1).max(120),
+        size: z.number().int().positive().max(MAX_ATTACHMENT_FILE_SIZE),
+      })
+    )
+    .min(1)
+    .max(MAX_ATTACHMENT_BATCH_SIZE),
+});
+
 export const deleteAttachmentSchema = z.object({
   attachmentId: z.string().uuid(),
 });
 
 export type ListAttachmentsInput = z.infer<typeof listAttachmentsSchema>;
 export type UploadAttachmentsInput = z.infer<typeof uploadAttachmentsSchema>;
+export type RegisterAttachmentsInput = z.infer<typeof registerAttachmentsSchema>;
 export type DeleteAttachmentInput = z.infer<typeof deleteAttachmentSchema>;
 
 export function isAllowedAttachmentMimeType(value: string): value is AttachmentMimeType {

@@ -106,6 +106,13 @@ function buildStoragePath(orgId: string, userId: string, file: File): string {
   return `${orgId}/${userId}/${randomUUID()}${extension}`;
 }
 
+export interface UploadedAttachmentFile {
+  storagePath: string;
+  fileName: string;
+  contentType: string;
+  size: number;
+}
+
 function profileMap(profiles: OrgMemberPublicProfile[]): Map<string, OrgMemberPublicProfile> {
   return new Map(profiles.map((profile) => [profile.user_id, profile]));
 }
@@ -323,6 +330,78 @@ export class AttachmentsService {
     }
 
     return enrichRows(supabase, orgId, rows, userId);
+  }
+
+  /**
+   * Files the browser already put into storage itself (one request per file,
+   * so no request-size limit of the server gets in the way). Each path must be
+   * in the caller's own folder of this organization, which is also what the
+   * storage policy allowed them to upload to.
+   */
+  static async registerUploaded(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: ListAttachmentsInput,
+    files: UploadedAttachmentFile[]
+  ): Promise<ServiceResult<AppAttachment[]>> {
+    const descriptor = getCommentTargetDescriptor(input.targetType);
+    if (!descriptor) return { success: false, error: "Unsupported attachment target type" };
+
+    const targetResult = await validateTarget(descriptor, supabase, orgId, input.targetId);
+    if (!targetResult.success) return targetResult as { success: false; error: string };
+
+    const ownFolder = new RegExp(`^${orgId}/${userId}/[0-9a-f-]{36}(\\.[a-z0-9]{1,12})?$`);
+    for (const file of files) {
+      if (!ownFolder.test(file.storagePath)) return { success: false, error: "Invalid file path" };
+      if (file.size <= 0) return { success: false, error: "Empty files cannot be attached" };
+      if (file.size > MAX_ATTACHMENT_FILE_SIZE)
+        return { success: false, error: "File is too large" };
+      if (!isAllowedAttachmentMimeType(file.contentType)) {
+        return { success: false, error: "File type is not allowed" };
+      }
+    }
+
+    const rows: AppAttachmentRow[] = [];
+    for (const file of files) {
+      const { data, error } = await supabase
+        .from("app_attachments")
+        .insert({
+          org_id: orgId,
+          target_type: input.targetType,
+          target_id: input.targetId,
+          bucket_id: ATTACHMENTS_BUCKET,
+          storage_path: file.storagePath,
+          file_name: sanitizeFileName(file.fileName),
+          content_type: file.contentType,
+          size_bytes: file.size,
+          created_by: userId,
+          metadata: { original_name: file.fileName },
+        })
+        .select(
+          [
+            "id, org_id, target_type, target_id, bucket_id, storage_path, file_name, content_type,",
+            "size_bytes, metadata, created_by, created_at, deleted_at",
+          ].join("")
+        )
+        .single();
+
+      if (error) return { success: false, error: error.message };
+
+      const row = data as unknown as AppAttachmentRow;
+      rows.push(row);
+
+      await descriptor.afterAttachmentCreated?.({
+        supabase,
+        orgId,
+        targetId: input.targetId,
+        actorId: userId,
+        attachmentId: row.id,
+        fileName: row.file_name,
+      });
+    }
+
+    return enrichRows(supabase, orgId, rows, userId, { includeSignedUrls: true });
   }
 
   static async softDelete(

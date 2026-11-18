@@ -17,6 +17,7 @@ import { taskKeys, taskListQuery, type TaskList } from "./tasks-query";
 import {
   DUE_WITHIN,
   NO_BOARD,
+  TASK_VISIBILITIES,
   ORG_WIDE,
   taskHref,
   taskParsers,
@@ -222,6 +223,12 @@ export function TasksWorkspace({
       ],
     },
     {
+      kind: "list",
+      id: "widocznosc",
+      label: labels.visibility,
+      options: TASK_VISIBILITIES.map((value) => ({ value, label: labels[`visibility_${value}`] })),
+    },
+    {
       kind: "dates",
       id: "due_at",
       label: labels.column_due_at,
@@ -294,7 +301,7 @@ export function TasksWorkspace({
           {state.selected ? (
             <aside
               aria-labelledby="planning-task-panel-title"
-              className="dt-list-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-3xl flex-col overflow-hidden border-l bg-background shadow-2xl xl:static xl:z-auto xl:min-w-0 xl:flex-1 xl:max-w-none xl:shadow-none"
+              className="dt-list-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-5xl flex-col overflow-hidden border-l bg-background shadow-2xl xl:static xl:z-auto xl:min-w-0 xl:flex-1 xl:max-w-none xl:shadow-none"
             >
               <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
                 <button

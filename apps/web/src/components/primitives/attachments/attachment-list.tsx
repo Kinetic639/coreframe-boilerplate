@@ -14,6 +14,7 @@ import {
 import { useLocale } from "next-intl";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,7 @@ import {
 import { Link } from "@/i18n/navigation";
 import type { AppAttachment } from "@/server/services/attachments.service";
 import { cn } from "@/utils";
+import { attachmentFilePath } from "./attachment-download";
 import { formatFileSize, isImageMimeType } from "./attachment-utils";
 
 export interface AttachmentListLabels {
@@ -41,6 +43,7 @@ export interface AttachmentListLabels {
   previewUnavailable?: string;
   openPreviewPage?: string;
   actions?: string;
+  select?: string;
 }
 
 interface AttachmentListProps {
@@ -50,6 +53,9 @@ interface AttachmentListProps {
   canDelete?: (attachment: AppAttachment) => boolean;
   labels?: AttachmentListLabels;
   className?: string;
+  /** With these, every file gets a tick box (to download or remove several at once). */
+  selectedIds?: ReadonlySet<string>;
+  onToggleSelected?: (attachmentId: string) => void;
 }
 
 function FileIcon({ contentType }: { contentType: string }) {
@@ -72,16 +78,7 @@ function attachmentFileParams(attachment: AppAttachment): {
   };
 }
 
-function localizedAttachmentFilePath(
-  attachment: AppAttachment,
-  locale: string,
-  download = false
-): string {
-  const base = locale === "en" ? "/en/attachments" : "/zalaczniki";
-  const action = locale === "en" ? "download" : "pobierz";
-  const path = `${base}/${attachment.id}/${action}/${encodeURIComponent(attachment.file_name)}`;
-  return download ? `${path}?download=1` : path;
-}
+const localizedAttachmentFilePath = attachmentFilePath;
 
 export function AttachmentList({
   attachments,
@@ -90,6 +87,8 @@ export function AttachmentList({
   canDelete,
   labels,
   className,
+  selectedIds,
+  onToggleSelected,
 }: AttachmentListProps) {
   const locale = useLocale();
   const [previewId, setPreviewId] = useState<string | null>(null);
@@ -119,15 +118,25 @@ export function AttachmentList({
             params: attachmentFileParams(attachment),
           } as const;
           const downloadHref = { ...fileHref, query: { download: "1" } } as const;
+          const selected = selectedIds?.has(attachment.id) ?? false;
 
           return (
             <div
               key={attachment.id}
               className={cn(
                 "flex min-w-0 items-center gap-3 rounded-md border bg-card p-2",
-                isPreviewable && "transition-colors hover:bg-muted/40"
+                isPreviewable && "transition-colors hover:bg-muted/40",
+                selected && "border-primary bg-primary/5"
               )}
             >
+              {onToggleSelected ? (
+                <Checkbox
+                  checked={selected}
+                  onCheckedChange={() => onToggleSelected(attachment.id)}
+                  aria-label={`${labels?.select ?? "Select"}: ${attachment.file_name}`}
+                  className="ml-1 h-5 w-5"
+                />
+              ) : null}
               <button
                 type="button"
                 className={cn(

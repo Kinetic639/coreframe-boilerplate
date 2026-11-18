@@ -90,6 +90,8 @@ export interface TaskListFilters {
   /** Any of these boards (with `no_board`: or tasks on no board). */
   board_ids?: string[];
   no_board?: boolean;
+  /** Private (an inbox or a private board) or shared (everything else). */
+  visibility?: "private" | "shared";
   /** ISO timestamps, both ends included. */
   due_from?: string;
   due_to?: string;

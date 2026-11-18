@@ -401,10 +401,12 @@ export function WatchButton({
   card,
   currentUserId,
   onCardChange,
+  className,
 }: {
   card: KanbanBoardCard;
   currentUserId: string;
   onCardChange: (card: KanbanBoardCard) => void;
+  className?: string;
 }) {
   const t = useTranslations("modules.planning");
   const watching = card.watcher_ids.includes(currentUserId);
@@ -429,7 +431,7 @@ export function WatchButton({
     <Button
       variant={watching ? "secondary" : "outline"}
       size="sm"
-      className="w-full justify-start gap-1.5"
+      className={cn("w-full justify-start gap-1.5", className)}
       onClick={() => toggle.mutate(!watching)}
       disabled={toggle.isPending}
       aria-pressed={watching}
@@ -449,9 +451,11 @@ export function CoverPicker({
   card,
   disabled,
   onChange,
+  className,
 }: {
   card: KanbanBoardCard;
   disabled: boolean;
+  className?: string;
   onChange: (cover: { cover_color?: string | null; cover_attachment_id?: string | null }) => void;
 }) {
   const t = useTranslations("modules.planning");
@@ -463,7 +467,11 @@ export function CoverPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild disabled={disabled}>
-        <Button variant="outline" size="sm" className="w-full justify-start gap-1.5">
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn("w-full justify-start gap-1.5", className)}
+        >
           <ImageIcon className="h-3.5 w-3.5" />
           {t("taskEditor.cover")}
           {card.cover_color ? (

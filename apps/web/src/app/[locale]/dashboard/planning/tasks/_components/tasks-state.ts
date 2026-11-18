@@ -29,6 +29,8 @@ export const UNASSIGNED = "brak";
 export const ORG_WIDE = "organizacja";
 /** The board filter's value for tasks on no board. */
 export const NO_BOARD = "bez";
+/** Who can see a task: only its author or a private board's people, or everyone allowed. */
+export const TASK_VISIBILITIES = ["prywatne", "wspolne"] as const;
 
 const UUID = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 
@@ -69,6 +71,7 @@ export const taskParsers = {
   przypisani: parseAsArrayOf(parseAsAssignee).withDefault([]),
   oddzial: parseAsArrayOf(parseAsBranch).withDefault([]),
   tablica: parseAsArrayOf(parseAsBoard).withDefault([]),
+  widocznosc: parseAsArrayOf(parseAsStringLiteral(TASK_VISIBILITIES)).withDefault([]),
   termin: parseAsStringLiteral(DUE_WITHIN),
   termin_od: parseAsDay,
   termin_do: parseAsDay,
@@ -121,6 +124,13 @@ export function taskFilters(state: TaskState, today = new Date()): TaskListFilte
     org_wide: state.oddzial.includes(ORG_WIDE) || undefined,
     board_ids: state.tablica.filter((value) => value !== NO_BOARD),
     no_board: state.tablica.includes(NO_BOARD) || undefined,
+    // Both or neither: no filter.
+    visibility:
+      state.widocznosc.length === 1
+        ? state.widocznosc[0] === "prywatne"
+          ? "private"
+          : "shared"
+        : undefined,
     due_from: due.from ? `${due.from}T00:00:00.000Z` : undefined,
     // The whole last day counts.
     due_to: due.to ? `${due.to}T23:59:59.999Z` : undefined,

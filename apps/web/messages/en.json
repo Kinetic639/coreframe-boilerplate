@@ -225,7 +225,29 @@
       "actions": "Attachment actions",
       "download": "Download",
       "uploadFailed": "Failed to upload attachment",
-      "deleteFailed": "Failed to remove attachment"
+      "deleteFailed": "Failed to remove attachment",
+      "addFiles": "Add files",
+      "takePhoto": "Take a photo",
+      "downloadAll": "Download all",
+      "downloadFailed": "Could not download the files.",
+      "archiveName": "attachments",
+      "select": "Select",
+      "selectedCount": "{count, plural, one {# file selected} other {# files selected}}",
+      "removeSelected": "{count, plural, one {Remove # file} other {Remove # files}}",
+      "removeSelectedTitle": "{count, plural, one {Remove # file?} other {Remove # files?}}",
+      "clearSelection": "Cancel",
+      "cancel": "Cancel",
+      "queued": "Queued",
+      "uploaded": "Done",
+      "retry": "Try again",
+      "dismiss": "Remove from list",
+      "emptyCta": "Add files",
+      "emptyHint": "Pick several at once or drag them here. Up to 25 MB per file.",
+      "problem": {
+        "tooLarge": "The file is too large (25 MB limit).",
+        "typeNotAllowed": "This type of file cannot be attached.",
+        "empty": "The file is empty."
+      }
     }
   },
   "admin": {
@@ -4540,7 +4562,20 @@
           "card_moved_from_inbox": "Moved from the inbox to a board",
           "card_archived": "Archived on a board"
         },
-        "taskArchived": "Task archived"
+        "taskArchived": "Task archived",
+        "assignMe": "Me",
+        "assignNobody": "Nobody",
+        "assignOther": "Someone else…",
+        "dueToday": "Today",
+        "dueTomorrow": "Tomorrow",
+        "dueNextWeek": "In a week",
+        "dueNone": "No date",
+        "qrWillBeAssigned": "Code {code} will be assigned to this task.",
+        "attachmentsField": "Photos and files",
+        "addPhoto": "Take a photo",
+        "addFiles": "Add files",
+        "removeFile": "Remove {name}",
+        "attachmentsUploadFailed": "The task was created, but some files could not be added."
       },
       "boards": {
         "newBoard": "New board",
@@ -4816,7 +4851,23 @@
         "convertToTask": "Convert to sub-task",
         "deleteItem": "Delete item",
         "unlinkSubtask": "Remove from list (the task stays)",
-        "attachments": "Attachments"
+        "attachments": "Attachments",
+        "tabTask": "Task",
+        "tabDetails": "Details",
+        "tabComments": "Comments",
+        "tabActivity": "Activity",
+        "tabsLabel": "Task sections",
+        "place": "Location",
+        "board": "Board",
+        "column": "Column",
+        "moveTo": "Move to column",
+        "markDone": "Mark as done",
+        "reopen": "Reopen",
+        "more": "More actions",
+        "actions": "Actions",
+        "recurrence": "Repeat",
+        "assignee": "Assignee",
+        "openFull": "Open full view"
       },
       "boardTools": {
         "badges": {
