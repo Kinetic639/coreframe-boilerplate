@@ -313,6 +313,33 @@ export const updateKanbanChecklistItemSchema = z.object({
   due_at: z.string().datetime().nullable().optional(),
 });
 
+export const checklistTemplateItemSchema = z.object({
+  title: z.string().trim().min(1).max(500),
+  assigned_to: z.string().uuid().nullable().default(null),
+  due_offset_days: z.number().int().min(0).max(365).nullable().default(null),
+});
+
+export const saveChecklistTemplateSchema = z.object({
+  /** Missing for a new template. */
+  id: z.string().uuid().optional(),
+  title: z.string().trim().min(1).max(200),
+  items: z.array(checklistTemplateItemSchema).max(200),
+});
+
+export const checklistTemplateRefSchema = z.object({
+  id: z.string().uuid(),
+});
+
+export const applyChecklistTemplateSchema = z.object({
+  task_id: z.string().uuid(),
+  template_id: z.string().uuid(),
+});
+
+export const checklistToTemplateSchema = z.object({
+  checklist_id: z.string().uuid(),
+  title: z.string().trim().min(1).max(200),
+});
+
 export const kanbanTaskWatchSchema = z.object({
   task_id: z.string().uuid(),
   watching: z.boolean(),
@@ -355,6 +382,10 @@ export type CreateKanbanChecklistInput = z.infer<typeof createKanbanChecklistSch
 export type UpdateKanbanChecklistInput = z.infer<typeof updateKanbanChecklistSchema>;
 export type CreateKanbanChecklistItemInput = z.infer<typeof createKanbanChecklistItemSchema>;
 export type UpdateKanbanChecklistItemInput = z.infer<typeof updateKanbanChecklistItemSchema>;
+export type SaveChecklistTemplateInput = z.input<typeof saveChecklistTemplateSchema>;
+export type SaveChecklistTemplateData = z.infer<typeof saveChecklistTemplateSchema>;
+export type ApplyChecklistTemplateInput = z.infer<typeof applyChecklistTemplateSchema>;
+export type ChecklistToTemplateInput = z.infer<typeof checklistToTemplateSchema>;
 export type KanbanTaskWatchInput = z.infer<typeof kanbanTaskWatchSchema>;
 export type CopyKanbanCardInput = z.input<typeof copyKanbanCardSchema>;
 export type CopyKanbanColumnInput = z.infer<typeof copyKanbanColumnSchema>;

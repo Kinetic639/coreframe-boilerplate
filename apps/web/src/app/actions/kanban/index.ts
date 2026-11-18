@@ -88,6 +88,13 @@ import {
   type UpdateKanbanCustomFieldInput,
   type DeleteKanbanCustomFieldInput,
   type SetKanbanCustomFieldValueInput,
+  saveChecklistTemplateSchema,
+  checklistTemplateRefSchema,
+  applyChecklistTemplateSchema,
+  checklistToTemplateSchema,
+  type SaveChecklistTemplateInput,
+  type ApplyChecklistTemplateInput,
+  type ChecklistToTemplateInput,
 } from "@/lib/validations/kanban";
 import type {
   KanbanBoardActivity,
@@ -105,8 +112,10 @@ import type {
   KanbanTaskRef,
   KanbanTaskRelations,
   KanbanCustomField,
+  ChecklistTemplate,
 } from "@/lib/types/kanban";
 import { KanbanBoardsService } from "@/server/services/kanban-boards.service";
+import { PlanningChecklistTemplatesService } from "@/server/services/planning-checklist-templates.service";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
@@ -846,5 +855,54 @@ export async function setKanbanCustomFieldValueAction(
 ): Promise<ActionResult<KanbanBoardCard>> {
   return guarded(PLANNING_TASKS_UPDATE, setKanbanCustomFieldValueSchema, input, (ctx, data) =>
     KanbanBoardsService.setCustomFieldValue(ctx.supabase, ctx.orgId, ctx.userId, data)
+  );
+}
+
+// ── Checklist templates ─────────────────────────────────────────────────────
+
+export async function listChecklistTemplatesAction(): Promise<ActionResult<ChecklistTemplate[]>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_TASKS_READ)) {
+      return { success: false, error: "Insufficient permissions" };
+    }
+    return PlanningChecklistTemplatesService.list(ctx.supabase, ctx.orgId);
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function saveChecklistTemplateAction(
+  input: SaveChecklistTemplateInput
+): Promise<ActionResult<ChecklistTemplate>> {
+  return guarded(PLANNING_TASKS_UPDATE, saveChecklistTemplateSchema, input, (ctx, data) =>
+    PlanningChecklistTemplatesService.save(ctx.supabase, ctx.orgId, ctx.userId, data)
+  );
+}
+
+export async function deleteChecklistTemplateAction(input: {
+  id: string;
+}): Promise<ActionResult<void>> {
+  return guarded(PLANNING_TASKS_UPDATE, checklistTemplateRefSchema, input, (ctx, data) =>
+    PlanningChecklistTemplatesService.remove(ctx.supabase, ctx.orgId, data.id)
+  );
+}
+
+/** Adds the template to the task as a new checklist. */
+export async function applyChecklistTemplateAction(
+  input: ApplyChecklistTemplateInput
+): Promise<ActionResult<KanbanChecklist>> {
+  return guarded(PLANNING_TASKS_UPDATE, applyChecklistTemplateSchema, input, (ctx, data) =>
+    PlanningChecklistTemplatesService.apply(ctx.supabase, ctx.orgId, ctx.userId, data)
+  );
+}
+
+/** Saves a task's checklist as a new template. */
+export async function checklistToTemplateAction(
+  input: ChecklistToTemplateInput
+): Promise<ActionResult<ChecklistTemplate>> {
+  return guarded(PLANNING_TASKS_UPDATE, checklistToTemplateSchema, input, (ctx, data) =>
+    PlanningChecklistTemplatesService.fromChecklist(ctx.supabase, ctx.orgId, ctx.userId, data)
   );
 }
