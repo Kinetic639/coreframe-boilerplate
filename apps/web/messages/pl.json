@@ -4656,7 +4656,22 @@
         "addPhoto": "Zrób zdjęcie",
         "addFiles": "Dodaj pliki",
         "removeFile": "Usuń {name}",
-        "attachmentsUploadFailed": "Zadanie utworzone, ale części plików nie udało się dodać."
+        "attachmentsUploadFailed": "Zadanie utworzone, ale części plików nie udało się dodać.",
+        "placement": {
+          "label": "Gdzie dodać zadanie",
+          "list": "Lista zadań",
+          "inbox": "Skrzynka",
+          "board": "Tablica",
+          "listHelp": "Zadanie będzie tylko na liście zadań, bez miejsca na tablicy.",
+          "inboxHelp": "Zadanie trafi do Twojej skrzynki odbiorczej na tablicach. Widzisz je tylko Ty, dopóki nie przeniesiesz go na tablicę.",
+          "column": "Kolumna",
+          "chooseBoard": "Wybierz tablicę",
+          "chooseColumn": "Wybierz tablicę i kolumnę",
+          "loading": "Wczytywanie…",
+          "noBoards": "Brak tablic, do których możesz dodawać"
+        },
+        "uploadingFiles": "{count, plural, one {Wysyłanie # pliku…} other {Wysyłanie # plików…}}",
+        "filesUploaded": "{count, plural, one {Plik dodany do zadania.} few {Pliki dodane do zadania.} other {Pliki dodane do zadania.}}"
       },
       "boards": {
         "newBoard": "Nowa tablica",

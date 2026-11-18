@@ -4576,7 +4576,22 @@
         "addPhoto": "Take a photo",
         "addFiles": "Add files",
         "removeFile": "Remove {name}",
-        "attachmentsUploadFailed": "The task was created, but some files could not be added."
+        "attachmentsUploadFailed": "The task was created, but some files could not be added.",
+        "placement": {
+          "label": "Where to add the task",
+          "list": "Task list",
+          "inbox": "Inbox",
+          "board": "Board",
+          "listHelp": "The task is only in the task list, with no place on a board.",
+          "inboxHelp": "The task goes to your inbox on the boards. Only you see it until you move it onto a board.",
+          "column": "Column",
+          "chooseBoard": "Choose a board",
+          "chooseColumn": "Choose a board and a column",
+          "loading": "Loading…",
+          "noBoards": "No boards you can add to"
+        },
+        "uploadingFiles": "{count, plural, one {Uploading # file…} other {Uploading # files…}}",
+        "filesUploaded": "{count, plural, one {File added to the task.} other {Files added to the task.}}"
       },
       "boards": {
         "newBoard": "New board",

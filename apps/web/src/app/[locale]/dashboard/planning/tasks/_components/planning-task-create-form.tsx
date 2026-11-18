@@ -2,12 +2,21 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Camera, FileText, Loader2, Paperclip, QrCode, X } from "lucide-react";
+import {
+  Camera,
+  FileText,
+  Inbox,
+  KanbanSquare,
+  ListTodo,
+  Loader2,
+  Paperclip,
+  QrCode,
+  X,
+} from "lucide-react";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DialogFooter } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -30,8 +39,15 @@ import { QrCodeStagingField, type StagedQrCode } from "@/components/features/qr"
 import { usePermissions } from "@/hooks/v2/use-permissions";
 import {
   attachmentUploadProblem,
+  keepFilesInMemory,
   uploadAttachmentDirect,
 } from "@/hooks/queries/attachments/direct-upload";
+import {
+  useCopyTargetBoards,
+  useCopyTargetColumns,
+} from "@/components/planning/task-editor/copy-card-dialog";
+import { columnName } from "@/components/planning/task-editor/task-labels";
+import { MemberAvatar, MemberProfilesProvider } from "@/components/planning/member-avatar";
 import { formatFileSize } from "@/components/primitives/attachments";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { ALLOWED_ATTACHMENT_MIME_TYPES } from "@/lib/validations/attachments";
@@ -74,6 +90,13 @@ interface PlanningTaskCreateFormProps {
 
 const UNASSIGNED = "__unassigned__";
 
+/** Where a new task goes: only the task list, the author's board inbox, or a board column. */
+type Placement = "list" | "inbox" | "board";
+
+/** Outlined buttons in the theme's colours, as in the task editor. */
+const OUTLINE_BUTTON =
+  "h-10 gap-1.5 border-input bg-transparent font-normal text-foreground shadow-none hover:bg-accent hover:text-accent-foreground";
+
 function localDate(offsetDays: number): string {
   const date = new Date();
   date.setDate(date.getDate() + offsetDays);
@@ -101,10 +124,10 @@ function Choice({
       disabled={disabled}
       aria-pressed={selected}
       className={cn(
-        "inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors disabled:opacity-50",
+        "inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md border px-3 text-sm transition-colors disabled:opacity-50",
         selected
-          ? "border-primary bg-primary text-primary-foreground"
-          : "bg-background hover:bg-muted"
+          ? "border-primary bg-primary/10 font-medium text-foreground"
+          : "border-input bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground"
       )}
     >
       {children}
@@ -144,6 +167,13 @@ export function PlanningTaskCreateForm({
   const [submitting, setSubmitting] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [placement, setPlacement] = useState<Placement>("list");
+  const [boardId, setBoardId] = useState<string | null>(null);
+  const [columnId, setColumnId] = useState<string | null>(null);
+  const [placementError, setPlacementError] = useState<string | null>(null);
+  const tPlanning = useTranslations("modules.planning");
+  const boards = useCopyTargetBoards(orgId ?? "", placement === "board" && Boolean(orgId));
+  const columns = useCopyTargetColumns(orgId ?? "", boardId, placement === "board");
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
   const qrFromScan = Boolean(initialQrCodeId && initialToken);
@@ -162,6 +192,15 @@ export function PlanningTaskCreateForm({
     setDueAt(initialDueAt ?? "");
   }, [initialDueAt]);
 
+  // A board starts on its first column.
+  useEffect(() => {
+    const list = columns.data ?? [];
+    if (!list.length) return;
+    setColumnId((current) =>
+      current && list.some((column) => column.id === current) ? current : list[0].id
+    );
+  }, [columns.data]);
+
   function reset() {
     setTitle("");
     setDescriptionRich(createEmptyRichText);
@@ -172,11 +211,17 @@ export function PlanningTaskCreateForm({
     setTitleError(null);
     setFiles([]);
     setFileError(null);
+    setPlacement("list");
+    setBoardId(null);
+    setColumnId(null);
+    setPlacementError(null);
   }
 
-  function addFiles(list: FileList | null) {
+  // Kept in memory right away: on iPhones a picked file can stop being
+  // readable by the time the task is created and the upload starts.
+  async function addFiles(list: FileList | null) {
     if (!list?.length) return;
-    const picked = Array.from(list);
+    const picked = await keepFilesInMemory(list);
     const problem = picked.map(attachmentUploadProblem).find(Boolean);
     setFileError(problem ? tFiles(`problem.${problem}`) : null);
     setFiles((current) => [...current, ...picked.filter((file) => !attachmentUploadProblem(file))]);
@@ -189,6 +234,11 @@ export function PlanningTaskCreateForm({
       return;
     }
     setTitleError(null);
+    if (placement === "board" && !columnId) {
+      setPlacementError(t("placement.chooseColumn"));
+      return;
+    }
+    setPlacementError(null);
     setSubmitting(true);
     onSubmittingChange?.(true);
 
@@ -204,6 +254,8 @@ export function PlanningTaskCreateForm({
         branch_id: taskScope === "__organization__" ? null : taskScope,
         assigned_to: assignedTo === UNASSIGNED ? null : assignedTo || null,
         due_at: dueAt ? new Date(dueAt).toISOString() : null,
+        column_id: placement === "board" ? columnId : null,
+        is_inbox: placement === "inbox",
       });
 
       if (!result.success) {
@@ -223,25 +275,26 @@ export function PlanningTaskCreateForm({
             .catch(() => toast.error(t("qrAssignFailed")))
         );
       }
-      if (files.length > 0 && orgId) {
-        followUps.push(
-          Promise.allSettled(
-            files.map((file) =>
-              uploadAttachmentDirect({
-                orgId,
-                targetType: "planning.task",
-                targetId: result.data.id,
-                file,
-              })
-            )
-          ).then((results) => {
-            if (results.some((item) => item.status === "rejected")) {
-              toast.error(t("attachmentsUploadFailed"));
-            }
-          })
-        );
-      }
       await Promise.all(followUps);
+
+      // Files go up in the background: the form closes as soon as the task exists.
+      if (files.length > 0 && orgId) {
+        const pending = files;
+        const taskId = result.data.id;
+        const notice = toast.info(t("uploadingFiles", { count: pending.length }), {
+          autoClose: false,
+        });
+        void Promise.allSettled(
+          pending.map((file) =>
+            uploadAttachmentDirect({ orgId, targetType: "planning.task", targetId: taskId, file })
+          )
+        ).then((results) => {
+          toast.dismiss(notice);
+          const failed = results.filter((item) => item.status === "rejected").length;
+          if (failed > 0) toast.error(t("attachmentsUploadFailed"));
+          else toast.success(t("filesUploaded", { count: pending.length }));
+        });
+      }
 
       reset();
       onCreated(result.data);
@@ -260,7 +313,7 @@ export function PlanningTaskCreateForm({
   ];
 
   const fields = (
-    <div className={cn("flex flex-col gap-5", isPage ? "pb-4" : "py-2")}>
+    <div className={cn("flex flex-col gap-5", isPage ? "pb-4" : "py-4")}>
       {qrFromScan && stagedQr ? (
         <div className="flex items-center gap-2.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5 text-sm">
           <QrCode className="h-4 w-4 shrink-0 text-primary" />
@@ -306,6 +359,104 @@ export function PlanningTaskCreateForm({
       </div>
 
       <div className="flex flex-col gap-2">
+        <Label>{t("placement.label")}</Label>
+        <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1" role="radiogroup">
+          {(
+            [
+              ["list", ListTodo],
+              ["inbox", Inbox],
+              ["board", KanbanSquare],
+            ] as const
+          ).map(([option, Icon]) => (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={placement === option}
+              disabled={submitting}
+              onClick={() => {
+                setPlacement(option);
+                setPlacementError(null);
+              }}
+              className={cn(
+                "flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-md px-1 text-xs font-medium text-muted-foreground transition-colors sm:text-sm",
+                placement === option && "bg-background text-foreground shadow-sm"
+              )}
+            >
+              <Icon className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{t(`placement.${option}`)}</span>
+            </button>
+          ))}
+        </div>
+        {placement === "board" ? (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Select
+              value={boardId ?? ""}
+              onValueChange={(value) => {
+                setBoardId(value);
+                setColumnId(null);
+                setPlacementError(null);
+              }}
+              disabled={submitting || boards.isLoading}
+            >
+              <SelectTrigger className="h-10" aria-label={t("placement.board")}>
+                <SelectValue
+                  placeholder={
+                    boards.isLoading
+                      ? t("placement.loading")
+                      : boards.data?.length === 0
+                        ? t("placement.noBoards")
+                        : t("placement.chooseBoard")
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {(boards.data ?? []).map((board) => (
+                  <SelectItem key={board.id} value={board.id}>
+                    {board.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={columnId ?? ""}
+              onValueChange={(value) => {
+                setColumnId(value);
+                setPlacementError(null);
+              }}
+              disabled={submitting || !boardId || columns.isLoading}
+            >
+              <SelectTrigger className="h-10" aria-label={t("placement.column")}>
+                <SelectValue
+                  placeholder={
+                    boardId && columns.isLoading
+                      ? t("placement.loading")
+                      : t("placement.chooseColumn")
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {(columns.data ?? []).map((column) => (
+                  <SelectItem key={column.id} value={column.id}>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: column.color ?? "#64748b" }}
+                      />
+                      <span className="truncate">{columnName(tPlanning, column)}</span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">{t(`placement.${placement}Help`)}</p>
+        )}
+        {placementError ? <p className="text-xs text-destructive">{placementError}</p> : null}
+      </div>
+
+      <div className="flex flex-col gap-2">
         <Label>{t("assignTo")}</Label>
         <div className="flex flex-wrap gap-2">
           <Choice
@@ -313,6 +464,7 @@ export function PlanningTaskCreateForm({
             onClick={() => setAssignedTo(currentUserId)}
             disabled={submitting}
           >
+            <MemberAvatar userId={currentUserId} className="h-5 w-5" disabledPopover />
             {t("assignMe")}
           </Choice>
           <Choice
@@ -329,13 +481,22 @@ export function PlanningTaskCreateForm({
             onValueChange={setAssignedTo}
             disabled={submitting}
           >
-            <SelectTrigger className={cn("h-10", assignedOther && "border-primary")}>
+            <SelectTrigger className={cn("h-10", assignedOther && "border-primary bg-primary/10")}>
               <SelectValue placeholder={t("assignOther")} />
             </SelectTrigger>
             <SelectContent>
               {others.map((m) => (
                 <SelectItem key={m.user_id} value={m.user_id}>
-                  {m.name ?? m.email ?? m.user_id}
+                  <span className="flex min-w-0 items-center gap-2">
+                    <MemberAvatar
+                      userId={m.user_id}
+                      name={m.name}
+                      email={m.email}
+                      className="h-5 w-5"
+                      disabledPopover
+                    />
+                    <span className="truncate">{m.name ?? m.email ?? m.user_id}</span>
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -439,7 +600,7 @@ export function PlanningTaskCreateForm({
           <Button
             type="button"
             variant="outline"
-            className="h-10 gap-1.5"
+            className={OUTLINE_BUTTON}
             onClick={() => cameraInput.current?.click()}
             disabled={submitting}
           >
@@ -449,7 +610,7 @@ export function PlanningTaskCreateForm({
           <Button
             type="button"
             variant="outline"
-            className="h-10 gap-1.5"
+            className={OUTLINE_BUTTON}
             onClick={() => fileInput.current?.click()}
             disabled={submitting}
           >
@@ -465,7 +626,7 @@ export function PlanningTaskCreateForm({
           accept={ALLOWED_ATTACHMENT_MIME_TYPES.join(",")}
           className="hidden"
           onChange={(event) => {
-            addFiles(event.target.files);
+            void addFiles(event.target.files);
             event.target.value = "";
           }}
         />
@@ -476,7 +637,7 @@ export function PlanningTaskCreateForm({
           capture="environment"
           className="hidden"
           onChange={(event) => {
-            addFiles(event.target.files);
+            void addFiles(event.target.files);
             event.target.value = "";
           }}
         />
@@ -503,38 +664,48 @@ export function PlanningTaskCreateForm({
     </>
   );
 
+  const memberIds = members.map((member) => member.user_id);
+
+  const actionButtons = (
+    <>
+      <Button
+        variant="outline"
+        className={cn(OUTLINE_BUTTON, "h-11 shrink-0 sm:h-10")}
+        onClick={onCancel}
+        disabled={submitting}
+      >
+        {t("cancel")}
+      </Button>
+      <Button
+        className="h-11 flex-1 sm:h-10 sm:flex-none"
+        onClick={() => void handleSubmit()}
+        disabled={submitting}
+      >
+        {submitLabel}
+      </Button>
+    </>
+  );
+
   if (isPage) {
+    // On a phone the buttons are pinned to the bottom of the screen (above the
+    // home indicator); the fields leave room for them.
     return (
-      <>
-        {fields}
-        <div className="sticky bottom-0 z-10 -mx-4 flex gap-2 border-t bg-background px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:mx-0 sm:border-0 sm:px-0">
-          <Button
-            variant="outline"
-            className="h-11 shrink-0"
-            onClick={onCancel}
-            disabled={submitting}
-          >
-            {t("cancel")}
-          </Button>
-          <Button className="h-11 flex-1" onClick={() => void handleSubmit()} disabled={submitting}>
-            {submitLabel}
-          </Button>
+      <MemberProfilesProvider userIds={memberIds}>
+        <div className="pb-24 sm:pb-0">{fields}</div>
+        <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:justify-end sm:border-0 sm:px-0 sm:pb-0">
+          {actionButtons}
         </div>
-      </>
+      </MemberProfilesProvider>
     );
   }
 
+  // In the dialog the fields scroll and the buttons stay at the bottom.
   return (
-    <>
-      {fields}
-      <DialogFooter className="flex-col gap-2 sm:flex-row">
-        <Button variant="outline" onClick={onCancel} disabled={submitting}>
-          {t("cancel")}
-        </Button>
-        <Button onClick={() => void handleSubmit()} disabled={submitting}>
-          {submitLabel}
-        </Button>
-      </DialogFooter>
-    </>
+    <MemberProfilesProvider userIds={memberIds}>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-6">{fields}</div>
+      <div className="flex shrink-0 gap-2 border-t bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:justify-end sm:px-6 sm:pb-3">
+        {actionButtons}
+      </div>
+    </MemberProfilesProvider>
   );
 }

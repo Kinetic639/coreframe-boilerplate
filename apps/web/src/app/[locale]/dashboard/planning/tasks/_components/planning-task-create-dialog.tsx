@@ -54,8 +54,9 @@ export function PlanningTaskCreateDialog({
         if (!next) onOpenChange(false);
       }}
     >
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[560px]">
-        <DialogHeader>
+      {/* Full screen on a phone (fields scroll, buttons stay at the bottom); a window elsewhere. */}
+      <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-full max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-auto sm:max-h-[90dvh] sm:max-w-[560px] sm:rounded-lg sm:border">
+        <DialogHeader className="shrink-0 border-b px-4 py-3 pr-12 text-left sm:px-6">
           <DialogTitle>{t("createTask")}</DialogTitle>
         </DialogHeader>
 
