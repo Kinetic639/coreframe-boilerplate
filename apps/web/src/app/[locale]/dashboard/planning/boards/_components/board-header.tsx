@@ -40,6 +40,7 @@ import { cn } from "@/utils";
 import { MemberAvatar } from "@/components/planning/member-avatar";
 import { BOARD_COLORS, boardBackground } from "./board-colors";
 import { ArchiveBoardConfirm, BoardSettingsDialog } from "./board-settings-dialog";
+import { BoardScopeIcon } from "./board-sharing";
 import { CopyBoardDialog } from "./board-copy-dialog";
 import { BoardPickerDialog, type BoardSwitcherProps } from "./board-picker-dialog";
 import type { BoardsAdmin } from "./use-boards-admin";
@@ -150,6 +151,12 @@ export function BoardHeader({
             <TooltipContent>{t("boards.switchBoards")}</TooltipContent>
           </Tooltip>
           <BoardTitle board={board} canEdit={canUpdate} admin={admin} />
+          <BoardScopeIcon
+            visibility={board.visibility}
+            branchId={board.branch_id}
+            sharedWith={board.members.length}
+            onClick={isArchived ? undefined : () => setSettingsOpen(true)}
+          />
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
