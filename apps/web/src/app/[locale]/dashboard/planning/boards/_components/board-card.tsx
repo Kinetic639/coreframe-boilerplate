@@ -43,13 +43,7 @@ import { PRIORITY_FLAG_COLORS } from "@/components/planning/task-editor/task-lab
 import { formatCardDates } from "@/components/planning/task-editor/task-editor-extras";
 import { cn } from "@/utils";
 import { MemberAvatar } from "@/components/planning/member-avatar";
-import {
-  DUE_STATE_CLASSES,
-  STATUS_DOT_COLORS,
-  dueState,
-  priorityLabel,
-  statusLabel,
-} from "./board-format";
+import { DUE_STATE_CLASSES, dueState, priorityLabel } from "./board-format";
 import type { BoardActions } from "./use-board-actions";
 
 interface BoardCardProps {
@@ -313,16 +307,6 @@ export const BoardCard = memo(function BoardCard({
               {card.comment_count}
             </span>
           ) : null}
-          <span
-            className="flex items-center gap-1"
-            title={`${t("tasks.status")}: ${statusLabel(t, card.status)}`}
-          >
-            <span
-              className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_DOT_COLORS[card.status])}
-              aria-hidden="true"
-            />
-            <span className="sr-only">{statusLabel(t, card.status)}</span>
-          </span>
           {assignee ? (
             <span className="ml-auto flex items-center">
               <MemberAvatar
