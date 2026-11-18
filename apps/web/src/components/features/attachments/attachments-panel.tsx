@@ -63,8 +63,6 @@ interface AttachmentsPanelProps {
   className?: string;
   listClassName?: string;
   labels?: AttachmentsPanelLabels;
-  /** The name of the .zip with several files (without .zip). */
-  archiveName?: string;
   onUploaded?: (attachments: AppAttachment[]) => void | Promise<void>;
   onDeleted?: (attachmentId: string) => void | Promise<void>;
 }
@@ -75,7 +73,7 @@ const ACCEPT = ALLOWED_ATTACHMENT_MIME_TYPES.join(",");
  * The files of one thing (a task, a ticket, a job). "Add files" opens the
  * picker with several files allowed, and each picked file uploads at once
  * with its own progress; files can be dropped on the section too. Ticking
- * files downloads them as one .zip or removes them together.
+ * files downloads them one by one or removes them together.
  */
 export function AttachmentsPanel({
   targetType,
@@ -87,7 +85,6 @@ export function AttachmentsPanel({
   className,
   listClassName,
   labels,
-  archiveName,
   onUploaded,
   onDeleted,
 }: AttachmentsPanelProps) {
@@ -140,7 +137,7 @@ export function AttachmentsPanel({
   const download = async (files: AppAttachment[]) => {
     setDownloading(true);
     try {
-      await downloadAttachments(files, locale, archiveName ?? t("archiveName"));
+      await downloadAttachments(files, locale);
     } catch (error) {
       toast.error(
         error instanceof Error ? `${t("downloadFailed")} ${error.message}` : t("downloadFailed")

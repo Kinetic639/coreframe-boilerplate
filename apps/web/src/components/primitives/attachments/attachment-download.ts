@@ -38,14 +38,56 @@ function uniqueNames(attachments: AppAttachment[]): string[] {
   });
 }
 
+/** A file that does not arrive in this time fails instead of spinning forever. */
+const FILE_TIMEOUT_MS = 60_000;
+
+async function fetchFile(url: string, init?: RequestInit): Promise<Blob> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), FILE_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { ...init, signal: controller.signal });
+    if (!response.ok) throw new Error(String(response.status));
+    return await response.blob();
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 /**
- * One file downloads as it is; several come as one .zip made in the browser
- * (nothing extra on the server, and a phone gets a single file).
+ * Straight from storage (its link is signed for an hour); through the app's
+ * own address when the link has expired or does not work.
+ */
+async function fetchAttachment(attachment: AppAttachment, locale: string): Promise<Blob> {
+  if (attachment.download_url) {
+    try {
+      return await fetchFile(attachment.download_url);
+    } catch {
+      // Fall through to the app's address.
+    }
+  }
+  try {
+    return await fetchFile(attachmentFilePath(attachment, locale, true), {
+      credentials: "same-origin",
+    });
+  } catch (error) {
+    const reason =
+      error instanceof DOMException && error.name === "AbortError"
+        ? "timeout"
+        : error instanceof Error
+          ? error.message
+          : "error";
+    throw new Error(`${attachment.file_name}: ${reason}`);
+  }
+}
+
+/**
+ * One file downloads as it is; several download one after another as separate
+ * files (photos land as photos, not inside a .zip). Each file has a time
+ * limit, so the button never spins forever.
  */
 export async function downloadAttachments(
   attachments: AppAttachment[],
-  locale: string,
-  archiveName: string
+  locale: string
 ): Promise<void> {
   if (attachments.length === 0) return;
   if (attachments.length === 1) {
@@ -58,22 +100,16 @@ export async function downloadAttachments(
     return;
   }
 
-  const { zip } = await import("fflate");
   const names = uniqueNames(attachments);
-  const entries: Record<string, Uint8Array> = {};
-  await Promise.all(
-    attachments.map(async (attachment, index) => {
-      const response = await fetch(attachmentFilePath(attachment, locale, true), {
-        credentials: "same-origin",
-      });
-      if (!response.ok) throw new Error(`${attachment.file_name}: ${response.status}`);
-      entries[names[index]] = new Uint8Array(await response.arrayBuffer());
-    })
-  );
-
-  const archive = await new Promise<Uint8Array>((resolve, reject) =>
-    // Photos and PDFs are already compressed: storing is as small and much faster.
-    zip(entries, { level: 0 }, (error, data) => (error ? reject(error) : resolve(data)))
-  );
-  saveBlob(new Blob([archive as BlobPart], { type: "application/zip" }), `${archiveName}.zip`);
+  const failed: string[] = [];
+  for (const [index, attachment] of attachments.entries()) {
+    try {
+      saveBlob(await fetchAttachment(attachment, locale), names[index]);
+      // Browsers drop downloads started in the same instant.
+      await new Promise((resolve) => window.setTimeout(resolve, 400));
+    } catch (error) {
+      failed.push(error instanceof Error ? error.message : attachment.file_name);
+    }
+  }
+  if (failed.length) throw new Error(failed.join(", "));
 }
