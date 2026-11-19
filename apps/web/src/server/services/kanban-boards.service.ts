@@ -188,7 +188,7 @@ async function myStars(
 
 /**
  * What a card shows besides its row: how many comments and files it has, and
- * a short-lived link to its cover image. One query per 200 tasks each.
+ * the address of its cover image. One query per 200 tasks each.
  */
 async function withCardExtras(
   supabase: SupabaseClient,
@@ -200,7 +200,7 @@ async function withCardExtras(
   const files = new Map<string, number>();
   const subtasks = new Map<string, { total: number; done: number }>();
   const blocked = new Map<string, number>();
-  const coverPaths = new Map<string, string>();
+  const covers = new Set<string>();
   const ids = cards.map((card) => card.id);
   const coverIds = new Set(
     cards.map((card) => card.cover_attachment_id).filter((id): id is string => Boolean(id))
@@ -218,7 +218,7 @@ async function withCardExtras(
         .is("deleted_at", null),
       supabase
         .from("app_attachments")
-        .select("id, target_id, storage_path, content_type")
+        .select("id, target_id, content_type")
         .eq("org_id", orgId)
         .eq("target_type", "planning.task")
         .in("target_id", chunk)
@@ -253,25 +253,13 @@ async function withCardExtras(
     for (const row of (fileRows.data ?? []) as Array<{
       id: string;
       target_id: string;
-      storage_path: string;
       content_type: string;
     }>) {
       files.set(row.target_id, (files.get(row.target_id) ?? 0) + 1);
       if (coverIds.has(row.id) && row.content_type.startsWith("image/")) {
-        coverPaths.set(row.id, row.storage_path);
+        covers.add(row.id);
       }
     }
-  }
-  const coverUrls = new Map<string, string>();
-  if (coverPaths.size) {
-    const entries = [...coverPaths.entries()];
-    const { data } = await supabase.storage.from("app-attachments").createSignedUrls(
-      entries.map(([, path]) => path),
-      60 * 60
-    );
-    (data ?? []).forEach((signed, index) => {
-      if (signed?.signedUrl) coverUrls.set(entries[index][0], signed.signedUrl);
-    });
   }
   return cards.map((card) => ({
     ...card,
@@ -280,7 +268,12 @@ async function withCardExtras(
     subtask_total: subtasks.get(card.id)?.total ?? 0,
     subtask_done: subtasks.get(card.id)?.done ?? 0,
     blocked_by_open: blocked.get(card.id) ?? 0,
-    cover_url: card.cover_attachment_id ? (coverUrls.get(card.cover_attachment_id) ?? null) : null,
+    // A stable address (see /api/files/attachments/[id]): the browser caches the
+    // image, so refetching the board does not reload covers.
+    cover_url:
+      card.cover_attachment_id && covers.has(card.cover_attachment_id)
+        ? `/api/files/attachments/${card.cover_attachment_id}`
+        : null,
   }));
 }
 
@@ -758,18 +751,18 @@ export const KanbanBoardsService = {
     userId?: string
   ): Promise<ServiceResult<KanbanBoardDetail>> {
     try {
-      const { data: boardRaw, error: boardError } = await supabase
-        .from("planning_kanban_boards")
-        .select(BOARD_FIELDS)
-        .eq("organization_id", orgId)
-        .eq("id", boardId)
-        .is("deleted_at", null)
-        .single();
-
-      if (boardError) return { success: false, error: boardError.message };
-
-      const [columnsResult, cardsResult, membersResult, stars, labels, customFields] =
+      // Everything at once: the board row no longer gates the rest. A board
+      // the user cannot see returns no row (RLS), and the other reads then
+      // return nothing either, under the same policies.
+      const [boardResult, columnsResult, cardsResult, membersResult, stars, labels, customFields] =
         await Promise.all([
+          supabase
+            .from("planning_kanban_boards")
+            .select(BOARD_FIELDS)
+            .eq("organization_id", orgId)
+            .eq("id", boardId)
+            .is("deleted_at", null)
+            .single(),
           supabase
             .from("planning_kanban_columns")
             .select(COLUMN_FIELDS)
@@ -801,6 +794,8 @@ export const KanbanBoardsService = {
           boardCustomFields(supabase, orgId, boardId),
         ]);
 
+      if (boardResult.error) return { success: false, error: boardResult.error.message };
+      const boardRaw = boardResult.data;
       if (columnsResult.error) return { success: false, error: columnsResult.error.message };
       if (cardsResult.error) return { success: false, error: cardsResult.error.message };
       if (membersResult.error) return { success: false, error: membersResult.error.message };
