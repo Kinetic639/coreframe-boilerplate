@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -147,11 +147,19 @@ export function CommentsThread(props: CommentsThreadProps) {
   const addCommentMutation = useAddCommentMutation(config.targetType, config.targetId);
   const loadingInitialComments = !props.initialData && commentsQuery.isPending && rows.length === 0;
 
+  // Comments shown before the server confirmed them (optimistic): they stay
+  // on screen through a refetch until their save settles.
+  const pendingRef = useRef<AppComment[]>([]);
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+  const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
+
   useEffect(() => {
     if (!commentsQuery.data) return;
-    setRows(commentsQuery.data.rows);
+    const pending = pendingRef.current;
+    setRows([...commentsQuery.data.rows, ...pending]);
     setNextCursor(commentsQuery.data.nextCursor);
-    setTotalCount(commentsQuery.data.totalCount);
+    setTotalCount(commentsQuery.data.totalCount + pending.length);
   }, [commentsQuery.data]);
 
   const [supabase] = useState(createClient);
@@ -178,6 +186,52 @@ export function CommentsThread(props: CommentsThreadProps) {
       if (!bodyPlain.trim()) return;
       notifyStopped();
 
+      // Shown at once, slightly faded until saved; on failure it goes away and
+      // the text comes back to the editor.
+      const pendingId = `pending-${crypto.randomUUID()}`;
+      const now = new Date().toISOString();
+      const pendingComment: AppComment = {
+        id: pendingId,
+        org_id: orgId ?? "",
+        target_type: config.targetType,
+        target_id: config.targetId,
+        body_plain: bodyPlain.trim(),
+        body_rich: value,
+        visibility,
+        kind: "comment",
+        parent_comment_id: null,
+        metadata: {},
+        created_by: user?.id ?? "",
+        updated_by: null,
+        created_at: now,
+        updated_at: now,
+        deleted_at: null,
+        author: user
+          ? {
+              user_id: user.id,
+              name: typingMe?.name ?? user.email,
+              email: user.email,
+              avatar_url: user.avatar_signed_url ?? user.avatar_url ?? null,
+              profile_href: null,
+            }
+          : null,
+        is_own: true,
+      };
+      const settle = () => {
+        pendingRef.current = pendingRef.current.filter((row) => row.id !== pendingId);
+        setPendingIds((current) => {
+          const next = new Set(current);
+          next.delete(pendingId);
+          return next;
+        });
+      };
+      pendingRef.current = [...pendingRef.current, pendingComment];
+      setPendingIds((current) => new Set(current).add(pendingId));
+      setRows((current) => [...current, pendingComment]);
+      setTotalCount((current) => current + 1);
+      setDraft(createEmptyRichText());
+      if (composerOnTop) setComposerOpen(false);
+
       addCommentMutation.mutate(
         {
           targetType: config.targetType,
@@ -188,13 +242,25 @@ export function CommentsThread(props: CommentsThreadProps) {
         },
         {
           onSuccess: (comment) => {
-            setRows((current) => appendComment(current, comment));
-            setTotalCount((current) =>
-              rows.some((row) => row.id === comment.id) ? current : current + 1
+            settle();
+            // A refetch may already have brought the saved comment in.
+            if (rowsRef.current.some((row) => row.id === comment.id)) {
+              setTotalCount((count) => count - 1);
+            }
+            setRows((current) =>
+              appendComment(
+                current.filter((row) => row.id !== pendingId),
+                comment
+              )
             );
-            setDraft(createEmptyRichText());
-            if (composerOnTop) setComposerOpen(false);
             void onCommentAdded?.(comment);
+          },
+          onError: () => {
+            settle();
+            setRows((current) => current.filter((row) => row.id !== pendingId));
+            setTotalCount((current) => current - 1);
+            setDraft(value);
+            if (composerOnTop) setComposerOpen(true);
           },
         }
       );
@@ -206,7 +272,9 @@ export function CommentsThread(props: CommentsThreadProps) {
       config.targetType,
       notifyStopped,
       onCommentAdded,
-      rows,
+      orgId,
+      typingMe,
+      user,
     ]
   );
 
@@ -317,11 +385,11 @@ export function CommentsThread(props: CommentsThreadProps) {
           {shownRows.map((comment) => (
             <CommentRenderer
               key={comment.id}
-              className={
-                comment.visibility === "internal"
-                  ? "rounded-lg bg-amber-50 p-2 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:ring-amber-900"
-                  : undefined
-              }
+              className={cn(
+                comment.visibility === "internal" &&
+                  "rounded-lg bg-amber-50 p-2 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:ring-amber-900",
+                pendingIds.has(comment.id) && "opacity-60 transition-opacity"
+              )}
               value={normalizeRichText(comment.body_rich) ?? undefined}
               author={commentAuthor(comment, labels.formerMember)}
               createdAt={
