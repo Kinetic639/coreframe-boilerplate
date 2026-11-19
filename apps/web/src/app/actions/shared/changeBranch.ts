@@ -5,6 +5,7 @@ import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-conte
 import { checkPermission } from "@/lib/utils/permissions";
 import { BRANCHES_VIEW_REMOVE_ANY } from "@/lib/constants/permissions";
 import { isBranchAccessible } from "@/lib/utils/branch-access";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -31,7 +32,7 @@ export async function changeBranch(branchId: string): Promise<ActionResult> {
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
 
   if (authError || !user) {
     return { success: false, error: "Unauthorized" };
@@ -96,7 +97,7 @@ export async function removeBranchPreference(): Promise<ActionResult> {
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
 
   if (authError || !user) {
     return { success: false, error: "Unauthorized" };

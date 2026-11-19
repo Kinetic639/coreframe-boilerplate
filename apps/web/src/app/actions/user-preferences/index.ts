@@ -31,6 +31,7 @@ import {
   ACCOUNT_PREFERENCES_READ,
 } from "@/lib/constants/permissions";
 import { checkPermission } from "@/lib/utils/permissions";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 const AVATAR_BUCKET = "user-avatars";
 const AVATAR_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -71,7 +72,7 @@ async function authenticateUser(): Promise<
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
 
   if (authError || !user) {
     return { error: "Not authenticated" };

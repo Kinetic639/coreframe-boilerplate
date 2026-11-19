@@ -47,6 +47,7 @@ import {
   type UpdateCrmPartyInput,
 } from "@/lib/validations/crm";
 import type { DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
@@ -73,7 +74,7 @@ async function getAuthedContext() {
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) return null;
 
   return {

@@ -12,6 +12,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ToolsCatalogService, UserToolsService } from "../tools.service";
 import type { ServiceResult, ToolCatalogItem, UserEnabledTool } from "../tools.service";
 
+// getAuthUser() reads the token claims; these tests drive auth through the
+// mocked client's auth.getUser(), so route it there.
+vi.mock("@/server/auth/get-auth-user", async () => {
+  const { createClient } = await import("@/utils/supabase/server");
+  return { getAuthUser: async () => (await createClient()).auth.getUser() };
+});
+
 // ---------------------------------------------------------------------------
 // Module mocks for server action tests
 // ---------------------------------------------------------------------------

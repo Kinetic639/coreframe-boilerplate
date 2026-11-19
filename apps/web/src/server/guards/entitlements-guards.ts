@@ -1,6 +1,5 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
-import { createClient } from "@/utils/supabase/server";
 import { loadAppContextV2 } from "@/server/loaders/v2/load-app-context.v2";
 import {
   EntitlementError,
@@ -11,6 +10,7 @@ import {
   type OrganizationEntitlements,
 } from "@/lib/types/entitlements";
 import { EntitlementsService } from "@/server/services/entitlements-service";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 /**
  * Entitlements Guards (Server-Side)
@@ -56,14 +56,13 @@ export interface OrgContext {
  * React's cache() creates a per-request cache that is automatically cleaned up.
  */
 const getOrgContext = cache(async (): Promise<OrgContext> => {
-  const supabase = await createClient();
   const {
     data: { user },
     error: userError,
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
 
-  // getUser() validates the JWT server-side (unlike getSession which only reads the cookie).
-  // Fail closed: treat any error or missing user as unauthorized.
+  // getAuthUser() verifies the token's signature and expiry (unlike getSession, which
+  // only reads the cookie). Fail closed: treat any error or missing user as unauthorized.
   if (!user || userError) {
     throw new Error("EntitlementsGuard: Unauthorized - no user");
   }

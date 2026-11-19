@@ -4,6 +4,13 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// getAuthUser() reads the token claims; these tests drive auth through the
+// mocked client's auth.getUser(), so route it there.
+vi.mock("@/server/auth/get-auth-user", async () => {
+  const { createClient } = await import("@/utils/supabase/server");
+  return { getAuthUser: async () => (await createClient()).auth.getUser() };
+});
+
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(),
 }));

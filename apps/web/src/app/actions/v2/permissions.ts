@@ -3,6 +3,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { PermissionServiceV2 } from "@/server/services/permission-v2.service";
 import type { PermissionSnapshot } from "@/lib/types/permissions";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 /**
  * Server action to fetch permissions for a given org/branch context.
@@ -32,7 +33,7 @@ export async function getBranchPermissions(
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await getAuthUser();
 
     // Fail-closed: no user or auth error → empty snapshot
     if (authError || !user) {
@@ -69,7 +70,7 @@ export async function getEffectivePermissions(orgId: string): Promise<string[]> 
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await getAuthUser();
 
     if (authError || !user) {
       return [];
@@ -144,7 +145,7 @@ export async function getDetailedPermissions(orgId: string): Promise<DetailedPer
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await getAuthUser();
     if (authError || !user) return [];
 
     const userId = user.id;

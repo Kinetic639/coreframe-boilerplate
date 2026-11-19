@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { UserPreferencesService } from "@/server/services/user-preferences.service";
 import { syncUiSettingsSchema } from "@/lib/validations/user-preferences";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await getAuthUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -101,7 +102,7 @@ export async function GET() {
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await getAuthUser();
 
     if (authError || !user) {
       return NextResponse.json(

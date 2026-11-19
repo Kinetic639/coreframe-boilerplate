@@ -6,6 +6,7 @@ import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-conte
 import { checkPermission } from "@/lib/utils/permissions";
 import { QR_ASSIGN, HELPDESK_TICKETS_MANAGE } from "@/lib/constants/permissions";
 import { QrAssignmentsService } from "@/server/services/qr.service";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 const assignSchema = z.object({
   qrCodeId: z.string().uuid(),
@@ -92,7 +93,7 @@ export async function getQrCodeByTokenAction(token: string) {
     const supabase = await createClient();
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await getAuthUser();
     if (!user) return { success: false as const, error: "Unauthorized" };
 
     const { data, error } = await supabase
@@ -136,7 +137,7 @@ export async function getQrAssignmentForTicketAction(ticketId: string) {
     const supabase = await createClient();
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await getAuthUser();
     if (!user) return { success: false as const, error: "Unauthorized" };
 
     const { data, error } = await supabase
