@@ -8,6 +8,13 @@ import {
   type ListAttachmentsInput,
 } from "@/lib/validations/attachments";
 import {
+  attachmentVariantPaths,
+  isVariantPathOf,
+  type AttachmentImageMeta,
+} from "@/lib/attachments/image-variants";
+import { getSharedAttachmentUrl } from "@/server/storage/attachment-signed-url";
+import { createServiceClient } from "@/utils/supabase/service";
+import {
   getCommentTargetDescriptor,
   type CommentTargetDescriptor,
 } from "@/server/comments/target-registry";
@@ -18,7 +25,6 @@ import {
 import type { ServiceResult } from "./organization.service";
 
 const ATTACHMENTS_BUCKET = "app-attachments";
-const SIGNED_URL_TTL_SECONDS = 60 * 60;
 
 export interface AppAttachmentAuthor {
   user_id: string;
@@ -111,18 +117,48 @@ export interface UploadedAttachmentFile {
   fileName: string;
   contentType: string;
   size: number;
+  image?: {
+    width: number;
+    height: number;
+    variants: Array<{
+      name: "thumb" | "card";
+      path: string;
+      width: number;
+      height: number;
+      size: number;
+      contentType: string;
+    }>;
+  };
+}
+
+/** Image size and small versions to keep in app_attachments.metadata. */
+function imageMetadata(file: UploadedAttachmentFile): AttachmentImageMeta | null {
+  if (!file.image || !file.contentType.startsWith("image/")) return null;
+  const variants: AttachmentImageMeta["variants"] = {};
+  for (const variant of file.image.variants) {
+    variants[variant.name] = {
+      path: variant.path,
+      width: variant.width,
+      height: variant.height,
+      size: variant.size,
+      content_type: variant.contentType,
+    };
+  }
+  return { width: file.image.width, height: file.image.height, variants };
 }
 
 function profileMap(profiles: OrgMemberPublicProfile[]): Map<string, OrgMemberPublicProfile> {
   return new Map(profiles.map((profile) => [profile.user_id, profile]));
 }
 
-async function signedUrl(supabase: SupabaseClient, storagePath: string): Promise<string | null> {
-  const { data, error } = await supabase.storage
-    .from(ATTACHMENTS_BUCKET)
-    .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
-  if (error) return null;
-  return data.signedUrl;
+/**
+ * A link to a file from a row the caller already read under row-level security
+ * (the same rule as the storage policy). The link is shared for 50 minutes, so
+ * lists do not sign every file again on each load and the storage CDN can
+ * serve repeat views from cache.
+ */
+function signedUrl(_supabase: SupabaseClient, storagePath: string): Promise<string | null> {
+  return getSharedAttachmentUrl(storagePath);
 }
 
 async function enrichRows(
@@ -360,6 +396,12 @@ export class AttachmentsService {
       if (!isAllowedAttachmentMimeType(file.contentType)) {
         return { success: false, error: "File type is not allowed" };
       }
+      // Small versions must sit next to the file itself (same folder, same name).
+      for (const variant of file.image?.variants ?? []) {
+        if (!isVariantPathOf(file.storagePath, variant.path, variant.name)) {
+          return { success: false, error: "Invalid file path" };
+        }
+      }
     }
 
     const rows: AppAttachmentRow[] = [];
@@ -376,7 +418,7 @@ export class AttachmentsService {
           content_type: file.contentType,
           size_bytes: file.size,
           created_by: userId,
-          metadata: { original_name: file.fileName },
+          metadata: { original_name: file.fileName, ...imageMetadata(file) },
         })
         .select(
           [
@@ -412,7 +454,7 @@ export class AttachmentsService {
   ): Promise<ServiceResult<{ id: string }>> {
     const { data: existing, error: existingError } = await supabase
       .from("app_attachments")
-      .select("id, org_id, target_type, target_id, storage_path, created_by, deleted_at")
+      .select("id, org_id, target_type, target_id, storage_path, metadata, created_by, deleted_at")
       .eq("org_id", orgId)
       .eq("id", attachmentId)
       .is("deleted_at", null)
@@ -426,6 +468,7 @@ export class AttachmentsService {
       target_type: string;
       target_id: string;
       storage_path: string;
+      metadata: unknown;
       created_by: string;
     };
     const descriptor = getCommentTargetDescriptor(row.target_type);
@@ -450,6 +493,20 @@ export class AttachmentsService {
     if (error) return { success: false, error: error.message };
 
     await supabase.storage.from(ATTACHMENTS_BUCKET).remove([path ?? row.storage_path]);
+    // The small versions have no row of their own, so the storage policy does not
+    // let the user remove them; the soft delete above already checked the right to.
+    const variantPaths = attachmentVariantPaths(row.storage_path, row.metadata);
+    if (variantPaths.length > 0) {
+      const { error: variantError } = await createServiceClient()
+        .storage.from(ATTACHMENTS_BUCKET)
+        .remove(variantPaths);
+      if (variantError) {
+        console.error("[AttachmentsService.softDelete] Failed to remove image versions", {
+          attachmentId,
+          error: variantError.message,
+        });
+      }
+    }
     return { success: true, data: { id: attachmentId } };
   }
 }

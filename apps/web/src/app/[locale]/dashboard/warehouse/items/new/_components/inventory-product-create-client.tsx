@@ -1,5 +1,6 @@
 "use client";
 
+import { compressImageFile } from "@/lib/media/image-compress";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
@@ -637,7 +638,7 @@ export function InventoryProductCreateClient({
       const formData = new FormData();
       formData.set("product_id", productId);
       formData.set("is_primary", String(index === 0));
-      formData.set("file", image.file);
+      formData.set("file", await compressImageFile(image.file));
       const result = await uploadInventoryItemImageAction(formData);
       if (!result.success)
         throw new Error("error" in result ? result.error : t("imageUploadFailed"));
