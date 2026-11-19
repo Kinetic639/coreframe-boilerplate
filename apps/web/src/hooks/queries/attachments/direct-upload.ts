@@ -6,6 +6,12 @@ import {
   MAX_ATTACHMENT_FILE_SIZE,
 } from "@/lib/validations/attachments";
 import type { AppAttachment } from "@/server/services/attachments.service";
+import {
+  IMMUTABLE_CACHE_SECONDS,
+  prepareImage,
+  variantStoragePath,
+  type PreparedImage,
+} from "@/lib/media/image-compress";
 import { createClient } from "@/utils/supabase/client";
 
 const ATTACHMENTS_BUCKET = "app-attachments";
@@ -108,27 +114,67 @@ export async function uploadAttachmentDirect({
   } = await supabase.auth.getSession();
   if (!session) throw new Error("Unauthorized");
 
-  const storagePath = `${orgId}/${session.user.id}/${crypto.randomUUID()}${extension(file.name)}`;
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL!.trim().replace(/\/$/, "");
-  const objectUrl = `${base}/storage/v1/object/${ATTACHMENTS_BUCKET}/${storagePath}`;
+  // Photos are shrunk to 2048 px WebP and get 160 px and 640 px versions for
+  // lists and cards. Anything else (and an image the browser cannot read) is sent as picked.
+  const prepared: PreparedImage | null = await prepareImage(file).catch(() => null);
+  const upload = prepared?.file ?? file;
 
-  await putObject(
-    objectUrl,
-    {
-      authorization: `Bearer ${session.access_token}`,
-      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!.trim(),
-      "content-type": file.type,
-      "x-upsert": "false",
-      "cache-control": "max-age=3600",
-    },
-    file,
-    onProgress
-  );
+  const storagePath = `${orgId}/${session.user.id}/${crypto.randomUUID()}${extension(upload.name)}`;
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL!.trim().replace(/\/$/, "");
+  const headers = (contentType: string) => ({
+    authorization: `Bearer ${session.access_token}`,
+    apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!.trim(),
+    "content-type": contentType,
+    "x-upsert": "false",
+    // A stored file never changes under its path, so browsers may keep it for a year.
+    "cache-control": `max-age=${IMMUTABLE_CACHE_SECONDS}`,
+  });
+  const objectUrl = (path: string) => `${base}/storage/v1/object/${ATTACHMENTS_BUCKET}/${path}`;
+
+  await putObject(objectUrl(storagePath), headers(upload.type), upload, onProgress);
+
+  // The small versions are a few KB each; one that fails is left out and the
+  // full file is shown in its place.
+  const variants = prepared
+    ? (
+        await Promise.all(
+          prepared.variants.map(async (variant) => {
+            const path = variantStoragePath(storagePath, variant.name, variant.blob.type);
+            try {
+              const body = new File([variant.blob], path.split("/").pop() ?? variant.name, {
+                type: variant.blob.type,
+              });
+              await putObject(objectUrl(path), headers(variant.blob.type), body);
+              return {
+                name: variant.name,
+                path,
+                width: variant.width,
+                height: variant.height,
+                size: variant.blob.size,
+                contentType: variant.blob.type as "image/webp" | "image/jpeg",
+              };
+            } catch {
+              return null;
+            }
+          })
+        )
+      ).filter((variant) => variant !== null)
+    : [];
 
   const result = await registerAttachmentsAction({
     targetType,
     targetId,
-    files: [{ storagePath, fileName: file.name, contentType: file.type, size: file.size }],
+    files: [
+      {
+        storagePath,
+        fileName: upload.name,
+        contentType: upload.type,
+        size: upload.size,
+        ...(prepared
+          ? { image: { width: prepared.width, height: prepared.height, variants } }
+          : {}),
+      },
+    ],
   });
   if (!result.success) throw new Error((result as { success: false; error: string }).error);
   return result.data[0];

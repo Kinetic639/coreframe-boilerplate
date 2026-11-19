@@ -78,6 +78,7 @@ import {
   type TaskDatesPayload,
 } from "./task-dates";
 import { LABEL_COLORS } from "./task-labels";
+import { attachmentImageSrc } from "@/lib/attachments/image-variants";
 import { taskEditorKeys, unwrapTaskResult } from "./task-editor-queries";
 import { checklistProgress } from "./task-checklist-progress";
 import type { TaskEditorPerson } from "./task-editor";
@@ -539,14 +540,14 @@ export function CoverPicker({
                 }}
                 title={file.file_name}
               >
-                {file.download_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={file.download_url}
-                    alt={file.file_name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : null}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={attachmentImageSrc(file.id, "thumb")}
+                  alt={file.file_name}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                />
               </button>
             ))}
           </div>

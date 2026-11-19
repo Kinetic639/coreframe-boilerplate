@@ -1,3 +1,4 @@
+import { compressImageFile } from "@/lib/media/image-compress";
 import { createClient } from "@/utils/supabase/client";
 import { FEEDBACK_MAX_FILES, isAllowedFeedbackFile, type UploadedFeedbackFile } from "./types";
 
@@ -26,15 +27,17 @@ export async function uploadFeedbackFiles(
       rejected.push(file.name);
       continue;
     }
-    const path = `${feedbackId}/${crypto.randomUUID()}${extensionOf(file.name)}`;
+    // Screenshots and photos are shrunk to 2048 px WebP; other files go as picked.
+    const upload = await compressImageFile(file);
+    const path = `${feedbackId}/${crypto.randomUUID()}${extensionOf(upload.name)}`;
     const { error } = await supabase.storage
       .from(BUCKET)
-      .upload(path, file, { contentType: file.type, upsert: false });
+      .upload(path, upload, { contentType: upload.type, upsert: false, cacheControl: "31536000" });
     if (error) {
       rejected.push(file.name);
       continue;
     }
-    uploaded.push({ path, name: file.name, type: file.type, size: file.size });
+    uploaded.push({ path, name: upload.name, type: upload.type, size: upload.size });
   }
   return { uploaded, rejected };
 }
