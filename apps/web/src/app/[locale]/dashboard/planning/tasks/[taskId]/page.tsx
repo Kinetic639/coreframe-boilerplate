@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { dehydrate, HydrationBoundary, QueryClient } from "@tanstack/react-query";
 import { getLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
@@ -13,7 +14,7 @@ import {
 import { createClient } from "@/utils/supabase/server";
 import { KanbanBoardsService } from "@/server/services/kanban-boards.service";
 import { OrgMembersService } from "@/server/services/organization.service";
-import { TaskEditor } from "@/components/planning/task-editor";
+import { TaskEditor, taskEditorKeys } from "@/components/planning/task-editor";
 
 type PageProps = {
   params: Promise<{ taskId: string }>;
@@ -58,22 +59,38 @@ export default async function PlanningTaskDetailPage({ params }: PageProps) {
       }))
     : [];
 
+  // The task's history and its sub-tasks and dependencies come with the page,
+  // so it renders complete instead of filling in.
+  const taskId = taskResult.data.card.id;
+  const [activity, relations] = await Promise.all([
+    KanbanBoardsService.listCardActivity(supabase, orgId, taskId),
+    KanbanBoardsService.getTaskRelations(supabase, orgId, taskId),
+  ]);
+  const queryClient = new QueryClient();
+  if (activity.success)
+    queryClient.setQueryData(taskEditorKeys.activity(orgId, taskId), activity.data);
+  if (relations.success) {
+    queryClient.setQueryData(taskEditorKeys.relations(orgId, taskId), relations.data);
+  }
+
   const snap = context.user.permissionSnapshot;
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border bg-background">
-      <TaskEditor
-        orgId={orgId}
-        taskRef={taskNumber}
-        initialData={taskResult.data}
-        people={people}
-        currentUserId={userId}
-        canUpdate={checkPermission(snap, PLANNING_TASKS_UPDATE)}
-        canAssign={checkPermission(snap, PLANNING_TASKS_ASSIGN)}
-        canArchive={checkPermission(snap, PLANNING_TASKS_DELETE)}
-        canMove={checkPermission(snap, PLANNING_BOARDS_UPDATE)}
-        showOpenFull={false}
-      />
-    </div>
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border bg-background">
+        <TaskEditor
+          orgId={orgId}
+          taskRef={taskNumber}
+          initialData={taskResult.data}
+          people={people}
+          currentUserId={userId}
+          canUpdate={checkPermission(snap, PLANNING_TASKS_UPDATE)}
+          canAssign={checkPermission(snap, PLANNING_TASKS_ASSIGN)}
+          canArchive={checkPermission(snap, PLANNING_TASKS_DELETE)}
+          canMove={checkPermission(snap, PLANNING_BOARDS_UPDATE)}
+          showOpenFull={false}
+        />
+      </div>
+    </HydrationBoundary>
   );
 }

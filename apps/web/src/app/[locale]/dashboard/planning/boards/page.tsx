@@ -18,9 +18,10 @@ import { OrgMembersService } from "@/server/services/organization.service";
 import { PlanningBoardsClient } from "./_components/planning-boards-client";
 import { boardKeys } from "./_components/boards-query";
 import { BOARD_UI_COOKIE, parseBoardUiPrefs } from "./_components/board-ui-prefs";
+import { taskEditorKeys } from "@/components/planning/task-editor/task-editor-queries";
 
 interface PlanningBoardsPageProps {
-  searchParams?: Promise<{ board?: string }>;
+  searchParams?: Promise<{ board?: string; karta?: string }>;
 }
 
 export default async function PlanningBoardsPage({ searchParams }: PlanningBoardsPageProps) {
@@ -86,6 +87,36 @@ export default async function PlanningBoardsPage({ searchParams }: PlanningBoard
   if (inboxResult.success) queryClient.setQueryData(boardKeys.inbox(orgId), inboxResult.data);
   if (initialBoard?.success) {
     queryClient.setQueryData(boardKeys.board(orgId, initialBoard.data.id), initialBoard.data);
+  }
+  // A link to a card (?karta=TSK-12) renders with the card open and complete:
+  // what its editor needs besides the card comes with the page. A card that is
+  // not on this board or in the inbox is read on its own.
+  const openCardRef = resolvedSearchParams?.karta?.toUpperCase();
+  if (openCardRef) {
+    const openCard =
+      (initialBoard?.success
+        ? initialBoard.data.cards.find((card) => card.task_number === openCardRef)
+        : undefined) ??
+      (inboxResult.success
+        ? inboxResult.data.find((card) => card.task_number === openCardRef)
+        : undefined);
+    if (openCard) {
+      const [activity, relations] = await Promise.all([
+        KanbanBoardsService.listCardActivity(supabase, orgId, openCard.id),
+        KanbanBoardsService.getTaskRelations(supabase, orgId, openCard.id),
+      ]);
+      if (activity.success) {
+        queryClient.setQueryData(taskEditorKeys.activity(orgId, openCard.id), activity.data);
+      }
+      if (relations.success) {
+        queryClient.setQueryData(taskEditorKeys.relations(orgId, openCard.id), relations.data);
+      }
+    } else {
+      const editor = await KanbanBoardsService.getTaskEditor(supabase, orgId, userId, openCardRef);
+      if (editor.success) {
+        queryClient.setQueryData(taskEditorKeys.task(orgId, openCardRef), editor.data);
+      }
+    }
   }
   const snap = context.user.permissionSnapshot;
 
