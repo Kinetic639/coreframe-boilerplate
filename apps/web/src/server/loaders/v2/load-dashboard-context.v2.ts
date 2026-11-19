@@ -8,6 +8,7 @@ import type { AppContextV2, BranchDataV2 } from "@/lib/stores/v2/app-store";
 import type { UserContextV2 } from "@/lib/stores/v2/user-store";
 import type { PermissionSnapshot } from "@/lib/types/permissions";
 import { resolveActiveBranch } from "@repo/domain/branch";
+import { loadDashboardContextFromRpc } from "./load-dashboard-context-rpc.v2";
 
 /**
  * Combined Dashboard Context V2
@@ -83,6 +84,14 @@ async function _computeAccessibleBranches(
  * @returns DashboardContextV2 or null
  */
 async function _loadDashboardContextV2(): Promise<DashboardContextV2 | null> {
+  // 0. One request: get_dashboard_context_v2 returns everything below at once.
+  //    undefined means the RPC is not usable (not deployed yet, or it failed):
+  //    then the step by step path below runs, as before.
+  const fromRpc = await loadDashboardContextFromRpc();
+  if (fromRpc !== undefined) {
+    return fromRpc;
+  }
+
   // 1. Load app context (resolves org/branch, fetches ALL available branches)
   const appContext = await loadAppContextV2();
 

@@ -22,7 +22,7 @@ import { getAuthUser } from "@/server/auth/get-auth-user";
  * @param branchId - Active branch ID (null = org-scope only)
  * @returns Object with permissions snapshot (allow array, empty deny array)
  *
- * Security: JWT-validated via getUser() server-side; fail-closed (empty snapshot on error).
+ * Security: session token verified server-side (getAuthUser); fail-closed (empty snapshot on error).
  */
 export async function getBranchPermissions(
   orgId: string,
@@ -141,7 +141,7 @@ export async function getDetailedPermissions(orgId: string): Promise<DetailedPer
   try {
     const supabase = await createClient();
 
-    // Use getUser() to validate JWT server-side (not getSession() which is cookie-only).
+    // Verified session token (getAuthUser), not getSession() which only reads the cookie.
     const {
       data: { user },
       error: authError,

@@ -2,7 +2,6 @@ import "server-only";
 import { compactRichInput } from "@repo/rich-text/rich-text-utils";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
-import { createServiceClient } from "@/utils/supabase/service";
 import type {
   TaskStatus,
   TaskPriority,
@@ -11,6 +10,7 @@ import type {
   UpdateTaskInput,
   AssignTaskInput,
 } from "@/lib/validations/planning";
+import { getSignedAvatarUrls } from "@/server/storage/avatar-signed-url";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -122,8 +122,6 @@ const SORTABLE_TASK_FIELDS = new Set([
   "updated_at",
 ]);
 
-const USER_AVATAR_BUCKET = "user-avatars";
-const AVATAR_TTL_SECONDS = 60 * 60;
 const AVATAR_SIGN_TIMEOUT_MS = 2_000;
 
 // ---------------------------------------------------------------------------
@@ -163,26 +161,8 @@ async function batchSignAvatarUrls(
 ): Promise<Map<string, string>> {
   if (entries.length === 0) return new Map();
 
-  const sign = async (): Promise<Map<string, string>> => {
-    try {
-      const svc = createServiceClient();
-      const { data, error } = await svc.storage.from(USER_AVATAR_BUCKET).createSignedUrls(
-        entries.map((entry) => entry.avatarPath),
-        AVATAR_TTL_SECONDS
-      );
-
-      if (error || !data) return new Map();
-
-      const signedUrls = new Map<string, string>();
-      data.forEach((item, index) => {
-        const entry = entries[index];
-        if (entry && item.signedUrl) signedUrls.set(entry.userId, item.signedUrl);
-      });
-      return signedUrls;
-    } catch {
-      return new Map();
-    }
-  };
+  // Signed in one storage call and reused across requests (see getSignedAvatarUrls).
+  const sign = () => getSignedAvatarUrls(entries);
 
   const timeout = new Promise<Map<string, string>>((resolve) => {
     setTimeout(() => resolve(new Map()), AVATAR_SIGN_TIMEOUT_MS);

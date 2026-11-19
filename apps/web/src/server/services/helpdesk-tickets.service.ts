@@ -1,7 +1,6 @@
 import "server-only";
 import { compactRichInput } from "@repo/rich-text/rich-text-utils";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createServiceClient } from "@/utils/supabase/service";
 import type {
   AcceptTicketInput,
   AddTicketCommentInput,
@@ -16,6 +15,7 @@ import type {
 } from "@/lib/validations/helpdesk";
 import type { DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
 import { CommentsService, type AppComment } from "./comments.service";
+import { getSignedAvatarUrls } from "@/server/storage/avatar-signed-url";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -159,9 +159,6 @@ function memberProfileHref(userId: string): string {
   return `/dashboard/organization/users/members/${userId}`;
 }
 
-const USER_AVATAR_BUCKET = "user-avatars";
-const AVATAR_TTL_SECONDS = 60 * 60;
-
 // One batch call to Supabase storage for all users — O(1) network round-trips regardless of count.
 // Hard 2-second timeout: if storage is slow/unreachable we fall back to avatar_url (or null)
 // rather than hanging the entire ticket response.
@@ -172,23 +169,8 @@ async function batchSignAvatarUrls(
 ): Promise<Map<string, string>> {
   if (entries.length === 0) return new Map();
 
-  const sign = async (): Promise<Map<string, string>> => {
-    try {
-      const svc = createServiceClient();
-      const { data, error } = await svc.storage.from(USER_AVATAR_BUCKET).createSignedUrls(
-        entries.map((e) => e.avatarPath),
-        AVATAR_TTL_SECONDS
-      );
-      if (error || !data) return new Map();
-      const map = new Map<string, string>();
-      data.forEach((item, i) => {
-        if (item.signedUrl) map.set(entries[i].userId, item.signedUrl);
-      });
-      return map;
-    } catch {
-      return new Map();
-    }
-  };
+  // Signed in one storage call and reused across requests (see getSignedAvatarUrls).
+  const sign = () => getSignedAvatarUrls(entries);
 
   const timeout = new Promise<Map<string, string>>((resolve) =>
     setTimeout(() => resolve(new Map()), AVATAR_SIGN_TIMEOUT_MS)

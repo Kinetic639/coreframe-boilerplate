@@ -12,6 +12,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, act } from "@testing-library/react";
 import { ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { branchPermissionsQueryKey } from "@/hooks/queries/v2/use-branch-permissions-query";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { getSessionBranchId } from "@/lib/session-branch";
@@ -159,5 +161,39 @@ describe("DashboardV2Providers — session-branch hydration", () => {
 
     // sessionStorage should have been re-seeded with the SSR branch
     expect(getSessionBranchId(ORG_ID)).toBe(BRANCH_A.id);
+  });
+});
+
+// ─── Permission snapshot seeding ─────────────────────────────────────────────
+
+describe("DashboardV2Providers — permission snapshot from the server", () => {
+  beforeEach(() => {
+    useAppStoreV2.getState().clear();
+    useUserStoreV2.getState().clear();
+    sessionStorage.clear();
+  });
+
+  it("seeds the branch permission query with the server snapshot", async () => {
+    const snapshot = { allow: ["planning.tasks.read"], deny: [] };
+    const context = makeContext();
+    context.user.permissionSnapshot = snapshot;
+
+    let client: ReturnType<typeof useQueryClient> | undefined;
+    function ReadSeeded() {
+      client = useQueryClient();
+      return null;
+    }
+
+    await act(async () => {
+      render(
+        <DashboardV2Providers context={context}>
+          <ReadSeeded />
+        </DashboardV2Providers>
+      );
+    });
+
+    expect(client?.getQueryData(branchPermissionsQueryKey(ORG_ID, BRANCH_A.id))).toEqual({
+      permissions: snapshot,
+    });
   });
 });

@@ -7,6 +7,7 @@ import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { getSessionBranchId, setSessionBranchId, clearSessionBranchId } from "@/lib/session-branch";
 import type { DashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { PermissionsSync } from "./_components/permissions-sync";
+import { branchPermissionsQueryKey } from "@/hooks/queries/v2/use-branch-permissions-query";
 import { DashboardInitialLoader } from "./_components/dashboard-initial-loader";
 // UiSettingsSync removed - using manual Save/Load instead of auto-sync
 
@@ -53,6 +54,21 @@ export function DashboardV2Providers({ context, children }: DashboardV2Providers
   //      entry and fall back to the SSR-derived branch, which is then written
   //      to sessionStorage so subsequent refreshes are stable.
   useEffect(() => {
+    // The server already loaded the permission snapshot for this org and branch.
+    // Seed the query PermissionsSync reads, so it does not ask the server for the
+    // same snapshot again right after the page loads. Set before the stores are
+    // hydrated: hydration enables that query.
+    if (
+      context.app?.activeOrgId &&
+      context.app.activeBranchId &&
+      context.user?.permissionSnapshot
+    ) {
+      queryClient.setQueryData(
+        branchPermissionsQueryKey(context.app.activeOrgId, context.app.activeBranchId),
+        { permissions: context.user.permissionSnapshot }
+      );
+    }
+
     useAppStoreV2.getState().hydrateFromServer(context.app);
     useUserStoreV2.getState().hydrateFromServer(context.user);
 
@@ -86,7 +102,7 @@ export function DashboardV2Providers({ context, children }: DashboardV2Providers
         }
       }
     }
-  }, [context]);
+  }, [context, queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>
