@@ -49,10 +49,15 @@ export default async function PlanningBoardsPage({ searchParams }: PlanningBoard
   const orgId = context.app.activeOrgId;
   const userId = context.user.user?.id ?? "";
   const prefs = parseBoardUiPrefs((await cookies()).get(BOARD_UI_COOKIE)?.value);
-  const [boardsResult, inboxResult, membersResult] = await Promise.all([
+  // The board this page will most likely open (the one in the address, else
+  // the one this browser had open last) is read together with the list
+  // instead of after it. RLS answers for it like for any other read.
+  const likelyBoardId = resolvedSearchParams?.board ?? prefs.lastBoardId ?? null;
+  const [boardsResult, inboxResult, membersResult, likelyBoard] = await Promise.all([
     KanbanBoardsService.listBoards(supabase, orgId, userId),
     KanbanBoardsService.listInboxCards(supabase, orgId, userId),
     OrgMembersService.listMembers(supabase, orgId),
+    likelyBoardId ? KanbanBoardsService.getBoard(supabase, orgId, likelyBoardId, userId) : null,
   ]);
   const people = membersResult.success
     ? membersResult.data.map((m) => ({
@@ -68,9 +73,11 @@ export default async function PlanningBoardsPage({ searchParams }: PlanningBoard
     resolvedSearchParams?.board ??
     boards.find((board) => board.id === prefs.lastBoardId)?.id ??
     boards[0]?.id;
-  const initialBoard = initialBoardId
-    ? await KanbanBoardsService.getBoard(supabase, orgId, initialBoardId, userId)
-    : null;
+  const initialBoard = !initialBoardId
+    ? null
+    : initialBoardId === likelyBoardId && likelyBoard
+      ? likelyBoard
+      : await KanbanBoardsService.getBoard(supabase, orgId, initialBoardId, userId);
 
   // Everything the first view needs goes into the client cache, so the board
   // shows at once and the client does not fetch it again.
