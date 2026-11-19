@@ -1,10 +1,4 @@
-import {
-  getKanbanBoardAction,
-  getKanbanBoardArchiveAction,
-  listKanbanBoardsByStateAction,
-  listKanbanCardActivityAction,
-  listKanbanInboxCardsAction,
-} from "@/app/actions/kanban";
+import { planningRead } from "@/lib/planning/read";
 import type {
   KanbanBoardArchive,
   KanbanBoardCard,
@@ -45,36 +39,36 @@ export async function unwrap<T>(
 
 export const boardListQuery = (orgId: string) => ({
   queryKey: boardKeys.list(orgId),
-  queryFn: (): Promise<KanbanBoardSummary[]> => unwrap(listKanbanBoardsByStateAction(false)),
+  queryFn: (): Promise<KanbanBoardSummary[]> => unwrap(planningRead("boardsByState", false)),
   staleTime: LIST_STALE_TIME,
 });
 
 export const archivedBoardListQuery = (orgId: string) => ({
   queryKey: boardKeys.archivedList(orgId),
-  queryFn: (): Promise<KanbanBoardSummary[]> => unwrap(listKanbanBoardsByStateAction(true)),
+  queryFn: (): Promise<KanbanBoardSummary[]> => unwrap(planningRead("boardsByState", true)),
   staleTime: LIST_STALE_TIME,
 });
 
 export const boardQuery = (orgId: string, boardId: string) => ({
   queryKey: boardKeys.board(orgId, boardId),
-  queryFn: (): Promise<KanbanBoardDetail> => unwrap(getKanbanBoardAction(boardId)),
+  queryFn: (): Promise<KanbanBoardDetail> => unwrap(planningRead("board", boardId)),
   staleTime: BOARD_STALE_TIME,
 });
 
 export const inboxQuery = (orgId: string) => ({
   queryKey: boardKeys.inbox(orgId),
-  queryFn: (): Promise<KanbanBoardCard[]> => unwrap(listKanbanInboxCardsAction()),
+  queryFn: (): Promise<KanbanBoardCard[]> => unwrap(planningRead("inbox")),
   staleTime: BOARD_STALE_TIME,
 });
 
 export const cardActivityQuery = (orgId: string, cardId: string) => ({
   queryKey: boardKeys.activity(orgId, cardId),
-  queryFn: (): Promise<KanbanCardActivity[]> => unwrap(listKanbanCardActivityAction(cardId)),
+  queryFn: (): Promise<KanbanCardActivity[]> => unwrap(planningRead("cardActivity", cardId)),
   staleTime: BOARD_STALE_TIME,
 });
 
 export const boardArchiveQuery = (orgId: string, boardId: string) => ({
   queryKey: boardKeys.archive(orgId, boardId),
-  queryFn: (): Promise<KanbanBoardArchive> => unwrap(getKanbanBoardArchiveAction(boardId)),
+  queryFn: (): Promise<KanbanBoardArchive> => unwrap(planningRead("boardArchive", boardId)),
   staleTime: 0,
 });

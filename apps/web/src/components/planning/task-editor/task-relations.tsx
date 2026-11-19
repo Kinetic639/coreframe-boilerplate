@@ -1,5 +1,6 @@
 "use client";
 
+import { planningRead } from "@/lib/planning/read";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
@@ -10,7 +11,6 @@ import {
   addKanbanDependencyAction,
   patchKanbanTaskAction,
   removeKanbanDependencyAction,
-  searchKanbanTasksAction,
 } from "@/app/actions/kanban";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -267,7 +267,7 @@ function TaskPicker({
   const debounced = useDebounce(query.trim(), 250);
   const results = useQuery({
     queryKey: ["planning-task-search", orgId, debounced],
-    queryFn: () => unwrap(searchKanbanTasksAction({ query: debounced })),
+    queryFn: () => unwrap(planningRead("searchTasks", { query: debounced })),
     enabled: open && debounced.length > 0,
     staleTime: 15 * 1000,
   });

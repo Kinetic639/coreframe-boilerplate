@@ -1,12 +1,13 @@
 "use client";
 
+import { planningRead } from "@/lib/planning/read";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { Link2Off, Loader2, Plus, QrCode } from "lucide-react";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
-import { assignQrToPlanningTaskAction, getQrAssignmentForTaskAction } from "@/app/actions/planning";
+import { assignQrToPlanningTaskAction } from "@/app/actions/planning";
 import { revokeQrAction } from "@/app/actions/qr/revoke";
 import { listQrCodesAction } from "@/app/actions/qr/list";
 
@@ -25,7 +26,7 @@ export function TaskQrSection({ taskId, canUpdate }: { taskId: string; canUpdate
   const assignment = useQuery({
     queryKey,
     queryFn: async () => {
-      const result = await getQrAssignmentForTaskAction(taskId);
+      const result = await planningRead("taskQrAssignment", taskId);
       if ("error" in result) throw new Error(result.error);
       return result.data;
     },

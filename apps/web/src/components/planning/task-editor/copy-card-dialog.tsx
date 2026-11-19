@@ -1,14 +1,11 @@
 "use client";
 
+import { planningRead } from "@/lib/planning/read";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
-import {
-  copyKanbanCardAction,
-  getKanbanBoardAction,
-  listKanbanBoardsAction,
-} from "@/app/actions/kanban";
+import { copyKanbanCardAction } from "@/app/actions/kanban";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -57,7 +54,7 @@ export function useCopyTargetBoards(orgId: string, enabled: boolean) {
   const queryClient = useQueryClient();
   return useQuery({
     queryKey: copyTargetKeys.boards(orgId),
-    queryFn: async () => editableBoards(await unwrap(listKanbanBoardsAction())),
+    queryFn: async () => editableBoards(await unwrap(planningRead("boards"))),
     initialData: () => {
       const cached = queryClient.getQueryData<KanbanBoardSummary[]>(boardsPageListKey(orgId));
       return cached ? editableBoards(cached) : undefined;
@@ -72,7 +69,7 @@ export function useCopyTargetColumns(orgId: string, boardId: string | null, enab
   const queryClient = useQueryClient();
   return useQuery({
     queryKey: copyTargetKeys.columns(orgId, boardId ?? ""),
-    queryFn: async () => (await unwrap(getKanbanBoardAction(boardId as string))).columns,
+    queryFn: async () => (await unwrap(planningRead("board", boardId as string))).columns,
     initialData: () =>
       boardId
         ? queryClient.getQueryData<KanbanBoardDetail>(boardsPageBoardKey(orgId, boardId))?.columns

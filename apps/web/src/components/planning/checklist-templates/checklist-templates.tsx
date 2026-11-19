@@ -1,5 +1,6 @@
 "use client";
 
+import { planningRead } from "@/lib/planning/read";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
@@ -52,11 +53,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  deleteChecklistTemplateAction,
-  listChecklistTemplatesAction,
-  saveChecklistTemplateAction,
-} from "@/app/actions/kanban";
+import { deleteChecklistTemplateAction, saveChecklistTemplateAction } from "@/app/actions/kanban";
 import { usePermissions } from "@/hooks/v2/use-permissions";
 import { PLANNING_SETTINGS_MANAGE } from "@/lib/constants/permissions";
 import type { ChecklistTemplate, ChecklistTemplateItem } from "@/lib/types/kanban";
@@ -82,7 +79,7 @@ async function unwrap<T>(
 export function useChecklistTemplates(orgId: string, enabled = true) {
   return useQuery({
     queryKey: checklistTemplatesKey(orgId),
-    queryFn: () => unwrap(listChecklistTemplatesAction()),
+    queryFn: () => unwrap(planningRead("checklistTemplates")),
     staleTime: 60 * 1000,
     enabled,
   });

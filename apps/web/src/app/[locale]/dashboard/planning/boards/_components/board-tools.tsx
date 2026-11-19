@@ -1,5 +1,6 @@
 "use client";
 
+import { planningRead } from "@/lib/planning/read";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFormatter, useTranslations } from "next-intl";
@@ -26,7 +27,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import {
   createKanbanBoardLabelAction,
   deleteKanbanBoardLabelAction,
-  listKanbanBoardActivityAction,
   updateKanbanBoardLabelAction,
 } from "@/app/actions/kanban";
 import type { KanbanBoardDetail, KanbanBoardLabel } from "@/lib/types/kanban";
@@ -323,7 +323,7 @@ export function BoardActivitySheet({
   const format = useFormatter();
   const activity = useQuery({
     queryKey: [...boardKeys.board(orgId, boardId), "activity"],
-    queryFn: () => unwrap(listKanbanBoardActivityAction(boardId)),
+    queryFn: () => unwrap(planningRead("boardActivity", boardId)),
     enabled: open,
     staleTime: 0,
   });

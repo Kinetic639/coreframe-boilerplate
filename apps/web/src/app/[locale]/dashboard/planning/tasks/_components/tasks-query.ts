@@ -1,5 +1,5 @@
+import { planningRead } from "@/lib/planning/read";
 import type { PaginatedResult } from "@/lib/data-view/types";
-import { getTaskDetailAction, listTasksForDataViewAction } from "@/app/actions/planning";
 import type {
   PlanningTaskDetail,
   PlanningTaskListRow,
@@ -27,7 +27,8 @@ export const taskKeys = {
 export const taskListQuery = (orgId: string, state: TaskState) => ({
   queryKey: taskKeys.list(orgId, state),
   queryFn: async (): Promise<TaskList> => {
-    const result = await listTasksForDataViewAction(
+    const result = await planningRead(
+      "tasksDataView",
       taskListParams(state),
       orgId,
       taskFilters(state)
@@ -41,7 +42,7 @@ export const taskListQuery = (orgId: string, state: TaskState) => ({
 export const taskDetailQuery = (orgId: string, taskNumber: string) => ({
   queryKey: taskKeys.detail(orgId, taskNumber),
   queryFn: async (): Promise<PlanningTaskDetail> => {
-    const result = await getTaskDetailAction(taskNumber, orgId);
+    const result = await planningRead("taskDetail", taskNumber, orgId);
     if (!result.success) throw new Error((result as { error: string }).error);
     return result.data;
   },
