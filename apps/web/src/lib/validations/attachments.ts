@@ -49,6 +49,25 @@ export const registerAttachmentsSchema = attachmentTargetSchema.extend({
         fileName: z.string().trim().min(1).max(255),
         contentType: z.string().min(1).max(120),
         size: z.number().int().positive().max(MAX_ATTACHMENT_FILE_SIZE),
+        /** Pixel size of an image and its small versions, uploaded next to it. */
+        image: z
+          .object({
+            width: z.number().int().positive().max(20000),
+            height: z.number().int().positive().max(20000),
+            variants: z
+              .array(
+                z.object({
+                  name: z.enum(["thumb", "card"]),
+                  path: z.string().min(1).max(300),
+                  width: z.number().int().positive().max(4096),
+                  height: z.number().int().positive().max(4096),
+                  size: z.number().int().positive().max(MAX_ATTACHMENT_FILE_SIZE),
+                  contentType: z.enum(["image/webp", "image/jpeg"]),
+                })
+              )
+              .max(2),
+          })
+          .optional(),
       })
     )
     .min(1)

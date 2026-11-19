@@ -235,7 +235,7 @@ function applyCardExtras(
       // image, so refetching the board does not reload covers.
       cover_url:
         card.cover_attachment_id && row?.has_cover_image
-          ? `/api/files/attachments/${card.cover_attachment_id}`
+          ? `/api/files/attachments/${card.cover_attachment_id}?v=card`
           : null,
     };
   });
@@ -337,7 +337,7 @@ async function withCardExtrasByTable(
     // image, so refetching the board does not reload covers.
     cover_url:
       card.cover_attachment_id && covers.has(card.cover_attachment_id)
-        ? `/api/files/attachments/${card.cover_attachment_id}`
+        ? `/api/files/attachments/${card.cover_attachment_id}?v=card`
         : null,
   }));
 }

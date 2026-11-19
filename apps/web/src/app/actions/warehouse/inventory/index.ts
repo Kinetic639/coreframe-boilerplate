@@ -382,7 +382,12 @@ export async function uploadInventoryItemImageAction(formData: FormData) {
     const path = `${auth.context.app.activeOrgId}/${productId}/${variantId ?? "product"}/${safeName}`;
     const { error: uploadError } = await supabase.storage
       .from("inventory-item-images")
-      .upload(path, file, { upsert: false, contentType: validation.data.mime_type });
+      .upload(path, file, {
+        upsert: false,
+        contentType: validation.data.mime_type,
+        // The path is new for every upload, so the file never changes under it.
+        cacheControl: "31536000",
+      });
     if (uploadError) return { success: false, error: uploadError.message };
 
     const { data: urlData } = supabase.storage.from("inventory-item-images").getPublicUrl(path);

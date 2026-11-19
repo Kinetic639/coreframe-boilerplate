@@ -124,6 +124,7 @@ export const BoardCard = memo(function BoardCard({
           className="h-32 w-full rounded-t-md object-cover"
           draggable={false}
           loading="lazy"
+          decoding="async"
         />
       ) : card.cover_color ? (
         <div className="h-8 w-full rounded-t-md" style={{ backgroundColor: card.cover_color }} />

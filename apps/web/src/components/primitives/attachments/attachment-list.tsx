@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Link } from "@/i18n/navigation";
 import type { AppAttachment } from "@/server/services/attachments.service";
+import { attachmentImageSrc } from "@/lib/attachments/image-variants";
 import { cn } from "@/utils";
 import { attachmentFilePath } from "./attachment-download";
 import { formatFileSize, isImageMimeType } from "./attachment-utils";
@@ -112,7 +113,6 @@ export function AttachmentList({
         {attachments.map((attachment) => {
           const canRemove = onDelete && (canDelete ? canDelete(attachment) : attachment.is_own);
           const isPreviewable = canPreview(attachment);
-          const fileUrl = localizedAttachmentFilePath(attachment, locale);
           const fileHref = {
             pathname: "/attachments/[attachmentId]/download/[fileName]",
             params: attachmentFileParams(attachment),
@@ -148,7 +148,15 @@ export function AttachmentList({
                 aria-label={labels?.preview ?? "Preview attachment"}
               >
                 {isImageMimeType(attachment.content_type) ? (
-                  <img src={fileUrl} alt="" className="h-full w-full object-cover" />
+                  <img
+                    src={attachmentImageSrc(attachment.id, "thumb")}
+                    alt=""
+                    width={56}
+                    height={56}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-cover"
+                  />
                 ) : (
                   <FileIcon contentType={attachment.content_type} />
                 )}
@@ -235,8 +243,9 @@ export function AttachmentList({
               <div className="min-h-0 flex-1 overflow-auto rounded-md border bg-muted/20">
                 {isImageMimeType(previewAttachment.content_type) ? (
                   <img
-                    src={localizedAttachmentFilePath(previewAttachment, locale)}
+                    src={attachmentImageSrc(previewAttachment.id)}
                     alt={previewAttachment.file_name}
+                    decoding="async"
                     className="mx-auto max-h-[70vh] w-auto max-w-full object-contain"
                   />
                 ) : previewAttachment.content_type === "application/pdf" ? (

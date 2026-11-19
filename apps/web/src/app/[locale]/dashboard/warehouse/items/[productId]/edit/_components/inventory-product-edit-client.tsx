@@ -1,5 +1,6 @@
 "use client";
 
+import { compressImageFile } from "@/lib/media/image-compress";
 import { useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
@@ -445,7 +446,7 @@ export function InventoryProductEditClient({
         const formData = new FormData();
         formData.set("product_id", product.id);
         formData.set("is_primary", String(images.length === 0));
-        formData.set("file", file);
+        formData.set("file", await compressImageFile(file));
         const result = await uploadInventoryItemImageAction(formData);
         if (!result.success || !("data" in result)) {
           setMessage("error" in result ? result.error : t("imageUploadFailed"));
@@ -530,7 +531,7 @@ export function InventoryProductEditClient({
         formData.set("product_id", product.id);
         formData.set("variant_id", variantId);
         formData.set("is_primary", String(currentImages.length === 0));
-        formData.set("file", file);
+        formData.set("file", await compressImageFile(file));
         const result = await uploadInventoryItemImageAction(formData);
         if (!result.success || !("data" in result)) {
           setMessage("error" in result ? result.error : t("variantImageUploadFailed"));
