@@ -29,6 +29,11 @@ vi.mock("@/utils/supabase/server", () => ({
   }),
 }));
 
+const mockGetSignedAvatarUrl = vi.fn();
+vi.mock("@/server/storage/avatar-signed-url", () => ({
+  getSignedAvatarUrl: (...args: unknown[]) => mockGetSignedAvatarUrl(...args),
+}));
+
 vi.mock("@/server/services/auth.service", () => ({
   AuthService: { getUserRoles: vi.fn().mockReturnValue([]) },
 }));
@@ -152,19 +157,16 @@ describe("loadUserContextV2", () => {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn().mockResolvedValue({
-        data: { ...DB_USER, avatar_path: "avatars/user-1.jpg" },
+        data: { ...DB_USER, avatar_path: `${DB_USER.id}/avatar.jpg` },
         error: null,
       }),
     });
-    const mockCreateSigned = vi
-      .fn()
-      .mockResolvedValue({ data: { signedUrl: "https://cdn.example.com/avatar.jpg" } });
-    mockStorage.from.mockReturnValue({ createSignedUrl: mockCreateSigned });
+    mockGetSignedAvatarUrl.mockResolvedValue("https://cdn.example.com/avatar.jpg");
     mockGetPermissionSnapshot.mockResolvedValue({ allow: [], deny: [] });
 
     const result = await loadUserContextV2("org-1", null);
     expect(result!.user.avatar_signed_url).toBe("https://cdn.example.com/avatar.jpg");
-    expect(mockCreateSigned).toHaveBeenCalledWith("avatars/user-1.jpg", 3600);
+    expect(mockGetSignedAvatarUrl).toHaveBeenCalledWith(DB_USER.id, `${DB_USER.id}/avatar.jpg`);
   });
 
   it("returns empty permission snapshot when activeOrgId is null", async () => {

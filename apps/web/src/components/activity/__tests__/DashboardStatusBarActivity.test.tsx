@@ -265,15 +265,34 @@ describe("T-ACTIVITY-REFRESH: all refresh triggers invoke the action", () => {
     expect(mockGetLatestActivityAction.mock.calls.length).toBeGreaterThan(callsBefore);
   });
 
-  it("polling interval triggers a refresh after 30 seconds", async () => {
+  it("polling interval triggers a refresh after 2 minutes while visible", async () => {
+    Object.defineProperty(document, "visibilityState", { value: "visible", writable: true });
     render(<DashboardStatusBarActivity initialLatestEvent={null} />);
     const callsBefore = mockGetLatestActivityAction.mock.calls.length;
 
     await act(async () => {
       vi.advanceTimersByTime(30_000);
     });
+    expect(mockGetLatestActivityAction.mock.calls.length).toBe(callsBefore);
+
+    await act(async () => {
+      vi.advanceTimersByTime(90_000);
+    });
 
     expect(mockGetLatestActivityAction.mock.calls.length).toBeGreaterThan(callsBefore);
+  });
+
+  it("polling interval does not refresh while the tab is hidden", async () => {
+    Object.defineProperty(document, "visibilityState", { value: "hidden", writable: true });
+    render(<DashboardStatusBarActivity initialLatestEvent={null} />);
+    const callsBefore = mockGetLatestActivityAction.mock.calls.length;
+
+    await act(async () => {
+      vi.advanceTimersByTime(360_000);
+    });
+
+    expect(mockGetLatestActivityAction.mock.calls.length).toBe(callsBefore);
+    Object.defineProperty(document, "visibilityState", { value: "visible", writable: true });
   });
 
   it("event listeners and interval are cleaned up on unmount", () => {

@@ -1,13 +1,27 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { buildClientInfo, CLIENT_INFO_PREFIX } from "./request-source";
+
+async function readClientInfo(): Promise<string> {
+  try {
+    return buildClientInfo(await headers());
+  } catch {
+    return `${CLIENT_INFO_PREFIX}; kind=unknown`;
+  }
+}
 
 export const createClient = async () => {
   const cookieStore = await cookies();
+  const clientInfo = await readClientInfo();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: {
+        // Shows in Supabase API logs as request.headers.x_client_info.
+        headers: { "X-Client-Info": clientInfo },
+      },
       cookies: {
         getAll() {
           return cookieStore.getAll();

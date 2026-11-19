@@ -1,10 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
 import { createServiceClient } from "@/utils/supabase/service";
 import { AdminEntitlementsService } from "@/server/services/admin-entitlements.service";
 import { SiteSettingsService, type SiteSettings } from "@/server/services/site-settings.service";
+import { SITE_SETTINGS_CACHE_TAG } from "@/server/services/site-settings.cached";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -27,6 +28,7 @@ export async function updateSiteSettingsAction(
   await requireAdmin();
   const result = await SiteSettingsService.updateSettings(createServiceClient(), patch);
   if (result.success) {
+    updateTag(SITE_SETTINGS_CACHE_TAG);
     revalidatePath("/", "layout");
   }
   return result;

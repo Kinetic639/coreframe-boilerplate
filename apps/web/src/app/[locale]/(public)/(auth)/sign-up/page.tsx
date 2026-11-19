@@ -1,8 +1,7 @@
 import { SignUpForm } from "@/components/auth/forms/sign-up-form";
 import { FormMessage, Message } from "@/components/form-message";
 import { generateAuthMetadata } from "@/lib/metadata";
-import { SiteSettingsService } from "@/server/services/site-settings.service";
-import { createServiceClient } from "@/utils/supabase/service";
+import { getCachedSiteSettings } from "@/server/services/site-settings.cached";
 import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 
@@ -21,7 +20,7 @@ export default async function Signup(props: Props) {
 
   // Invitation links bypass the registration disabled gate
   if (!searchParams.invitation) {
-    const settings = await SiteSettingsService.getSettings(createServiceClient());
+    const settings = await getCachedSiteSettings();
     if (!settings.registrationEnabled) {
       redirect({ href: "/registration-disabled", locale });
     }

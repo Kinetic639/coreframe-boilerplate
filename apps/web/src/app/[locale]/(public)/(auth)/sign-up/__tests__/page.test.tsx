@@ -24,12 +24,8 @@ vi.mock("next-intl/server", () => ({
   getLocale: vi.fn().mockResolvedValue("en"),
 }));
 
-vi.mock("@/server/services/site-settings.service", () => ({
-  SiteSettingsService: { getSettings: getSettingsMock },
-}));
-
-vi.mock("@/utils/supabase/service", () => ({
-  createServiceClient: vi.fn(() => ({})),
+vi.mock("@/server/services/site-settings.cached", () => ({
+  getCachedSiteSettings: getSettingsMock,
 }));
 
 vi.mock("@/lib/metadata", () => ({
