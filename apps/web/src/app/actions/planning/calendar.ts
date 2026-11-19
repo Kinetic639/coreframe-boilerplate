@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
@@ -267,10 +266,6 @@ export async function updateCalendarItemDueDateAction(
             dueAt,
             dueDate
           );
-          if (result.success) {
-            revalidatePath("/dashboard/planning/boards");
-            revalidatePath("/dashboard/planowanie/tablice");
-          }
           serverLogger.timing("planning_calendar.update_due_date.slow", startedAt, {
             orgId: ctx.orgId,
             userId: ctx.userId,
