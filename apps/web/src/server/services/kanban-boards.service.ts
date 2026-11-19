@@ -190,12 +190,77 @@ async function myStars(
  * What a card shows besides its row: how many comments and files it has, and
  * the address of its cover image. One query per 200 tasks each.
  */
+type CardExtrasRow = {
+  task_id: string;
+  comment_count: number;
+  attachment_count: number;
+  has_cover_image: boolean;
+  subtask_total: number;
+  subtask_done: number;
+  blocked_by_open: number;
+};
+
+/** Card extras from planning_card_extras(), by board or by task ids; null when the call failed. */
+async function cardExtrasRpc(
+  supabase: SupabaseClient,
+  orgId: string,
+  target: { boardId: string } | { taskIds: string[] }
+): Promise<Map<string, CardExtrasRow> | null> {
+  try {
+    const { data, error } = await supabase.rpc("planning_card_extras", {
+      p_org_id: orgId,
+      ...("boardId" in target ? { p_board_id: target.boardId } : { p_task_ids: target.taskIds }),
+    });
+    if (error) return null;
+    return new Map(((data ?? []) as CardExtrasRow[]).map((row) => [row.task_id, row]));
+  } catch {
+    return null;
+  }
+}
+
+function applyCardExtras(
+  cards: KanbanBoardCard[],
+  extras: Map<string, CardExtrasRow>
+): KanbanBoardCard[] {
+  return cards.map((card) => {
+    const row = extras.get(card.id);
+    return {
+      ...card,
+      comment_count: row?.comment_count ?? 0,
+      attachment_count: row?.attachment_count ?? 0,
+      subtask_total: row?.subtask_total ?? 0,
+      subtask_done: row?.subtask_done ?? 0,
+      blocked_by_open: row?.blocked_by_open ?? 0,
+      // A stable address (see /api/files/attachments/[id]): the browser caches the
+      // image, so refetching the board does not reload covers.
+      cover_url:
+        card.cover_attachment_id && row?.has_cover_image
+          ? `/api/files/attachments/${card.cover_attachment_id}`
+          : null,
+    };
+  });
+}
+
 async function withCardExtras(
   supabase: SupabaseClient,
   orgId: string,
   cards: KanbanBoardCard[]
 ): Promise<KanbanBoardCard[]> {
   if (!cards.length) return cards;
+  // One call for all of it; the per-table reads below stay as the fallback
+  // for a database without the function yet.
+  if (cards.length <= 500) {
+    const extras = await cardExtrasRpc(supabase, orgId, { taskIds: cards.map((card) => card.id) });
+    if (extras) return applyCardExtras(cards, extras);
+  }
+  return withCardExtrasByTable(supabase, orgId, cards);
+}
+
+async function withCardExtrasByTable(
+  supabase: SupabaseClient,
+  orgId: string,
+  cards: KanbanBoardCard[]
+): Promise<KanbanBoardCard[]> {
   const comments = new Map<string, number>();
   const files = new Map<string, number>();
   const subtasks = new Map<string, { total: number; done: number }>();
@@ -754,45 +819,54 @@ export const KanbanBoardsService = {
       // Everything at once: the board row no longer gates the rest. A board
       // the user cannot see returns no row (RLS), and the other reads then
       // return nothing either, under the same policies.
-      const [boardResult, columnsResult, cardsResult, membersResult, stars, labels, customFields] =
-        await Promise.all([
-          supabase
-            .from("planning_kanban_boards")
-            .select(BOARD_FIELDS)
-            .eq("organization_id", orgId)
-            .eq("id", boardId)
-            .is("deleted_at", null)
-            .single(),
-          supabase
-            .from("planning_kanban_columns")
-            .select(COLUMN_FIELDS)
-            .eq("organization_id", orgId)
-            .eq("board_id", boardId)
-            .is("deleted_at", null)
-            .is("archived_at", null)
-            .order("position", { ascending: true }),
-          supabase
-            .from("planning_tasks")
-            .select(TASK_CARD_FIELDS)
-            .eq("organization_id", orgId)
-            .eq("board_id", boardId)
-            .not("column_id", "is", null)
-            .is("deleted_at", null)
-            .order("board_position", { ascending: true })
-            .order("created_at", { ascending: true }),
-          supabase
-            .from("planning_kanban_board_members")
-            .select(
-              `user_id, role, created_at,
+      const [
+        boardResult,
+        columnsResult,
+        cardsResult,
+        membersResult,
+        stars,
+        labels,
+        customFields,
+        extras,
+      ] = await Promise.all([
+        supabase
+          .from("planning_kanban_boards")
+          .select(BOARD_FIELDS)
+          .eq("organization_id", orgId)
+          .eq("id", boardId)
+          .is("deleted_at", null)
+          .single(),
+        supabase
+          .from("planning_kanban_columns")
+          .select(COLUMN_FIELDS)
+          .eq("organization_id", orgId)
+          .eq("board_id", boardId)
+          .is("deleted_at", null)
+          .is("archived_at", null)
+          .order("position", { ascending: true }),
+        supabase
+          .from("planning_tasks")
+          .select(TASK_CARD_FIELDS)
+          .eq("organization_id", orgId)
+          .eq("board_id", boardId)
+          .not("column_id", "is", null)
+          .is("deleted_at", null)
+          .order("board_position", { ascending: true })
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("planning_kanban_board_members")
+          .select(
+            `user_id, role, created_at,
              user:users!user_id(first_name, last_name, email)`
-            )
-            .eq("organization_id", orgId)
-            .eq("board_id", boardId)
-            .order("created_at", { ascending: true }),
-          myStars(supabase, orgId, userId),
-          boardLabels(supabase, orgId, boardId),
-          boardCustomFields(supabase, orgId, boardId),
-        ]);
+          )
+          .eq("organization_id", orgId)
+          .eq("board_id", boardId)
+          .order("created_at", { ascending: true }),
+        myStars(supabase, orgId, userId),
+        boardLabels(supabase, orgId, boardId),
+        boardCustomFields(supabase, orgId, boardId),
+        cardExtrasRpc(supabase, orgId, { boardId }),
+      ]);
 
       if (boardResult.error) return { success: false, error: boardResult.error.message };
       const boardRaw = boardResult.data;
@@ -807,11 +881,13 @@ export const KanbanBoardsService = {
       const columns = (columnsResult.data ?? []).map(mapColumn);
       // Tasks of an archived column stay in it, out of sight, until it comes back.
       const openColumnIds = new Set(columns.map((column) => column.id));
-      const cards = await withCardExtras(
-        supabase,
-        orgId,
-        (cardsResult.data ?? []).map(mapCard).filter((card) => openColumnIds.has(card.column_id))
-      );
+      const openCards = (cardsResult.data ?? [])
+        .map(mapCard)
+        .filter((card) => openColumnIds.has(card.column_id));
+      // Extras came in the same wave; the per-table path is the fallback.
+      const cards = extras
+        ? applyCardExtras(openCards, extras)
+        : await withCardExtrasByTable(supabase, orgId, openCards);
 
       return {
         success: true,
@@ -1572,32 +1648,36 @@ export const KanbanBoardsService = {
         .maybeSingle();
       if (error) return { success: false, error: error.message };
       if (!row) return { success: false, error: "Task not found" };
-      const [card] = await withCardExtras(supabase, orgId, [mapCard(row)]);
-
-      if (!card.board_id) {
+      const base = mapCard(row);
+      const boardId = base.board_id;
+      if (!boardId) {
+        const [card] = await withCardExtras(supabase, orgId, [base]);
         return { success: true, data: { card, board: null, columns: [], labels: [] } };
       }
 
-      const [boardResult, columnsResult, memberRoles, labels, customFields] = await Promise.all([
-        supabase
-          .from("planning_kanban_boards")
-          .select("id, title, color, archived_at, created_by")
-          .eq("organization_id", orgId)
-          .eq("id", card.board_id)
-          .is("deleted_at", null)
-          .maybeSingle(),
-        supabase
-          .from("planning_kanban_columns")
-          .select(COLUMN_FIELDS)
-          .eq("organization_id", orgId)
-          .eq("board_id", card.board_id)
-          .is("deleted_at", null)
-          .is("archived_at", null)
-          .order("position", { ascending: true }),
-        myMemberRoles(supabase, orgId, userId),
-        boardLabels(supabase, orgId, card.board_id),
-        boardCustomFields(supabase, orgId, card.board_id),
-      ]);
+      // The card's extras and its board come in one wave.
+      const [[card], boardResult, columnsResult, memberRoles, labels, customFields] =
+        await Promise.all([
+          withCardExtras(supabase, orgId, [base]),
+          supabase
+            .from("planning_kanban_boards")
+            .select("id, title, color, archived_at, created_by")
+            .eq("organization_id", orgId)
+            .eq("id", boardId)
+            .is("deleted_at", null)
+            .maybeSingle(),
+          supabase
+            .from("planning_kanban_columns")
+            .select(COLUMN_FIELDS)
+            .eq("organization_id", orgId)
+            .eq("board_id", boardId)
+            .is("deleted_at", null)
+            .is("archived_at", null)
+            .order("position", { ascending: true }),
+          myMemberRoles(supabase, orgId, userId),
+          boardLabels(supabase, orgId, boardId),
+          boardCustomFields(supabase, orgId, boardId),
+        ]);
       const boardRow = boardResult.data as {
         id: string;
         title: string;
