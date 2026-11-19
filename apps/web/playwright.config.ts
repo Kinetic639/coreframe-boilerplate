@@ -20,13 +20,21 @@ export default defineConfig({
     locale: "pl-PL"
   },
   projects: [
+    // Signs the test account in once; authenticated specs reuse the session
+    // (e2e/fixtures.ts) instead of a password login per test.
+    {
+      name: "setup",
+      testMatch: /auth\.setup\.ts/
+    },
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] }
+      use: { ...devices["Desktop Chrome"] },
+      dependencies: ["setup"]
     },
     {
       name: "mobile-chrome",
-      use: { ...devices["Pixel 7"] }
+      use: { ...devices["Pixel 7"] },
+      dependencies: ["setup"]
     }
   ]
 });
