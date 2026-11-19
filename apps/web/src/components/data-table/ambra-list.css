@@ -26,6 +26,18 @@ body:has(.dt-tokens) {
   min-height: 400px;
   height: calc(100dvh - 9rem);
 }
+/* A list that is the whole page fills the space down to the status bar,
+   with only a small gap above it (the shell's 3rem bottom padding is for
+   pages that scroll). Lists below other content keep the height above. */
+main:has(> .dt-list-view) {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0.75rem;
+}
+main > .dt-list-view {
+  flex: 1 1 0;
+  height: auto;
+}
 .dt-list-filter-row {
   display: flex;
   flex-wrap: wrap;
@@ -127,6 +139,9 @@ body:has(.dt-tokens) {
   .dt-list-view {
     height: calc(100dvh - 8rem);
     min-height: 320px;
+  }
+  main > .dt-list-view {
+    height: auto;
   }
   .dt-list-desktop-table {
     display: none;

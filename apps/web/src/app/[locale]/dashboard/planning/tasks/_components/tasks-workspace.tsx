@@ -1,10 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useQueryStates } from "nuqs";
-import { ExternalLink, Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TaskEditor, taskEditorQuery } from "@/components/planning/task-editor";
 import { FilterBar, type FilterField } from "@/components/data-table/filter-bar";
@@ -300,31 +299,9 @@ export function TasksWorkspace({
           />
           {state.selected ? (
             <aside
-              aria-labelledby="planning-task-panel-title"
+              aria-label={state.selected}
               className="dt-list-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-5xl flex-col overflow-hidden border-l bg-background shadow-2xl xl:static xl:z-auto xl:min-w-0 xl:flex-1 xl:max-w-none xl:shadow-none"
             >
-              <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
-                <button
-                  type="button"
-                  onClick={() => preview(null)}
-                  className="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-                  aria-label={labels.close}
-                >
-                  <X className="size-4" />
-                  <span className="hidden sm:inline">{labels.title}</span>
-                </button>
-                <span className="text-muted-foreground/50">/</span>
-                <span id="planning-task-panel-title" className="truncate font-mono text-sm">
-                  {state.selected}
-                </span>
-                <Link
-                  href={taskPath(state.selected)}
-                  className="ml-auto inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-3 text-xs font-medium hover:bg-muted"
-                >
-                  <ExternalLink className="size-3.5" />
-                  {labels.viewFull}
-                </Link>
-              </header>
               <TaskCard
                 key={state.selected}
                 orgId={orgId}
@@ -392,7 +369,8 @@ function TaskCard({
         canUpdate={canUpdate}
         canAssign={canAssign}
         canArchive={canDelete}
-        showOpenFull={false}
+        showClose
+        closePosition="start"
         onChanged={onChanged}
         onClose={() => {
           onChanged();
