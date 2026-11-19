@@ -130,21 +130,24 @@ export default async function DashboardV2Layout({ children }: { children: React.
     return redirect({ href: "/onboarding", locale });
   }
 
-  // Load entitlements for sidebar (SSR only)
-  // Null-safe: fail-closed if org has no entitlements
-  let entitlements = null;
-  if (context.app.activeOrgId) {
-    entitlements = await EntitlementsService.loadEntitlements(context.app.activeOrgId);
-  }
+  const userId = context.user?.user?.id ?? "";
+
+  // Independent loads run together: entitlements, pinned tools, admin
+  // entitlements and the latest activity event do not depend on each other.
+  // Entitlements are null-safe (fail-closed if the org has none).
+  const [entitlements, pinnedTools, adminContext, latestActivityResult] = await Promise.all([
+    EntitlementsService.loadEntitlements(context.app.activeOrgId),
+    fetchPinnedToolsForSidebar(userId),
+    loadAdminContextV2(),
+    getLatestActivityAction(),
+  ]);
+  void pinnedTools; // warms the per-request cache read by injectPinnedToolsIntoSidebar
 
   // Build sidebar model server-side (deterministic, permission-filtered)
   const rawSidebarModel = buildSidebarModel(context.app, context.user, entitlements, locale);
 
   // Inject pinned tools as children of the "tools" sidebar item
-  const sidebarModel = await injectPinnedToolsIntoSidebar(
-    rawSidebarModel,
-    context.user?.user?.id ?? ""
-  );
+  const sidebarModel = await injectPinnedToolsIntoSidebar(rawSidebarModel, userId);
 
   // Global search (Ctrl+K): sidebar pages + search-only pages and actions,
   // filtered with the same permissions and entitlements as the sidebar
@@ -165,14 +168,9 @@ export default async function DashboardV2Layout({ children }: { children: React.
     entitlements?.enabled_modules ?? []
   );
 
-  // Check admin entitlements to show Admin Panel link in the user menu
-  const adminContext = await loadAdminContextV2();
+  // Admin Panel link in the user menu
   const isAdmin = adminContext?.adminEntitlements?.enabled ?? false;
 
-  // Fetch the single most recent event for the status bar preview.
-  // loadDashboardContextV2 uses React cache() so this does not duplicate
-  // the context query made above — it reuses the memoized result.
-  const latestActivityResult = await getLatestActivityAction();
   const initialLatestEvent = latestActivityResult.success ? latestActivityResult.data.event : null;
 
   return (

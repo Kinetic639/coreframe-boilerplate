@@ -1,8 +1,4 @@
-import {
-  getKanbanTaskEditorAction,
-  getKanbanTaskRelationsAction,
-  listKanbanCardActivityAction,
-} from "@/app/actions/kanban";
+import { planningRead } from "@/lib/planning/read";
 import type {
   KanbanCardActivity,
   KanbanTaskEditorData,
@@ -33,19 +29,19 @@ async function unwrap<T>(
 
 export const taskEditorQuery = (orgId: string, ref: string) => ({
   queryKey: taskEditorKeys.task(orgId, ref),
-  queryFn: (): Promise<KanbanTaskEditorData> => unwrap(getKanbanTaskEditorAction(ref)),
+  queryFn: (): Promise<KanbanTaskEditorData> => unwrap(planningRead("taskEditor", ref)),
   staleTime: 15 * 1000,
 });
 
 export const taskActivityQuery = (orgId: string, taskId: string) => ({
   queryKey: taskEditorKeys.activity(orgId, taskId),
-  queryFn: (): Promise<KanbanCardActivity[]> => unwrap(listKanbanCardActivityAction(taskId)),
+  queryFn: (): Promise<KanbanCardActivity[]> => unwrap(planningRead("cardActivity", taskId)),
   staleTime: 15 * 1000,
 });
 
 export const taskRelationsQuery = (orgId: string, taskId: string) => ({
   queryKey: taskEditorKeys.relations(orgId, taskId),
-  queryFn: (): Promise<KanbanTaskRelations> => unwrap(getKanbanTaskRelationsAction(taskId)),
+  queryFn: (): Promise<KanbanTaskRelations> => unwrap(planningRead("taskRelations", taskId)),
   staleTime: 15 * 1000,
 });
 

@@ -351,8 +351,8 @@ describe("updateCalendarItemDueDateAction", () => {
       "2026-06-12T10:00:00.000Z",
       "2026-06-12"
     );
-    expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/planning/boards");
-    expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/planowanie/tablice");
+    // The board caches are updated on the client; no server re-render of the page.
+    expect(mockRevalidatePath).not.toHaveBeenCalled();
   });
 });
 

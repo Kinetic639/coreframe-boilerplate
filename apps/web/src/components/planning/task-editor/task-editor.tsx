@@ -106,6 +106,11 @@ export interface TaskEditorProps {
   taskRef: string;
   /** What the host already has (the board's card): the editor shows it at once. */
   initialData?: KanbanTaskEditorData;
+  /**
+   * When the host fetched initialData (ms). Fresh data is not fetched again
+   * on open; without it the editor checks in the background.
+   */
+  initialDataUpdatedAt?: number;
   people: TaskEditorPerson[];
   currentUserId: string;
   /** Can edit the task's fields. */
@@ -120,6 +125,11 @@ export interface TaskEditorProps {
   showOpenFull?: boolean;
   /** Every saved change, so the host can update its list. */
   onChanged?: (card: KanbanBoardCard) => void;
+  /**
+   * A change as it is made, before it is saved (and the card as it was, when
+   * the save fails): a host whose cache takes a card shows it at once.
+   */
+  onPreview?: (card: KanbanBoardCard) => void;
   /** The host archives (the board shows an Undo); default: archive and report. */
   onArchive?: (card: KanbanBoardCard) => Promise<boolean>;
   /** After archiving, or from the close button of a dialog. */
@@ -141,12 +151,13 @@ type Patch = Omit<PatchKanbanTaskInput, "id">;
  * overwrites what is being typed.
  */
 export function TaskEditor(props: TaskEditorProps) {
-  const { orgId, taskRef, initialData } = props;
+  const { orgId, taskRef, initialData, initialDataUpdatedAt } = props;
   const task = useQuery({
     ...taskEditorQuery(orgId, taskRef),
     initialData,
-    // What the host passed may be a little old: check it in the background.
-    initialDataUpdatedAt: 0,
+    // As old as the host's copy: fresh, it is shown without another fetch;
+    // otherwise (or unknown) it is checked in the background.
+    initialDataUpdatedAt: initialDataUpdatedAt ?? 0,
   });
 
   if (task.isPending || task.isError) {
@@ -206,6 +217,7 @@ function TaskEditorBody({
   canMove: canMovePermission,
   showOpenFull = true,
   onChanged,
+  onPreview,
   onArchive,
   onClose,
   showClose = false,
@@ -272,7 +284,7 @@ function TaskEditorBody({
         fields.assigned_to !== undefined
           ? people.find((candidate) => candidate.user_id === fields.assigned_to)
           : undefined;
-      setCard({
+      const next: KanbanBoardCard = {
         ...current.card,
         ...(fields.title !== undefined ? { title: fields.title } : {}),
         ...(fields.priority !== undefined ? { priority: fields.priority } : {}),
@@ -305,15 +317,24 @@ function TaskEditorBody({
               assignee_email: person?.email ?? null,
             }
           : {}),
-      });
+      };
+      setCard(next);
+      // The host (the board) shows the change at once too, not after the save.
+      onPreview?.(next);
+      return { previous: current.card };
     },
     onSuccess: (saved) => {
       setCard(saved);
       onChanged?.(saved);
       void refreshActivity();
     },
-    onError: (error) => {
+    onError: (error, _fields, context) => {
       toast.error(error instanceof Error ? error.message : "Operation failed");
+      // Back to how it was, here and on the board.
+      if (context?.previous) {
+        setCard(context.previous);
+        onPreview?.(context.previous);
+      }
       void queryClient.invalidateQueries({ queryKey: taskKey });
     },
   });

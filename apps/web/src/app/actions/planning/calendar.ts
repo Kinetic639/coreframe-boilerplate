@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
@@ -50,6 +49,7 @@ import {
   PLANNING_READ,
   PLANNING_TASKS_READ,
 } from "@/lib/constants/permissions";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
@@ -59,7 +59,7 @@ async function getAuthedContext() {
   if (!context?.app.activeOrgId) return null;
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) return null;
   return { supabase, context, userId: user.id, orgId: context.app.activeOrgId };
 }
@@ -266,10 +266,6 @@ export async function updateCalendarItemDueDateAction(
             dueAt,
             dueDate
           );
-          if (result.success) {
-            revalidatePath("/dashboard/planning/boards");
-            revalidatePath("/dashboard/planowanie/tablice");
-          }
           serverLogger.timing("planning_calendar.update_due_date.slow", startedAt, {
             orgId: ctx.orgId,
             userId: ctx.userId,

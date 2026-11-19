@@ -4825,6 +4825,10 @@
           "branchNamed": "Branch: everyone in {branch} sees it",
           "organization": "Organization: everyone in the organization sees it",
           "plusPeople": "+ {count} {count, plural, one {person} other {people}}"
+        },
+        "save": {
+          "saving": "Saving…",
+          "saved": "Saved"
         }
       },
       "settings": {

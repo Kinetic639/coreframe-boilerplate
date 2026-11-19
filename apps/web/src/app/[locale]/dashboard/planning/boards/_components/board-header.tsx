@@ -41,6 +41,7 @@ import { MemberAvatar } from "@/components/planning/member-avatar";
 import { BOARD_COLORS, boardBackground } from "./board-colors";
 import { ArchiveBoardConfirm, BoardSettingsDialog } from "./board-settings-dialog";
 import { BoardScopeIcon } from "./board-sharing";
+import { SaveIndicator } from "./save-indicator";
 import { CopyBoardDialog } from "./board-copy-dialog";
 import { BoardPickerDialog, type BoardSwitcherProps } from "./board-picker-dialog";
 import type { BoardsAdmin } from "./use-boards-admin";
@@ -183,6 +184,7 @@ export function BoardHeader({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          <SaveIndicator />
           {viewers}
           <div className="flex -space-x-1.5" aria-label={t("boards.header.people")}>
             {people.slice(0, MAX_AVATARS).map((person) => (

@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import type { z } from "zod";
 import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
@@ -116,16 +115,17 @@ import type {
 } from "@/lib/types/kanban";
 import { KanbanBoardsService } from "@/server/services/kanban-boards.service";
 import { PlanningChecklistTemplatesService } from "@/server/services/planning-checklist-templates.service";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
 async function getAuthedContext() {
-  const supabase = await createClient();
-  const context = await loadDashboardContextV2();
+  const [supabase, context] = await Promise.all([createClient(), loadDashboardContextV2()]);
   if (!context?.app.activeOrgId) return null;
+  // Checked once per request by the context loader (shared request cache).
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) return null;
   return { supabase, context, userId: user.id, orgId: context.app.activeOrgId };
 }
@@ -148,16 +148,6 @@ function firstZodError(error: unknown) {
   return issues?.[0]?.message ?? "Invalid input";
 }
 
-/**
- * Only for changes to the boards themselves (the page renders the board list
- * on the server). Columns and cards live in the client cache, so changing
- * them does not throw away the server-rendered page.
- */
-function revalidateBoards() {
-  revalidatePath("/dashboard/planning/boards");
-  revalidatePath("/dashboard/planowanie/tablice");
-}
-
 type AuthedContext = NonNullable<Awaited<ReturnType<typeof getAuthedContext>>>;
 
 /** Signed in, holds the permission (any of a list), input valid: then runs the change. */
@@ -165,8 +155,7 @@ async function guarded<S extends z.ZodTypeAny, T>(
   permission: string | string[],
   schema: S,
   input: z.input<S>,
-  run: (ctx: AuthedContext, data: z.output<S>) => Promise<ActionResult<T>>,
-  options: { revalidate?: boolean } = {}
+  run: (ctx: AuthedContext, data: z.output<S>) => Promise<ActionResult<T>>
 ): Promise<ActionResult<T>> {
   try {
     const ctx = await getAuthedContext();
@@ -178,7 +167,6 @@ async function guarded<S extends z.ZodTypeAny, T>(
     const parsed = schema.safeParse(input);
     if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
     const result = await run(ctx, parsed.data);
-    if (result.success && options.revalidate) revalidateBoards();
     return result;
   } catch {
     return { success: false, error: "Unexpected error" };
@@ -263,7 +251,6 @@ export async function createKanbanBoardAction(
       ctx.userId,
       parsed.data
     );
-    if (result.success) revalidateBoards();
     return result;
   } catch {
     return { success: false, error: "Unexpected error" };
@@ -287,7 +274,6 @@ export async function updateKanbanBoardAction(
       ctx.userId,
       parsed.data
     );
-    if (result.success) revalidateBoards();
     return result;
   } catch {
     return { success: false, error: "Unexpected error" };
@@ -310,7 +296,6 @@ async function boardMemberAction<S extends z.ZodTypeAny>(
     const parsed = schema.safeParse(input);
     if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
     const result = await run(ctx, parsed.data);
-    if (result.success) revalidateBoards();
     return result;
   } catch {
     return { success: false, error: "Unexpected error" };
@@ -364,26 +349,16 @@ export async function listKanbanBoardsByStateAction(
 export async function archiveKanbanBoardAction(
   input: KanbanBoardRefInput
 ): Promise<ActionResult<KanbanBoardSummary>> {
-  return guarded(
-    PLANNING_BOARDS_UPDATE,
-    kanbanBoardRefSchema,
-    input,
-    (ctx, data) =>
-      KanbanBoardsService.setBoardArchived(ctx.supabase, ctx.orgId, ctx.userId, data.id, true),
-    { revalidate: true }
+  return guarded(PLANNING_BOARDS_UPDATE, kanbanBoardRefSchema, input, (ctx, data) =>
+    KanbanBoardsService.setBoardArchived(ctx.supabase, ctx.orgId, ctx.userId, data.id, true)
   );
 }
 
 export async function restoreKanbanBoardAction(
   input: KanbanBoardRefInput
 ): Promise<ActionResult<KanbanBoardSummary>> {
-  return guarded(
-    PLANNING_BOARDS_UPDATE,
-    kanbanBoardRefSchema,
-    input,
-    (ctx, data) =>
-      KanbanBoardsService.setBoardArchived(ctx.supabase, ctx.orgId, ctx.userId, data.id, false),
-    { revalidate: true }
+  return guarded(PLANNING_BOARDS_UPDATE, kanbanBoardRefSchema, input, (ctx, data) =>
+    KanbanBoardsService.setBoardArchived(ctx.supabase, ctx.orgId, ctx.userId, data.id, false)
   );
 }
 
@@ -391,12 +366,8 @@ export async function restoreKanbanBoardAction(
 export async function deleteKanbanBoardAction(
   input: KanbanBoardRefInput
 ): Promise<ActionResult<void>> {
-  return guarded(
-    PLANNING_BOARDS_UPDATE,
-    kanbanBoardRefSchema,
-    input,
-    (ctx, data) => KanbanBoardsService.deleteBoard(ctx.supabase, data.id),
-    { revalidate: true }
+  return guarded(PLANNING_BOARDS_UPDATE, kanbanBoardRefSchema, input, (ctx, data) =>
+    KanbanBoardsService.deleteBoard(ctx.supabase, data.id)
   );
 }
 
@@ -765,12 +736,8 @@ export async function copyKanbanColumnAction(
 export async function copyKanbanBoardAction(
   input: CopyKanbanBoardInput
 ): Promise<ActionResult<KanbanBoardDetail>> {
-  return guarded(
-    PLANNING_BOARDS_CREATE,
-    copyKanbanBoardSchema,
-    input,
-    (ctx, data) => KanbanBoardsService.copyBoard(ctx.supabase, ctx.orgId, ctx.userId, data),
-    { revalidate: true }
+  return guarded(PLANNING_BOARDS_CREATE, copyKanbanBoardSchema, input, (ctx, data) =>
+    KanbanBoardsService.copyBoard(ctx.supabase, ctx.orgId, ctx.userId, data)
   );
 }
 

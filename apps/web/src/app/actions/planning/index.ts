@@ -29,6 +29,7 @@ import {
   type SavePlanningSettingsInput,
 } from "@/lib/validations/planning";
 import type { DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,7 +47,7 @@ async function getAuthedContext() {
   if (!context?.app.activeOrgId) return null;
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) return null;
   return { supabase, context, userId: user.id, orgId: context.app.activeOrgId };
 }
@@ -355,7 +356,7 @@ export async function getQrAssignmentForTaskAction(taskId: string): Promise<
     const supabase = await createClient();
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await getAuthUser();
     if (!user) return { success: false, error: "Unauthorized" };
 
     const { data, error } = await supabase

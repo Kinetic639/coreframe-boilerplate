@@ -1,5 +1,6 @@
 "use client";
 
+import { planningRead } from "@/lib/planning/read";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFormatter, useTranslations } from "next-intl";
@@ -47,7 +48,6 @@ import {
   createKanbanChecklistAction,
   deleteKanbanChecklistAction,
   deleteKanbanChecklistItemAction,
-  listKanbanChecklistsAction,
   renameKanbanChecklistAction,
   setKanbanTaskLabelsAction,
   setKanbanTaskWatchingAction,
@@ -601,7 +601,7 @@ export function ChecklistsSection({
   const key = checklistsKey(orgId, card.id);
   const query = useQuery({
     queryKey: key,
-    queryFn: () => unwrapTaskResult(listKanbanChecklistsAction(card.id)),
+    queryFn: () => unwrapTaskResult(planningRead("checklists", card.id)),
     staleTime: 15 * 1000,
   });
   const lists = query.data ?? [];

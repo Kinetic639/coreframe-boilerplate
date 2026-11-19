@@ -54,7 +54,9 @@ export function PlacementFields({
   const boardId = pickedBoardId ?? currentBoardId;
   const onRealBoard = boardId !== "" && boardId !== INBOX;
 
-  const boards = useCopyTargetBoards(orgId, true);
+  // The other boards are only needed once the list is opened.
+  const [listOpened, setListOpened] = useState(false);
+  const boards = useCopyTargetBoards(orgId, listOpened);
   const otherColumns = useCopyTargetColumns(
     orgId,
     onRealBoard && boardId !== board?.id ? boardId : null,
@@ -81,6 +83,9 @@ export function PlacementFields({
         <Select
           value={boardId || undefined}
           disabled={pending}
+          onOpenChange={(open) => {
+            if (open) setListOpened(true);
+          }}
           onValueChange={(value) => {
             if (value === currentBoardId) {
               setPickedBoardId(null);
@@ -109,7 +114,7 @@ export function PlacementFields({
                 {boardOptions.length ? <SelectSeparator /> : null}
               </>
             ) : null}
-            {boards.isPending ? (
+            {boards.isPending && listOpened ? (
               <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 {t("tasks.placement.loading")}

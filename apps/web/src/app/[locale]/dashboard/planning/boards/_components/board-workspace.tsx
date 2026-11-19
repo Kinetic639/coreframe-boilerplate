@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryStates } from "nuqs";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { LayoutGrid, Plus } from "lucide-react";
@@ -10,7 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KanbanBoard, type KanbanCardMoveParams } from "@/components/primitives/kanban";
 import { PageLoader } from "@/components/page-loader";
-import { CopyCardDialog, TaskEditorDialog } from "@/components/planning/task-editor";
+import {
+  CopyCardDialog,
+  TaskEditorDialog,
+  taskActivityQuery,
+  taskRelationsQuery,
+} from "@/components/planning/task-editor";
 import type { KanbanBoardCard, KanbanBoardDetail, KanbanTaskEditorData } from "@/lib/types/kanban";
 import { cn } from "@/utils";
 import { BoardArchiveDialog } from "./board-archive-dialog";
@@ -45,6 +51,7 @@ import {
   BoardViewers,
 } from "./board-tools";
 import { useBoardRealtime } from "./use-board-realtime";
+import { boardKeys } from "./boards-query";
 import { BoardHeader } from "./board-header";
 import { useBoardSharing } from "./board-sharing";
 import { useBoardActions } from "./use-board-actions";
@@ -110,6 +117,7 @@ export function BoardWorkspace({
   onInboxColorChange,
 }: BoardWorkspaceProps) {
   const t = useTranslations("modules.planning");
+  const queryClient = useQueryClient();
   const actions = useBoardActions(orgId, board?.id ?? null);
   const { people, currentUserId, canAssign } = useBoardSharing();
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -260,8 +268,16 @@ export function BoardWorkspace({
       },
       columns: board.columns,
       labels: board.labels ?? [],
+      custom_fields: board.custom_fields ?? [],
     };
   }, [board, openCard]);
+  // How old the board (or inbox) copy of the open card is: a fresh one opens
+  // without fetching the task again.
+  const editorDataUpdatedAt = openCard
+    ? queryClient.getQueryState(
+        openCard.is_inbox || !board ? boardKeys.inbox(orgId) : boardKeys.board(orgId, board.id)
+      )?.dataUpdatedAt
+    : undefined;
 
   const closeComposer = useCallback(() => setComposer(null), []);
 
@@ -313,9 +329,23 @@ export function BoardWorkspace({
     [filtering, moveCardTo, t]
   );
 
-  const handleHover = useCallback((card: KanbanBoardCard | null) => {
-    hoveredCard.current = card;
-  }, []);
+  // Resting the pointer on a card starts loading what its editor needs
+  // besides the card itself (sub-tasks, dependencies, history), so the editor
+  // opens complete. A pass over the board loads nothing.
+  const prefetchTimer = useRef<number | undefined>(undefined);
+  const handleHover = useCallback(
+    (card: KanbanBoardCard | null) => {
+      hoveredCard.current = card;
+      window.clearTimeout(prefetchTimer.current);
+      if (!card) return;
+      prefetchTimer.current = window.setTimeout(() => {
+        void queryClient.prefetchQuery(taskRelationsQuery(orgId, card.id));
+        void queryClient.prefetchQuery(taskActivityQuery(orgId, card.id));
+      }, 150);
+    },
+    [orgId, queryClient]
+  );
+  useEffect(() => () => window.clearTimeout(prefetchTimer.current), []);
 
   // Keyboard shortcuts on the board (not while typing or with a window open).
   const shortcutState = useRef({
@@ -613,6 +643,7 @@ export function BoardWorkspace({
         orgId={orgId}
         taskRef={openCardNumber}
         initialData={editorInitialData}
+        initialDataUpdatedAt={editorDataUpdatedAt}
         people={people}
         currentUserId={currentUserId}
         canAssign={canAssign}
@@ -621,6 +652,7 @@ export function BoardWorkspace({
         canMove={canUpdate}
         showOpenFull
         onChanged={actions.cardChanged}
+        onPreview={actions.cardChanged}
         onArchive={actions.archiveCard}
         onClose={() => onOpenCardChange(null)}
         onBoardLabelCreated={actions.boardLabelCreated}

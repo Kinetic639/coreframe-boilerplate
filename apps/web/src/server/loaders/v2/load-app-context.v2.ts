@@ -7,6 +7,7 @@ import type {
   LoadedUserModuleV2,
 } from "@/lib/stores/v2/app-store";
 import { resolveActiveBranch } from "@repo/domain/branch";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 /**
  * V2 App Context Loader
@@ -44,7 +45,7 @@ async function _loadAppContextV2(): Promise<AppContextV2 | null> {
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
 
   if (authError || !user) {
     return null;
@@ -138,14 +139,29 @@ async function _loadAppContextV2(): Promise<AppContextV2 | null> {
   // 3. Load minimal org snapshot with profile data (if activeOrgId exists)
   let activeOrg: ActiveOrgV2 | null = null;
 
-  if (activeOrgId) {
+  // The organization and its branches are independent: fetched together.
+  const [orgResult, branchesResult] = activeOrgId
+    ? await Promise.all([
+        supabase
+          .from("organizations")
+          .select("id, name, slug, organization_profiles(name, name_2, slug, logo_url)")
+          .eq("id", activeOrgId)
+          .is("deleted_at", null)
+          .maybeSingle(),
+        supabase
+          .from("branches")
+          .select(
+            "id, name, organization_id, branch_number, slug, public_warehouse_maps_enabled, created_at"
+          )
+          .eq("organization_id", activeOrgId)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: true }),
+      ])
+    : [null, null];
+
+  if (activeOrgId && orgResult) {
     // Query organization with joined profile data
-    const { data: orgData, error: orgError } = await supabase
-      .from("organizations")
-      .select("id, name, slug, organization_profiles(name, name_2, slug, logo_url)")
-      .eq("id", activeOrgId)
-      .is("deleted_at", null)
-      .maybeSingle();
+    const { data: orgData, error: orgError } = orgResult;
 
     if (orgError && process.env.NODE_ENV === "development") {
       console.error("[loadAppContextV2] Organization query failed:", orgError);
@@ -170,15 +186,8 @@ async function _loadAppContextV2(): Promise<AppContextV2 | null> {
   // 4. Load available branches (if activeOrgId exists)
   let availableBranches: BranchDataV2[] = [];
 
-  if (activeOrgId) {
-    const { data: branches, error: branchesError } = await supabase
-      .from("branches")
-      .select(
-        "id, name, organization_id, branch_number, slug, public_warehouse_maps_enabled, created_at"
-      )
-      .eq("organization_id", activeOrgId)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: true });
+  if (activeOrgId && branchesResult) {
+    const { data: branches, error: branchesError } = branchesResult;
 
     if (branchesError && process.env.NODE_ENV === "development") {
       console.error("[loadAppContextV2] Branches query failed:", branchesError);

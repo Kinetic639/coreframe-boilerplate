@@ -1,5 +1,6 @@
 "use client";
 
+import { planningRead } from "@/lib/planning/read";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   keepPreviousData,
@@ -54,7 +55,6 @@ import {
   createNativeCalendarEventAction,
   createNativeCalendarAction,
   deleteNativeCalendarEventAction,
-  getPlanningCalendarDataAction,
   resetCalendarSourceColorAction,
   updateCalendarSourceSettingsAction,
   updateCalendarItemDueDateAction,
@@ -349,7 +349,7 @@ export function PlanningCalendarClient({
   const calendarQuery = useQuery({
     queryKey: planningCalendarKeys.range(calendarQueryInput),
     queryFn: async () => {
-      const result = await getPlanningCalendarDataAction(calendarQueryInput);
+      const result = await planningRead("calendar", calendarQueryInput);
       if (!result.success) throw new Error(actionErrorMessage(result));
       return result.data;
     },
