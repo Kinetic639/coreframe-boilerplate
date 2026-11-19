@@ -18,6 +18,7 @@ import {
   type ListFeedbackInput,
   type UploadedFeedbackFile,
 } from "@/lib/platform-feedback/types";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
@@ -25,7 +26,7 @@ async function authed() {
   const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   return user ? { supabase, userId: user.id } : null;
 }
 

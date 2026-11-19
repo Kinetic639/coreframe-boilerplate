@@ -6,6 +6,7 @@ import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-conte
 import { checkPermission } from "@/lib/utils/permissions";
 import { QR_ASSIGN, WAREHOUSE_INVENTORY_OPERATE } from "@/lib/constants/permissions";
 import { QrAssignmentsService } from "@/server/services/qr.service";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 const CONTAINER_TARGET_TYPE = "inventory.container";
 
@@ -125,7 +126,7 @@ export async function getQrAssignmentForContainerAction(containerId: string) {
     const supabase = await createClient();
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await getAuthUser();
     if (!user) return { success: false as const, error: "Unauthorized" };
 
     const { data, error } = await supabase

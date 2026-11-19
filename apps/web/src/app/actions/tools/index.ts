@@ -18,6 +18,7 @@ import {
   type SetToolPinnedInput,
   type UpdateToolSettingsInput,
 } from "@/lib/validations/tools";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 // ---------------------------------------------------------------------------
 // State scoping note
@@ -39,7 +40,7 @@ async function getAuthedContext() {
   const {
     data: { user },
     error,
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (error || !user) return { supabase, user: null, context: null };
 
   const context = await loadDashboardContextV2();

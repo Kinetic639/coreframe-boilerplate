@@ -23,7 +23,11 @@ const { mockGetUser, mockGetSession, mockFrom, mockStorage, mockGetPermissionSna
 
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
-    auth: { getUser: mockGetUser, getSession: mockGetSession },
+    auth: {
+      getUser: mockGetUser,
+      getClaims: () => claimsFromGetUser(),
+      getSession: mockGetSession,
+    },
     from: mockFrom,
     storage: mockStorage,
   }),
@@ -200,3 +204,16 @@ describe("loadUserContextV2", () => {
     expect(AuthService.getUserRoles).toHaveBeenCalledWith("tok-abc");
   });
 });
+
+// getAuthUser() reads the verified token claims; derive them from the getUser mock.
+async function claimsFromGetUser() {
+  const result = await mockGetUser();
+  const user = result?.data?.user;
+  if (!user) return { data: null, error: result?.error ?? null };
+  return {
+    data: {
+      claims: { sub: user.id, email: user.email, user_metadata: user.user_metadata ?? {} },
+    },
+    error: null,
+  };
+}

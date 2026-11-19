@@ -10,6 +10,7 @@ import {
 } from "@/server/services/list-saved-views.service";
 import { ORG_UPDATE } from "@/lib/constants/permissions";
 import { checkPermission } from "@/lib/utils/permissions";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 // The saved views of any data table list. Every member of the organization
 // may keep views of their own and share them; RLS enforces the rest.
@@ -44,7 +45,7 @@ async function context(): Promise<Auth> {
   const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) return { success: false, error: "Not authenticated" };
   const app = await loadAppContextV2();
   if (!app?.activeOrgId) return { success: false, error: "No active organization" };

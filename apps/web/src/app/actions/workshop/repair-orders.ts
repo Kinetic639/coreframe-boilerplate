@@ -25,6 +25,7 @@ import {
 } from "@/lib/validations/repair-orders";
 import { WAREHOUSE_INVENTORY_OPERATE } from "@repo/contracts/permissions";
 import type { RepairOrderContainerResult } from "@/server/services/repair-orders.service";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,7 +38,7 @@ async function getAuthedContext() {
   const {
     data: { user },
     error,
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (error || !user) return { supabase, user: null, context: null };
   const context = await loadDashboardContextV2();
   return { supabase, user, context };

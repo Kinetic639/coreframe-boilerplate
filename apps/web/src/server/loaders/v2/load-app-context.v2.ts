@@ -40,8 +40,8 @@ import { getAuthUser } from "@/server/auth/get-auth-user";
 async function _loadAppContextV2(): Promise<AppContextV2 | null> {
   const supabase = await createClient();
 
-  // Validate JWT against Supabase Auth (getUser() is preferred over getSession()
-  // because getSession() only reads cookies without server-side token validation)
+  // Verified session token (signature + expiry), see getAuthUser. getSession()
+  // alone would only read the cookie without verifying it.
   const {
     data: { user },
     error: authError,

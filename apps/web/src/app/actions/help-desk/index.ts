@@ -43,6 +43,7 @@ import {
 } from "@/lib/validations/helpdesk";
 import { OrgMembersService, type OrgMember } from "@/server/services/organization.service";
 import type { DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,7 +61,7 @@ async function getAuthedContext() {
   if (!context?.app.activeOrgId) return null;
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) return null;
   return { supabase, context, userId: user.id, orgId: context.app.activeOrgId };
 }
@@ -164,7 +165,7 @@ export async function listTicketsForDataViewAction(
     const supabase = await createClient();
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await getAuthUser();
     if (!user) return { success: false, error: "Unauthorized" };
     return HelpdeskTicketsService.listForDataView(supabase, orgId, params);
   } catch {
@@ -185,7 +186,7 @@ export async function getTicketDetailAction(
     const supabase = await createClient();
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await getAuthUser();
     if (!user) return { success: false, error: "Unauthorized" };
     return HelpdeskTicketsService.getDetail(supabase, orgId, ticketId);
   } catch {
@@ -202,7 +203,7 @@ export async function canManageTicketBranchAction(
     const supabase = await createClient();
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await getAuthUser();
     if (!user) return { success: false, error: "Unauthorized" };
     return {
       success: true,
@@ -567,7 +568,7 @@ export async function listTicketTypesForDataViewAction(
     const supabase = await createClient();
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await getAuthUser();
     if (!user) return { success: false, error: "Unauthorized" };
     return HelpdeskTicketTypesService.listForDataView(supabase, orgId, page, pageSize);
   } catch {
@@ -583,7 +584,7 @@ export async function getTicketTypeDetailAction(
     const supabase = await createClient();
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await getAuthUser();
     if (!user) return { success: false, error: "Unauthorized" };
     return HelpdeskTicketTypesService.getDetailById(supabase, orgId, typeId);
   } catch {

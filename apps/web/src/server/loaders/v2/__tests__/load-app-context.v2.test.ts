@@ -18,7 +18,7 @@ const { mockGetUser, mockFrom, mockResolveActiveBranch } = vi.hoisted(() => ({
 
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
-    auth: { getUser: mockGetUser },
+    auth: { getUser: mockGetUser, getClaims: () => claimsFromGetUser() },
     from: mockFrom,
   }),
 }));
@@ -542,3 +542,16 @@ describe("loadAppContextV2", () => {
     expect(result!.activeOrgId).toBe(ORG_ID);
   });
 });
+
+// getAuthUser() reads the verified token claims; derive them from the getUser mock.
+async function claimsFromGetUser() {
+  const result = await mockGetUser();
+  const user = result?.data?.user;
+  if (!user) return { data: null, error: result?.error ?? null };
+  return {
+    data: {
+      claims: { sub: user.id, email: user.email, user_metadata: user.user_metadata ?? {} },
+    },
+    error: null,
+  };
+}

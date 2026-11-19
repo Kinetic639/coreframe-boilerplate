@@ -142,6 +142,7 @@ function resetAuthorizedContext(allow: string[] = [PLANNING_READ]) {
   mockCreateClient.mockResolvedValue({
     auth: {
       getUser: mockGetUser,
+      getClaims: () => claimsFromGetUser(),
     },
   });
   mockGetUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null });
@@ -456,3 +457,16 @@ describe("native calendar actions", () => {
     );
   });
 });
+
+// getAuthUser() reads the verified token claims; derive them from the getUser mock.
+async function claimsFromGetUser() {
+  const result = await mockGetUser();
+  const user = result?.data?.user;
+  if (!user) return { data: null, error: result?.error ?? null };
+  return {
+    data: {
+      claims: { sub: user.id, email: user.email, user_metadata: user.user_metadata ?? {} },
+    },
+    error: null,
+  };
+}
