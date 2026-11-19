@@ -10,6 +10,11 @@ interface UseBranchPermissionsQueryOptions {
   enabled?: boolean;
 }
 
+/** Query key of the branch permission snapshot (also seeded from the server context). */
+export function branchPermissionsQueryKey(orgId: string | null, branchId: string | null) {
+  return ["v2", "permissions", orgId, branchId] as const;
+}
+
 /**
  * React Query hook to fetch permissions for a specific org/branch context
  *
@@ -25,7 +30,7 @@ export function useBranchPermissionsQuery({
   enabled = true,
 }: UseBranchPermissionsQueryOptions) {
   return useQuery<{ permissions: PermissionSnapshot }>({
-    queryKey: ["v2", "permissions", orgId, branchId],
+    queryKey: branchPermissionsQueryKey(orgId, branchId),
     queryFn: async () => {
       // Defensive: Return empty snapshot if no orgId
       if (!orgId) return { permissions: { allow: [], deny: [] } };

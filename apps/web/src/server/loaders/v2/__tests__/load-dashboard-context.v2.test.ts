@@ -9,6 +9,11 @@ import { loadUserContextV2 } from "../load-user-context.v2";
 // Mock the individual loaders
 vi.mock("../load-app-context.v2");
 vi.mock("../load-user-context.v2");
+// The one-request path is covered in load-dashboard-context-rpc.v2.test.ts;
+// here it reports "not usable" so the step by step path runs.
+vi.mock("../load-dashboard-context-rpc.v2", () => ({
+  loadDashboardContextFromRpc: vi.fn().mockResolvedValue(undefined),
+}));
 
 // Mock createClient for slow-path branch queries
 const { mockSupabaseFrom } = vi.hoisted(() => {
