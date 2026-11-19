@@ -11,7 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KanbanBoard, type KanbanCardMoveParams } from "@/components/primitives/kanban";
 import { PageLoader } from "@/components/page-loader";
-import { CopyCardDialog, TaskEditorDialog } from "@/components/planning/task-editor";
+import {
+  CopyCardDialog,
+  TaskEditorDialog,
+  taskActivityQuery,
+  taskRelationsQuery,
+} from "@/components/planning/task-editor";
 import type { KanbanBoardCard, KanbanBoardDetail, KanbanTaskEditorData } from "@/lib/types/kanban";
 import { cn } from "@/utils";
 import { BoardArchiveDialog } from "./board-archive-dialog";
@@ -324,9 +329,23 @@ export function BoardWorkspace({
     [filtering, moveCardTo, t]
   );
 
-  const handleHover = useCallback((card: KanbanBoardCard | null) => {
-    hoveredCard.current = card;
-  }, []);
+  // Resting the pointer on a card starts loading what its editor needs
+  // besides the card itself (sub-tasks, dependencies, history), so the editor
+  // opens complete. A pass over the board loads nothing.
+  const prefetchTimer = useRef<number | undefined>(undefined);
+  const handleHover = useCallback(
+    (card: KanbanBoardCard | null) => {
+      hoveredCard.current = card;
+      window.clearTimeout(prefetchTimer.current);
+      if (!card) return;
+      prefetchTimer.current = window.setTimeout(() => {
+        void queryClient.prefetchQuery(taskRelationsQuery(orgId, card.id));
+        void queryClient.prefetchQuery(taskActivityQuery(orgId, card.id));
+      }, 150);
+    },
+    [orgId, queryClient]
+  );
+  useEffect(() => () => window.clearTimeout(prefetchTimer.current), []);
 
   // Keyboard shortcuts on the board (not while typing or with a window open).
   const shortcutState = useRef({
