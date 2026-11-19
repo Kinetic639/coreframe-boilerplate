@@ -134,8 +134,10 @@ export interface TaskEditorProps {
   onArchive?: (card: KanbanBoardCard) => Promise<boolean>;
   /** After archiving, or from the close button of a dialog. */
   onClose?: () => void;
-  /** A close button at the end of the top bar (in a dialog). */
+  /** A close button in the top bar (in a dialog or a side panel). */
   showClose?: boolean;
+  /** Where the close button sits: the end (a dialog) or the start (a side panel). */
+  closePosition?: "start" | "end";
   /** The dialog title slot (a dialog needs a title element for screen readers). */
   renderTitle?: (title: React.ReactNode) => React.ReactNode;
   /** A label was added to the task's board from the editor. */
@@ -164,7 +166,12 @@ export function TaskEditor(props: TaskEditorProps) {
     return (
       <>
         {props.showClose && props.onClose ? (
-          <div className="flex h-12 shrink-0 items-center justify-end border-b px-3 sm:px-4">
+          <div
+            className={cn(
+              "flex h-12 shrink-0 items-center border-b px-3 sm:px-4",
+              props.closePosition === "start" ? "justify-start" : "justify-end"
+            )}
+          >
             <CloseButton onClose={props.onClose} />
           </div>
         ) : null}
@@ -221,6 +228,7 @@ function TaskEditorBody({
   onArchive,
   onClose,
   showClose = false,
+  closePosition = "end",
   renderTitle,
   onBoardLabelCreated,
 }: TaskEditorProps & { data: KanbanTaskEditorData }) {
@@ -429,6 +437,14 @@ function TaskEditorBody({
         hasCover ? "absolute inset-x-0 top-0 z-10" : "border-b"
       )}
     >
+      {showClose && onClose && closePosition === "start" ? (
+        <CloseButton
+          onClose={onClose}
+          className={
+            hasCover ? "bg-background/90 shadow-sm backdrop-blur hover:bg-background" : undefined
+          }
+        />
+      ) : null}
       <span
         className={cn(
           "shrink-0 rounded px-1.5 py-0.5 font-mono text-xs text-muted-foreground",
@@ -502,7 +518,7 @@ function TaskEditorBody({
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
-      {showClose && onClose ? (
+      {showClose && onClose && closePosition === "end" ? (
         <CloseButton
           onClose={onClose}
           className={
