@@ -4905,6 +4905,10 @@
           "branchNamed": "Oddział: widzą ją wszyscy w oddziale {branch}",
           "organization": "Organizacja: widzą ją wszyscy w organizacji",
           "plusPeople": "+ {count} {count, plural, one {osoba} few {osoby} many {osób} other {osoby}}"
+        },
+        "save": {
+          "saving": "Zapisywanie…",
+          "saved": "Zapisano"
         }
       },
       "settings": {
