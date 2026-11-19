@@ -5,6 +5,7 @@ import { PermissionServiceV2 } from "@/server/services/permission-v2.service";
 import type { PermissionSnapshot } from "@/lib/types/permissions";
 import type { UserContextV2, UserV2 } from "@/lib/stores/v2/user-store";
 import { getAuthUser } from "@/server/auth/get-auth-user";
+import { getSignedAvatarUrl } from "@/server/storage/avatar-signed-url";
 
 /**
  * V2 User Context Loader
@@ -93,14 +94,10 @@ async function _loadUserContextV2(
     console.error("[loadUserContextV2] User query failed:", userError);
   }
 
-  // Generate signed URL for private-bucket uploaded avatar (1 hour TTL)
-  let avatarSignedUrl: string | null = null;
-  if (userData?.avatar_path) {
-    const { data: signedData } = await supabase.storage
-      .from("user-avatars")
-      .createSignedUrl(userData.avatar_path, 3600);
-    avatarSignedUrl = signedData?.signedUrl ?? null;
-  }
+  // Signed URL for the private-bucket avatar, reused across requests until near expiry
+  const avatarSignedUrl = userData?.avatar_path
+    ? await getSignedAvatarUrl(userData.id, userData.avatar_path)
+    : null;
 
   // Fallback to session metadata if users row missing
   const user: UserV2 = userData

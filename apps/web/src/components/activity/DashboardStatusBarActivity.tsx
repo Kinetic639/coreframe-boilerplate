@@ -15,8 +15,14 @@ import type { ProjectedEvent } from "@/server/audit/types";
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Light polling interval — catches events from other sessions/tabs */
-const POLL_INTERVAL_MS = 30_000;
+/**
+ * Polling interval for events from other sessions and tabs. Every tick is a
+ * server action that loads the full dashboard context (about eight Supabase
+ * requests), so it runs every two minutes and only while the tab is visible.
+ * Coming back to the tab refreshes at once (focus / visibilitychange), and the
+ * same tab signals its own changes through ACTIVITY_PRODUCED_EVENT.
+ */
+const POLL_INTERVAL_MS = 120_000;
 
 // ---------------------------------------------------------------------------
 // LatestEventContent
@@ -124,7 +130,9 @@ export function DashboardStatusBarActivity({
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener(ACTIVITY_PRODUCED_EVENT, handleInvalidate);
-    const interval = setInterval(refreshLatestActivity, POLL_INTERVAL_MS);
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") refreshLatestActivity();
+    }, POLL_INTERVAL_MS);
 
     return () => {
       window.removeEventListener("focus", handleFocus);

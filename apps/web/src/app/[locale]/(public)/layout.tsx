@@ -2,11 +2,10 @@ import AnnouncementBanner from "@/components/AnnouncementBanner";
 import Footer from "@/components/footer";
 import PublicHeader from "@/components/Header/PublicHeader";
 import { PublicThemeEnforcer } from "@/components/public-theme-enforcer";
-import { createServiceClient } from "@/utils/supabase/service";
-import { SiteSettingsService } from "@/server/services/site-settings.service";
+import { getCachedSiteSettings } from "@/server/services/site-settings.cached";
 
 export default async function Layout({ children }: { children: React.ReactNode }) {
-  const settings = await SiteSettingsService.getSettings(createServiceClient());
+  const settings = await getCachedSiteSettings();
 
   return (
     <div className="flex min-h-screen min-w-[320px] w-full flex-col">

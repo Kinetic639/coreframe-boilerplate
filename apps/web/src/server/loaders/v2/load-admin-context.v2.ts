@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { AdminEntitlementsService } from "@/server/services/admin-entitlements.service";
 import { SUPERADMIN_WILDCARD } from "@/lib/constants/permissions";
 import type { AdminEntitlements } from "@/lib/types/admin-entitlements";
+import { getSignedAvatarUrl } from "@/server/storage/avatar-signed-url";
 
 /**
  * Admin user identity with profile fields for UI rendering
@@ -68,14 +69,10 @@ async function _loadAdminContextV2(): Promise<AdminContextV2 | null> {
     .eq("id", authUser.id)
     .maybeSingle();
 
-  // Generate signed URL for private-bucket uploaded avatar (1 hour TTL)
-  let avatarSignedUrl: string | null = null;
-  if (userData?.avatar_path) {
-    const { data: signedData } = await supabase.storage
-      .from("user-avatars")
-      .createSignedUrl(userData.avatar_path, 3600);
-    avatarSignedUrl = signedData?.signedUrl ?? null;
-  }
+  // Signed URL for the private-bucket avatar, reused across requests until near expiry
+  const avatarSignedUrl = userData?.avatar_path
+    ? await getSignedAvatarUrl(authUser.id, userData.avatar_path)
+    : null;
 
   const adminEntitlements = await AdminEntitlementsService.loadAdminEntitlements(
     supabase,

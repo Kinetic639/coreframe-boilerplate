@@ -19,6 +19,8 @@ export function createServiceClient() {
   }
 
   return createClient<Database>(supabaseUrl, supabaseServiceKey, {
+    // Shows in Supabase API logs as request.headers.x_client_info.
+    global: { headers: { "X-Client-Info": "ambra-web; kind=service" } },
     auth: {
       autoRefreshToken: false,
       persistSession: false,
