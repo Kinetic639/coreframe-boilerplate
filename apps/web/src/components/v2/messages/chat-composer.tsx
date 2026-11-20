@@ -1,20 +1,25 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2, Paperclip, Pencil, X } from "lucide-react";
+import { FileText, Loader2, Paperclip, Pencil, Smile, X } from "lucide-react";
 import { toast } from "react-toastify";
 import { CompactEditor, type CompactEditorHandle } from "@repo/rich-text/compact-editor";
 import { extractPlainText, normalizeRichText } from "@repo/rich-text/rich-text-utils";
 import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { gifToMedia, type GifResult } from "@/lib/messages/gif";
 import { useUploadAttachmentsMutation } from "@/hooks/queries/attachments";
+import { keepFilesInMemory } from "@/hooks/queries/attachments/direct-upload";
 import { useConversation, useMessageChanges, useSendMessage } from "@/hooks/queries/messages";
 import { isPlainDocument } from "@/lib/mentions";
 import { ENTITY_MENTIONS } from "@/components/v2/mentions/mention-suggestion-list";
 import { MentionScopeProvider } from "@/components/v2/mentions/mention-scope";
 import type { PendingChatMessage } from "@/lib/messages/cache";
-import { CHAT_MESSAGE_MAX_LENGTH, type ChatErrorCode } from "@/lib/messages/types";
+import { CHAT_MESSAGE_MAX_LENGTH, type ChatErrorCode, type ChatMedia } from "@/lib/messages/types";
 import { useChat } from "./chat-provider";
+import { EmojiPickerPanel } from "./emoji-picker";
+import { GifPickerPanel } from "./gif-picker";
 
 const CHAT_TARGET = "chat.conversation";
 
@@ -53,6 +58,9 @@ export const ChatComposer = forwardRef<
   const [files, setFiles] = useState<File[]>([]);
   const editorRef = useRef<CompactEditorHandle>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const addFiles = (picked: File[]) => setFiles((all) => [...all, ...picked].slice(0, 10));
+  const [gifOpen, setGifOpen] = useState(false);
 
   // People of this conversation come first in the "@" list
   const members = useConversation(conversationId).data?.members;
@@ -69,10 +77,18 @@ export const ChatComposer = forwardRef<
     bodyPlain: string,
     bodyRich: unknown | null,
     attachmentIds: string[],
-    clientId: string
+    clientId: string,
+    media: ChatMedia | null = null
   ) => {
     try {
-      await send.mutateAsync({ conversationId, bodyPlain, bodyRich, attachmentIds, clientId });
+      await send.mutateAsync({
+        conversationId,
+        bodyPlain,
+        bodyRich,
+        attachmentIds,
+        clientId,
+        media,
+      });
     } catch (error) {
       const code = (error instanceof Error ? error.message : "failed") as ChatErrorCode;
       toast.error(t.has(`errors.${code}`) ? t(`errors.${code}`) : t("errors.failed"));
@@ -119,6 +135,13 @@ export const ChatComposer = forwardRef<
     await sendNow(body, bodyRich, attachmentIds, crypto.randomUUID());
   };
 
+  /** A picked GIF goes out at once as its own message; the typed draft stays */
+  const sendGif = (gif: GifResult) => {
+    setGifOpen(false);
+    void sendNow("", null, [], crypto.randomUUID(), gifToMedia(gif));
+    editorRef.current?.focus();
+  };
+
   const cancelEdit = () => {
     setEditingId(null);
     editorRef.current?.clear();
@@ -154,7 +177,8 @@ export const ChatComposer = forwardRef<
         message.body_plain,
         message.body_rich,
         message.attachment_ids,
-        message.client_id ?? crypto.randomUUID()
+        message.client_id ?? crypto.randomUUID(),
+        message.media ?? null
       ),
   }));
 
@@ -181,24 +205,34 @@ export const ChatComposer = forwardRef<
       {files.length > 0 ? (
         <div className="mb-1 flex flex-wrap gap-1">
           {files.map((file, index) => (
-            <span
-              key={`${file.name}-${index}`}
-              className="flex max-w-full items-center gap-1 rounded border bg-muted/50 px-1.5 py-0.5 text-[11px]"
-            >
-              <span className="truncate">{file.name}</span>
-              <button
-                type="button"
-                aria-label={t("window.close")}
-                onClick={() => setFiles((all) => all.filter((_, i) => i !== index))}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="size-3" />
-              </button>
-            </span>
+            <PickedFile
+              key={`${file.name}-${file.size}-${index}`}
+              file={file}
+              removeLabel={t("window.removeFile")}
+              onRemove={() => setFiles((all) => all.filter((_, i) => i !== index))}
+            />
           ))}
         </div>
       ) : null}
-      <div className="flex items-end gap-0.5 rounded-md border bg-background px-2 py-[3px] pr-[3px] focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50">
+      <div
+        onPaste={(event) => {
+          // A screenshot or a copied image pasted into the box is attached
+          const pasted = Array.from(event.clipboardData.files);
+          if (pasted.length === 0 || editingId) return;
+          event.preventDefault();
+          addFiles(pasted);
+        }}
+        onDragOver={(event) => {
+          if (!editingId && event.dataTransfer.types.includes("Files")) event.preventDefault();
+        }}
+        onDrop={(event) => {
+          const dropped = Array.from(event.dataTransfer.files);
+          if (dropped.length === 0 || editingId) return;
+          event.preventDefault();
+          addFiles(dropped);
+        }}
+        className="flex items-end gap-0.5 rounded-md border bg-background px-2 py-[3px] pr-[3px] focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50"
+      >
         <MentionScopeProvider value={mentionScope}>
           <CompactEditor
             ref={editorRef}
@@ -225,11 +259,57 @@ export const ChatComposer = forwardRef<
           multiple
           hidden
           onChange={(event) => {
-            const picked = Array.from(event.target.files ?? []);
-            setFiles((all) => [...all, ...picked].slice(0, 10));
+            void keepFilesInMemory(event.target.files).then(addFiles);
             event.target.value = "";
           }}
         />
+        <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label={t("window.emoji")}
+              title={t("window.emoji")}
+              className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <Smile className="size-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-auto p-0"
+            side="top"
+            align="end"
+            onCloseAutoFocus={(event) => event.preventDefault()}
+          >
+            <EmojiPickerPanel
+              onSelect={(emoji) => {
+                setEmojiOpen(false);
+                // Typed at the caret, the box gets the focus back
+                editorRef.current?.insertText(emoji);
+              }}
+            />
+          </PopoverContent>
+        </Popover>
+        <Popover open={gifOpen} onOpenChange={setGifOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              hidden={!!editingId}
+              aria-label={t("window.gif")}
+              title={t("window.gif")}
+              className="flex h-6 shrink-0 items-center justify-center rounded px-1 text-[10px] font-bold tracking-tight text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              GIF
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-auto p-0"
+            side="top"
+            align="end"
+            onCloseAutoFocus={(event) => event.preventDefault()}
+          >
+            <GifPickerPanel onSelect={sendGif} />
+          </PopoverContent>
+        </Popover>
         <button
           type="button"
           hidden={!!editingId}
@@ -256,3 +336,57 @@ export const ChatComposer = forwardRef<
     </div>
   );
 });
+
+/** A file waiting to be sent: a small preview for images, the name otherwise */
+function PickedFile({
+  file,
+  removeLabel,
+  onRemove,
+}: {
+  file: File;
+  removeLabel: string;
+  onRemove: () => void;
+}) {
+  const image = file.type.startsWith("image/");
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    if (!image) return;
+    const url = URL.createObjectURL(file);
+    setSrc(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file, image]);
+
+  return (
+    <span
+      className={cn(
+        "relative flex max-w-full items-center rounded border bg-muted/50 text-[11px]",
+        image ? "size-12 overflow-hidden" : "gap-1 px-1.5 py-0.5"
+      )}
+      title={file.name}
+    >
+      {image ? (
+        src ? (
+          <img src={src} alt={file.name} className="size-full object-cover" />
+        ) : null
+      ) : (
+        <>
+          <FileText className="size-3 shrink-0 text-muted-foreground" />
+          <span className="truncate">{file.name}</span>
+        </>
+      )}
+      <button
+        type="button"
+        aria-label={removeLabel}
+        title={removeLabel}
+        onClick={onRemove}
+        className={cn(
+          "text-muted-foreground hover:text-foreground",
+          image &&
+            "absolute right-0.5 top-0.5 flex size-4 items-center justify-center rounded-full bg-background/90 shadow-sm"
+        )}
+      >
+        <X className="size-3" />
+      </button>
+    </span>
+  );
+}

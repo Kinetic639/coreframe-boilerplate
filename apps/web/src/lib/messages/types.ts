@@ -119,6 +119,25 @@ export interface ChatMessage {
   created_at: string;
   edited_at: string | null;
   deleted_at: string | null;
+  /** Emoji → ids of the people who reacted with it (missing before the reactions migration) */
+  reactions?: ChatReactions | null;
+  /** A GIF sent as the message (no text) */
+  media?: ChatMedia | null;
+}
+
+/** Emoji → user ids, in the order people reacted */
+export type ChatReactions = Record<string, string[]>;
+
+/** A GIF picked from the GIF provider; the file stays on the provider's CDN */
+export interface ChatMedia {
+  kind: "gif";
+  provider: "klipy" | "giphy" | "tenor";
+  id: string;
+  url: string;
+  preview_url?: string | null;
+  width: number;
+  height: number;
+  title?: string | null;
 }
 
 /** Keyset cursor for older messages */
@@ -152,3 +171,7 @@ export const CHAT_GROUP_NAME_MAX_LENGTH = 80;
 export const CHAT_MESSAGES_PAGE_SIZE = 40;
 /** The author may edit a message this long after sending (enforced by chat_edit_message) */
 export const CHAT_EDIT_WINDOW_MS = 15 * 60_000;
+/** Quick reactions offered on hover, like Messenger and Slack */
+export const CHAT_QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"] as const;
+/** Different emoji allowed on one message (enforced by chat_react) */
+export const CHAT_REACTIONS_MAX = 40;

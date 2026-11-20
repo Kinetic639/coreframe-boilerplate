@@ -115,6 +115,7 @@
     "date-fns": "^4.1.0",
     "fflate": "0.8.2",
     "framer-motion": "^12.29.2",
+    "frimousse": "0.4.0",
     "gray-matter": "^4.0.3",
     "gsap": "^3.15.0",
     "html2canvas": "^1.4.1",

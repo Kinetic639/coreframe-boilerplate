@@ -18,6 +18,8 @@ export interface CompactEditorHandle {
   getValue: () => RichTextValue;
   /** Replaces the content (editing an existing message) and puts the caret at the end */
   setValue: (value: RichTextValue) => void;
+  /** Types text at the caret (e.g. an emoji from a picker) and focuses the box */
+  insertText: (text: string) => void;
 }
 
 export interface CompactEditorProps {
@@ -125,6 +127,7 @@ export const CompactEditor = forwardRef<CompactEditorHandle, CompactEditorProps>
         getValue: () => (editor ? toPlainRichText(editor.getJSON()) : createEmptyRichText()),
         setValue: (value) =>
           editor?.chain().setContent(value, { emitUpdate: true }).focus("end").run(),
+        insertText: (text) => editor?.chain().focus().insertContent(text).run(),
       }),
       [editor]
     );

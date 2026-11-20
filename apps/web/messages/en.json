@@ -9672,6 +9672,24 @@
     }
   },
   "chat": {
+    "emoji": {
+      "search": "Search emoji",
+      "empty": "No emoji found"
+    },
+    "gif": {
+      "search": "Search GIFs",
+      "poweredBy": "Powered by KLIPY",
+      "notConfigured": "GIFs are not turned on yet. An administrator needs to add the KLIPY key.",
+      "rateLimited": "The GIF search limit for this hour is used up. Try again shortly.",
+      "failed": "GIFs could not be loaded. Try again.",
+      "empty": "No GIFs for this search"
+    },
+    "reactions": {
+      "who": "{emoji} {names}",
+      "add": "Add reaction",
+      "react": "React {emoji}",
+      "failed": "The reaction could not be saved"
+    },
     "bar": {
       "label": "Messages",
       "expand": "Messages — expand the bar",
@@ -9690,6 +9708,10 @@
       "soundOff": "Turn off the new message sound"
     },
     "window": {
+      "emoji": "Emoji",
+      "gif": "Send a GIF",
+      "removeFile": "Remove file",
+      "download": "Download",
       "openFull": "Open in full view",
       "collapse": "Collapse window",
       "expand": "Expand window",
@@ -9738,6 +9760,7 @@
       "withdrawn": "{actor} withdrew the invitation: {users}"
     },
     "preview": {
+      "gif": "GIF",
       "you": "You: ",
       "attachment": "Attachment",
       "attachments": "{count, plural, one {# attachment} other {# attachments}}",
