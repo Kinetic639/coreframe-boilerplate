@@ -6,6 +6,7 @@ import { checkPermission } from "@/lib/utils/permissions";
 import { BRANCHES_VIEW_REMOVE_ANY } from "@/lib/constants/permissions";
 import { isBranchAccessible } from "@/lib/utils/branch-access";
 import { getAuthUser } from "@/server/auth/get-auth-user";
+import { bumpDashboardContextVersion } from "@/server/loaders/v2/load-dashboard-context-rpc.v2";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -77,6 +78,7 @@ export async function changeBranch(branchId: string): Promise<ActionResult> {
     return { success: false, error: "Failed to update branch preference" };
   }
 
+  await bumpDashboardContextVersion();
   return { success: true };
 }
 
@@ -129,5 +131,6 @@ export async function removeBranchPreference(): Promise<ActionResult> {
     return { success: false, error: "Failed to clear branch preference" };
   }
 
+  await bumpDashboardContextVersion();
   return { success: true };
 }

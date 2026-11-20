@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { eventService } from "@/server/services/event.service";
+import { bumpDashboardContextVersion } from "@/server/loaders/v2/load-dashboard-context-rpc.v2";
 
 export type SubscriptionPlan = {
   id: string;
@@ -97,6 +98,9 @@ export async function createOrganizationAction(
   }
 
   const organizationId = result.organization_id!;
+
+  // The user now has an organization: drop the cached "no organization" context
+  await bumpDashboardContextVersion();
 
   // Actor model invariant: actorType "user" requires a non-null actorUserId.
   // Skip both onboarding events if the user session is unavailable rather than
