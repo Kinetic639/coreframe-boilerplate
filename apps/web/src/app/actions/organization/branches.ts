@@ -15,6 +15,7 @@ import {
   BRANCHES_UPDATE,
   BRANCHES_DELETE,
 } from "@/lib/constants/permissions";
+import { bumpDashboardContextVersion } from "@/server/loaders/v2/load-dashboard-context-rpc.v2";
 
 const createBranchSchema = z.object({
   name: z.string().min(1).max(200),
@@ -104,6 +105,7 @@ export async function createBranchAction(rawInput: unknown) {
       }
     }
 
+    if (result.success) await bumpDashboardContextVersion();
     return result;
   } catch (error) {
     const mapped = mapEntitlementError(error);
@@ -167,6 +169,7 @@ export async function updateBranchAction(rawInput: unknown) {
       }
     }
 
+    if (result.success) await bumpDashboardContextVersion();
     return result;
   } catch (error) {
     const mapped = mapEntitlementError(error);
@@ -228,6 +231,7 @@ export async function deleteBranchAction(rawInput: unknown) {
       }
     }
 
+    if (result.success) await bumpDashboardContextVersion();
     return result;
   } catch (error) {
     const mapped = mapEntitlementError(error);

@@ -16,6 +16,7 @@ import {
   type OrgMemberPublicProfile,
 } from "./org-member-public-profile.service";
 import type { ServiceResult } from "./organization.service";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 export interface AppCommentAuthor {
   user_id: string;
@@ -69,10 +70,11 @@ type AppCommentRow = {
   deleted_at: string | null;
 };
 
-async function getCurrentUserId(supabase: SupabaseClient): Promise<string | null> {
+async function getCurrentUserId(): Promise<string | null> {
+  // Verified token claims, no request to Supabase Auth
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   return user?.id ?? null;
 }
 
@@ -181,7 +183,7 @@ export class CommentsService {
     const targetResult = await validateTarget(descriptor, supabase, orgId, input.targetId);
     if (!targetResult.success) return targetResult as { success: false; error: string };
 
-    const currentUserId = await getCurrentUserId(supabase);
+    const currentUserId = await getCurrentUserId();
     const pageSize = input.pageSize;
 
     let query = supabase

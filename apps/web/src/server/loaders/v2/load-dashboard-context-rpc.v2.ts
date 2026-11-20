@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { cookies } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { AuthService } from "@/server/services/auth.service";
@@ -72,9 +74,99 @@ export interface DashboardContextRpcPayload {
 // running before the migration is applied does not ask again on every request.
 let rpcMissing = false;
 
-/** Test hook: forget that the RPC was missing. */
+/**
+ * Short cache of the built context, shared by requests on the same server
+ * instance.
+ *
+ * A dashboard page fires several server actions as it mounts (task list,
+ * members, comments, chat, counters) and each one is its own request, so
+ * React's per-request cache did not help: every action asked the database for
+ * the same context again. With this cache the page and the actions that
+ * follow it within a few seconds share one answer.
+ *
+ * Key: the user id, the session's access token (hashed) and the context
+ * version cookie. Another user, another session or a refreshed token never
+ * hit the same entry. Requests that arrive while the first one is still
+ * waiting share its promise.
+ *
+ * Freshness: an entry lives CONTEXT_TTL_MS. Changes the user makes to their
+ * own context (branch, organization, profile, branches, organization profile)
+ * call bumpDashboardContextVersion(), which sets a new version cookie, so the
+ * next request misses on every instance. Changes made by someone else (an
+ * admin changes this user's roles) show up within CONTEXT_TTL_MS; reads and
+ * writes are still checked by RLS on every query.
+ */
+export const CONTEXT_TTL_MS = 10_000;
+const CONTEXT_CACHE_MAX = 500;
+export const CONTEXT_VERSION_COOKIE = "ambra-ctx-v";
+
+type CacheEntry = {
+  expiresAt: number;
+  userId: string;
+  value: Promise<DashboardContextV2 | null | undefined>;
+};
+const contextCache = new Map<string, CacheEntry>();
+
+/** Test hook: forget that the RPC was missing and drop cached contexts. */
 export function __resetDashboardContextRpcState() {
   rpcMissing = false;
+  contextCache.clear();
+}
+
+/** Drops this instance's cached contexts for one user. */
+export function forgetCachedDashboardContext(userId: string) {
+  for (const [key, entry] of contextCache) {
+    if (entry.userId === userId) contextCache.delete(key);
+  }
+}
+
+/**
+ * Call after a change to the current user's dashboard context (branch,
+ * organization, own profile, branches, organization profile). Sets a new
+ * context version cookie, so the following requests on every instance load
+ * the context again, and drops this instance's entries for the user.
+ * Must run in a server action or route handler (it sets a cookie).
+ */
+export async function bumpDashboardContextVersion(userId?: string) {
+  if (userId) forgetCachedDashboardContext(userId);
+  try {
+    const cookieStore = await cookies();
+    cookieStore.set(CONTEXT_VERSION_COOKIE, Date.now().toString(36), {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
+  } catch {
+    // Not in an action or route handler (cookies are read-only): the entry
+    // still expires after CONTEXT_TTL_MS.
+  }
+}
+
+async function contextVersion(): Promise<string> {
+  try {
+    const cookieStore = await cookies();
+    return cookieStore.get(CONTEXT_VERSION_COOKIE)?.value ?? "0";
+  } catch {
+    return "0";
+  }
+}
+
+function cacheKey(userId: string, accessToken: string, version: string) {
+  const token = createHash("sha256").update(accessToken).digest("base64url").slice(0, 22);
+  return `${userId}:${token}:${version}`;
+}
+
+function pruneCache(now: number) {
+  for (const [key, entry] of contextCache) {
+    if (entry.expiresAt <= now) contextCache.delete(key);
+  }
+  // Still too many: drop the oldest (Map keeps insertion order)
+  while (contextCache.size >= CONTEXT_CACHE_MAX) {
+    const oldest = contextCache.keys().next().value;
+    if (oldest === undefined) break;
+    contextCache.delete(oldest);
+  }
 }
 
 function snapshotFor(
@@ -210,20 +302,41 @@ export async function loadDashboardContextFromRpc(): Promise<
     } = await supabase.auth.getSession();
     if (!session) return null;
 
-    const { data, error } = await supabase.rpc("get_dashboard_context_v2");
-    if (error) {
-      // PGRST202: function not found (migration not applied yet)
-      if (error.code === "PGRST202" || error.code === "42883") rpcMissing = true;
-      else console.error("[loadDashboardContextFromRpc] RPC failed:", error);
-      return undefined;
-    }
-    if (!data) return undefined;
+    const now = Date.now();
+    const key = cacheKey(authUser.id, session.access_token, await contextVersion());
+    const hit = contextCache.get(key);
+    if (hit && hit.expiresAt > now) return await hit.value;
 
-    return await buildDashboardContextFromRpc(
-      data as DashboardContextRpcPayload,
-      authUser,
-      session.access_token
-    );
+    const value = (async () => {
+      const { data, error } = await supabase.rpc("get_dashboard_context_v2");
+      if (error) {
+        // PGRST202: function not found (migration not applied yet)
+        if (error.code === "PGRST202" || error.code === "42883") rpcMissing = true;
+        else console.error("[loadDashboardContextFromRpc] RPC failed:", error);
+        return undefined;
+      }
+      if (!data) return undefined;
+
+      return await buildDashboardContextFromRpc(
+        data as DashboardContextRpcPayload,
+        authUser,
+        session.access_token
+      );
+    })();
+
+    pruneCache(now);
+    contextCache.set(key, { expiresAt: now + CONTEXT_TTL_MS, userId: authUser.id, value });
+
+    let result: DashboardContextV2 | null | undefined;
+    try {
+      result = await value;
+    } catch (e) {
+      contextCache.delete(key);
+      throw e;
+    }
+    // Only a built context is kept; errors are asked again next time
+    if (!result && contextCache.get(key)?.value === value) contextCache.delete(key);
+    return result;
   } catch (e) {
     // Next.js control flow (dynamic rendering, redirects) must pass through
     unstable_rethrow(e);

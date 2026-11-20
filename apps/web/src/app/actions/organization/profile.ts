@@ -16,6 +16,7 @@ import {
   ORG_READ,
   ORG_UPDATE,
 } from "@/lib/constants/permissions";
+import { bumpDashboardContextVersion } from "@/server/loaders/v2/load-dashboard-context-rpc.v2";
 
 const updateProfileSchema = z.object({
   name: z.string().min(1).max(200).nullable().optional(),
@@ -103,6 +104,7 @@ export async function updateOrgProfileAction(rawInput: unknown) {
       }
     }
 
+    if (result.success) await bumpDashboardContextVersion();
     return result;
   } catch (error) {
     const mapped = mapEntitlementError(error);
@@ -156,6 +158,7 @@ export async function uploadOrgLogoAction(formData: FormData) {
         });
       }
     }
+    if (uploadResult.success) await bumpDashboardContextVersion();
     return uploadResult;
   } catch (error) {
     const mapped = mapEntitlementError(error);
@@ -210,6 +213,7 @@ export async function removeOrgLogoAction() {
         });
       }
     }
+    if (removeResult.success) await bumpDashboardContextVersion();
     return removeResult;
   } catch (error) {
     const mapped = mapEntitlementError(error);

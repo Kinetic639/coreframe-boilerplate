@@ -12,6 +12,9 @@ const { mockCreateServiceClient, mockCreateSignedUrls } = vi.hoisted(() => ({
 
 vi.mock("@/utils/supabase/service", () => ({ createServiceClient: mockCreateServiceClient }));
 
+const { mockGetAuthUser } = vi.hoisted(() => ({ mockGetAuthUser: vi.fn() }));
+vi.mock("@/server/auth/get-auth-user", () => ({ getAuthUser: mockGetAuthUser }));
+
 function query(result: { data: unknown; error: unknown }) {
   const q: Record<string, unknown> = {};
   for (const method of ["select", "eq", "is", "in"]) q[method] = vi.fn().mockReturnValue(q);
@@ -28,12 +31,11 @@ function supabaseWith(memberships: unknown[], users: unknown[], signedIn = true)
     query({ data: memberships, error: null }),
     query({ data: users, error: null }),
   ];
+  mockGetAuthUser.mockResolvedValue({
+    data: { user: signedIn ? { id: "viewer" } : null },
+    error: null,
+  });
   return {
-    auth: {
-      getUser: vi
-        .fn()
-        .mockResolvedValue({ data: { user: signedIn ? { id: "viewer" } : null }, error: null }),
-    },
     from: vi.fn().mockImplementation(() => queries.shift()),
   } as never;
 }

@@ -18,6 +18,7 @@ import { EmailService } from "@/server/services/email.service";
 import { eventService } from "@/server/services/event.service";
 import { headers } from "next/headers";
 import { getTrustedRequestOrigin } from "@/lib/urls";
+import { bumpDashboardContextVersion } from "@/server/loaders/v2/load-dashboard-context-rpc.v2";
 
 const roleAssignmentSchema = z.object({
   role_id: z.string().uuid(),
@@ -360,6 +361,9 @@ export async function acceptInvitationAction(
         });
       }
     }
+
+    // Joining an organization changes the user's dashboard context
+    if (result.success) await bumpDashboardContextVersion();
 
     return result;
   } catch {
