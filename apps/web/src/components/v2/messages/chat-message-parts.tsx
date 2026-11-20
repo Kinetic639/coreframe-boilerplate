@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Download, FileText, SmilePlus } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { attachmentFilePath } from "@/components/primitives/attachments/attachment-download";
 import { isImageMimeType } from "@/components/primitives/attachments/attachment-utils";
 import { attachmentImageSrc } from "@/lib/attachments/image-variants";
-import { fitGif } from "@/lib/messages/gif";
+import { fitGif, isAllowedGifUrl } from "@/lib/messages/gif";
 import { memberName } from "@/lib/messages/display";
 import {
   CHAT_QUICK_REACTIONS,
@@ -177,6 +177,24 @@ export function QuickReactions({
 /** A GIF message: the animation at its own ratio, at most 240 × 200 */
 export function ChatGif({ media, pending }: { media: ChatMedia; pending?: boolean }) {
   const size = fitGif(media);
+  const className = cn(
+    "block rounded-lg bg-muted object-cover [contain:strict] [transform:translateZ(0)]",
+    pending && "opacity-60"
+  );
+  const style = { width: size.width, height: size.height };
+  const video = isAllowedGifUrl(media.mp4_url) ? media.mp4_url : null;
+
+  if (video) {
+    return (
+      <ChatGifVideo
+        src={video}
+        poster={isAllowedGifUrl(media.preview_url) ? media.preview_url : undefined}
+        label={media.title ?? "GIF"}
+        className={className}
+        style={style}
+      />
+    );
+  }
   return (
     <img
       src={media.url}
@@ -185,8 +203,64 @@ export function ChatGif({ media, pending }: { media: ChatMedia; pending?: boolea
       height={size.height}
       loading="lazy"
       decoding="async"
-      className={cn("rounded-lg bg-muted object-cover", pending && "opacity-60")}
-      style={{ width: size.width, height: size.height }}
+      className={className}
+      style={style}
+      data-testid="chat-gif"
+    />
+  );
+}
+
+/**
+ * A GIF as a muted looping video: the browser decodes it off the main thread,
+ * so it keeps playing smoothly while the chat scrolls (a large animated GIF
+ * tears and freezes there). It plays only while on screen.
+ */
+function ChatGifVideo({
+  src,
+  poster,
+  label,
+  className,
+  style,
+}: {
+  src: string;
+  poster?: string;
+  label: string;
+  className: string;
+  style: { width: number; height: number };
+}) {
+  const ref = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = ref.current;
+    if (!video || typeof IntersectionObserver === "undefined") return;
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting && !reduced) {
+          video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
+      },
+      { rootMargin: "200px 0px" }
+    );
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, [src]);
+
+  return (
+    <video
+      ref={ref}
+      src={src}
+      poster={poster}
+      aria-label={label}
+      muted
+      loop
+      playsInline
+      preload="metadata"
+      disablePictureInPicture
+      className={className}
+      style={style}
       data-testid="chat-gif"
     />
   );
