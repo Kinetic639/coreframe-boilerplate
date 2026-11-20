@@ -106,7 +106,8 @@ import {
   updateCustomFieldSchema,
   updateInventorySkuTemplateSchema,
 } from "./schemas";
-import { validateInventoryImageFile } from "./image-upload-policy";
+import { validateInventoryImageFile, validateInventoryImageVariant } from "./image-upload-policy";
+import { imageVariantPath } from "@/lib/media/image-variant-paths";
 import { WarehouseStockService } from "@/server/services/warehouse-stock.service";
 import { splitByWarehouse, warehousesOf } from "@/lib/warehouse/split-by-warehouse";
 
@@ -390,6 +391,21 @@ export async function uploadInventoryItemImageAction(formData: FormData) {
       });
     if (uploadError) return { success: false, error: uploadError.message };
 
+    // Small versions made in the browser go next to the photo under a fixed name
+    // ("<uuid>.thumb.webp"), which the tables and tiles load instead of the full
+    // file. One that fails to upload is skipped: the UI then shows the full file.
+    const storedPaths = [path];
+    for (const variant of ["thumb", "card"] as const) {
+      const entry = formData.get(variant);
+      const contentType = await validateInventoryImageVariant(entry);
+      if (!contentType || !(entry instanceof File)) continue;
+      const variantPath = imageVariantPath(path, variant, contentType);
+      const { error: variantError } = await supabase.storage
+        .from("inventory-item-images")
+        .upload(variantPath, entry, { upsert: false, contentType, cacheControl: "31536000" });
+      if (!variantError) storedPaths.push(variantPath);
+    }
+
     const { data: urlData } = supabase.storage.from("inventory-item-images").getPublicUrl(path);
     const record = await InventoryProductsService.addImageRecord(
       supabase,
@@ -407,7 +423,7 @@ export async function uploadInventoryItemImageAction(formData: FormData) {
       }
     );
     if (!record.success) {
-      await supabase.storage.from("inventory-item-images").remove([path]);
+      await supabase.storage.from("inventory-item-images").remove(storedPaths);
       return record;
     }
     await emitInventoryEvent(auth, userId, {

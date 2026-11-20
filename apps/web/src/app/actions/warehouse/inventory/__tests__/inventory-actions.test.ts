@@ -304,6 +304,44 @@ describe("inventory product image actions", () => {
     ]);
   });
 
+  it("uploadInventoryItemImageAction stores small versions next to the image and removes them with it", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(
+      makeContext([WAREHOUSE_PRODUCTS_MANAGE]) as never
+    );
+    vi.mocked(InventoryProductsService.verifyImageTarget).mockResolvedValue({
+      success: true,
+      data: { product_id: PRODUCT_ID, variant_id: null },
+    });
+    vi.mocked(InventoryProductsService.addImageRecord).mockResolvedValue({
+      success: false,
+      error: "db failed",
+    });
+    const upload = vi.fn().mockResolvedValue({ error: null });
+    const remove = vi.fn().mockResolvedValue({ error: null });
+    const getPublicUrl = vi.fn(() => ({ data: { publicUrl: "https://cdn.example/image.png" } }));
+    vi.mocked(createClient).mockResolvedValue({
+      storage: { from: vi.fn(() => ({ upload, remove, getPublicUrl })) },
+    } as never);
+    const webp = (name: string) =>
+      new File(
+        [new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 0])],
+        name,
+        { type: "image/webp" }
+      );
+    const formData = formDataFor(pngFile());
+    formData.set("thumb", webp("thumb.webp"));
+    // Not an image: skipped, the full file is shown instead.
+    formData.set("card", new File(["<svg/>"], "card.webp", { type: "image/webp" }));
+
+    await uploadInventoryItemImageAction(formData);
+
+    expect(upload).toHaveBeenCalledTimes(2);
+    const mainPath = upload.mock.calls[0][0] as string;
+    const thumbPath = upload.mock.calls[1][0] as string;
+    expect(thumbPath).toBe(mainPath.replace(/\.png$/, ".thumb.webp"));
+    expect(remove).toHaveBeenCalledWith([mainPath, thumbPath]);
+  });
+
   it("uploadInventoryItemImageAction emits an image upload audit event after DB record success", async () => {
     vi.mocked(loadDashboardContextV2).mockResolvedValue(
       makeContext([WAREHOUSE_PRODUCTS_MANAGE]) as never

@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { InventoryImage } from "@/components/warehouse/inventory-image";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink, Package, Pencil, X } from "lucide-react";
@@ -187,12 +187,12 @@ export function ProductRecordPanel({
           <div className="flex items-start gap-4 px-5 py-5">
             <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-lg border bg-muted/40">
               {detail.thumbnail_url ? (
-                <Image
+                <InventoryImage
                   src={detail.thumbnail_url}
-                  alt=""
+                  variant="thumb"
                   width={64}
                   height={64}
-                  unoptimized
+                  eager
                   className="size-full object-contain"
                 />
               ) : (
@@ -300,12 +300,12 @@ export function ProductRecordPanel({
                           rel="noreferrer"
                           className="overflow-hidden rounded-md border"
                         >
-                          <Image
+                          <InventoryImage
                             src={image.public_url!}
+                            variant="thumb"
                             alt={image.file_name ?? detail.name}
                             width={120}
                             height={120}
-                            unoptimized
                             className="aspect-square w-full object-contain"
                           />
                         </a>
