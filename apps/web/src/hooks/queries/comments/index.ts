@@ -3,9 +3,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
-import { addCommentAction, listCommentsForTargetAction } from "@/app/actions/comments";
+import { addCommentAction } from "@/app/actions/comments";
 import type { AddCommentInput, ListCommentsInput } from "@/lib/validations/comments";
 import type { AppComment, PaginatedComments } from "@/server/services/comments.service";
+import { appRead } from "@/lib/read";
 
 export const commentsKeys = {
   all: ["comments"] as const,
@@ -20,7 +21,7 @@ export function useCommentsQuery(
   return useQuery({
     queryKey: commentsKeys.target(input.targetType, input.targetId),
     queryFn: async () => {
-      const result = await listCommentsForTargetAction(input);
+      const result = await appRead("comments", input);
       if (!result.success) throw new Error((result as { success: false; error: string }).error);
       return result.data;
     },

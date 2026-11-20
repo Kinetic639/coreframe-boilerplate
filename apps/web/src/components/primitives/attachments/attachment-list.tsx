@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Link } from "@/i18n/navigation";
 import type { AppAttachment } from "@/server/services/attachments.service";
-import { attachmentImageSrc } from "@/lib/attachments/image-variants";
+import { attachmentImageSrc, retryAttachmentImage } from "@/lib/attachments/image-variants";
 import { cn } from "@/utils";
 import { attachmentFilePath } from "./attachment-download";
 import { formatFileSize, isImageMimeType } from "./attachment-utils";
@@ -150,6 +150,7 @@ export function AttachmentList({
                 {isImageMimeType(attachment.content_type) ? (
                   <img
                     src={attachmentImageSrc(attachment.id, "thumb")}
+                    onError={retryAttachmentImage}
                     alt=""
                     width={56}
                     height={56}
@@ -244,6 +245,7 @@ export function AttachmentList({
                 {isImageMimeType(previewAttachment.content_type) ? (
                   <img
                     src={attachmentImageSrc(previewAttachment.id)}
+                    onError={retryAttachmentImage}
                     alt={previewAttachment.file_name}
                     decoding="async"
                     className="mx-auto max-h-[70vh] w-auto max-w-full object-contain"

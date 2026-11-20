@@ -25,6 +25,9 @@ vi.mock("@/app/actions/mentions", () => ({
   listMentionPeopleAction: () => peopleMock(),
   resolveMentionsAction: vi.fn(),
 }));
+vi.mock("@/lib/read", () => ({
+  appRead: (name: string) => (name === "mentionPeople" ? peopleMock() : undefined),
+}));
 vi.mock("@/lib/stores/v2/app-store", () => ({
   useAppStoreV2: (selector: (state: unknown) => unknown) =>
     selector({ activeOrgId: "o1", activeBranchId: "b1" }),

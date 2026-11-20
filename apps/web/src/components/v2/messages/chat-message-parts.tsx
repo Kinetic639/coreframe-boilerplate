@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { attachmentFilePath } from "@/components/primitives/attachments/attachment-download";
 import { isImageMimeType } from "@/components/primitives/attachments/attachment-utils";
-import { attachmentImageSrc } from "@/lib/attachments/image-variants";
+import { attachmentImageSrc, retryAttachmentImage } from "@/lib/attachments/image-variants";
 import { fitGif } from "@/lib/messages/gif";
 import { memberName } from "@/lib/messages/display";
 import {
@@ -247,6 +247,7 @@ export function ChatAttachments({
               >
                 <img
                   src={attachmentImageSrc(id, "card")}
+                  onError={retryAttachmentImage}
                   alt={file!.file_name}
                   loading="lazy"
                   decoding="async"
@@ -280,6 +281,7 @@ export function ChatAttachments({
             <>
               <img
                 src={attachmentImageSrc(preview.id)}
+                onError={retryAttachmentImage}
                 alt={preview.file_name}
                 decoding="async"
                 className="mx-auto max-h-[78vh] w-auto max-w-full rounded object-contain"
