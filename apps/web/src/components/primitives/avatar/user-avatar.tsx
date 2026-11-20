@@ -73,7 +73,11 @@ export const UserAvatar = React.forwardRef<React.ElementRef<typeof Avatar>, User
 
     const suppliedName = fullName || [firstName, lastName].filter(Boolean).join(" ");
     const displayName = suppliedName || fallback || alt || "User";
-    const initials = getInitials(fallback || displayName);
+    // A short fallback is already initials ("AS"); anything longer is a name to shorten
+    const initials =
+      fallback && fallback.length <= 2 && !fallback.includes(" ")
+        ? fallback.toUpperCase()
+        : getInitials(fallback || displayName);
     const hasDetails = Boolean(suppliedName || email || profileHref) && !disabledPopover;
 
     const clearCloseTimer = () => {

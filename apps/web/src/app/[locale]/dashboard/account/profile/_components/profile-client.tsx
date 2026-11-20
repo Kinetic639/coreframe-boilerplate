@@ -25,6 +25,13 @@ import { LoadingSkeleton } from "@/components/v2/feedback/loading-skeleton";
 import { CopyToClipboard } from "@/components/v2/utility/copy-to-clipboard";
 import { uploadAvatarAction, removeAvatarAction } from "@/app/actions/user-preferences";
 import { AvatarCropDialog } from "@/components/v2/media/avatar-crop-dialog";
+import { AvatarPreview } from "@/components/primitives/avatar";
+import {
+  PROFILE_DISPLAY_NAME_MAX_LENGTH,
+  PROFILE_FIRST_NAME_MAX_LENGTH,
+  PROFILE_NAME_MAX_LENGTH,
+  PROFILE_PHONE_MAX_LENGTH,
+} from "@/lib/validations/user-preferences";
 
 interface ProfileClientProps {
   avatarSignedUrl: string | null;
@@ -129,11 +136,12 @@ export function ProfileClient({ avatarSignedUrl, translations }: ProfileClientPr
 
   // Prefer signed URL (uploaded avatar) over OAuth avatar_url; fall back to initials
   const avatarSrc = avatarSignedUrl ?? user?.avatar_url ?? undefined;
+  const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(" ");
 
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">{translations.description}</p>
-      <div className="grid gap-6 max-w-2xl">
+      <div className="grid max-w-2xl grid-cols-1 gap-6">
         {/* Profile Edit */}
         <Card>
           <CardHeader>
@@ -146,18 +154,18 @@ export function ProfileClient({ avatarSignedUrl, translations }: ProfileClientPr
           <CardContent className="space-y-5">
             {/* Avatar */}
             <div className="flex items-center gap-4">
-              <div className="relative">
+              <AvatarPreview src={avatarSrc} name={fullName || user?.email || "Avatar"}>
                 <Avatar className="h-16 w-16">
                   <AvatarImage src={avatarSrc} alt="Avatar" />
                   <AvatarFallback className="text-lg">{getInitials()}</AvatarFallback>
                 </Avatar>
-              </div>
+              </AvatarPreview>
 
-              <div className="flex flex-col gap-2">
-                <p className="font-medium">
-                  {user?.first_name} {user?.last_name}
+              <div className="flex min-w-0 flex-col gap-2">
+                <p className="truncate font-medium" title={fullName}>
+                  {fullName}
                 </p>
-                <p className="text-sm text-muted-foreground">{user?.email}</p>
+                <p className="truncate text-sm text-muted-foreground">{user?.email}</p>
 
                 {/* Avatar actions */}
                 <div className="flex items-center gap-2">
@@ -205,7 +213,7 @@ export function ProfileClient({ avatarSignedUrl, translations }: ProfileClientPr
             <Separator />
 
             {/* First & Last Name */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="firstName">{t("firstName")}</Label>
                 <Input
@@ -213,7 +221,13 @@ export function ProfileClient({ avatarSignedUrl, translations }: ProfileClientPr
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   placeholder={t("firstNamePlaceholder")}
-                  maxLength={100}
+                  maxLength={PROFILE_FIRST_NAME_MAX_LENGTH}
+                  aria-describedby="firstName-count"
+                />
+                <CharCount
+                  id="firstName-count"
+                  value={firstName}
+                  max={PROFILE_FIRST_NAME_MAX_LENGTH}
                 />
               </div>
               <div className="space-y-2">
@@ -223,8 +237,10 @@ export function ProfileClient({ avatarSignedUrl, translations }: ProfileClientPr
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   placeholder={t("lastNamePlaceholder")}
-                  maxLength={100}
+                  maxLength={PROFILE_NAME_MAX_LENGTH}
+                  aria-describedby="lastName-count"
                 />
+                <CharCount id="lastName-count" value={lastName} />
               </div>
             </div>
 
@@ -236,7 +252,13 @@ export function ProfileClient({ avatarSignedUrl, translations }: ProfileClientPr
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder={t("displayNamePlaceholder")}
-                maxLength={100}
+                maxLength={PROFILE_DISPLAY_NAME_MAX_LENGTH}
+                aria-describedby="displayName-count"
+              />
+              <CharCount
+                id="displayName-count"
+                value={displayName}
+                max={PROFILE_DISPLAY_NAME_MAX_LENGTH}
               />
             </div>
 
@@ -249,7 +271,7 @@ export function ProfileClient({ avatarSignedUrl, translations }: ProfileClientPr
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder={t("phonePlaceholder")}
-                maxLength={20}
+                maxLength={PROFILE_PHONE_MAX_LENGTH}
               />
               <p className="text-xs text-muted-foreground">{t("phoneHint")}</p>
             </div>
@@ -306,5 +328,30 @@ export function ProfileClient({ avatarSignedUrl, translations }: ProfileClientPr
         </Card>
       </div>
     </div>
+  );
+}
+
+/** "12/50" under a name field, highlighted once the limit is reached. */
+function CharCount({
+  id,
+  value,
+  max = PROFILE_NAME_MAX_LENGTH,
+}: {
+  id: string;
+  value: string;
+  max?: number;
+}) {
+  const length = value.length;
+  return (
+    <p
+      id={id}
+      className={
+        length >= max
+          ? "text-right text-xs text-amber-600 dark:text-amber-500"
+          : "text-right text-xs text-muted-foreground"
+      }
+    >
+      {length}/{max}
+    </p>
   );
 }

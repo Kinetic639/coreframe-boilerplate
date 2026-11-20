@@ -307,7 +307,9 @@ export function CrmContactDetailPanel({
           />
         </div>
         <Badge variant="outline">{t(`visibility.${current.visibility_scope}`)}</Badge>
-        <h2 className="mt-2 text-xl font-semibold">{current.display_name}</h2>
+        <h2 className="mt-2 break-words text-xl font-semibold [overflow-wrap:anywhere]">
+          {current.display_name}
+        </h2>
         {current.linked_user_id ? (
           <p className="mt-1 text-sm text-muted-foreground">
             {t("messages.linkedOrgUser")}

@@ -292,7 +292,9 @@ function ContactCard({
       <div className="space-y-4 p-6" aria-busy="true" aria-label={labels.loading}>
         {row ? (
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold">{row.display_name}</h2>
+            <h2 className="min-w-0 break-words text-lg font-semibold [overflow-wrap:anywhere]">
+              {row.display_name}
+            </h2>
             <ContactKind row={row} labels={labels} />
           </div>
         ) : (

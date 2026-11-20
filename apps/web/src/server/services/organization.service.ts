@@ -15,6 +15,7 @@ import "server-only";
 
 import { SupabaseClient } from "@supabase/supabase-js";
 import { groupMembersByBranch } from "@repo/domain/organization";
+import { getSignedAvatarUrl, getSignedAvatarUrls } from "@/server/storage/avatar-signed-url";
 import {
   isAssignablePermission,
   type CatalogPermission,
@@ -199,12 +200,18 @@ export class OrgMembersService {
 
     const { data: users, error: usersError } = await supabase
       .from("users")
-      .select("id, email, first_name, last_name, avatar_url")
+      .select("id, email, first_name, last_name, avatar_url, avatar_path")
       .in("id", userIds);
 
     if (usersError) return { success: false, error: usersError.message };
 
     const userMap = new Map((users ?? []).map((u) => [u.id, u]));
+    // Uploaded avatars are private storage objects: sign them (one call for the list)
+    const signedAvatars = await getSignedAvatarUrls(
+      (users ?? [])
+        .filter((u) => u.avatar_path)
+        .map((u) => ({ userId: u.id, avatarPath: u.avatar_path as string }))
+    );
 
     // Fetch org-scoped role assignments
     const { data: orgAssignments } = await supabase
@@ -269,7 +276,7 @@ export class OrgMembersService {
         user_email: u?.email ?? null,
         user_first_name: u?.first_name ?? null,
         user_last_name: u?.last_name ?? null,
-        user_avatar_url: u?.avatar_url ?? null,
+        user_avatar_url: signedAvatars.get(m.user_id) ?? u?.avatar_url ?? null,
         roles: rolesByUser.get(m.user_id) ?? [],
       };
     });
@@ -359,9 +366,11 @@ export class OrgMembersService {
 
     const { data: user } = await supabase
       .from("users")
-      .select("id, email, first_name, last_name, avatar_url")
+      .select("id, email, first_name, last_name, avatar_url, avatar_path")
       .eq("id", userId)
       .maybeSingle();
+
+    const signedAvatar = user ? await getSignedAvatarUrl(user.id, user.avatar_path) : null;
 
     return {
       success: true,
@@ -370,7 +379,7 @@ export class OrgMembersService {
         user_email: user?.email ?? null,
         user_first_name: user?.first_name ?? null,
         user_last_name: user?.last_name ?? null,
-        user_avatar_url: user?.avatar_url ?? null,
+        user_avatar_url: signedAvatar ?? user?.avatar_url ?? null,
         roles: [],
       },
     };

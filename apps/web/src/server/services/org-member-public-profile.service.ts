@@ -37,14 +37,30 @@ interface AuthorizedViewer {
   userId: string;
 }
 
+type ProfileDetailsRow = {
+  user_id: string;
+  display_name: string | null;
+  phone: string | null;
+  job_title: string | null;
+  branch_name: string | null;
+  joined_at: string | null;
+};
+
 export interface OrgMemberPublicProfile {
   user_id: string;
   email: string | null;
   first_name: string | null;
   last_name: string | null;
+  /** Name to show: the member's own display name, else first + last name, else email. */
   display_name: string;
+  /** First + last name, when set (shown under a custom display name). */
+  full_name: string | null;
   avatar_url: string | null;
   profile_href: string;
+  phone: string | null;
+  job_title: string | null;
+  branch_name: string | null;
+  joined_at: string | null;
 }
 
 export interface PaginatedOrgMemberPublicProfiles {
@@ -68,9 +84,39 @@ function normalizePageSize(pageSize: number): number {
   return Math.min(Math.floor(pageSize), MAX_PROFILE_PAGE_SIZE);
 }
 
-function buildDisplayName(user: UserProfileRow): string {
-  const name = [user.first_name, user.last_name].filter(Boolean).join(" ").trim();
-  return name || user.email || "User";
+function buildFullName(user: UserProfileRow): string | null {
+  return [user.first_name, user.last_name].filter(Boolean).join(" ").trim() || null;
+}
+
+function buildDisplayName(user: UserProfileRow, details?: ProfileDetailsRow): string {
+  return details?.display_name?.trim() || buildFullName(user) || user.email || "User";
+}
+
+/**
+ * Display name, phone, position and branch of members. These live in tables only
+ * their owner can read (user_preferences), so a definer function returns exactly
+ * these approved fields to active members of the same organization.
+ */
+async function loadProfileDetails(
+  supabase: SupabaseClient,
+  orgId: string,
+  userIds: string[]
+): Promise<Map<string, ProfileDetailsRow>> {
+  const details = new Map<string, ProfileDetailsRow>();
+  if (userIds.length === 0) return details;
+
+  const { data, error } = await supabase.rpc("org_member_profile_details", {
+    p_org: orgId,
+    p_user_ids: userIds,
+  });
+  if (error) {
+    // Non-fatal: profiles still render with names from the users table
+    console.error("[OrgMemberPublicProfileService] Failed to load profile details", error);
+    return details;
+  }
+
+  for (const row of (data ?? []) as ProfileDetailsRow[]) details.set(row.user_id, row);
+  return details;
 }
 
 function profileHref(userId: string): string {
@@ -156,6 +202,7 @@ async function authorizeViewer(
 
 async function listAuthorizedProfiles(
   supabase: SupabaseClient,
+  orgId: string,
   userIds: string[]
 ): Promise<ServiceResult<OrgMemberPublicProfile[]>> {
   if (userIds.length === 0) return { success: true, data: [] };
@@ -173,17 +220,32 @@ async function listAuthorizedProfiles(
   const profileRows = ((users ?? []) as UserProfileRow[]).filter((user) =>
     authorizedUserIds.has(user.id)
   );
-  const signedAvatarUrls = await createSignedAvatarUrls(profileRows);
+  const [signedAvatarUrls, details] = await Promise.all([
+    createSignedAvatarUrls(profileRows),
+    loadProfileDetails(
+      supabase,
+      orgId,
+      profileRows.map((user) => user.id)
+    ),
+  ]);
 
-  const profiles = profileRows.map((user) => ({
-    user_id: user.id,
-    email: user.email,
-    first_name: user.first_name,
-    last_name: user.last_name,
-    display_name: buildDisplayName(user),
-    avatar_url: signedAvatarUrls.get(user.id) ?? user.avatar_url,
-    profile_href: profileHref(user.id),
-  }));
+  const profiles = profileRows.map((user) => {
+    const detail = details.get(user.id);
+    return {
+      user_id: user.id,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      display_name: buildDisplayName(user, detail),
+      full_name: buildFullName(user),
+      avatar_url: signedAvatarUrls.get(user.id) ?? user.avatar_url,
+      profile_href: profileHref(user.id),
+      phone: detail?.phone ?? null,
+      job_title: detail?.job_title ?? null,
+      branch_name: detail?.branch_name ?? null,
+      joined_at: detail?.joined_at ?? null,
+    };
+  });
 
   return { success: true, data: profiles };
 }
@@ -230,7 +292,7 @@ export class OrgMemberPublicProfileService {
       (membership) => membership.user_id
     );
 
-    return listAuthorizedProfiles(supabase, userIds);
+    return listAuthorizedProfiles(supabase, orgId, userIds);
   }
 
   static async listProfilesForOrgPage(
@@ -267,7 +329,7 @@ export class OrgMemberPublicProfileService {
     const userIds = ((memberships ?? []) as MembershipRow[]).map(
       (membership) => membership.user_id
     );
-    const profilesResult = await listAuthorizedProfiles(supabase, userIds);
+    const profilesResult = await listAuthorizedProfiles(supabase, orgId, userIds);
     if (!profilesResult.success) return profilesResult as { success: false; error: string };
 
     const totalCount = count ?? profilesResult.data.length;
@@ -381,7 +443,7 @@ export class OrgMemberPublicProfileService {
     );
     if (authorizedUserIds.size === 0) return { success: true, data: [] };
 
-    return listAuthorizedProfiles(supabase, Array.from(authorizedUserIds));
+    return listAuthorizedProfiles(supabase, orgId, Array.from(authorizedUserIds));
   }
 
   static async getProfile(

@@ -30,9 +30,12 @@ function makeQuery(result: { data: unknown; error: unknown; count?: number | nul
   return query;
 }
 
+let profileDetailsResult: { data: unknown; error: unknown } = { data: [], error: null };
+
 function makeSupabase(...results: Array<{ data: unknown; error: unknown; count?: number | null }>) {
   const queries = results.map(makeQuery);
   return {
+    rpc: vi.fn().mockImplementation(() => Promise.resolve(profileDetailsResult)),
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user: { id: VIEWER_ID } }, error: null }),
     },
@@ -46,6 +49,7 @@ function makeSupabase(...results: Array<{ data: unknown; error: unknown; count?:
 
 beforeEach(() => {
   vi.clearAllMocks();
+  profileDetailsResult = { data: [], error: null };
   mockCreateSignedUrl.mockResolvedValue({
     data: { signedUrl: "https://signed.example.com/avatar.png" },
     error: null,
@@ -95,6 +99,94 @@ describe("OrgMemberPublicProfileService", () => {
     });
     expect(mockStorageFrom).toHaveBeenCalledWith("user-avatars");
     expect(mockCreateSignedUrl).toHaveBeenCalledWith(`${USER_ID}/avatar.png`, 3600);
+  });
+
+  it("uses the member's own display name and public details", async () => {
+    profileDetailsResult = {
+      data: [
+        {
+          user_id: USER_ID,
+          display_name: "Ala",
+          phone: "+48 600 100 200",
+          job_title: "Magazynier",
+          branch_name: "Poznań",
+          joined_at: "2026-01-02T00:00:00Z",
+        },
+      ],
+      error: null,
+    };
+    const supabase = makeSupabase(
+      { data: { user_id: VIEWER_ID }, error: null },
+      { data: [{ user_id: USER_ID }], error: null },
+      {
+        data: [
+          {
+            id: USER_ID,
+            email: "alice@example.com",
+            first_name: "Alice",
+            last_name: "Smith",
+            avatar_url: null,
+            avatar_path: null,
+          },
+        ],
+        error: null,
+      }
+    );
+
+    const result = await OrgMemberPublicProfileService.getProfile(
+      supabase as never,
+      ORG_ID,
+      USER_ID
+    );
+
+    expect(supabase.rpc).toHaveBeenCalledWith("org_member_profile_details", {
+      p_org: ORG_ID,
+      p_user_ids: [USER_ID],
+    });
+    expect(result).toMatchObject({
+      success: true,
+      data: {
+        display_name: "Ala",
+        full_name: "Alice Smith",
+        phone: "+48 600 100 200",
+        job_title: "Magazynier",
+        branch_name: "Poznań",
+        joined_at: "2026-01-02T00:00:00Z",
+      },
+    });
+  });
+
+  it("falls back to first and last name when the details lookup fails", async () => {
+    profileDetailsResult = { data: null, error: { message: "boom" } };
+    const supabase = makeSupabase(
+      { data: { user_id: VIEWER_ID }, error: null },
+      { data: [{ user_id: USER_ID }], error: null },
+      {
+        data: [
+          {
+            id: USER_ID,
+            email: "alice@example.com",
+            first_name: "Alice",
+            last_name: "Smith",
+            avatar_url: null,
+            avatar_path: null,
+          },
+        ],
+        error: null,
+      }
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await OrgMemberPublicProfileService.getProfile(
+      supabase as never,
+      ORG_ID,
+      USER_ID
+    );
+
+    expect(result).toMatchObject({
+      success: true,
+      data: { display_name: "Alice Smith", phone: null, job_title: null },
+    });
   });
 
   it("does not sign an avatar path outside the member's own folder", async () => {
