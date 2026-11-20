@@ -32,6 +32,7 @@ import {
 } from "@/lib/constants/permissions";
 import { checkPermission } from "@/lib/utils/permissions";
 import { getAuthUser } from "@/server/auth/get-auth-user";
+import { bumpDashboardContextVersion } from "@/server/loaders/v2/load-dashboard-context-rpc.v2";
 
 const AVATAR_BUCKET = "user-avatars";
 const AVATAR_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -187,6 +188,7 @@ export async function updateProfileAction(input: unknown): Promise<ActionResult<
       validated as UpdateProfileInput
     );
 
+    await bumpDashboardContextVersion();
     return { success: true, data: prefs };
   } catch (error) {
     if (error instanceof ZodError) {
@@ -459,6 +461,7 @@ export async function setDefaultOrganizationAction(
       validated.organizationId
     );
 
+    await bumpDashboardContextVersion();
     return { success: true, data: prefs };
   } catch (error) {
     if (error instanceof ZodError) {
@@ -502,6 +505,7 @@ export async function setDefaultBranchAction(
       validated.branchId
     );
 
+    await bumpDashboardContextVersion();
     return { success: true, data: prefs };
   } catch (error) {
     if (error instanceof ZodError) {
@@ -604,6 +608,7 @@ export async function uploadAvatarAction(
       await auth.supabase.storage.from(AVATAR_BUCKET).remove([oldPath]);
     }
 
+    await bumpDashboardContextVersion();
     return { success: true, data: { avatarPath: newPath } };
   } catch (error) {
     console.error("[uploadAvatarAction] Failed:", error);
@@ -660,6 +665,7 @@ export async function removeAvatarAction(): Promise<ActionResult<null>> {
       }
     }
 
+    await bumpDashboardContextVersion();
     return { success: true, data: null };
   } catch (error) {
     console.error("[removeAvatarAction] Failed:", error);

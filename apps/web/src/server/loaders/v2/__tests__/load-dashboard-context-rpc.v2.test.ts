@@ -3,10 +3,18 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockRpc, mockGetSession, mockGetAuthUser } = vi.hoisted(() => ({
+const { mockRpc, mockGetSession, mockGetAuthUser, cookieJar } = vi.hoisted(() => ({
   mockRpc: vi.fn(),
   mockGetSession: vi.fn(),
   mockGetAuthUser: vi.fn(),
+  cookieJar: new Map<string, string>(),
+}));
+
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({
+    get: (name: string) => (cookieJar.has(name) ? { value: cookieJar.get(name) } : undefined),
+    set: (name: string, value: string) => cookieJar.set(name, value),
+  })),
 }));
 
 vi.mock("@/utils/supabase/server", () => ({
@@ -27,6 +35,9 @@ import {
   loadDashboardContextFromRpc,
   buildDashboardContextFromRpc,
   __resetDashboardContextRpcState,
+  bumpDashboardContextVersion,
+  CONTEXT_TTL_MS,
+  CONTEXT_VERSION_COOKIE,
   type DashboardContextRpcPayload,
 } from "../load-dashboard-context-rpc.v2";
 
@@ -167,6 +178,8 @@ describe("buildDashboardContextFromRpc", () => {
 describe("loadDashboardContextFromRpc", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
+    cookieJar.clear();
     __resetDashboardContextRpcState();
     mockGetAuthUser.mockResolvedValue({ data: { user: AUTH_USER }, error: null });
     mockGetSession.mockResolvedValue({ data: { session: { access_token: "token" } } });
@@ -201,5 +214,71 @@ describe("loadDashboardContextFromRpc", () => {
     expect(await loadDashboardContextFromRpc()).toBeUndefined();
     expect(await loadDashboardContextFromRpc()).toBeUndefined();
     expect(mockRpc).toHaveBeenCalledTimes(1);
+  });
+
+  describe("short cache across requests", () => {
+    it("requests close together share one RPC call", async () => {
+      mockRpc.mockResolvedValue({ data: payload(), error: null });
+
+      const [a, b] = await Promise.all([
+        loadDashboardContextFromRpc(),
+        loadDashboardContextFromRpc(),
+      ]);
+      const c = await loadDashboardContextFromRpc();
+
+      expect(mockRpc).toHaveBeenCalledTimes(1);
+      expect(a?.app.activeBranchId).toBe("b-2");
+      expect(b).toBe(a);
+      expect(c).toBe(a);
+    });
+
+    it("asks again after the entry expires", async () => {
+      vi.useFakeTimers();
+      mockRpc.mockResolvedValue({ data: payload(), error: null });
+
+      await loadDashboardContextFromRpc();
+      vi.advanceTimersByTime(CONTEXT_TTL_MS + 1);
+      await loadDashboardContextFromRpc();
+
+      expect(mockRpc).toHaveBeenCalledTimes(2);
+    });
+
+    it("a new context version (branch switch) misses the cache", async () => {
+      mockRpc.mockResolvedValue({ data: payload(), error: null });
+
+      await loadDashboardContextFromRpc();
+      await bumpDashboardContextVersion("user-1");
+      expect(cookieJar.get(CONTEXT_VERSION_COOKIE)).toBeTruthy();
+      await loadDashboardContextFromRpc();
+
+      expect(mockRpc).toHaveBeenCalledTimes(2);
+    });
+
+    it("another user or another session never shares an entry", async () => {
+      mockRpc.mockResolvedValue({ data: payload(), error: null });
+
+      await loadDashboardContextFromRpc();
+      mockGetSession.mockResolvedValue({ data: { session: { access_token: "other-token" } } });
+      await loadDashboardContextFromRpc();
+      mockGetAuthUser.mockResolvedValue({
+        data: { user: { ...AUTH_USER, id: "user-2" } },
+        error: null,
+      });
+      await loadDashboardContextFromRpc();
+
+      expect(mockRpc).toHaveBeenCalledTimes(3);
+    });
+
+    it("does not keep a failed answer", async () => {
+      const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      mockRpc
+        .mockResolvedValueOnce({ data: null, error: { code: "57014", message: "timeout" } })
+        .mockResolvedValueOnce({ data: payload(), error: null });
+
+      expect(await loadDashboardContextFromRpc()).toBeUndefined();
+      expect((await loadDashboardContextFromRpc())?.app.activeBranchId).toBe("b-2");
+      expect(mockRpc).toHaveBeenCalledTimes(2);
+      spy.mockRestore();
+    });
   });
 });

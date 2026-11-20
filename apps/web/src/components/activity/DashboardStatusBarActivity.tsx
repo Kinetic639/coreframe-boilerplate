@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useFormatter } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { getLatestActivityAction } from "@/app/actions/audit/get-latest-activity";
+import { hasNewActivityAction } from "@/app/actions/audit/has-new-activity";
 import { ACTIVITY_PRODUCED_EVENT } from "@/lib/audit/activity-invalidation";
 import { EventCategoryIcon, EventIntentIcon } from "@/components/audit/event-icons";
 import { useActivitySummary } from "./useActivitySummary";
@@ -16,11 +17,13 @@ import type { ProjectedEvent } from "@/server/audit/types";
 // ---------------------------------------------------------------------------
 
 /**
- * Polling interval for events from other sessions and tabs. Every tick is a
- * server action that loads the full dashboard context (about eight Supabase
- * requests), so it runs every two minutes and only while the tab is visible.
- * Coming back to the tab refreshes at once (focus / visibilitychange), and the
- * same tab signals its own changes through ACTIVITY_PRODUCED_EVENT.
+ * Polling interval for events from other sessions and tabs. Runs every two
+ * minutes and only while the tab is visible; coming back to the tab checks at
+ * once (focus / visibilitychange). A tick and a focus first ask
+ * hasNewActivityAction (one small query) and load the latest event (context,
+ * events and names, about four requests) only when something new exists. The
+ * same tab signals its own changes through ACTIVITY_PRODUCED_EVENT, which
+ * refreshes at once.
  */
 const POLL_INTERVAL_MS = 120_000;
 
@@ -82,9 +85,10 @@ interface DashboardStatusBarActivityProps {
  *   - `isRefreshing`  in-flight indicator
  *
  * Refresh triggers:
- *   1. Window focus     — catches events from another tab/session
- *   2. Visibility change — catches events from background navigation
- *   3. Polling (30s)    — lightweight ambient freshness
+ *   1. Window focus     — checks for events from another tab/session
+ *   2. Visibility change — checks for events from background navigation
+ *   3. Polling (120s)   — the same check while the tab is visible
+ *   (1–3 load the event only when hasNewActivityAction finds a newer one)
  *   4. Same-tab signal  — listens for `coreframe:activity-produced` CustomEvent
  *                         so callers that just performed an action can push
  *                         an immediate refresh without any global store
@@ -105,6 +109,11 @@ export function DashboardStatusBarActivity({
   // Monotonic counter for race safety
   const refreshSeqRef = useRef(0);
 
+  // Events newer than this are "new". Starts at the event the server rendered
+  // (or the beginning of time when there was none); after a refresh that a
+  // check triggered, it moves to the server time of that check.
+  const sinceRef = useRef<string>(initialLatestEvent?.created_at ?? new Date(0).toISOString());
+
   const refreshLatestActivity = useCallback(async () => {
     const seq = ++refreshSeqRef.current;
     setIsRefreshing(true);
@@ -120,10 +129,19 @@ export function DashboardStatusBarActivity({
     }
   }, []);
 
+  // Poll and focus: one small query, the full refresh only when it finds something
+  const checkForNewActivity = useCallback(async () => {
+    const result = await hasNewActivityAction(sinceRef.current);
+    if (!result.success) return;
+    if (!result.data.hasNew) return;
+    sinceRef.current = result.data.checkedAt;
+    await refreshLatestActivity();
+  }, [refreshLatestActivity]);
+
   useEffect(() => {
-    const handleFocus = () => refreshLatestActivity();
+    const handleFocus = () => checkForNewActivity();
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") refreshLatestActivity();
+      if (document.visibilityState === "visible") checkForNewActivity();
     };
     const handleInvalidate = () => refreshLatestActivity();
 
@@ -131,7 +149,7 @@ export function DashboardStatusBarActivity({
     document.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener(ACTIVITY_PRODUCED_EVENT, handleInvalidate);
     const interval = setInterval(() => {
-      if (document.visibilityState === "visible") refreshLatestActivity();
+      if (document.visibilityState === "visible") checkForNewActivity();
     }, POLL_INTERVAL_MS);
 
     return () => {
@@ -140,7 +158,7 @@ export function DashboardStatusBarActivity({
       window.removeEventListener(ACTIVITY_PRODUCED_EVENT, handleInvalidate);
       clearInterval(interval);
     };
-  }, [refreshLatestActivity]);
+  }, [refreshLatestActivity, checkForNewActivity]);
 
   // The animated content key: stable per-event so AnimatePresence knows when
   // to transition, but "no-activity" is stable for the empty fallback.

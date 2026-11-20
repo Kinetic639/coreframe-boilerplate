@@ -16,6 +16,7 @@
  *   T-ACTIVITY-RACE:      stale responses are discarded
  *   T-ACTIVITY-REMOVAL:   no drawer, no fake placeholder data
  *   T-ACTIVITY-ANIMATION: animated wrapper updates key on event change
+ *   T-ACTIVITY-CHECK:     poll and focus load the event only when a check finds one
  */
 
 import { render, screen, act, fireEvent, waitFor } from "@testing-library/react";
@@ -32,6 +33,20 @@ const mockGetLatestActivityAction = vi.fn();
 vi.mock("@/app/actions/audit/get-latest-activity", () => ({
   getLatestActivityAction: () => mockGetLatestActivityAction(),
 }));
+
+// Poll and focus ask this first; by default it reports something new, so the
+// refresh tests below see the full refresh.
+const mockHasNewActivityAction = vi.fn();
+vi.mock("@/app/actions/audit/has-new-activity", () => ({
+  hasNewActivityAction: (since: string) => mockHasNewActivityAction(since),
+}));
+const CHECKED_AT = "2026-11-20T08:00:00.000Z";
+beforeEach(() => {
+  mockHasNewActivityAction.mockResolvedValue({
+    success: true,
+    data: { hasNew: true, checkedAt: CHECKED_AT },
+  });
+});
 
 vi.mock("@/components/audit/event-icons", () => ({
   EventCategoryIcon: ({ category }: { category: string }) => (
@@ -446,5 +461,84 @@ describe("T-ACTIVITY-ANIMATION: content transitions when latest event changes", 
       expect(screen.getByText("summary:org.created")).toBeInTheDocument();
       expect(screen.queryByText("No recent activity")).not.toBeInTheDocument();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T-ACTIVITY-CHECK: poll and focus run the full refresh only when needed
+// ---------------------------------------------------------------------------
+
+describe("T-ACTIVITY-CHECK: the cheap check gates the full refresh", () => {
+  // Block body: a function returned from beforeEach runs as its cleanup
+  // (the suites above return the mock, so it is called once after their tests)
+  beforeEach(() => {
+    mockGetLatestActivityAction.mockClear();
+    mockGetLatestActivityAction.mockResolvedValue(successResult(EVENT_B));
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  it("focus with nothing new does not load the event", async () => {
+    mockHasNewActivityAction.mockResolvedValue({
+      success: true,
+      data: { hasNew: false, checkedAt: CHECKED_AT },
+    });
+    render(<DashboardStatusBarActivity initialLatestEvent={EVENT_A} />);
+
+    await act(async () => {
+      fireEvent(window, new Event("focus"));
+    });
+
+    expect(mockHasNewActivityAction).toHaveBeenCalledWith(EVENT_A.created_at);
+    expect(mockGetLatestActivityAction).not.toHaveBeenCalled();
+    expect(screen.getByText("summary:auth.login")).toBeInTheDocument();
+  });
+
+  it("a failed check does not load the event", async () => {
+    mockHasNewActivityAction.mockResolvedValue({ success: false, error: "x" });
+    render(<DashboardStatusBarActivity initialLatestEvent={null} />);
+
+    await act(async () => {
+      fireEvent(window, new Event("focus"));
+    });
+
+    expect(mockGetLatestActivityAction).not.toHaveBeenCalled();
+  });
+
+  it("without an initial event, the first check asks from the beginning", async () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={null} />);
+
+    await act(async () => {
+      fireEvent(window, new Event("focus"));
+    });
+
+    expect(mockHasNewActivityAction).toHaveBeenCalledWith(new Date(0).toISOString());
+  });
+
+  it("after a refresh, the next check asks from the server time of the last check", async () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={EVENT_A} />);
+
+    await act(async () => {
+      fireEvent(window, new Event("focus"));
+    });
+    await waitFor(() => {
+      expect(screen.getByText("summary:org.created")).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent(window, new Event("focus"));
+    });
+
+    expect(mockHasNewActivityAction).toHaveBeenLastCalledWith(CHECKED_AT);
+  });
+
+  it("the same-tab signal refreshes without asking first", async () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={null} />);
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(ACTIVITY_PRODUCED_EVENT));
+    });
+
+    expect(mockHasNewActivityAction).not.toHaveBeenCalled();
+    expect(mockGetLatestActivityAction).toHaveBeenCalled();
   });
 });

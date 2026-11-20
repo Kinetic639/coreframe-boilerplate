@@ -13,6 +13,7 @@ import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/utils/supabase/service";
 import type { ServiceResult } from "./organization.service";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 const USER_AVATAR_BUCKET = "user-avatars";
 const AVATAR_SIGNED_URL_TTL_SECONDS = 60 * 60;
@@ -125,10 +126,11 @@ async function authorizeViewer(
   supabase: SupabaseClient,
   orgId: string
 ): Promise<ServiceResult<AuthorizedViewer>> {
+  // Verified token claims, no request to Supabase Auth
   const {
     data: { user: viewer },
     error: authError,
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
 
   if (authError || !viewer) {
     return { success: false, error: "Unauthorized" };
