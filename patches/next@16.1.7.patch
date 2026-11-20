@@ -1,0 +1,150 @@
+diff --git a/dist/client/components/app-router-instance.js b/dist/client/components/app-router-instance.js
+index e5d14b83c198d6e7b495662ca0fc9f3779bf1320..3f83033754a3674e6ee1cf4e987621213a65c14e 100644
+--- a/dist/client/components/app-router-instance.js
++++ b/dist/client/components/app-router-instance.js
+@@ -42,20 +42,27 @@ const _useactionqueue = require("./use-action-queue");
+ const _addbasepath = require("../add-base-path");
+ const _approuterutils = require("./app-router-utils");
+ const _links = require("./links");
+-function runRemainingActions(actionQueue, setState) {
+-    if (actionQueue.pending !== null) {
+-        actionQueue.pending = actionQueue.pending.next;
++function runRemainingActions(actionQueue, settledAction, setState) {
++    // Backported from Next.js 16.4: only advance the queue if the settled
++    // action is still at its head. If a navigation discarded this action, the
++    // navigation took its place; advancing here dropped actions queued behind
++    // the navigation, whose promises then never settled.
++    if (actionQueue.pending === settledAction) {
++        actionQueue.pending = settledAction.next;
+         if (actionQueue.pending !== null) {
+             runAction({
+                 actionQueue,
+                 action: actionQueue.pending,
+                 setState
+             });
++            return;
++        }
++    }
++    if (actionQueue.pending === null) {
++        if (actionQueue.wasPreempted) {
++            actionQueue.wasPreempted = false;
++            (0, _react.startTransition)(()=>setState(actionQueue.state));
+         }
+-    } else {
+-        // Check for refresh when pending is already null
+-        // This handles the case where a discarded server action completes
+-        // after the navigation has already finished and the queue is empty
+         if (actionQueue.needsRefresh) {
+             actionQueue.needsRefresh = false;
+             actionQueue.dispatch({
+@@ -80,17 +87,17 @@ async function runAction({ actionQueue, action, setState }) {
+             }
+             // Still need to run remaining actions even for discarded actions
+             // to potentially trigger the refresh
+-            runRemainingActions(actionQueue, setState);
++            runRemainingActions(actionQueue, action, setState);
+             return;
+         }
+         actionQueue.state = nextState;
+-        runRemainingActions(actionQueue, setState);
++        runRemainingActions(actionQueue, action, setState);
+         action.resolve(nextState);
+     }
+     // if the action is a promise, set up a callback to resolve it
+     if ((0, _isthenable.isThenable)(actionResult)) {
+         actionResult.then(handleResult, (err)=>{
+-            runRemainingActions(actionQueue, setState);
++            runRemainingActions(actionQueue, action, setState);
+             action.reject(err);
+         });
+     } else {
+@@ -140,9 +147,14 @@ function dispatchAction(actionQueue, payload, setState) {
+         // Navigations (including back/forward) take priority over any pending actions.
+         // Mark the pending action as discarded (so the state is never applied) and start the navigation action immediately.
+         actionQueue.pending.discarded = true;
++        actionQueue.wasPreempted = true;
+         // The rest of the current queue should still execute after this navigation.
+         // (Note that it can't contain any earlier navigations, because we always put those into `actionQueue.pending` by calling `runAction`)
+         newAction.next = actionQueue.pending.next;
++        // Backported from Next.js 16.4: keep `last` reachable from the head.
++        if (actionQueue.last === actionQueue.pending) {
++            actionQueue.last = newAction;
++        }
+         runAction({
+             actionQueue,
+             action: newAction,
+diff --git a/dist/esm/client/components/app-router-instance.js b/dist/esm/client/components/app-router-instance.js
+index 5c46223850697a1e74f6700bc75a3539d0a7059f..daac1d25f61814ca1ad198307bec2a54f7d08367 100644
+--- a/dist/esm/client/components/app-router-instance.js
++++ b/dist/esm/client/components/app-router-instance.js
+@@ -8,20 +8,27 @@ import { dispatchAppRouterAction } from './use-action-queue';
+ import { addBasePath } from '../add-base-path';
+ import { isExternalURL } from './app-router-utils';
+ import { setLinkForCurrentNavigation } from './links';
+-function runRemainingActions(actionQueue, setState) {
+-    if (actionQueue.pending !== null) {
+-        actionQueue.pending = actionQueue.pending.next;
++function runRemainingActions(actionQueue, settledAction, setState) {
++    // Backported from Next.js 16.4: only advance the queue if the settled
++    // action is still at its head. If a navigation discarded this action, the
++    // navigation took its place; advancing here dropped actions queued behind
++    // the navigation, whose promises then never settled.
++    if (actionQueue.pending === settledAction) {
++        actionQueue.pending = settledAction.next;
+         if (actionQueue.pending !== null) {
+             runAction({
+                 actionQueue,
+                 action: actionQueue.pending,
+                 setState
+             });
++            return;
++        }
++    }
++    if (actionQueue.pending === null) {
++        if (actionQueue.wasPreempted) {
++            actionQueue.wasPreempted = false;
++            startTransition(()=>setState(actionQueue.state));
+         }
+-    } else {
+-        // Check for refresh when pending is already null
+-        // This handles the case where a discarded server action completes
+-        // after the navigation has already finished and the queue is empty
+         if (actionQueue.needsRefresh) {
+             actionQueue.needsRefresh = false;
+             actionQueue.dispatch({
+@@ -46,17 +53,17 @@ async function runAction({ actionQueue, action, setState }) {
+             }
+             // Still need to run remaining actions even for discarded actions
+             // to potentially trigger the refresh
+-            runRemainingActions(actionQueue, setState);
++            runRemainingActions(actionQueue, action, setState);
+             return;
+         }
+         actionQueue.state = nextState;
+-        runRemainingActions(actionQueue, setState);
++        runRemainingActions(actionQueue, action, setState);
+         action.resolve(nextState);
+     }
+     // if the action is a promise, set up a callback to resolve it
+     if (isThenable(actionResult)) {
+         actionResult.then(handleResult, (err)=>{
+-            runRemainingActions(actionQueue, setState);
++            runRemainingActions(actionQueue, action, setState);
+             action.reject(err);
+         });
+     } else {
+@@ -106,9 +113,14 @@ function dispatchAction(actionQueue, payload, setState) {
+         // Navigations (including back/forward) take priority over any pending actions.
+         // Mark the pending action as discarded (so the state is never applied) and start the navigation action immediately.
+         actionQueue.pending.discarded = true;
++        actionQueue.wasPreempted = true;
+         // The rest of the current queue should still execute after this navigation.
+         // (Note that it can't contain any earlier navigations, because we always put those into `actionQueue.pending` by calling `runAction`)
+         newAction.next = actionQueue.pending.next;
++        // Backported from Next.js 16.4: keep `last` reachable from the head.
++        if (actionQueue.last === actionQueue.pending) {
++            actionQueue.last = newAction;
++        }
+         runAction({
+             actionQueue,
+             action: newAction,

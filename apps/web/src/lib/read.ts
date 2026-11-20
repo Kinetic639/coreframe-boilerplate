@@ -2,6 +2,11 @@ import type { AppReadName, AppReads } from "@/server/reads/registry";
 
 /** Longer arguments go in a POST body instead of the address. */
 const MAX_QUERY_LENGTH = 1800;
+/**
+ * A read that has not answered by then is given up, so a stuck request shows
+ * an error (and the query retries) instead of loading forever.
+ */
+const READ_TIMEOUT_MS = 30_000;
 
 /**
  * Calls a read route with the action's own arguments. GET (or POST for long
@@ -16,11 +21,13 @@ export async function fetchRead<T>(base: string, name: string, args: unknown[]):
       method: post ? "POST" : "GET",
       cache: "no-store",
       credentials: "same-origin",
+      signal: AbortSignal.timeout(READ_TIMEOUT_MS),
       ...(post ? { body: json, headers: { "Content-Type": "application/json" } } : {}),
     });
     return (await response.json()) as T;
-  } catch {
-    return { success: false, error: "Network error" } as T;
+  } catch (error) {
+    const timedOut = error instanceof DOMException && error.name === "TimeoutError";
+    return { success: false, error: timedOut ? "Timeout" : "Network error" } as T;
   }
 }
 
