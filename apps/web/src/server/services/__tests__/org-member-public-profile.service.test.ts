@@ -15,6 +15,9 @@ vi.mock("@/utils/supabase/service", () => ({
   createServiceClient: mockCreateServiceClient,
 }));
 
+const { mockGetAuthUser } = vi.hoisted(() => ({ mockGetAuthUser: vi.fn() }));
+vi.mock("@/server/auth/get-auth-user", () => ({ getAuthUser: mockGetAuthUser }));
+
 const ORG_ID = "org-1";
 const VIEWER_ID = "viewer-1";
 const USER_ID = "user-1";
@@ -32,10 +35,8 @@ function makeQuery(result: { data: unknown; error: unknown; count?: number | nul
 
 function makeSupabase(...results: Array<{ data: unknown; error: unknown; count?: number | null }>) {
   const queries = results.map(makeQuery);
+  mockGetAuthUser.mockResolvedValue({ data: { user: { id: VIEWER_ID } }, error: null });
   return {
-    auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: { id: VIEWER_ID } }, error: null }),
-    },
     from: vi.fn().mockImplementation(() => {
       const query = queries.shift();
       if (!query) throw new Error("Unexpected query");
