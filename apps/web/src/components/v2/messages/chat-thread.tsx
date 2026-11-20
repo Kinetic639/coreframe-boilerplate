@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { AlertCircle, CheckCheck, FileText, Loader2, Pencil, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCheck, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { TypingIndicator, type TypingPerson } from "@repo/rich-text/comments";
 import type { MentionItem } from "@repo/rich-text/mention-utils";
@@ -18,7 +18,7 @@ import { RichTextRenderer } from "@repo/rich-text/rich-text-renderer";
 import { normalizeRichText } from "@repo/rich-text/rich-text-utils";
 import { cn } from "@/lib/utils";
 import { useAttachmentsQuery } from "@/hooks/queries/attachments";
-import { useMessageChanges, useMessages } from "@/hooks/queries/messages";
+import { useMessageChanges, useMessages, useReactToMessage } from "@/hooks/queries/messages";
 import { useMentionAccess } from "@/hooks/queries/mentions";
 import { MentionChip } from "@/components/v2/mentions/mention-chip";
 import type { PendingChatMessage } from "@/lib/messages/cache";
@@ -32,6 +32,13 @@ import {
 import { CHAT_EDIT_WINDOW_MS, type ChatConversationDetail } from "@/lib/messages/types";
 import { useChat } from "./chat-provider";
 import { systemEventText } from "./chat-text";
+import {
+  ChatAttachments,
+  ChatGif,
+  MessageReactions,
+  QuickReactions,
+  isEmojiOnly,
+} from "./chat-message-parts";
 
 const CHAT_TARGET = "chat.conversation";
 
@@ -71,6 +78,16 @@ export function ChatThread({
     const timer = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(timer);
   }, []);
+  const reactTo = useReactToMessage(meId);
+  // Message whose actions a tap showed (touch screens)
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const react = (message: PendingChatMessage, emoji: string, on: boolean) => {
+    setActiveId(null);
+    reactTo.mutate(
+      { conversationId, messageId: message.id, emoji, on },
+      { onError: () => toast.error(t("reactions.failed")) }
+    );
+  };
   const remove = (messageId: string) => {
     setConfirmDeleteId(null);
     deleteMessage.mutate(messageId, { onError: () => toast.error(t("errors.failed")) });
@@ -240,17 +257,38 @@ export function ChatThread({
                         {t("window.deleted")}
                       </span>
                     ) : (
-                      <>
-                        {message.body_plain ? (
-                          <div
+                      <div
+                        className={cn(
+                          "group/msg relative flex w-full",
+                          mine ? "justify-end" : "justify-start"
+                        )}
+                        onMouseLeave={() => setConfirmDeleteId(null)}
+                        onPointerUp={(event) => {
+                          // Touch screens have no hover: a tap shows the message's actions
+                          if (event.pointerType === "touch") setActiveId(message.id);
+                        }}
+                      >
+                        {!message.pending && !message.failed ? (
+                          <span
                             className={cn(
-                              "group/msg flex w-full items-center gap-1",
-                              mine ? "justify-end" : "justify-start"
+                              "absolute -top-3 z-10 flex items-center gap-0.5",
+                              // Over the empty side of the row, like Slack: the bubble stays readable
+                              mine ? "left-0" : "right-0"
                             )}
-                            onMouseLeave={() => setConfirmDeleteId(null)}
                           >
-                            {mine && !message.pending && !message.failed ? (
-                              <span className="flex shrink-0 items-center gap-0.5 opacity-0 focus-within:opacity-100 group-hover/msg:opacity-100">
+                            <QuickReactions
+                              visible={activeId === message.id}
+                              onPick={(emoji) => react(message, emoji, true)}
+                            />
+                            {mine ? (
+                              <span
+                                className={cn(
+                                  "flex shrink-0 items-center gap-0.5 rounded-full border bg-background px-0.5 shadow-sm",
+                                  activeId === message.id
+                                    ? "opacity-100"
+                                    : "opacity-0 focus-within:opacity-100 group-hover/msg:opacity-100"
+                                )}
+                              >
                                 {confirmDeleteId === message.id ? (
                                   <button
                                     type="button"
@@ -262,6 +300,8 @@ export function ChatThread({
                                 ) : (
                                   <>
                                     {onEdit &&
+                                    message.body_plain &&
+                                    !message.media &&
                                     now - new Date(message.created_at).getTime() <
                                       CHAT_EDIT_WINDOW_MS ? (
                                       <button
@@ -269,7 +309,7 @@ export function ChatThread({
                                         aria-label={t("window.edit")}
                                         title={t("window.edit")}
                                         onClick={() => onEdit(message)}
-                                        className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                                        className="flex size-5 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
                                       >
                                         <Pencil className="size-3" />
                                       </button>
@@ -279,7 +319,7 @@ export function ChatThread({
                                       aria-label={t("window.delete")}
                                       title={t("window.delete")}
                                       onClick={() => setConfirmDeleteId(message.id)}
-                                      className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-destructive"
+                                      className="flex size-5 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-destructive"
                                     >
                                       <Trash2 className="size-3" />
                                     </button>
@@ -287,7 +327,27 @@ export function ChatThread({
                                 )}
                               </span>
                             ) : null}
-                            {/* A failed message is a button (retry); a sent one is text with links */}
+                          </span>
+                        ) : null}
+                        <div
+                          className={cn(
+                            "flex min-w-0 max-w-[86%] flex-col gap-1",
+                            mine ? "items-end" : "items-start"
+                          )}
+                        >
+                          {message.body_plain &&
+                          isEmojiOnly(message.body_plain) &&
+                          !message.failed ? (
+                            <span
+                              className={cn(
+                                "px-0.5 text-[28px] leading-[34px]",
+                                message.pending && "opacity-60"
+                              )}
+                            >
+                              {message.body_plain}
+                            </span>
+                          ) : message.body_plain ? (
+                            /* A failed message is a button (retry); a sent one is text with links */
                             <div
                               role={message.failed ? "button" : undefined}
                               tabIndex={message.failed ? 0 : undefined}
@@ -300,7 +360,7 @@ export function ChatThread({
                                   : undefined
                               }
                               className={cn(
-                                "max-w-[86%] whitespace-pre-wrap break-words rounded-md border px-2 py-1 text-left text-xs leading-[17px]",
+                                "max-w-full whitespace-pre-wrap break-words rounded-md border px-2 py-1 text-left text-xs leading-[17px]",
                                 message.failed && "cursor-pointer",
                                 comfortable && "text-[13px] leading-[19px]",
                                 mine ? "border-primary/30 bg-primary/15" : "bg-muted/60",
@@ -319,27 +379,38 @@ export function ChatThread({
                                 message.body_plain
                               )}
                             </div>
-                          </div>
-                        ) : null}
-                        {message.attachment_ids.map((id) => {
-                          const file = attachmentById.get(id);
-                          return (
-                            <a
-                              key={id}
-                              href={file?.download_url ?? undefined}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex max-w-[86%] items-center gap-2 rounded-md border bg-background px-2 py-1.5 text-xs hover:bg-muted/60"
-                            >
-                              <span className="flex size-6 shrink-0 items-center justify-center rounded bg-muted text-muted-foreground">
-                                <FileText className="size-3.5" />
-                              </span>
-                              <span className="min-w-0 truncate">{file?.file_name ?? "…"}</span>
-                            </a>
-                          );
-                        })}
-                      </>
+                          ) : null}
+                          {message.media?.kind === "gif" ? (
+                            message.failed ? (
+                              <button
+                                type="button"
+                                onClick={() => onRetry(message)}
+                                className="rounded-lg ring-1 ring-destructive/60"
+                              >
+                                <ChatGif media={message.media} pending />
+                              </button>
+                            ) : (
+                              <ChatGif media={message.media} pending={message.pending} />
+                            )
+                          ) : null}
+                          <ChatAttachments
+                            ids={message.attachment_ids}
+                            attachmentById={attachmentById}
+                            mine={mine}
+                          />
+                        </div>
+                      </div>
                     )}
+                    {!message.deleted_at ? (
+                      <MessageReactions
+                        reactions={message.reactions}
+                        members={members}
+                        meId={meId}
+                        mine={mine}
+                        onToggle={(emoji, on) => react(message, emoji, on)}
+                        onAdd={(emoji) => react(message, emoji, true)}
+                      />
+                    ) : null}
                     {message.edited_at && !message.deleted_at ? (
                       <span className="px-0.5 text-[10px] italic text-muted-foreground">
                         {t("window.edited")}
