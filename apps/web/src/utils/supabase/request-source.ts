@@ -46,3 +46,23 @@ export function buildClientInfo(headers: HeaderReader): string {
   }
   return `${CLIENT_INFO_PREFIX}; kind=page`;
 }
+
+/**
+ * fetch for Supabase clients that sets `X-Client-Info` on every request.
+ *
+ * Passing the label in `global.headers` is not enough for clients made by
+ * @supabase/ssr: createServerClient writes its own
+ * `X-Client-Info: supabase-ssr/<version> createServerClient` over it, so the
+ * logs only showed that fixed string. The header is set here, last, at request
+ * time.
+ */
+export function fetchWithClientInfo(
+  clientInfo: string,
+  baseFetch: typeof fetch = fetch
+): typeof fetch {
+  return (input, init) => {
+    const headers = new Headers(init?.headers);
+    headers.set("X-Client-Info", clientInfo);
+    return baseFetch(input, { ...init, headers });
+  };
+}

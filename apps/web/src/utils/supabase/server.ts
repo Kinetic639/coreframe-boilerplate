@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies, headers } from "next/headers";
-import { buildClientInfo, CLIENT_INFO_PREFIX } from "./request-source";
+import { buildClientInfo, CLIENT_INFO_PREFIX, fetchWithClientInfo } from "./request-source";
 
 async function readClientInfo(): Promise<string> {
   try {
@@ -20,7 +20,8 @@ export const createClient = async () => {
     {
       global: {
         // Shows in Supabase API logs as request.headers.x_client_info.
-        headers: { "X-Client-Info": clientInfo },
+        // Set in fetch: @supabase/ssr overwrites X-Client-Info in global.headers.
+        fetch: fetchWithClientInfo(clientInfo),
       },
       cookies: {
         getAll() {

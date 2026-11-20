@@ -23,6 +23,9 @@ name: CI
 on:
   push:
     branches: [main]
+  # Work is merged into `development` (no deploy, no e2e); merging
+  # development into main releases: Vercel deploys main only (vercel.json)
+  # and the e2e suite runs on that push.
   pull_request:
     # `closed` only cancels the PR's run still in progress (see concurrency):
     # after a merge the push to main runs everything again, and the e2e suite
@@ -88,6 +91,11 @@ jobs:
 
   e2e:
     name: E2E (apps/web)
+    # Only after a merge to main (the release): the suite runs against the
+    # production Supabase project, so running it on every PR push added tens of
+    # thousands of requests a day. PRs (to development or main) still get lint,
+    # types, unit tests and the build.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: quality
     env:
