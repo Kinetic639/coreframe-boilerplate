@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -111,9 +112,11 @@ export async function getMyPendingInvitationsAction(): Promise<{
 }> {
   const supabase = await createClient();
 
+  // Verified token claims, no request to Supabase Auth; the RPC looks up
+  // the user's e-mail itself (auth.users by auth.uid())
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
 
   if (!user) {
     return { success: false, invitations: [], error: "Not authenticated" };
