@@ -673,6 +673,100 @@ function failure(e: unknown): { success: false; error: string } {
   return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
 }
 
+/**
+ * planning_board_view() and planning_task_editor() load a board or a task
+ * editor in one request instead of 7 to 8 (migration
+ * 20261120130000_planning_board_and_editor_rpc). Both run as the caller
+ * (SECURITY INVOKER) and return the rows in the shape of the PostgREST selects
+ * they replace, so the same mappers read them. Until the migration is applied
+ * the function is missing: that is remembered for the process and the
+ * separate reads are used, as they are after any other error.
+ */
+const viewRpcMissing = { planning_board_view: false, planning_task_editor: false };
+
+type ViewRpcName = keyof typeof viewRpcMissing;
+
+/** The RPC's result, or undefined to fall back to the separate reads. */
+async function viewRpc(
+  supabase: SupabaseClient,
+  name: ViewRpcName,
+  args: Record<string, unknown>
+): Promise<{ data: any } | undefined> {
+  if (viewRpcMissing[name]) return undefined;
+  try {
+    const { data, error } = await supabase.rpc(name, args);
+    if (error) {
+      // PGRST202: not in the schema cache; 42883: no such function.
+      if (error.code === "PGRST202" || error.code === "42883") viewRpcMissing[name] = true;
+      return undefined;
+    }
+    return { data };
+  } catch {
+    return undefined;
+  }
+}
+
+/** For tests: forget that a view RPC was missing. */
+export function resetPlanningViewRpcState(): void {
+  viewRpcMissing.planning_board_view = false;
+  viewRpcMissing.planning_task_editor = false;
+}
+
+function extrasMap(rows: unknown): Map<string, CardExtrasRow> {
+  return new Map(
+    ((Array.isArray(rows) ? rows : []) as CardExtrasRow[]).map((row) => [row.task_id, row])
+  );
+}
+
+/** A planning_board_view() result as getBoard() returns it. */
+function boardFromView(view: any, boardId: string, userId?: string): KanbanBoardDetail | null {
+  if (!view?.board) return null;
+  const members = ((view.members ?? []) as any[]).map(mapMember);
+  const memberRoles = new Map<string, KanbanMemberRole>(
+    userId ? members.filter((m) => m.user_id === userId).map((m) => [boardId, m.role]) : []
+  );
+  const columns = ((view.columns ?? []) as any[]).map(mapColumn);
+  // Tasks of an archived column stay in it, out of sight, until it comes back.
+  const openColumnIds = new Set(columns.map((column) => column.id));
+  const cards = ((view.cards ?? []) as any[])
+    .map(mapCard)
+    .filter((card) => openColumnIds.has(card.column_id));
+  return {
+    ...mapBoard(view.board, userId, memberRoles, view.starred ? new Set([boardId]) : new Set()),
+    columns,
+    labels: ((view.labels ?? []) as any[]).map(mapLabel),
+    cards: applyCardExtras(cards, extrasMap(view.extras)),
+    members,
+    custom_fields: ((view.custom_fields ?? []) as any[]).map(mapCustomField),
+  };
+}
+
+/** A planning_task_editor() result as getTaskEditor() returns it. */
+function taskEditorFromView(view: any, userId: string): KanbanTaskEditorData {
+  const [card] = applyCardExtras([mapCard(view.card)], extrasMap(view.extras));
+  const boardRow = view.card.board_id ? view.board : null;
+  // The board may be out of reach (not shared with this user): the task
+  // still opens, without its board.
+  if (!boardRow) return { card, board: null, columns: [], labels: [] };
+  return {
+    card,
+    board: {
+      id: boardRow.id,
+      title: boardRow.title,
+      color: boardRow.color ?? null,
+      archived_at: boardRow.archived_at ?? null,
+      my_access: boardAccess(
+        boardRow,
+        userId,
+        (view.my_role ?? undefined) as KanbanMemberRole | undefined
+      ),
+    },
+    columns: ((view.columns ?? []) as any[]).map(mapColumn),
+    labels: ((view.labels ?? []) as any[]).map(mapLabel),
+    custom_fields: ((view.custom_fields ?? []) as any[]).map(mapCustomField),
+  };
+}
+
 async function selectCard(
   supabase: SupabaseClient,
   orgId: string,
@@ -816,6 +910,18 @@ export const KanbanBoardsService = {
     userId?: string
   ): Promise<ServiceResult<KanbanBoardDetail>> {
     try {
+      // One request when the database has planning_board_view().
+      const view = await viewRpc(supabase, "planning_board_view", {
+        p_org_id: orgId,
+        p_board_id: boardId,
+      });
+      if (view) {
+        const board = boardFromView(view.data, boardId, userId);
+        // No board row: deleted, or not visible to this user (RLS).
+        if (!board) return { success: false, error: "Board not found" };
+        return { success: true, data: board };
+      }
+
       // Everything at once: the board row no longer gates the rest. A board
       // the user cannot see returns no row (RLS), and the other reads then
       // return nothing either, under the same policies.
@@ -1639,6 +1745,16 @@ export const KanbanBoardsService = {
     ref: string
   ): Promise<ServiceResult<KanbanTaskEditorData>> {
     try {
+      // One request when the database has planning_task_editor().
+      const view = await viewRpc(supabase, "planning_task_editor", {
+        p_org_id: orgId,
+        p_ref: ref,
+      });
+      if (view) {
+        if (!view.data?.card) return { success: false, error: "Task not found" };
+        return { success: true, data: taskEditorFromView(view.data, userId) };
+      }
+
       const byId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref);
       const { data: row, error } = await supabase
         .from("planning_tasks")
