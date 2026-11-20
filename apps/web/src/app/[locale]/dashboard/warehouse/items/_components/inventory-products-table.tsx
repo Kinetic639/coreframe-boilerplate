@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { InventoryImage } from "@/components/warehouse/inventory-image";
 import { Package, Pencil, ExternalLink } from "lucide-react";
 import type { ReactNode } from "react";
 import { ListPane } from "@/components/data-table/list-pane";
@@ -82,12 +82,11 @@ export function ProductThumbnail({ src, size = 32 }: { src: string | null; size?
       style={{ width: size, height: size }}
     >
       {src ? (
-        <Image
+        <InventoryImage
           src={src}
-          alt=""
+          variant={size > 160 ? "card" : "thumb"}
           width={size}
           height={size}
-          unoptimized
           className="h-full w-full object-contain"
         />
       ) : (

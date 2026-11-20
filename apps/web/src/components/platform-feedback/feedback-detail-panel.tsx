@@ -70,8 +70,10 @@ function Attachments({ items }: { items: FeedbackAttachment[] }) {
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- signed storage URL */}
               <img
-                src={a.url ?? ""}
+                src={a.preview_url ?? a.url ?? ""}
                 alt={a.file_name}
+                loading="lazy"
+                decoding="async"
                 className="h-28 w-auto max-w-[220px] object-cover"
               />
             </a>
