@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
-import { loadAdminContextV2 } from "@/server/loaders/v2/load-admin-context.v2";
+import { AdminEntitlementsService } from "@/server/services/admin-entitlements.service";
 import { EntitlementsService } from "@/server/services/entitlements-service";
 import { buildSidebarModel } from "@/server/sidebar/build-sidebar-model";
 import { buildSearchEntries } from "@/lib/global-search/build-entries";
@@ -45,6 +45,20 @@ const TOOLS_ROOT_CHILD: SidebarItem = {
  *
  * State scoping: user_enabled_tools has no org_id — tool state is user-global.
  */
+/**
+ * Whether the user may open the Admin Panel (the link in the user menu).
+ * One read of the user's own admin_entitlements row. The full admin context
+ * (loadAdminContextV2) also asked Supabase Auth for the user and loaded the
+ * profile and avatar on every dashboard render, only for this flag. The Admin
+ * Panel itself still loads the full context and checks the session there.
+ */
+async function loadIsAdmin(userId: string): Promise<boolean> {
+  if (!userId) return false;
+  const supabase = await createClient();
+  const entitlements = await AdminEntitlementsService.loadAdminEntitlements(supabase, userId);
+  return entitlements?.enabled ?? false;
+}
+
 const fetchPinnedToolsForSidebar = cache(async (userId: string) => {
   if (!userId) return [];
   const supabase = await createClient();
@@ -135,10 +149,10 @@ export default async function DashboardV2Layout({ children }: { children: React.
   // Independent loads run together: entitlements, pinned tools, admin
   // entitlements and the latest activity event do not depend on each other.
   // Entitlements are null-safe (fail-closed if the org has none).
-  const [entitlements, pinnedTools, adminContext, latestActivityResult] = await Promise.all([
+  const [entitlements, pinnedTools, isAdmin, latestActivityResult] = await Promise.all([
     EntitlementsService.loadEntitlements(context.app.activeOrgId),
     fetchPinnedToolsForSidebar(userId),
-    loadAdminContextV2(),
+    loadIsAdmin(userId),
     getLatestActivityAction(),
   ]);
   void pinnedTools; // warms the per-request cache read by injectPinnedToolsIntoSidebar
@@ -167,9 +181,6 @@ export default async function DashboardV2Layout({ children }: { children: React.
     context.user.permissionSnapshot,
     entitlements?.enabled_modules ?? []
   );
-
-  // Admin Panel link in the user menu
-  const isAdmin = adminContext?.adminEntitlements?.enabled ?? false;
 
   const initialLatestEvent = latestActivityResult.success ? latestActivityResult.data.event : null;
 
