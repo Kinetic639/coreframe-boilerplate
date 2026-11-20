@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
+import { getSignedAvatarUrls } from "@/server/storage/avatar-signed-url";
 import { MENTION_PERSON, UUID_RE, type MentionPerson } from "@/lib/mentions";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
@@ -56,8 +57,15 @@ export async function listMentionPeopleAction(): Promise<ActionResult<MentionPer
       last_name: string | null;
       email: string | null;
       avatar_url: string | null;
+      avatar_path: string | null;
       job_title: string | null;
     }[];
+    // Uploaded avatars are private storage objects: sign them (one call for the list)
+    const signedAvatars = await getSignedAvatarUrls(
+      rows
+        .filter((row) => row.avatar_path)
+        .map((row) => ({ userId: row.user_id, avatarPath: row.avatar_path as string }))
+    );
     return {
       success: true,
       data: rows
@@ -67,7 +75,7 @@ export async function listMentionPeopleAction(): Promise<ActionResult<MentionPer
           firstName: row.first_name,
           lastName: row.last_name,
           email: row.email,
-          avatarUrl: row.avatar_url,
+          avatarUrl: signedAvatars.get(row.user_id) ?? row.avatar_url,
           jobTitle: row.job_title,
         })),
     };

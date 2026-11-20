@@ -309,15 +309,28 @@ function MembersTab({
             </div>
             <div className="p-4">
               <div className="flex min-w-0 items-center justify-between gap-2">
-                <h3 className="truncate font-semibold">{member.display_name}</h3>
+                <h3 className="truncate font-semibold" title={member.display_name}>
+                  {member.display_name}
+                </h3>
                 <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
               </div>
+              {member.full_name && member.full_name !== member.display_name && (
+                <p className="truncate text-sm text-muted-foreground" title={member.full_name}>
+                  {member.full_name}
+                </p>
+              )}
               {member.email && (
                 <p className="mt-1 truncate text-sm text-muted-foreground">{member.email}</p>
               )}
-              <p className="mt-3 line-clamp-3 text-sm text-muted-foreground">
-                {member.bio || t("empty.memberBio")}
-              </p>
+              {member.job_title || member.branch_name ? (
+                <p className="mt-3 truncate text-sm text-muted-foreground">
+                  {[member.job_title, member.branch_name].filter(Boolean).join(" · ")}
+                </p>
+              ) : (
+                <p className="mt-3 line-clamp-3 text-sm text-muted-foreground">
+                  {member.bio || t("empty.memberBio")}
+                </p>
+              )}
             </div>
           </Link>
         ))}

@@ -9215,7 +9215,14 @@
     "memberProfile": {
       "back": "Back to members",
       "badge": "Member profile",
-      "about": "About"
+      "about": "About",
+      "details": "Contact details",
+      "position": "Position",
+      "branch": "Branch",
+      "phone": "Phone",
+      "email": "Email",
+      "memberSince": "Member since",
+      "showPhoto": "Show profile photo"
     },
     "empty": {
       "description": "No public description has been added yet.",

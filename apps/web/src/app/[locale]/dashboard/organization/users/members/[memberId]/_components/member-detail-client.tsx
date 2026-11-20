@@ -14,6 +14,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AvatarPreview } from "@/components/primitives/avatar";
 import {
   Shield,
   Trash2,
@@ -260,15 +261,19 @@ export function MemberDetailClient({
       </div>
 
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Avatar className="h-14 w-14">
-          <AvatarImage src={member.user_avatar_url ?? undefined} />
-          <AvatarFallback className="text-lg">{getInitials()}</AvatarFallback>
-        </Avatar>
-        <div>
-          <h2 className="text-xl font-semibold">{displayName}</h2>
+      <div className="flex min-w-0 items-center gap-4">
+        <AvatarPreview src={member.user_avatar_url} name={displayName}>
+          <Avatar className="h-14 w-14">
+            <AvatarImage src={member.user_avatar_url ?? undefined} />
+            <AvatarFallback className="text-lg">{getInitials()}</AvatarFallback>
+          </Avatar>
+        </AvatarPreview>
+        <div className="min-w-0">
+          <h2 className="truncate text-xl font-semibold" title={displayName}>
+            {displayName}
+          </h2>
           {member.user_email && member.user_first_name && (
-            <p className="text-sm text-muted-foreground">{member.user_email}</p>
+            <p className="truncate text-sm text-muted-foreground">{member.user_email}</p>
           )}
           <Badge variant={member.status === "active" ? "default" : "secondary"} className="mt-1">
             {member.status}
@@ -294,7 +299,9 @@ export function MemberDetailClient({
           <div className="rounded-lg border divide-y">
             <div className="flex justify-between px-4 py-3">
               <span className="text-sm text-muted-foreground">Email</span>
-              <span className="text-sm font-medium">{member.user_email ?? "—"}</span>
+              <span className="min-w-0 truncate text-sm font-medium">
+                {member.user_email ?? "—"}
+              </span>
             </div>
             <div className="flex justify-between px-4 py-3">
               <span className="text-sm text-muted-foreground">Status</span>
