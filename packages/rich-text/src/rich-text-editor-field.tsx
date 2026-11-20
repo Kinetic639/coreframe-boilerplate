@@ -22,6 +22,8 @@ export function RichTextEditorField({
   id,
   mention,
   autoFocus = false,
+  toolbarLabels,
+  stickyToolbar = false,
 }: RichTextEditorFieldProps) {
   const isInternalUpdate = useRef(false);
 
@@ -78,7 +80,15 @@ export function RichTextEditorField({
           disabled && "cursor-not-allowed opacity-60"
         )}
       >
-        {editor && <RichTextToolbar editor={editor} mode={mode} disabled={disabled} />}
+        {editor && (
+          <RichTextToolbar
+            editor={editor}
+            mode={mode}
+            disabled={disabled}
+            labels={toolbarLabels}
+            sticky={stickyToolbar}
+          />
+        )}
 
         <EditorContent
           id={id}
