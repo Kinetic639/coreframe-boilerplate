@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AvatarPreview } from "@/components/primitives/avatar";
 import { UserCheck, UserX, Trash2, Briefcase, Shield, ExternalLink, GitBranch } from "lucide-react";
 import { toast } from "react-toastify";
 import { Link } from "@/i18n/navigation";
@@ -564,12 +565,19 @@ export function MembersWorkspace({
               {selected ? (
                 <div className="space-y-5 p-5">
                   <div className="flex items-start gap-3">
-                    {avatar(selected, "size-10")}
+                    <AvatarPreview src={selected.user_avatar_url} name={displayName(selected)}>
+                      {avatar(selected, "size-10")}
+                    </AvatarPreview>
                     <div className="min-w-0">
-                      <h3 className="text-lg font-semibold leading-tight">
+                      <h3
+                        className="break-words text-lg font-semibold leading-tight [overflow-wrap:anywhere]"
+                        title={displayName(selected)}
+                      >
                         {displayName(selected)}
                       </h3>
-                      <p className="text-sm text-muted-foreground">{selected.user_email}</p>
+                      <p className="truncate text-sm text-muted-foreground">
+                        {selected.user_email}
+                      </p>
                     </div>
                   </div>
 

@@ -15,11 +15,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Mail, CheckCircle } from "lucide-react";
 import { fetchInvitationByToken, type InvitationWithDetails } from "@/lib/api/invitations";
 import { AuthCard } from "../AuthCard";
+import {
+  PROFILE_FIRST_NAME_MAX_LENGTH,
+  PROFILE_NAME_MAX_LENGTH,
+} from "@/lib/validations/user-preferences";
 
 const signUpSchema = z.object({
   email: z.string().email("Invalid email address"),
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
+  firstName: z.string().trim().max(PROFILE_FIRST_NAME_MAX_LENGTH).optional(),
+  lastName: z.string().trim().max(PROFILE_NAME_MAX_LENGTH).optional(),
 });
 
 type SignUpFormData = z.infer<typeof signUpSchema>;
@@ -139,6 +143,7 @@ export function SignUpForm({ message, invitationToken }: SignUpFormProps) {
               id="firstName"
               type="text"
               placeholder={t("firstNamePlaceholder")}
+              maxLength={PROFILE_FIRST_NAME_MAX_LENGTH}
               {...register("firstName")}
             />
             {errors.firstName && (
@@ -152,6 +157,7 @@ export function SignUpForm({ message, invitationToken }: SignUpFormProps) {
               id="lastName"
               type="text"
               placeholder={t("lastNamePlaceholder")}
+              maxLength={PROFILE_NAME_MAX_LENGTH}
               {...register("lastName")}
             />
             {errors.lastName && (

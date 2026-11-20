@@ -1,6 +1,10 @@
 "use server";
 
 import { headers } from "next/headers";
+import {
+  PROFILE_FIRST_NAME_MAX_LENGTH,
+  PROFILE_NAME_MAX_LENGTH,
+} from "@/lib/validations/user-preferences";
 import { encodedRedirect } from "@/utils/utils";
 import { createClient } from "@/utils/supabase/server";
 import { createServiceClient } from "@/utils/supabase/service";
@@ -60,8 +64,13 @@ function logBestEffortEmitFailure(
 
 export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
-  const firstName = formData.get("firstName")?.toString();
-  const lastName = formData.get("lastName")?.toString();
+  // Names are capped like everywhere else (the database rejects longer ones)
+  const firstName = formData
+    .get("firstName")
+    ?.toString()
+    .trim()
+    .slice(0, PROFILE_FIRST_NAME_MAX_LENGTH);
+  const lastName = formData.get("lastName")?.toString().trim().slice(0, PROFILE_NAME_MAX_LENGTH);
   const invitationToken = formData.get("invitationToken")?.toString();
   const supabase = await createClient();
   const locale = await getLocale();

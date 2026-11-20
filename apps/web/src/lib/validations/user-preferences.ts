@@ -2,11 +2,21 @@ import { z } from "zod";
 
 // ─── Profile ─────────────────────────────────────────────────────────────────
 
+/**
+ * Longest first name, last name and display name a user can save. The database
+ * enforces the same limits (check constraints on `users` and `user_preferences`),
+ * so a longer value can't reach the app from any client.
+ */
+export const PROFILE_FIRST_NAME_MAX_LENGTH = 30;
+export const PROFILE_NAME_MAX_LENGTH = 50;
+export const PROFILE_DISPLAY_NAME_MAX_LENGTH = 32;
+export const PROFILE_PHONE_MAX_LENGTH = 20;
+
 export const updateProfileSchema = z.object({
-  firstName: z.string().trim().max(100).nullable().optional(),
-  lastName: z.string().trim().max(100).nullable().optional(),
-  displayName: z.string().trim().nullable().optional(),
-  phone: z.string().trim().nullable().optional(),
+  firstName: z.string().trim().max(PROFILE_FIRST_NAME_MAX_LENGTH).nullable().optional(),
+  lastName: z.string().trim().max(PROFILE_NAME_MAX_LENGTH).nullable().optional(),
+  displayName: z.string().trim().max(PROFILE_DISPLAY_NAME_MAX_LENGTH).nullable().optional(),
+  phone: z.string().trim().max(PROFILE_PHONE_MAX_LENGTH).nullable().optional(),
 });
 
 // ─── Regional ────────────────────────────────────────────────────────────────

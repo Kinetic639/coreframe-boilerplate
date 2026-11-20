@@ -9298,7 +9298,14 @@
     "memberProfile": {
       "back": "Wróć do członków",
       "badge": "Profil członka",
-      "about": "O użytkowniku"
+      "about": "O użytkowniku",
+      "details": "Dane kontaktowe",
+      "position": "Stanowisko",
+      "branch": "Oddział",
+      "phone": "Telefon",
+      "email": "E-mail",
+      "memberSince": "Członek od",
+      "showPhoto": "Pokaż zdjęcie profilowe"
     },
     "empty": {
       "description": "Nie dodano jeszcze publicznego opisu.",
