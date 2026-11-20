@@ -19,6 +19,9 @@ vi.mock("@/utils/supabase/server", () => ({
   }),
 }));
 
+// getMyPendingInvitationsAction reads the user from the verified token
+vi.mock("@/server/auth/get-auth-user", () => ({ getAuthUser: () => getUserMock() }));
+
 import {
   getPublicInvitationPreviewAction,
   getMyPendingInvitationsAction,
