@@ -64,3 +64,17 @@ export function attachmentImageSrc(attachmentId: string, variant?: AttachmentVar
     ? `/api/files/attachments/${attachmentId}?v=${variant}`
     : `/api/files/attachments/${attachmentId}`;
 }
+
+/**
+ * onError for an attachment's <img>: loads it once more, past the browser's
+ * cached redirect (a signed link can expire or a request can fail on the
+ * way). A second failure is left as it is.
+ */
+export function retryAttachmentImage(event: { currentTarget: HTMLImageElement }): void {
+  const img = event.currentTarget;
+  if (img.dataset.retried) return;
+  img.dataset.retried = "1";
+  const url = new URL(img.src, window.location.href);
+  url.searchParams.set("retry", String(Date.now()));
+  img.src = url.toString();
+}

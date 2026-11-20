@@ -20,7 +20,6 @@ import {
   extractPlainText,
   normalizeRichText,
 } from "@/components/primitives/rich-text/rich-text-utils";
-import { listCommentsForTargetAction } from "@/app/actions/comments";
 import { cn } from "@/utils";
 import { useAddCommentMutation, useCommentsQuery } from "@/hooks/queries/comments";
 import type { AppComment, PaginatedComments } from "@/server/services/comments.service";
@@ -29,6 +28,7 @@ import {
   type CommentsProviderValue,
   useCommentsProvider,
 } from "./comments-provider";
+import { appRead } from "@/lib/read";
 
 interface CommentsThreadProps extends Partial<CommentsProviderValue> {
   initialData?: PaginatedComments;
@@ -282,7 +282,7 @@ export function CommentsThread(props: CommentsThreadProps) {
     if (!nextCursor) return;
     setLoadingMore(true);
     try {
-      const result = await listCommentsForTargetAction({
+      const result = await appRead("comments", {
         ...queryInput,
         cursor: nextCursor,
       });

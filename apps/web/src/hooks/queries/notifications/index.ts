@@ -8,8 +8,6 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import {
-  getUnreadNotificationsCountAction,
-  listNotificationsAction,
   markAllNotificationsReadAction,
   setNotificationsReadAction,
 } from "@/app/actions/notifications";
@@ -28,6 +26,7 @@ import {
   type NotificationsPage,
 } from "@/lib/notifications/types";
 import { createClient } from "@/utils/supabase/client";
+import { appRead } from "@/lib/read";
 
 export const notificationsKeys = {
   all: ["notifications"] as const,
@@ -44,7 +43,7 @@ export function useNotifications(
   const query = useInfiniteQuery({
     queryKey: notificationsKeys.list(orgId ?? "", filter),
     queryFn: async ({ pageParam }): Promise<NotificationsPage> => {
-      const result = await listNotificationsAction({
+      const result = await appRead("notifications", {
         filter,
         before: (pageParam as NotificationCursor | null) ?? null,
       });
@@ -66,7 +65,7 @@ export function useUnreadNotificationsCount(orgId: string | null | undefined) {
   return useQuery({
     queryKey: notificationsKeys.unread(orgId ?? ""),
     queryFn: async (): Promise<number> => {
-      const result = await getUnreadNotificationsCountAction();
+      const result = await appRead("unreadNotifications");
       if (!result.success) throw new Error((result as { error: string }).error);
       return result.data;
     },

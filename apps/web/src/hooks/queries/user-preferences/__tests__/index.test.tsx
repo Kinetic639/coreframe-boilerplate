@@ -37,6 +37,14 @@ vi.mock("@/app/actions/user-preferences", () => ({
   setDefaultOrganizationAction: vi.fn(),
   setDefaultBranchAction: vi.fn(),
 }));
+vi.mock("@/lib/read", () => ({
+  appRead: async (name: string) => {
+    const actions = await import("@/app/actions/user-preferences");
+    return name === "userPreferences"
+      ? actions.getUserPreferencesAction()
+      : actions.getDashboardSettingsAction();
+  },
+}));
 
 // Mock react-toastify
 vi.mock("react-toastify", () => ({
