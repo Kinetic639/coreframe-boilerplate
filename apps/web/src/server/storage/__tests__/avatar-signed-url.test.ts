@@ -15,10 +15,10 @@ import { getSignedAvatarUrl, getSignedAvatarUrls } from "../avatar-signed-url";
 describe("getSignedAvatarUrl", () => {
   beforeEach(() => createSignedUrl.mockReset());
 
-  it("signs a path in the user's own folder for one hour", async () => {
+  it("signs a path in the user's own folder for two hours", async () => {
     createSignedUrl.mockResolvedValue({ data: { signedUrl: "https://s/a.webp" }, error: null });
     await expect(getSignedAvatarUrl("u1", "u1/a.webp")).resolves.toBe("https://s/a.webp");
-    expect(createSignedUrl).toHaveBeenCalledWith("u1/a.webp", 3600);
+    expect(createSignedUrl).toHaveBeenCalledWith("u1/a.webp", 7200);
   });
 
   it("refuses a path outside the user's folder", async () => {
@@ -49,7 +49,7 @@ describe("getSignedAvatarUrls", () => {
     ]);
 
     expect(createSignedUrls).toHaveBeenCalledTimes(1);
-    expect(createSignedUrls).toHaveBeenCalledWith(["u1/a.webp", "u2/b.jpg"], 3600);
+    expect(createSignedUrls).toHaveBeenCalledWith(["u1/a.webp", "u2/b.jpg"], 7200);
     expect(result.get("u1")).toBe("https://s/u1");
     expect(result.get("u2")).toBe("https://s/u2");
     expect(result.has("u3")).toBe(false);
