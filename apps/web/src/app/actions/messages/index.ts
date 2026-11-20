@@ -4,6 +4,7 @@ import { z } from "zod";
 import { extractMentions } from "@repo/rich-text/mention-utils";
 import { extractPlainText, normalizeRichText } from "@repo/rich-text/rich-text-utils";
 import { UUID_RE } from "@/lib/mentions";
+import { isAllowedGifUrl } from "@/lib/messages/gif";
 import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
@@ -52,6 +53,19 @@ const sendSchema = z.object({
   bodyRich: z.unknown().nullish(),
   clientId: uuid.nullish(),
   attachmentIds: z.array(uuid).max(10).optional(),
+  media: z
+    .object({
+      kind: z.literal("gif"),
+      provider: z.enum(["klipy", "giphy", "tenor"]),
+      id: z.string().min(1).max(200),
+      url: z.string().refine(isAllowedGifUrl),
+      preview_url: z.string().refine(isAllowedGifUrl).nullish(),
+      mp4_url: z.string().refine(isAllowedGifUrl).nullish(),
+      width: z.number().int().min(1).max(4096),
+      height: z.number().int().min(1).max(4096),
+      title: z.string().max(200).nullish(),
+    })
+    .nullish(),
 });
 /** A rich body is a small document; anything bigger is not a chat message */
 const RICH_BODY_MAX_BYTES = 64_000;

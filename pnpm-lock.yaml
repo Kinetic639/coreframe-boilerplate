@@ -1116,6 +1116,9 @@ importers:
       framer-motion:
         specifier: ^12.29.2
         version: 12.42.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      frimousse:
+        specifier: 0.4.0
+        version: 0.4.0(react@19.2.4)(typescript@5.9.2)
       gray-matter:
         specifier: ^4.0.3
         version: 4.0.3
@@ -7609,6 +7612,15 @@ packages:
   fresh@2.0.0:
     resolution: {integrity: sha512-Rx/WycZ60HOaqLKAi6cHRKKI7zxWbJ31MhntmtwMoaTeF7XFH9hhBp8vITaMidfljRQ6eYWCKkaTK+ykVJHP2A==}
     engines: {node: '>= 0.8'}
+
+  frimousse@0.4.0:
+    resolution: {integrity: sha512-wA/1Xt9UTk51wYNpy+EvHKPUA4jdm4NuEFzSNNZxqT0Nxrj4RFwYByjRMuaq4qSLOco/ikDCpLKesB8W1w2q+Q==}
+    peerDependencies:
+      react: ^19.2.0
+      typescript: '>=5.1.0'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
 
   fs-constants@1.0.0:
     resolution: {integrity: sha512-y6OAwoSIf7FyjMIv94u+b5rdheZEjzR63GTyZJm5qh4Bi+2YgwLCcI/fPFZkL5PSixOt6ZNKm+w+Hfp/Bciwow==}
@@ -18373,6 +18385,12 @@ snapshots:
   fresh@0.5.2: {}
 
   fresh@2.0.0: {}
+
+  frimousse@0.4.0(react@19.2.4)(typescript@5.9.2):
+    dependencies:
+      react: 19.2.4
+    optionalDependencies:
+      typescript: 5.9.2
 
   fs-constants@1.0.0: {}
 

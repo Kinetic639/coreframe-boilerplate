@@ -72,7 +72,8 @@ export function lastMessagePreview(
     last.body_plain.trim() ||
     (last.attachment_count > 0
       ? t("preview.attachments", { count: last.attachment_count })
-      : t("preview.empty"));
+      : // A message with no text and no files is a GIF (the list does not carry the media)
+        t("preview.gif"));
   if (last.author_id === meId) return `${t("preview.you")}${body}`;
   if (conversation.kind === "group") {
     const author = conversation.members.find((m) => m.user_id === last.author_id);

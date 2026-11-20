@@ -14,6 +14,7 @@ import {
   type ChatMessage,
   type ChatMessageCursor,
   type ChatMessagesPage,
+  type ChatMedia,
 } from "@/lib/messages/types";
 
 /**
@@ -22,8 +23,12 @@ import {
  * which check membership, organization and `messages.use` themselves.
  */
 
-const MESSAGE_COLUMNS =
+const LEGACY_MESSAGE_COLUMNS =
   "id, conversation_id, author_id, kind, body_plain, body_rich, mentions, attachment_ids, system_event, client_id, created_at, edited_at, deleted_at";
+/** With reactions and GIFs (migration 20261120090000_chat_reactions_and_gifs.sql) */
+const MESSAGE_COLUMNS = `${LEGACY_MESSAGE_COLUMNS}, reactions, media`;
+/** Postgres "undefined column": the reactions migration is not applied yet */
+const UNDEFINED_COLUMN = "42703";
 
 /** Postgres error → stable error code for the client (no internal messages leak) */
 export function chatErrorCode(error: { code?: string } | null | undefined): ChatErrorCode {
@@ -56,6 +61,7 @@ export interface SendChatMessageInput {
   clientId?: string | null;
   attachmentIds?: string[];
   mentions?: unknown[];
+  media?: ChatMedia | null;
 }
 
 /**
@@ -128,33 +134,38 @@ export class ChatService {
     options: { before?: ChatMessageCursor | null; limit?: number } = {}
   ): Promise<ServiceResult<ChatMessagesPage>> {
     const limit = Math.min(Math.max(options.limit ?? CHAT_MESSAGES_PAGE_SIZE, 1), 100);
-    let query = supabase
-      .from("chat_messages")
-      .select(MESSAGE_COLUMNS)
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: false })
-      .limit(limit + 1);
+    const page = (columns: string) => {
+      let query = supabase
+        .from("chat_messages")
+        .select(columns)
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(limit + 1);
 
-    const before = options.before;
-    if (before) {
-      // (created_at, id) < (cursor.createdAt, cursor.id)
-      query = query.or(
-        `created_at.lt."${before.createdAt}",and(created_at.eq."${before.createdAt}",id.lt.${before.id})`
-      );
-    }
+      const before = options.before;
+      if (before) {
+        // (created_at, id) < (cursor.createdAt, cursor.id)
+        query = query.or(
+          `created_at.lt."${before.createdAt}",and(created_at.eq."${before.createdAt}",id.lt.${before.id})`
+        );
+      }
+      return query;
+    };
 
-    const { data, error } = await query;
+    let { data, error } = await page(MESSAGE_COLUMNS);
+    // Before the reactions migration is applied the chat keeps working without them
+    if (error?.code === UNDEFINED_COLUMN) ({ data, error } = await page(LEGACY_MESSAGE_COLUMNS));
     if (error) return fail(error, "listMessages");
 
-    const rows = (data ?? []) as ChatMessage[];
+    const rows = (data ?? []) as unknown as ChatMessage[];
     const hasMore = rows.length > limit;
-    const page = rows.slice(0, limit);
-    const oldest = page[page.length - 1];
+    const newest = rows.slice(0, limit);
+    const oldest = newest[newest.length - 1];
     return {
       success: true,
       data: {
-        messages: page.reverse(),
+        messages: newest.reverse(),
         nextCursor: hasMore && oldest ? { createdAt: oldest.created_at, id: oldest.id } : null,
       },
     };
@@ -171,6 +182,8 @@ export class ChatService {
       p_client_id: input.clientId ?? null,
       p_attachment_ids: input.attachmentIds ?? [],
       p_mentions: input.mentions ?? [],
+      // Only with a GIF: a plain message also works before the GIF migration is applied
+      ...(input.media ? { p_media: input.media } : {}),
     });
     if (error) return fail(error, "send");
     return { success: true, data: data as ChatMessage };

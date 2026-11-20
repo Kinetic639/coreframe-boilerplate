@@ -39,7 +39,7 @@ CREATE FUNCTION pg_temp.act_as(p_user uuid) RETURNS void LANGUAGE sql AS $$
 $$;
 
 INSERT INTO test_log (line) SELECT ok(
-  NOT has_function_privilege('anon', 'public.chat_send(uuid,text,jsonb,uuid,uuid[],jsonb)', 'EXECUTE')
+  NOT has_function_privilege('anon', 'public.chat_send(uuid,text,jsonb,uuid,uuid[],jsonb,jsonb)', 'EXECUTE')
     AND NOT has_function_privilege('anon', 'public.chat_open_direct(uuid,uuid)', 'EXECUTE')
     AND NOT has_function_privilege('anon', 'public.chat_list_conversations(uuid,integer,timestamptz)', 'EXECUTE'),
   'anon cannot execute the chat RPCs'

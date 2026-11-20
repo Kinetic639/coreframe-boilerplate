@@ -4,6 +4,7 @@ import type {
   ChatMemberProfile,
   ChatMessage,
   ChatMessagesPage,
+  ChatReactions,
 } from "./types";
 
 /**
@@ -160,4 +161,44 @@ export function applyReadReceipt<T extends ChatConversationDetail | ChatConversa
 export function unreadConversations(list: ChatConversationSummary[] | undefined): number {
   return (list ?? []).filter((conversation) => conversation.unread_count > 0 && !conversation.muted)
     .length;
+}
+
+/** Reactions after the user adds (on) or removes (off) one emoji; empty emoji are dropped */
+export function applyReaction(
+  reactions: ChatReactions | null | undefined,
+  emoji: string,
+  userId: string,
+  on: boolean
+): ChatReactions {
+  const current = reactions ?? {};
+  const users = current[emoji] ?? [];
+  const has = users.includes(userId);
+  if (on === has) return current;
+  const next = { ...current };
+  const updated = on ? [...users, userId] : users.filter((id) => id !== userId);
+  if (updated.length > 0) next[emoji] = updated;
+  else delete next[emoji];
+  return next;
+}
+
+/** A loaded message with its reactions changed (optimistic reaction) */
+export function setMessageReactions(
+  data: MessagesInfiniteData | undefined,
+  messageId: string,
+  update: (reactions: ChatReactions) => ChatReactions
+): MessagesInfiniteData | undefined {
+  if (!data) return data;
+  let found = false;
+  const pages = data.pages.map((page) => {
+    const index = page.messages.findIndex((message) => message.id === messageId);
+    if (index < 0) return page;
+    found = true;
+    const messages = page.messages.slice();
+    messages[index] = {
+      ...messages[index],
+      reactions: update(messages[index].reactions ?? {}),
+    };
+    return { ...page, messages };
+  });
+  return found ? { ...data, pages } : data;
 }

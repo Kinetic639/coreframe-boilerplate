@@ -9755,6 +9755,24 @@
     }
   },
   "chat": {
+    "emoji": {
+      "search": "Szukaj emoji",
+      "empty": "Nie znaleziono emoji"
+    },
+    "gif": {
+      "search": "Szukaj GIF-ów",
+      "poweredBy": "Powered by KLIPY",
+      "notConfigured": "GIF-y nie są jeszcze włączone. Administrator musi dodać klucz KLIPY.",
+      "rateLimited": "Limit wyszukiwań GIF-ów na tę godzinę się wyczerpał. Spróbuj za chwilę.",
+      "failed": "Nie udało się wczytać GIF-ów. Spróbuj ponownie.",
+      "empty": "Brak GIF-ów dla tego wyszukiwania"
+    },
+    "reactions": {
+      "who": "{emoji} {names}",
+      "add": "Dodaj reakcję",
+      "react": "Zareaguj {emoji}",
+      "failed": "Nie udało się dodać reakcji"
+    },
     "bar": {
       "label": "Wiadomości",
       "expand": "Wiadomości — rozwiń pasek",
@@ -9773,6 +9791,10 @@
       "soundOff": "Wyłącz dźwięk nowych wiadomości"
     },
     "window": {
+      "emoji": "Emoji",
+      "gif": "Wyślij GIF",
+      "removeFile": "Usuń plik",
+      "download": "Pobierz",
       "openFull": "Otwórz w pełnym widoku",
       "collapse": "Zwiń okno",
       "expand": "Rozwiń okno",
@@ -9821,6 +9843,7 @@
       "withdrawn": "{actor} wycofał(a) zaproszenie: {users}"
     },
     "preview": {
+      "gif": "GIF",
       "you": "Ty: ",
       "attachment": "Załącznik",
       "attachments": "{count, plural, one {# załącznik} few {# załączniki} many {# załączników} other {# załącznika}}",
