@@ -1,4 +1,5 @@
-import { compressImageFile } from "@/lib/media/image-compress";
+import { compressImageFile, prepareImage } from "@/lib/media/image-compress";
+import { imageVariantPath } from "@/lib/media/image-variant-paths";
 import { createClient } from "@/utils/supabase/client";
 import { FEEDBACK_MAX_FILES, isAllowedFeedbackFile, type UploadedFeedbackFile } from "./types";
 
@@ -27,8 +28,13 @@ export async function uploadFeedbackFiles(
       rejected.push(file.name);
       continue;
     }
-    // Screenshots and photos are shrunk to 2048 px WebP; other files go as picked.
-    const upload = await compressImageFile(file);
+    // Screenshots and photos are shrunk to 2048 px WebP, with a 640 px version
+    // for the preview in the report; other files go as picked.
+    const prepared =
+      file.type === "image/gif"
+        ? null
+        : await prepareImage(file, { variants: ["card"] }).catch(() => null);
+    const upload = prepared?.file ?? (await compressImageFile(file));
     const path = `${feedbackId}/${crypto.randomUUID()}${extensionOf(upload.name)}`;
     const { error } = await supabase.storage
       .from(BUCKET)
@@ -36,6 +42,16 @@ export async function uploadFeedbackFiles(
     if (error) {
       rejected.push(file.name);
       continue;
+    }
+    for (const variant of prepared?.variants ?? []) {
+      // The preview is optional: the report shows the full image without it.
+      await supabase.storage
+        .from(BUCKET)
+        .upload(imageVariantPath(path, variant.name, variant.blob.type), variant.blob, {
+          contentType: variant.blob.type,
+          upsert: false,
+          cacheControl: "31536000",
+        });
     }
     uploaded.push({ path, name: upload.name, type: upload.type, size: upload.size });
   }

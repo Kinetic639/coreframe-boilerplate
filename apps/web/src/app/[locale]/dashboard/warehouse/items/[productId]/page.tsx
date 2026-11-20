@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { InventoryImage } from "@/components/warehouse/inventory-image";
 import type React from "react";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Edit, PackagePlus } from "lucide-react";
@@ -207,12 +207,12 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
         <div className="grid min-w-0 gap-3">
           <div className="grid aspect-square max-h-80 place-items-center overflow-hidden rounded-md border bg-muted/30">
             {product.thumbnail_url ? (
-              <Image
+              <InventoryImage
                 src={product.thumbnail_url}
-                alt=""
+                variant="card"
                 width={320}
                 height={320}
-                unoptimized
+                eager
                 className="h-full w-full rounded-md object-cover"
               />
             ) : (
@@ -224,13 +224,12 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
               {productImages.map((image) => {
                 const url = image.public_url ?? image.storage_path;
                 return url ? (
-                  <Image
+                  <InventoryImage
                     key={image.id}
                     src={url}
-                    alt=""
+                    variant="thumb"
                     width={56}
                     height={56}
-                    unoptimized
                     className="h-14 w-14 rounded-md border object-cover"
                   />
                 ) : null;
@@ -634,12 +633,11 @@ function VariantThumb({ src }: { src: string | null }) {
   return (
     <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded border bg-muted">
       {src ? (
-        <Image
+        <InventoryImage
           src={src}
-          alt=""
+          variant="thumb"
           width={40}
           height={40}
-          unoptimized
           className="h-full w-full object-cover"
         />
       ) : (
@@ -692,12 +690,11 @@ function VariantGallery({
     <div className="grid gap-2">
       <div className="grid aspect-square max-h-56 place-items-center overflow-hidden rounded-md border bg-background">
         {primary ? (
-          <Image
+          <InventoryImage
             src={primary}
-            alt=""
+            variant="card"
             width={220}
             height={220}
-            unoptimized
             className="h-full w-full object-cover"
           />
         ) : (
@@ -707,13 +704,12 @@ function VariantGallery({
       {urls.length > 1 ? (
         <div className="flex flex-wrap gap-1.5">
           {urls.slice(0, 8).map((url) => (
-            <Image
+            <InventoryImage
               key={url}
               src={url}
-              alt=""
+              variant="thumb"
               width={36}
               height={36}
-              unoptimized
               className="h-9 w-9 rounded border object-cover"
             />
           ))}

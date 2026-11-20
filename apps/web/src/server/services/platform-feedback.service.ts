@@ -16,6 +16,8 @@ import {
   type UploadedFeedbackFile,
 } from "@/lib/platform-feedback/types";
 import type { ServiceResult } from "./organization.service";
+import { imageVariantPath } from "@/lib/media/image-variant-paths";
+import { createServiceClient } from "@/utils/supabase/service";
 
 const BUCKET = "platform-feedback";
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
@@ -25,6 +27,31 @@ function dbError(scope: string, error: { message?: string; code?: string } | nul
   if (error?.code === "42501") return "FORBIDDEN";
   if (error?.code === "P0002") return "NOT_FOUND";
   return "UNEXPECTED";
+}
+
+/**
+ * Signed links to the 640 px versions stored next to feedback images
+ * ("<uuid>.card.webp"), keyed by the image's own path. Those files have no
+ * attachment row, so the storage policy hides them from the viewer: they are
+ * signed with the service client, and only for paths of attachments the viewer
+ * was just allowed to read. Images without one are left out (shown full size).
+ */
+async function signFeedbackPreviews(paths: string[]): Promise<Map<string, string>> {
+  const previews = new Map<string, string>();
+  if (paths.length === 0) return previews;
+  const variantOf = new Map(paths.map((path) => [imageVariantPath(path, "card"), path]));
+  try {
+    const { data } = await createServiceClient()
+      .storage.from(BUCKET)
+      .createSignedUrls([...variantOf.keys()], SIGNED_URL_TTL_SECONDS);
+    for (const item of data ?? []) {
+      const original = item.path ? variantOf.get(item.path) : undefined;
+      if (original && item.signedUrl && !item.error) previews.set(original, item.signedUrl);
+    }
+  } catch (error) {
+    console.error("[PlatformFeedbackService.signFeedbackPreviews]", error);
+  }
+  return previews;
 }
 
 /**
@@ -82,6 +109,11 @@ export class PlatformFeedbackService {
         if (item.path && item.signedUrl) urls.set(item.path, item.signedUrl);
       }
     }
+    const previews = await signFeedbackPreviews(
+      detail.attachments
+        .filter((a) => a.content_type.startsWith("image/") && urls.has(a.storage_path))
+        .map((a) => a.storage_path)
+    );
     return {
       success: true,
       data: {
@@ -90,6 +122,7 @@ export class PlatformFeedbackService {
         attachments: detail.attachments.map((a) => ({
           ...a,
           url: urls.get(a.storage_path) ?? null,
+          preview_url: previews.get(a.storage_path) ?? null,
         })),
       },
     };

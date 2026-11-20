@@ -1,8 +1,8 @@
 "use client";
 
-import { compressImageFile } from "@/lib/media/image-compress";
+import { setInventoryImageFiles } from "@/lib/media/inventory-image-upload";
 import { useMemo, useState, useTransition } from "react";
-import Image from "next/image";
+import { InventoryImage } from "@/components/warehouse/inventory-image";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ImageIcon, Plus, Save, Star, Trash2, X } from "lucide-react";
@@ -446,7 +446,7 @@ export function InventoryProductEditClient({
         const formData = new FormData();
         formData.set("product_id", product.id);
         formData.set("is_primary", String(images.length === 0));
-        formData.set("file", await compressImageFile(file));
+        await setInventoryImageFiles(formData, file);
         const result = await uploadInventoryItemImageAction(formData);
         if (!result.success || !("data" in result)) {
           setMessage("error" in result ? result.error : t("imageUploadFailed"));
@@ -531,7 +531,7 @@ export function InventoryProductEditClient({
         formData.set("product_id", product.id);
         formData.set("variant_id", variantId);
         formData.set("is_primary", String(currentImages.length === 0));
-        formData.set("file", await compressImageFile(file));
+        await setInventoryImageFiles(formData, file);
         const result = await uploadInventoryItemImageAction(formData);
         if (!result.success || !("data" in result)) {
           setMessage("error" in result ? result.error : t("variantImageUploadFailed"));
@@ -732,12 +732,11 @@ export function InventoryProductEditClient({
                   return (
                     <div key={image.id} className="relative h-14 w-14">
                       {url ? (
-                        <Image
+                        <InventoryImage
                           src={url}
-                          alt=""
+                          variant="thumb"
                           width={56}
                           height={56}
-                          unoptimized
                           className="h-14 w-14 rounded-md object-cover"
                         />
                       ) : null}
@@ -843,12 +842,11 @@ export function InventoryProductEditClient({
                             return (
                               <div key={image.id} className="relative h-12 w-12">
                                 {url ? (
-                                  <Image
+                                  <InventoryImage
                                     src={url}
-                                    alt=""
+                                    variant="thumb"
                                     width={48}
                                     height={48}
-                                    unoptimized
                                     className="h-12 w-12 rounded-md object-cover"
                                   />
                                 ) : null}

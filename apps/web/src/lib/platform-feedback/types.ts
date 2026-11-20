@@ -105,6 +105,8 @@ export interface FeedbackAttachment {
   size_bytes: number;
   created_at: string;
   url: string | null;
+  /** Signed link to the 640 px version of an image, when one was made at upload. */
+  preview_url?: string | null;
 }
 
 export interface FeedbackMessage {

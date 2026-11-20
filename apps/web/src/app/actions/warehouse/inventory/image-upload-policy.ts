@@ -87,3 +87,22 @@ export async function validateInventoryImageFile(file: File): Promise<ImageValid
     },
   };
 }
+
+/** A small version made in the browser is a few KB; anything larger is not one. */
+const MAX_VARIANT_BYTES = 512 * 1024;
+
+/**
+ * Checks a small version sent with a product image ("thumb" or "card" form
+ * field): WebP or JPEG, at most 512 KB, content matching its type. Returns the
+ * content type, or null when the field is missing or not acceptable (the image
+ * is then stored without it and shown from the full file).
+ */
+export async function validateInventoryImageVariant(
+  value: FormDataEntryValue | null
+): Promise<"image/webp" | "image/jpeg" | null> {
+  if (!(value instanceof File)) return null;
+  if (value.size <= 0 || value.size > MAX_VARIANT_BYTES) return null;
+  if (value.type !== "image/webp" && value.type !== "image/jpeg") return null;
+  const bytes = new Uint8Array(await value.slice(0, 16).arrayBuffer());
+  return detectedImageMime(bytes) === value.type ? value.type : null;
+}
