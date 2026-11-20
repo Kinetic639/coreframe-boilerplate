@@ -249,6 +249,31 @@
         "typeNotAllowed": "This type of file cannot be attached.",
         "empty": "The file is empty."
       }
+    },
+    "richText": {
+      "toolbar": {
+        "heading1": "Heading 1",
+        "heading2": "Heading 2",
+        "heading3": "Heading 3",
+        "bold": "Bold",
+        "italic": "Italic",
+        "underline": "Underline",
+        "strikethrough": "Strikethrough",
+        "code": "Inline code",
+        "bulletList": "Bullet list",
+        "orderedList": "Numbered list",
+        "blockquote": "Quote",
+        "horizontalRule": "Horizontal line",
+        "link": "Insert link",
+        "linkPrompt": "Link address",
+        "alignLeft": "Align left",
+        "alignCenter": "Center",
+        "alignRight": "Align right",
+        "justify": "Justify",
+        "clearFormatting": "Clear formatting",
+        "undo": "Undo",
+        "redo": "Redo"
+      }
     }
   },
   "admin": {
@@ -4614,6 +4639,10 @@
         "description": "Description",
         "descriptionPlaceholder": "What is this board for?",
         "save": "Save",
+        "saveState": {
+          "saving": "Saving…",
+          "saved": "Saved"
+        },
         "cancel": "Cancel",
         "boardMenu": "Board menu",
         "boardSettings": "Board settings",
@@ -4825,10 +4854,6 @@
           "branchNamed": "Branch: everyone in {branch} sees it",
           "organization": "Organization: everyone in the organization sees it",
           "plusPeople": "+ {count} {count, plural, one {person} other {people}}"
-        },
-        "save": {
-          "saving": "Saving…",
-          "saved": "Saved"
         }
       },
       "settings": {
