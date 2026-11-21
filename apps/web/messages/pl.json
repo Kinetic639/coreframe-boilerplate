@@ -1923,13 +1923,18 @@
         "status": {
           "assigned": "Przypisany",
           "unassigned": "Nieprzypisany",
-          "revoked": "Unieważniony"
+          "revoked": "Unieważniony",
+          "expired": "Wygasły"
         },
         "filters": {
           "all": "Wszystkie",
           "assigned": "Przypisane",
           "unassigned": "Nieprzypisane",
-          "revoked": "Unieważnione"
+          "revoked": "Unieważnione",
+          "expired": "Wygasłe",
+          "unusedFor": "Nieużywane od",
+          "unusedDays": "{days} dni",
+          "batch": "Partia wydruku"
         },
         "generate": {
           "prefixLabel": "Prefiks etykiety",
@@ -1987,6 +1992,45 @@
           "designButton": "Projektuj {count} wybranych",
           "noSelection": "Brak wybranych kodów",
           "revokeButton": "Unieważnij"
+        },
+        "targets": {
+          "warehouse_location": "Lokalizacja",
+          "helpdesk_ticket": "Zgłoszenie",
+          "planning_task": "Zadanie",
+          "inventory_container": "Kontener",
+          "open": "Otwórz"
+        },
+        "registry": {
+          "neverScanned": "nigdy",
+          "noBatch": "—",
+          "batchUnnamed": "Wydruk z {date}",
+          "lastScan": "Ostatni skan",
+          "scanCount": "Liczba skanów",
+          "batch": "Partia wydruku",
+          "lastUsed": "Ostatnio użyty",
+          "revokeSelected": "Unieważnij",
+          "deleteSelected": "Usuń",
+          "restoreSelected": "Przywróć",
+          "printSelected": "Drukuj",
+          "clearSelection": "Wyczyść zaznaczenie",
+          "settings": "Ustawienia kodów QR",
+          "settingsTitle": "Ustawienia kodów QR",
+          "settingsDescription": "Kod, który nie został przypisany ani zeskanowany, wygasa po podanej liczbie dni. Wygasły kod można przywrócić przez 90 dni, potem znika z listy. 0 wyłącza wygasanie.",
+          "expiryDays": "Wygasanie nieużytych kodów (dni)",
+          "save": "Zapisz",
+          "cancel": "Anuluj",
+          "saved": "Zapisano ustawienia.",
+          "revokeTitle": "Unieważnić {count} kod(ów) QR?",
+          "revokeDescription": "Unieważnione kody przestają działać, a ich przypisania zostają zdjęte. Tej operacji nie da się cofnąć.",
+          "deleteTitle": "Usunąć {count} kod(ów) QR?",
+          "deleteDescription": "Usunięte zostaną tylko kody bez aktywnego przypisania. Przypisane kody trzeba najpierw unieważnić.",
+          "confirmRevoke": "Unieważnij",
+          "confirmDelete": "Usuń",
+          "revokedMany": "Unieważniono {count} kod(ów) QR.",
+          "deletedMany": "Usunięto {count} kod(ów) QR.",
+          "deletedSkipped": "Pominięto {count} przypisanych kodów — najpierw je unieważnij.",
+          "restoredMany": "Przywrócono {count} kod(ów) QR.",
+          "restoreButton": "Przywróć"
         }
       },
       "previewDialog": {
@@ -2145,6 +2189,23 @@
           "exported": "Wyeksportowano {count} etykiet(y).",
           "exportFailed": "Eksport nie powiódł się. Spróbuj ponownie."
         }
+      },
+      "assign": {
+        "title": "Przypisz kod QR — {name}",
+        "description": "Nowy kod zostanie utworzony i od razu przypisany. Możesz też zeskanować etykietę, która jest już naklejona.",
+        "create": "Przypisz nowy kod QR",
+        "creating": "Przypisywanie…",
+        "scan": "Zeskanuj naklejoną etykietę",
+        "scanHint": "Skieruj aparat na etykietę QR",
+        "back": "Wróć",
+        "cancel": "Anuluj",
+        "alreadyAssigned": "Ten kod jest już przypisany do czegoś innego.",
+        "assigned": "Kod QR przypisany.",
+        "failed": "Nie udało się przypisać kodu QR.",
+        "print": "Wydrukuj etykietę",
+        "printTitle": "Etykieta — {name}",
+        "staged": "Nowy kod QR zostanie utworzony przy zapisie",
+        "addNew": "Dodaj kod QR"
       }
     },
     "warehouse": {
@@ -3471,7 +3532,8 @@
           "branches": "Oddziały"
         },
         "billing": "Rozliczenia i subskrypcje",
-        "branchAccess": "Dostęp do oddziałów"
+        "branchAccess": "Dostęp do oddziałów",
+        "qrCodes": "Kody QR"
       },
       "branches": {
         "title": "Oddziały",

@@ -1968,13 +1968,18 @@
         "status": {
           "assigned": "Assigned",
           "unassigned": "Unassigned",
-          "revoked": "Revoked"
+          "revoked": "Revoked",
+          "expired": "Expired"
         },
         "filters": {
           "all": "All",
           "assigned": "Assigned",
           "unassigned": "Unassigned",
-          "revoked": "Revoked"
+          "revoked": "Revoked",
+          "expired": "Expired",
+          "unusedFor": "Not used for",
+          "unusedDays": "{days} days",
+          "batch": "Print batch"
         },
         "generate": {
           "prefixLabel": "Label prefix",
@@ -2032,6 +2037,45 @@
           "designButton": "Design {count} selected",
           "noSelection": "No codes selected",
           "revokeButton": "Revoke"
+        },
+        "targets": {
+          "warehouse_location": "Location",
+          "helpdesk_ticket": "Ticket",
+          "planning_task": "Task",
+          "inventory_container": "Container",
+          "open": "Open"
+        },
+        "registry": {
+          "neverScanned": "never",
+          "noBatch": "—",
+          "batchUnnamed": "Print of {date}",
+          "lastScan": "Last scan",
+          "scanCount": "Scans",
+          "batch": "Print batch",
+          "lastUsed": "Last used",
+          "revokeSelected": "Revoke",
+          "deleteSelected": "Delete",
+          "restoreSelected": "Restore",
+          "printSelected": "Print",
+          "clearSelection": "Clear selection",
+          "settings": "QR code settings",
+          "settingsTitle": "QR code settings",
+          "settingsDescription": "A code that was never assigned or scanned expires after this many days. An expired code can be restored for 90 days, then it leaves the list. 0 turns expiry off.",
+          "expiryDays": "Expire unused codes after (days)",
+          "save": "Save",
+          "cancel": "Cancel",
+          "saved": "Settings saved.",
+          "revokeTitle": "Revoke {count} QR code(s)?",
+          "revokeDescription": "Revoked codes stop working and their assignments are removed. This cannot be undone.",
+          "deleteTitle": "Delete {count} QR code(s)?",
+          "deleteDescription": "Only codes with no active assignment are deleted. Assigned codes must be revoked first.",
+          "confirmRevoke": "Revoke",
+          "confirmDelete": "Delete",
+          "revokedMany": "Revoked {count} QR code(s).",
+          "deletedMany": "Deleted {count} QR code(s).",
+          "deletedSkipped": "Skipped {count} assigned codes — revoke them first.",
+          "restoredMany": "Restored {count} QR code(s).",
+          "restoreButton": "Restore"
         }
       },
       "previewDialog": {
@@ -2190,6 +2234,23 @@
           "exported": "Exported {count} label(s).",
           "exportFailed": "Export failed. Please try again."
         }
+      },
+      "assign": {
+        "title": "Assign a QR code — {name}",
+        "description": "A new code is created and assigned right away. You can also scan a label that is already stuck on.",
+        "create": "Assign a new QR code",
+        "creating": "Assigning…",
+        "scan": "Scan a stuck-on label",
+        "scanHint": "Point the camera at the QR label",
+        "back": "Back",
+        "cancel": "Cancel",
+        "alreadyAssigned": "This code is already assigned to something else.",
+        "assigned": "QR code assigned.",
+        "failed": "Could not assign the QR code.",
+        "print": "Print label",
+        "printTitle": "Label — {name}",
+        "staged": "A new QR code will be created on save",
+        "addNew": "Add a QR code"
       }
     },
     "warehouse": {
@@ -3500,7 +3561,8 @@
           "branches": "Branches"
         },
         "billing": "Billing & Subscriptions",
-        "branchAccess": "Branch Access"
+        "branchAccess": "Branch Access",
+        "qrCodes": "QR codes"
       },
       "branches": {
         "title": "Branches",

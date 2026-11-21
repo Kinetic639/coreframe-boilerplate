@@ -734,7 +734,7 @@ function TaskEditorBody({
         />
       </section>
 
-      <TaskQrSection taskId={card.id} canUpdate={canUpdate} />
+      <TaskQrSection taskId={card.id} taskTitle={card.title} canUpdate={canUpdate} />
 
       <section className="space-y-2">
         <SideHeading>{t("taskEditor.actions")}</SideHeading>

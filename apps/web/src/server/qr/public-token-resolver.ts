@@ -5,10 +5,13 @@ import { createServiceClient } from "@/utils/supabase/service";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { isBranchAccessible } from "@/lib/utils/branch-access";
 import { getTargetDescriptor } from "@/server/qr/target-registry";
+import { recordQrScan } from "@/server/qr/scan-recorder";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type ResolveError =
   | "QR_NOT_FOUND"
   | "QR_REVOKED"
+  | "QR_EXPIRED"
   | "QR_UNASSIGNED"
   | "UNSUPPORTED_TARGET_TYPE"
   | "TARGET_NOT_FOUND";
@@ -48,7 +51,16 @@ function localizeDashboardPath(path: string, locale?: string) {
 
 export async function resolvePublicQrToken(
   token: string,
-  options?: { locale?: string }
+  options?: {
+    locale?: string;
+    /**
+     * Which outcomes count as a scan. "all" (default) for the page that shows
+     * the result; "success" for the bare /qr/[token] entry, which hands every
+     * failure on to the localized page (that one counts it), so a failed scan
+     * is not counted twice.
+     */
+    recordScan?: "all" | "success";
+  }
 ): Promise<PublicQrTokenResolution> {
   const client = createServiceClient();
 
@@ -60,6 +72,15 @@ export async function resolvePublicQrToken(
 
   if (qrError || !qrCode || qrCode.deleted_at !== null) {
     return { ok: false, error: "QR_NOT_FOUND", token };
+  }
+
+  // Every scan of a known code counts, whatever comes next (the registry's
+  // "not used for X days" filter and the expiry sweep read it).
+  const record = () => recordQrScan(qrCode.id, client as unknown as SupabaseClient);
+  if ((options?.recordScan ?? "all") === "all") await record();
+
+  if (qrCode.status === "expired") {
+    return { ok: false, error: "QR_EXPIRED", token };
   }
 
   if (qrCode.status !== "active") {
@@ -195,6 +216,10 @@ export async function resolvePublicQrToken(
       }
     }
   }
+
+  // The sign-in detour above is not counted here: after login the scan comes
+  // back through the localized page, which counts it.
+  if (options?.recordScan === "success") await record();
 
   return {
     ok: true,

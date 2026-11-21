@@ -102,6 +102,7 @@ export const SIDEBAR_SEARCH_KEYWORDS: Record<string, string[]> = {
   "organization.profile": ["organizacja", "firma", "profil firmy", "organization profile"],
   "organization.users": ["uzytkownicy", "pracownicy", "czlonkowie", "users", "members"],
   "organization.branches": ["oddzialy", "magazyny dms", "branches", "dms"],
+  "organization.qr-codes": ["kody qr", "qr", "tokeny", "etykiety qr", "qr codes", "tokens"],
   "organization.billing": ["platnosci", "subskrypcja", "plan", "billing"],
   "analytics.activity": ["aktywnosc", "historia", "activity"],
   "analytics.audit": ["audyt", "logi", "audit log"],

@@ -39,7 +39,7 @@ import { usePermissions } from "@/hooks/v2/use-permissions";
 import { QR_ASSIGN, QR_CREATE } from "@/lib/constants/permissions";
 import { uploadAttachmentDirect } from "@/hooks/queries/attachments/direct-upload";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
-import { assignQrToTicketAction } from "@/app/actions/qr/assign";
+import { assignQrToTicketAction, createAndAssignQrToTicketAction } from "@/app/actions/qr/assign";
 
 interface NewTicketFormProps {
   ticketTypes: HelpdeskTicketType[];
@@ -180,10 +180,16 @@ export function NewTicketForm({
             followUps.push(
               (async () => {
                 try {
-                  const result = await assignQrToTicketAction({
-                    qrCodeId: stagedQr.qrCodeId,
-                    ticketId: data.id,
-                  });
+                  // "New code": created and assigned now that the ticket exists.
+                  const result = stagedQr.isNew
+                    ? await createAndAssignQrToTicketAction({
+                        ticketId: data.id,
+                        label: data.ticket_number ?? null,
+                      })
+                    : await assignQrToTicketAction({
+                        qrCodeId: stagedQr.qrCodeId,
+                        ticketId: data.id,
+                      });
                   if (!result.success) {
                     toast.error(
                       (result as { success: false; error: string }).error ||

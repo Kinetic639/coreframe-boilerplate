@@ -33,21 +33,12 @@ export async function createQrBatchAction(
     const userId = context.user.user?.id ?? null;
     const supabase = await createClient();
 
-    const results = await Promise.all(
-      Array.from({ length: count }, (_, i) =>
-        QrCodesService.create(supabase, orgId, {
-          label: labelPrefix ? `${labelPrefix} ${i + 1}` : null,
-          createdBy: userId,
-        })
-      )
-    );
-
-    const failures = results.filter((r) => !r.success);
-    if (failures.length > 0) {
-      return { success: false, error: `${failures.length} of ${count} QR codes failed to create.` };
-    }
-
-    return { success: true, data: results.map((r) => (r as { success: true; data: QrCode }).data) };
+    // One insert for the whole batch (was one request per code).
+    return await QrCodesService.createBatch(supabase, orgId, {
+      count,
+      labelPrefix: labelPrefix ?? null,
+      createdBy: userId,
+    });
   } catch {
     return { success: false, error: "Unexpected error" };
   }

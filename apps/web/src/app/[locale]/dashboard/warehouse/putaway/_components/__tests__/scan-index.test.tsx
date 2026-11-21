@@ -11,6 +11,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useScanIndex } from "../scan-index";
 import type { RepairOrderInfo } from "../putaway-utils";
 
+// Scan counting (POST /api/qr/scans, a beacon) is a side effect of its own,
+// not a lookup: kept out of the fetch counts below, checked on its own.
+const reportQrScan = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/qr/record-scan", () => ({ reportQrScan }));
+
 vi.mock("@/components/features/qr/qr-camera-scanner", () => ({
   extractToken: (text: string) => text.split("/qr/")[1] ?? text,
 }));
@@ -48,6 +53,7 @@ const qrCodes = [
 const fetchMock = vi.fn();
 beforeEach(() => {
   fetchMock.mockReset();
+  reportQrScan.mockReset();
   vi.stubGlobal("fetch", fetchMock);
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -71,6 +77,7 @@ describe("useScanIndex", () => {
       container: { id: "c1", code: "K-0042-01", repairOrderId: "ro1", zlNumber: "0042" },
     });
     expect(sticker).toMatchObject({ ok: true, local: true, lookup: { assignment: null } });
+    expect(reportQrScan.mock.calls.map(([token]) => token)).toEqual(["LOC1", "CON1", "FREE1"]);
   });
 
   it("asks the light endpoint once for an unknown code, then knows it", async () => {

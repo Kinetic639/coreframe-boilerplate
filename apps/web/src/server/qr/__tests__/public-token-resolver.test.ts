@@ -49,6 +49,8 @@ function makeServiceClient(
   overrides: {
     locationBranchId?: string | null;
     locationOrgId?: string;
+    qrStatus?: string;
+    rpc?: ReturnType<typeof vi.fn>;
   } = {}
 ) {
   const tables: Record<string, TableResult> = {
@@ -57,7 +59,7 @@ function makeServiceClient(
         id: QR_ID,
         token: TOKEN,
         organization_id: ORG_ID,
-        status: "active",
+        status: overrides.qrStatus ?? "active",
         deleted_at: null,
       },
     },
@@ -75,7 +77,10 @@ function makeServiceClient(
     organizations: { data: { slug: "ambra" } },
     branches: { data: { slug: "warsaw" } },
   };
-  return { from: (table: string) => chainable(tables[table] ?? { data: null }) };
+  return {
+    from: (table: string) => chainable(tables[table] ?? { data: null }),
+    rpc: overrides.rpc ?? vi.fn().mockResolvedValue({ error: null }),
+  };
 }
 
 function branch(id: string): BranchDataV2 {
@@ -357,5 +362,63 @@ describe("resolvePublicQrToken — cross-branch deep-link hint (Zone 1 / Phase 6
     // failed validation -- confirms no unnecessary context load on a
     // rejected target.
     expect(mockLoadDashboardContextV2).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolvePublicQrToken — scan counting and expiry (QR registry, Q1)", () => {
+  it("counts every scan of a known code by default", async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: null });
+    mockCreateServiceClient.mockReturnValue(makeServiceClient({ locationBranchId: BRANCH_A, rpc }));
+    mockLoadDashboardContextV2.mockResolvedValue(
+      makeDashboardContext({ activeBranchId: BRANCH_A })
+    );
+
+    const result = await resolvePublicQrToken(TOKEN);
+    expect(result.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("qr_record_scan", { p_qr_code_id: QR_ID });
+  });
+
+  it("an expired code answers QR_EXPIRED and still counts the scan", async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: null });
+    mockCreateServiceClient.mockReturnValue(makeServiceClient({ qrStatus: "expired", rpc }));
+
+    const result = await resolvePublicQrToken(TOKEN);
+    expect(result).toEqual({ ok: false, error: "QR_EXPIRED", token: TOKEN });
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('recordScan "success" leaves failures to the localized page', async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: null });
+    mockCreateServiceClient.mockReturnValue(makeServiceClient({ qrStatus: "revoked", rpc }));
+
+    const result = await resolvePublicQrToken(TOKEN, { recordScan: "success" });
+    expect(result.ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('recordScan "success" counts a resolved scan once', async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: null });
+    mockCreateServiceClient.mockReturnValue(makeServiceClient({ locationBranchId: BRANCH_A, rpc }));
+    mockLoadDashboardContextV2.mockResolvedValue(
+      makeDashboardContext({ activeBranchId: BRANCH_A })
+    );
+
+    const result = await resolvePublicQrToken(TOKEN, { recordScan: "success" });
+    expect(result.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failing scan write never breaks the scan", async () => {
+    const rpc = vi.fn().mockRejectedValue(new Error("db down"));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mockCreateServiceClient.mockReturnValue(makeServiceClient({ locationBranchId: BRANCH_A, rpc }));
+    mockLoadDashboardContextV2.mockResolvedValue(
+      makeDashboardContext({ activeBranchId: BRANCH_A })
+    );
+
+    const result = await resolvePublicQrToken(TOKEN);
+    expect(result.ok).toBe(true);
+    spy.mockRestore();
   });
 });

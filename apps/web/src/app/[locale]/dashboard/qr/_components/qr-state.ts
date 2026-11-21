@@ -23,9 +23,18 @@ import type { QrCodeWithStatus } from "@/server/services/qr.service";
 // are loaded; the codes ticked for labels stay on the page, not the address.
 
 export const QR_PAGE_SIZES = [20, 50, 100] as const;
-export const QR_SORTS = ["label", "status", "created_at"] as const;
-export const QR_STATUSES = ["assigned", "unassigned", "revoked"] as const;
+export const QR_SORTS = [
+  "label",
+  "status",
+  "created_at",
+  "last_scanned_at",
+  "scan_count",
+  "batch",
+] as const;
+export const QR_STATUSES = ["assigned", "unassigned", "expired", "revoked"] as const;
 export type QrDisplayStatus = (typeof QR_STATUSES)[number];
+/** "Not used for X days" choices (days). */
+export const QR_UNUSED_DAYS = ["30", "90", "180", "365"] as const;
 
 export const qrParsers = {
   q: parseAsString.withDefault(""),
@@ -35,6 +44,8 @@ export const qrParsers = {
   direction: parseAsStringLiteral(["asc", "desc"] as const).withDefault("desc"),
   selected: parseAsUuid,
   status: parseAsArrayOf(parseAsStringLiteral(QR_STATUSES)).withDefault([]),
+  nieuzywane: parseAsArrayOf(parseAsStringLiteral(QR_UNUSED_DAYS)).withDefault([]),
+  partia: parseAsArrayOf(parseAsString).withDefault([]),
 };
 
 export type QrState = inferParserType<typeof qrParsers>;
@@ -47,20 +58,54 @@ export function qrHref(path: string, state: QrState, patch: Partial<QrState> = {
 
 export function getQrStatus(qr: QrCodeWithStatus): QrDisplayStatus {
   if (qr.status === "revoked") return "revoked";
+  if (qr.status === "expired") return "expired";
   return qr.assignment ? "assigned" : "unassigned";
 }
 
+/**
+ * When the code was last used: its last scan, its assignment or its creation,
+ * whichever is latest. Drives "not used for X days".
+ */
+export function qrLastUsedAt(qr: QrCodeWithStatus): string {
+  return [qr.last_scanned_at, qr.assignment?.assigned_at, qr.created_at]
+    .filter((value): value is string => !!value)
+    .reduce((latest, value) => (value > latest ? value : latest));
+}
+
+function unusedFor(qr: QrCodeWithStatus, days: string[], now: number) {
+  if (!days.length) return true;
+  const limit = Math.min(...days.map(Number));
+  return now - new Date(qrLastUsedAt(qr)).getTime() >= limit * 24 * 60 * 60 * 1000;
+}
+
+function sortValue(qr: QrCodeWithStatus, sort: QrState["sort"]) {
+  switch (sort) {
+    case "status":
+      return getQrStatus(qr);
+    case "batch":
+      return qr.batch?.created_at ?? null;
+    case "last_scanned_at":
+      return qr.last_scanned_at ?? null;
+    case "scan_count":
+      return qr.scan_count ?? 0;
+    default:
+      return qr[sort];
+  }
+}
+
 /** The codes the address shows, before paging (deleted ones never). */
-export function filterQrCodes(rows: QrCodeWithStatus[], state: QrState) {
+export function filterQrCodes(rows: QrCodeWithStatus[], state: QrState, now = Date.now()) {
   const matching = rows.filter(
     (qr) =>
       !qr.deleted_at &&
-      matchesSearch(state.q, qr.label, qr.token) &&
-      (!state.status.length || state.status.includes(getQrStatus(qr)))
+      matchesSearch(state.q, qr.label, qr.token, qr.batch?.name) &&
+      (!state.status.length || state.status.includes(getQrStatus(qr))) &&
+      (!state.partia.length || (qr.batch_id != null && state.partia.includes(qr.batch_id))) &&
+      unusedFor(qr, state.nieuzywane, now)
   );
   return sortRows(
     matching,
-    (qr) => (state.sort === "status" ? getQrStatus(qr) : qr[state.sort]),
+    (qr) => sortValue(qr, state.sort),
     state.direction,
     (qr) => qr.id
   );
@@ -76,12 +121,28 @@ export function migrateQrSearchParams(raw: Record<string, string | string[] | un
 }
 
 export function qrColumnSet(labels: Record<string, string>): ColumnSet<string> {
-  const ids = ["token", "status", "assignment", "created_at"];
+  const ids = [
+    "token",
+    "status",
+    "assignment",
+    "batch",
+    "last_scanned_at",
+    "scan_count",
+    "created_at",
+  ];
   return {
     ids,
     labels: Object.fromEntries(ids.map((id) => [id, labels[`column_${id}`]])),
-    widths: { token: 160, status: 140, assignment: 180, created_at: 130 },
-    shownByDefault: ids,
+    widths: {
+      token: 160,
+      status: 140,
+      assignment: 180,
+      batch: 180,
+      last_scanned_at: 150,
+      scan_count: 110,
+      created_at: 130,
+    },
+    shownByDefault: ["token", "status", "assignment", "last_scanned_at", "created_at"],
     pinned: { id: "label", label: labels.column_label, width: 280 },
   };
 }
@@ -100,7 +161,10 @@ export function qrListLabels(
     column_status: t("table.statusHeader"),
     column_assignment: t("table.assignment"),
     column_created_at: t("table.created"),
-    search: pl ? "Szukaj etykiety, tokenu…" : "Search label, token…",
+    column_batch: pl ? "Partia wydruku" : "Print batch",
+    column_last_scanned_at: pl ? "Ostatni skan" : "Last scan",
+    column_scan_count: pl ? "Skany" : "Scans",
+    search: pl ? "Szukaj etykiety, tokenu, partii…" : "Search label, token, batch…",
     close: pl ? "Zamknij" : "Close",
     empty: t("table.empty"),
     emptyAll: pl ? "Nie ma jeszcze kodów QR" : "There are no QR codes yet",
