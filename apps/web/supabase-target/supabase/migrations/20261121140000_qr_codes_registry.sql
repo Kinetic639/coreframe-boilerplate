@@ -1,8 +1,13 @@
 -- QR codes registry (docs/QR_LABELS_PLAN.md, phase Q1)
 --
+-- * Label layouts: immutable, one row per distinct layout (format + config,
+--   deduplicated by hash) -- whether it came from a template or was set up
+--   by hand. Editing a template later makes a new layout, so old prints keep
+--   pointing at what was really printed. Templates (phase Q3) will point at
+--   their current layout.
 -- * Print batches: every label print run is one row -- new blank labels and
---   reprints alike -- with a full copy of the layout used (label_config,
---   format, template). qr_codes.batch_id is the run that created the code;
+--   reprints alike -- pointing at its layout (and template, if any).
+--   qr_codes.batch_id is the run that created the code;
 --   qr_codes.last_print_batch_id the latest run that printed it, so
 --   "print label again" can reuse exactly the same layout.
 -- * Scan tracking: last_scanned_at + scan_count, written only by the server
@@ -10,26 +15,57 @@
 -- * Expiry: a code that was never assigned and never scanned expires after
 --   the organization's qr_settings.unused_expiry_days (default 180, 0 = off)
 --   counted from unused_since, and is soft-deleted 90 days after that.
---   Existing codes start counting now, so nothing expires right after deploy. qr_expire_unused_codes() does
---   both; docs/QR_CODES_CRON_SETUP.md schedules it with pg_cron.
+--   Existing codes start counting now, so nothing expires right after
+--   deploy. qr_expire_unused_codes() does both; docs/QR_CODES_CRON_SETUP.md
+--   schedules it with pg_cron.
 -- * Bulk soft delete / restore for the registry table (RPCs that check
 --   qr.revoke themselves, because the SELECT policy hides deleted rows).
 
--- ── 1. Print batches ─────────────────────────────────────────────────────
+-- ── 1. Label layouts (immutable) ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.qr_label_layouts (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id  UUID        NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  format           TEXT        NOT NULL CHECK (format IN ('pdf', 'zpl')),
+  -- LabelConfig (src/lib/qr/label-config.ts) + ZPL size when format = 'zpl'.
+  config           JSONB       NOT NULL,
+  -- jsonb text is canonical (sorted keys), so equal layouts hash equally.
+  config_hash      TEXT        GENERATED ALWAYS AS (md5(format || ':' || config::text)) STORED,
+  created_by       UUID        NULL REFERENCES public.users(id),
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT qr_label_layouts_org_hash_key UNIQUE (organization_id, config_hash)
+);
+
+ALTER TABLE public.qr_label_layouts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS qrll_select ON public.qr_label_layouts;
+CREATE POLICY qrll_select ON public.qr_label_layouts
+  FOR SELECT TO authenticated
+  USING (has_permission(organization_id, 'qr.read'));
+
+-- Printing (qr.export) records the layout it used. No UPDATE / DELETE: a
+-- layout never changes once printed with.
+DROP POLICY IF EXISTS qrll_insert ON public.qr_label_layouts;
+CREATE POLICY qrll_insert ON public.qr_label_layouts
+  FOR INSERT TO authenticated
+  WITH CHECK (has_permission(organization_id, 'qr.export'));
+
+-- ── 2. Print batches ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.qr_print_batches (
   id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id  UUID        NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   name             TEXT        NULL CHECK (name IS NULL OR char_length(name) <= 120),
   kind             TEXT        NOT NULL DEFAULT 'new' CHECK (kind IN ('new', 'reprint')),
   quantity         INTEGER     NOT NULL CHECK (quantity BETWEEN 1 AND 1000),
-  format           TEXT        NOT NULL DEFAULT 'pdf' CHECK (format IN ('pdf', 'zpl')),
-  -- Snapshot of the LabelConfig used (src/lib/qr/label-config.ts), whether
-  -- it came from a template or was set up by hand for this print.
-  label_config     JSONB       NULL,
+  layout_id        UUID        NULL REFERENCES public.qr_label_layouts(id) ON DELETE SET NULL,
+  -- The template the layout came from, if any (FK added with the templates
+  -- table in phase Q3).
   template_id      UUID        NULL,
   created_by       UUID        NULL REFERENCES public.users(id),
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE INDEX IF NOT EXISTS qr_print_batches_layout_idx
+  ON public.qr_print_batches (layout_id) WHERE layout_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS qr_print_batches_org_created_idx
   ON public.qr_print_batches (organization_id, created_at DESC);
@@ -42,11 +78,15 @@ CREATE POLICY qrpb_select ON public.qr_print_batches
   USING (has_permission(organization_id, 'qr.read'));
 
 DROP POLICY IF EXISTS qrpb_insert ON public.qr_print_batches;
+-- New blank labels need qr.create, a reprint only qr.export.
 CREATE POLICY qrpb_insert ON public.qr_print_batches
   FOR INSERT TO authenticated
-  WITH CHECK (has_permission(organization_id, 'qr.create'));
+  WITH CHECK (
+    has_permission(organization_id, 'qr.create')
+    OR has_permission(organization_id, 'qr.export')
+  );
 
--- ── 2. qr_codes: batch, scans, expiry ────────────────────────────────────
+-- ── 3. qr_codes: batch, scans, expiry ────────────────────────────────────
 ALTER TABLE public.qr_codes
   ADD COLUMN IF NOT EXISTS batch_id        UUID        NULL REFERENCES public.qr_print_batches(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS last_print_batch_id UUID    NULL REFERENCES public.qr_print_batches(id) ON DELETE SET NULL,
@@ -70,7 +110,7 @@ CREATE INDEX IF NOT EXISTS qrc_unscanned_active_idx
   ON public.qr_codes (organization_id, unused_since)
   WHERE status = 'active' AND last_scanned_at IS NULL AND deleted_at IS NULL;
 
--- ── 3. Settings per organization ─────────────────────────────────────────
+-- ── 4. Settings per organization ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.qr_settings (
   organization_id     UUID        PRIMARY KEY REFERENCES public.organizations(id) ON DELETE CASCADE,
   unused_expiry_days  INTEGER     NOT NULL DEFAULT 180 CHECK (unused_expiry_days BETWEEN 0 AND 3650),
@@ -96,7 +136,7 @@ CREATE POLICY qrs_update ON public.qr_settings
   USING (has_permission(organization_id, 'qr.revoke'))
   WITH CHECK (has_permission(organization_id, 'qr.revoke'));
 
--- ── 4. Scan recording (server only) ──────────────────────────────────────
+-- ── 5. Scan recording (server only) ──────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.qr_record_scan(p_qr_code_id UUID)
 RETURNS VOID
 LANGUAGE sql
@@ -113,7 +153,7 @@ $$;
 REVOKE ALL ON FUNCTION public.qr_record_scan(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.qr_record_scan(UUID) TO service_role;
 
--- ── 5. Expiry sweep (pg_cron, daily) ─────────────────────────────────────
+-- ── 6. Expiry sweep (pg_cron, daily) ─────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.qr_expire_unused_codes()
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -159,7 +199,7 @@ $$;
 REVOKE ALL ON FUNCTION public.qr_expire_unused_codes() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.qr_expire_unused_codes() TO service_role;
 
--- ── 6. Registry bulk actions ─────────────────────────────────────────────
+-- ── 7. Registry bulk actions ─────────────────────────────────────────────
 -- Soft delete: only codes with no active assignment (a label on a real
 -- object must be revoked first). Returns the number of codes deleted.
 CREATE OR REPLACE FUNCTION public.qr_codes_soft_delete(p_organization_id UUID, p_ids UUID[])
