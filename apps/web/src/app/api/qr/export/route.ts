@@ -6,20 +6,19 @@ import { checkPermission } from "@/lib/utils/permissions";
 import { QR_EXPORT } from "@/lib/constants/permissions";
 import { QrCodesService } from "@/server/services/qr.service";
 import type { QrCode } from "@/server/services/qr.service";
-import { generateStyledQrPngDataUrl, buildQrScanUrl } from "@/lib/qr/generate";
+import { buildQrScanUrl } from "@/lib/qr/generate";
 import type { LabelConfig } from "@/lib/qr/label-config";
 import { PRIMARY_FIELD_KEY, TOKEN_FIELD_KEY, SCAN_URL_FIELD_KEY } from "@/lib/qr/label-config";
-import { generateQrLabelsPdfWithConfig } from "@/server/qr/label-pdf";
-import type { QrLabelPdfItem } from "@/server/qr/label-pdf";
-import { generateZplLabels } from "@/lib/qr/zpl";
-import type { ZplLabelItem, ZplLabelSize } from "@/lib/qr/zpl";
+import type { ZplLabelSize } from "@/lib/qr/zpl";
+import { renderQrLabels, labelsResponse } from "@/server/qr/render-labels";
+import type { RenderLabelItem } from "@/server/qr/render-labels";
+import { recordReprint, verifiedTemplateId } from "@/server/qr/record-print";
 import { eventService } from "@/server/services/event.service";
 import { labelConfigSchema } from "@/lib/qr/label-config-schema";
 
 export const dynamic = "force-dynamic";
 
 const MAX_IDS = 200;
-const QR_PREVIEW_CONCURRENCY = 8;
 
 const requestSchema = z.object({
   qrCodeIds: z
@@ -30,31 +29,12 @@ const requestSchema = z.object({
   labelConfig: labelConfigSchema,
   /** Only used when format === "zpl" */
   zplSize: z.enum(["50x30", "70x40"]).optional().default("50x30"),
+  /** Template the layout came from (recorded with the print). */
+  templateId: z.string().uuid().nullish(),
 });
 
 function jsonError(message: string, status: number) {
   return Response.json({ success: false, error: message }, { status });
-}
-
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  mapper: (item: T, index: number) => Promise<R>
-): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let nextIndex = 0;
-
-  async function worker() {
-    while (true) {
-      const currentIndex = nextIndex++;
-      if (currentIndex >= items.length) return;
-      results[currentIndex] = await mapper(items[currentIndex], currentIndex);
-    }
-  }
-
-  const workerCount = Math.min(limit, items.length);
-  await Promise.all(Array.from({ length: workerCount }, () => worker()));
-  return results;
 }
 
 /**
@@ -122,40 +102,10 @@ export async function POST(request: NextRequest) {
 
   // ─── 4. Generate output ────────────────────────────────────────────────────
   try {
-    if (format === "pdf") {
-      const items: QrLabelPdfItem[] = await mapWithConcurrency(
-        qrCodes,
-        QR_PREVIEW_CONCURRENCY,
-        async (qr) => ({
-          qrCodeId: qr.id,
-          token: qr.token,
-          qrDataUrl: await generateStyledQrPngDataUrl(qr.token, labelConfig.qrStyle),
-          primaryText: qr.label ?? "QR Code",
-          fields: {
-            [PRIMARY_FIELD_KEY]: qr.label ?? "QR Code",
-            [TOKEN_FIELD_KEY]: qr.token.slice(0, 10),
-            [SCAN_URL_FIELD_KEY]: buildQrScanUrl(qr.token),
-          },
-        })
-      );
-
-      const buffer = await generateQrLabelsPdfWithConfig(items, labelConfig);
-
-      emitExportEvent(userId, orgId, qrCodes, format, labelConfig.dimension, labelConfig);
-
-      return new Response(new Uint8Array(buffer), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": 'attachment; filename="qr-export.pdf"',
-          "Cache-Control": "no-store",
-        },
-      });
-    }
-
-    // format === "zpl"
-    const items: ZplLabelItem[] = qrCodes.map((qr) => ({
+    const items: RenderLabelItem[] = qrCodes.map((qr) => ({
+      id: qr.id,
       token: qr.token,
+      primaryText: qr.label ?? "QR Code",
       fields: {
         [PRIMARY_FIELD_KEY]: qr.label ?? "QR Code",
         [TOKEN_FIELD_KEY]: qr.token.slice(0, 10),
@@ -163,33 +113,19 @@ export async function POST(request: NextRequest) {
       },
     }));
 
-    const thermalBaseDimension =
-      zplSize === "50x30" ? { width: 50, height: 30 } : { width: 70, height: 40 };
-
-    const zpl = await generateZplLabels(items, zplSize as ZplLabelSize, {
-      ...labelConfig,
-      dimension: {
-        width:
-          labelConfig.orientation === "portrait"
-            ? thermalBaseDimension.height
-            : thermalBaseDimension.width,
-        height:
-          labelConfig.orientation === "portrait"
-            ? thermalBaseDimension.width
-            : thermalBaseDimension.height,
-      },
-    });
+    const rendered = await renderQrLabels(items, format, labelConfig, zplSize as ZplLabelSize);
 
     emitExportEvent(userId, orgId, qrCodes, format, labelConfig.dimension, labelConfig);
-
-    return new Response(new TextEncoder().encode(zpl), {
-      status: 200,
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Content-Disposition": 'attachment; filename="qr-labels.zpl"',
-        "Cache-Control": "no-store",
-      },
+    await recordReprint({
+      orgId,
+      userId,
+      qrCodeIds: qrCodes.map((qr) => qr.id),
+      format,
+      labelConfig,
+      templateId: await verifiedTemplateId(supabase, orgId, parsed.data.templateId),
     });
+
+    return labelsResponse(rendered, "qr-labels");
   } catch (err) {
     console.error("[POST /api/qr/export] Generation failed:", err);
     return jsonError("Export generation failed. Please try again.", 500);

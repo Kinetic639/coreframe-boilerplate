@@ -44,7 +44,8 @@ export async function saveLocationLabelSettingsAction(rawInput: unknown) {
     const result = await WarehouseLocationLabelSettingsService.upsert(
       supabase,
       context.app.activeOrgId,
-      parsed.data as LabelConfig
+      parsed.data as LabelConfig,
+      context.user.user?.id ?? null
     );
     if (!result.success) return result;
 
