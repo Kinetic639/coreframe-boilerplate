@@ -4,6 +4,7 @@ import {
   ORG_UPDATE,
   MEMBERS_READ,
   BRANCHES_READ,
+  QR_READ,
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
   PERMISSION_TOOLS_READ,
   MODULE_WAREHOUSE_ACCESS,
@@ -337,6 +338,17 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         match: { exact: "/dashboard/organization/branches" },
         visibility: {
           requiresPermissions: [BRANCHES_READ],
+        },
+      },
+      {
+        id: "organization.qr-codes",
+        title: "QR codes",
+        titleKey: "modules.organizationManagement.items.qrCodes",
+        iconKey: "qr-code",
+        href: "/dashboard/organization/qr-codes",
+        match: { startsWith: "/dashboard/organization/qr-codes" },
+        visibility: {
+          requiresPermissions: [QR_READ],
         },
       },
       {

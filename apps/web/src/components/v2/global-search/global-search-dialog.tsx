@@ -66,6 +66,7 @@ import {
 import type { ExactHitType, SearchExactHit } from "@/server/services/global-search.service";
 import { useGlobalSearchStore } from "./global-search-store";
 import { directQrHref, useQrRouteIndex } from "./qr-route-index";
+import { reportQrScan } from "@/lib/qr/record-scan";
 import { scanSuccessFeedback, unlockScanSound } from "@/components/features/qr/scan-feedback";
 import { GlobalSearchPreview } from "./global-search-preview";
 import { GlobalSearchScanner, type ScannedCode } from "./global-search-scanner";
@@ -101,7 +102,7 @@ const SHOW_ALL_LISTS: Partial<Record<ExactHitType, { href: string; param: string
   person: { href: "/dashboard/organization/users/members", param: "search" },
   party: { href: "/dashboard/crm/parties", param: "search" },
   contact: { href: "/dashboard/crm/contacts", param: "search" },
-  qrCode: { href: "/dashboard/qr", param: "search" },
+  qrCode: { href: "/dashboard/organization/qr-codes", param: "search" },
   invitation: { href: "/dashboard/organization/users/invitations", param: "search" },
 };
 
@@ -786,8 +787,11 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
         // A label of a location / container of this branch opens its page
         // directly; anything else goes through /qr (validation, branch switch).
         const direct = directQrHref(qrRoute(code.token), activeBranchId);
-        if (direct) router.push(direct);
-        else router.push(toUnsafeI18nHref(`/qr/${encodeURIComponent(code.token)}`));
+        if (direct) {
+          // /qr/[token] counts its own scans; a direct open has to report it.
+          reportQrScan(code.token);
+          router.push(direct);
+        } else router.push(toUnsafeI18nHref(`/qr/${encodeURIComponent(code.token)}`));
         return;
       }
       setQuery(code.text);

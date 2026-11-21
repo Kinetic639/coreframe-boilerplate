@@ -5,32 +5,33 @@
 
 ## Progress
 
-| Faza | Zakres                                             | Status          |
-| ---- | -------------------------------------------------- | --------------- |
-| Q1   | Tabela kodów QR, skany, partie, wygasanie          | ⬜ do zrobienia |
-| Q2   | Przypisywanie QR wszędzie bez ręcznego generowania | ⬜ do zrobienia |
-| Q3   | Generator etykiet QR: szablony + druk              | ⬜ do zrobienia |
-| Q4   | Sprzątanie starego kodu                            | ⬜ do zrobienia |
+| Faza | Zakres                                             | Status                               |
+| ---- | -------------------------------------------------- | ------------------------------------ |
+| Q1   | Tabela kodów QR, skany, partie, wygasanie          | 🟡 PR otwarty, migracja do wdrożenia |
+| Q2   | Przypisywanie QR wszędzie bez ręcznego generowania | ⬜ do zrobienia                      |
+| Q3   | Generator etykiet QR: szablony + druk              | ⬜ do zrobienia                      |
+| Q4   | Sprzątanie starego kodu                            | ⬜ do zrobienia                      |
 
 - [ ] **Q1** — tabela kodów QR, skany, partie, wygasanie (PR 1)
-  - [ ] Migracja: `qr_codes.batch_id`, `last_scanned_at`, `scan_count`, `expires_at`; status `expired`; indeksy pod filtry
-  - [ ] Migracja: tabela `qr_print_batches` (org, szablon, liczba, kto, kiedy) + RLS
-  - [ ] Ustawienie organizacji: wygasanie nieużytych kodów po X dniach (domyślnie 180, 0 = wyłączone)
-  - [ ] Rejestrowanie skanu: `/qr/[token]`, skaner w aplikacji, putaway → `last_scanned_at` + `scan_count` (RPC, bez blokowania odpowiedzi)
-  - [ ] Funkcja SQL `qr_expire_unused_codes()`: nieprzypisane + nigdy nie skanowane + starsze niż X dni → `expired`; po kolejnych 90 dniach usunięcie
-  - [ ] pg_cron raz na dobę + instrukcja włączenia (jak `NOTIFICATIONS_CRON_SETUP.md`)
-  - [ ] Skan wygasłego kodu → ekran „kod wygasł” zamiast błędu
-  - [ ] Strona „Organizacja → Kody QR” (przeniesiona `/dashboard/kody-qr`, wpis w sidebarze, routing pl/en)
-  - [ ] Tabela: token, status, przypisanie (link do obiektu), partia, utworzony, ostatni skan, liczba skanów
-  - [ ] Filtry: nieprzypisane, nieużywane od X dni, wygasłe, unieważnione, partia
-  - [ ] Akcje zbiorcze: unieważnij, usuń (tylko nieprzypisane), dodrukuj
-  - [ ] Usunięcie formularza „Generuj N tokenów” z tabeli
-  - [ ] Testy (serwis, RPC skanu, wygasanie, akcje), i18n pl/en
+  - [x] Migracja: `qr_codes.batch_id`, `last_scanned_at`, `scan_count`, `expired_at`, `unused_since`; status `expired`; indeksy (`20261121140000_qr_codes_registry`)
+  - [x] Migracja: tabela `qr_print_batches` (org, szablon, liczba, kto, kiedy) + RLS
+  - [x] Ustawienie organizacji: wygasanie nieużytych kodów po X dniach (domyślnie 180, 0 = wyłączone)
+  - [x] Rejestrowanie skanu: `/qr/[token]`, skaner w aplikacji, putaway → `last_scanned_at` + `scan_count` (RPC, bez blokowania odpowiedzi)
+  - [x] Funkcja SQL `qr_expire_unused_codes()`: nieprzypisane + nigdy nie skanowane + starsze niż X dni → `expired`; po kolejnych 90 dniach usunięcie
+  - [x] pg_cron raz na dobę + instrukcja włączenia (`docs/QR_CODES_CRON_SETUP.md`, włączenie ręczne)
+  - [x] Skan wygasłego kodu → ekran „kod wygasł” zamiast błędu
+  - [x] Strona „Organizacja → Kody QR” (przeniesiona `/dashboard/kody-qr`, wpis w sidebarze, routing pl/en)
+  - [x] Tabela: token, status, przypisanie (link do obiektu), partia, utworzony, ostatni skan, liczba skanów
+  - [x] Filtry: nieprzypisane, nieużywane od X dni, wygasłe, unieważnione, partia
+  - [x] Akcje zbiorcze: unieważnij, usuń (tylko nieprzypisane), dodrukuj
+  - [x] Usunięcie formularza „Generuj N tokenów” z tabeli
+  - [x] Testy (serwis, RPC skanu, wygasanie, akcje), i18n pl/en
   - [ ] Test ręczny na deployu
 
 - [ ] **Q2** — przypisywanie QR bez ręcznego generowania (PR 2)
   - [ ] Wspólny komponent „Przypisz kod QR”: domyślnie tworzy i przypisuje, druga opcja „Zeskanuj naklejoną etykietę”
   - [ ] Lokalizacje, kontenery, zgłoszenia, zadania — na wspólny komponent
+  - [ ] Zgłoszenia i zadania: „Drukuj etykietę” w sekcji QR (dodruk przy obiekcie, jak w lokalizacjach)
   - [ ] Formularze nowego zgłoszenia i zadania: bez przycisku „Generuj”, kod tworzony przy zapisie (chyba że zeskanowano etykietę)
   - [ ] Zbiorcze tworzenie kodów jednym insertem (`QrCodesService.createBatch`) zamiast N zapytań
   - [ ] Testy, i18n pl/en
@@ -68,6 +69,7 @@
 - **Nieużyte kody sprzątamy przez wygasanie (opcja 1),** nie przez tokeny bez wierszy w bazie. Koszt w bazie to ok. 250 B na kod, więc problem jest porządkowy, nie wydajnościowy. Przejście na zakresy podpisanych tokenów jest możliwe później bez zmiany UI.
 - **Wygasa tylko kod nieprzypisany i nigdy nie zeskanowany.** Kody przypisane nie wygasają; żeby je usunąć, trzeba je najpierw unieważnić.
 - **Slug narzędzia `qr-generator` zostaje,** żeby nikt nie stracił włączonego narzędzia.
+- **Dodruk etykiet istniejących kodów:** przy samym obiekcie (lokalizacja, kontener, zgłoszenie, zadanie) oraz zbiorczo w tabeli Organizacja → Kody QR. Generator etykiet nie zajmuje się dodrukiem.
 - Uprawnienia bez zmian: `qr.read`, `qr.create`, `qr.assign`, `qr.export`, `qr.revoke`.
 
 ## Otwarte pytania

@@ -34,6 +34,7 @@ export default async function QRPage({ params }: QRPageProps) {
               <CardTitle className="text-red-600">
                 {error === "QR_NOT_FOUND" && "Kod QR nie został znaleziony"}
                 {error === "QR_REVOKED" && "Kod QR został unieważniony"}
+                {error === "QR_EXPIRED" && "Kod QR wygasł"}
                 {error === "QR_UNASSIGNED" && "Kod QR nie został przypisany"}
                 {error === "UNSUPPORTED_TARGET_TYPE" && "Typ docelowy nie jest obsługiwany"}
                 {error === "TARGET_NOT_FOUND" && "Docelowy element nie istnieje"}
@@ -45,6 +46,8 @@ export default async function QRPage({ params }: QRPageProps) {
                   "Nie można znaleźć aktywnego kodu QR o podanym tokenie."}
                 {error === "QR_REVOKED" &&
                   "Ten kod QR został unieważniony i nie wskazuje już żadnego celu."}
+                {error === "QR_EXPIRED" &&
+                  "Ten kod QR nie został przypisany ani zeskanowany przez długi czas, więc wygasł. Administrator może go przywrócić w Organizacja → Kody QR."}
                 {error === "QR_UNASSIGNED" &&
                   "Ten kod QR istnieje, ale nie został jeszcze przypisany do żadnego elementu."}
                 {error === "UNSUPPORTED_TARGET_TYPE" &&

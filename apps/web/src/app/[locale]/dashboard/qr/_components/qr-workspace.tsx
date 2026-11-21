@@ -1,7 +1,19 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { ArrowLeft, ArrowRight, Plus, QrCode, RefreshCw, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Ban,
+  ExternalLink,
+  Plus,
+  QrCode,
+  RefreshCw,
+  RotateCcw,
+  Settings2,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useQueryStates } from "nuqs";
@@ -36,6 +48,12 @@ import { QR_CREATE, QR_REVOKE, QR_EXPORT } from "@/lib/constants/permissions";
 import { listQrCodesAction } from "@/app/actions/qr/list";
 import { createQrBatchAction } from "@/app/actions/qr/create-batch";
 import { revokeQrAction } from "@/app/actions/qr/revoke";
+import {
+  deleteQrCodesAction,
+  restoreQrCodesAction,
+  revokeQrCodesAction,
+} from "@/app/actions/qr/registry";
+import { QrSettingsDialog } from "./qr-settings-dialog";
 import { PRIMARY_FIELD_KEY, TOKEN_FIELD_KEY, SCAN_URL_FIELD_KEY } from "@/lib/qr/label-config";
 import {
   getQrStatus,
@@ -46,6 +64,7 @@ import {
   qrParsers,
   QR_PAGE_SIZES,
   QR_STATUSES,
+  QR_UNUSED_DAYS,
   type QrDisplayStatus,
   type QrState,
 } from "./qr-state";
@@ -61,8 +80,11 @@ const LabelDesigner = dynamic(
 const STATUS_VARIANT: Record<QrDisplayStatus, "default" | "secondary" | "destructive"> = {
   assigned: "default",
   unassigned: "secondary",
+  expired: "secondary",
   revoked: "destructive",
 };
+
+type BulkAction = "revoke" | "delete";
 
 export const qrCodesKey = (orgId: string) => ["qr-codes", orgId] as const;
 
@@ -78,6 +100,7 @@ export function QrWorkspace({
   layout: savedLayout,
   widths = {},
   cookie,
+  allowGenerate = true,
 }: {
   orgId: string;
   initialCodes: QrCodeWithStatus[];
@@ -86,6 +109,11 @@ export function QrWorkspace({
   layout?: ColumnLayout;
   widths?: ColumnWidths;
   cookie: string;
+  /**
+   * Show the "generate N codes" form. The registry page (Organization → QR
+   * codes) leaves it out: codes are made by printing labels or assigning.
+   */
+  allowGenerate?: boolean;
 }) {
   const t = useTranslations("modules.qr.management");
   const tDesigner = useTranslations("modules.qr.designer");
@@ -143,6 +171,9 @@ export function QrWorkspace({
   const [isGenerating, startGenerate] = useTransition();
   const [revokeTarget, setRevokeTarget] = useState<string | null>(null);
   const [isRevoking, startRevoke] = useTransition();
+  const [bulkAction, setBulkAction] = useState<BulkAction | null>(null);
+  const [isBulkRunning, startBulk] = useTransition();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   function handleGenerate() {
     startGenerate(async () => {
@@ -176,8 +207,42 @@ export function QrWorkspace({
     });
   }
 
+  function runBulk(action: BulkAction | "restore", ids: string[]) {
+    if (ids.length === 0) return;
+    startBulk(async () => {
+      const result =
+        action === "revoke"
+          ? await revokeQrCodesAction({ ids })
+          : action === "delete"
+            ? await deleteQrCodesAction({ ids })
+            : await restoreQrCodesAction({ ids });
+      if (!result.success) {
+        toast.error((result as { success: false; error: string }).error);
+        return;
+      }
+      const count = result.data;
+      if (action === "revoke") toast.success(t("registry.revokedMany", { count }));
+      if (action === "restore") toast.success(t("registry.restoredMany", { count }));
+      if (action === "delete") {
+        toast.success(t("registry.deletedMany", { count }));
+        if (count < ids.length) {
+          toast.info(t("registry.deletedSkipped", { count: ids.length - count }));
+        }
+      }
+      setTicked((now) => (action === "restore" ? now : now.filter((id) => !ids.includes(id))));
+      await refresh();
+    });
+  }
+
+  function handleBulkConfirm() {
+    if (!bulkAction) return;
+    const action = bulkAction;
+    setBulkAction(null);
+    runBulk(action, ticked);
+  }
+
   const openDesign = () => {
-    setDesignIds(ticked);
+    setDesignIds(ticked.filter((id) => all.some((qr) => qr.id === id && qr.status === "active")));
     setActiveStage("design");
   };
 
@@ -192,6 +257,19 @@ export function QrWorkspace({
   };
   const name = (qr: QrCodeWithStatus) => qr.label ?? t("table.unlabelled");
 
+  const batches = useMemo(() => {
+    const map = new Map<string, NonNullable<QrCodeWithStatus["batch"]>>();
+    for (const qr of all) if (qr.batch) map.set(qr.batch.id, qr.batch);
+    return [...map.values()].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }, [all]);
+  const batchName = (batch: NonNullable<QrCodeWithStatus["batch"]>) =>
+    batch.name ??
+    t("registry.batchUnnamed", { date: new Date(batch.created_at).toLocaleDateString(locale) });
+  const targetLabel = (type: string) => {
+    const key = `targets.${type.replace(/\./g, "_")}`;
+    return t.has(key) ? t(key) : type;
+  };
+
   const fields: FilterField[] = [
     {
       kind: "list",
@@ -199,6 +277,27 @@ export function QrWorkspace({
       label: t("table.statusHeader"),
       options: QR_STATUSES.map((value) => ({ value, label: t(`filters.${value}`) })),
     },
+    {
+      kind: "list",
+      id: "nieuzywane",
+      label: t("filters.unusedFor"),
+      single: true,
+      options: QR_UNUSED_DAYS.map((days) => ({
+        value: days,
+        label: t("filters.unusedDays", { days }),
+      })),
+    },
+    ...(batches.length
+      ? [
+          {
+            kind: "list" as const,
+            id: "partia",
+            label: t("filters.batch"),
+            single: true,
+            options: batches.map((batch) => ({ value: batch.id, label: batchName(batch) })),
+          },
+        ]
+      : []),
   ];
   const order = ["label", ...layout.map((column) => column.id)];
   const sortOf = (field: QrState["sort"]) => ({
@@ -217,42 +316,71 @@ export function QrWorkspace({
       {new Date(value).toLocaleDateString(locale)}
     </span>
   );
+  const assignmentLink = (row: QrCodeWithStatus) =>
+    row.assignment ? (
+      // /qr/<token> resolves the target and opens its page (branch-aware).
+      <a
+        href={`/${locale}/qr/${encodeURIComponent(row.token)}`}
+        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+        onClick={(event) => event.stopPropagation()}
+        title={t("targets.open")}
+      >
+        {targetLabel(row.assignment.target_type)}
+        <ExternalLink className="size-3" />
+      </a>
+    ) : (
+      <span className="text-xs text-muted-foreground">{t("table.unassignedDash")}</span>
+    );
   const value = (row: QrCodeWithStatus, id: string) =>
     id === "token" ? (
       <span className="font-mono text-xs text-muted-foreground">{row.token.slice(0, 10)}…</span>
     ) : id === "status" ? (
       statusBadge(row)
     ) : id === "assignment" ? (
-      <span className="text-xs text-muted-foreground">
-        {row.assignment ? row.assignment.target_type : t("table.unassignedDash")}
+      assignmentLink(row)
+    ) : id === "batch" ? (
+      <span className="truncate text-xs text-muted-foreground">
+        {row.batch ? batchName(row.batch) : t("registry.noBatch")}
       </span>
+    ) : id === "last_scanned_at" ? (
+      row.last_scanned_at ? (
+        date(row.last_scanned_at)
+      ) : (
+        <span className="text-xs text-muted-foreground">{t("registry.neverScanned")}</span>
+      )
+    ) : id === "scan_count" ? (
+      <span className="text-xs tabular-nums text-muted-foreground">{row.scan_count ?? 0}</span>
     ) : (
       date(row.created_at)
     );
 
   const tickedSet = new Set(ticked);
   const tickedOnPage = page.rows.filter((row) => tickedSet.has(row.id));
-  const selection = canExport
-    ? {
-        isSelected: (row: QrCodeWithStatus) => tickedSet.has(row.id),
-        toggle: (row: QrCodeWithStatus) =>
-          setTicked((now) =>
-            now.includes(row.id) ? now.filter((id) => id !== row.id) : [...now, row.id]
-          ),
-        all: page.rows.length > 0 && tickedOnPage.length === page.rows.length,
-        some: tickedOnPage.length > 0,
-        toggleAll: () => {
-          const onPage = page.rows.map((row) => row.id);
-          setTicked((now) =>
-            tickedOnPage.length === page.rows.length
-              ? now.filter((id) => !onPage.includes(id))
-              : [...new Set([...now, ...onPage])]
-          );
-        },
-        allLabel: labels.selectAll,
-        rowLabel: (row: QrCodeWithStatus) => labels.selectRow.replace("{name}", name(row)),
-      }
-    : undefined;
+  const tickedRows = all.filter((qr) => tickedSet.has(qr.id));
+  const tickedExpired = tickedRows.filter((qr) => qr.status === "expired").map((qr) => qr.id);
+  const tickedPrintable = tickedRows.filter((qr) => qr.status === "active").map((qr) => qr.id);
+  const selection =
+    canExport || canRevoke
+      ? {
+          isSelected: (row: QrCodeWithStatus) => tickedSet.has(row.id),
+          toggle: (row: QrCodeWithStatus) =>
+            setTicked((now) =>
+              now.includes(row.id) ? now.filter((id) => id !== row.id) : [...now, row.id]
+            ),
+          all: page.rows.length > 0 && tickedOnPage.length === page.rows.length,
+          some: tickedOnPage.length > 0,
+          toggleAll: () => {
+            const onPage = page.rows.map((row) => row.id);
+            setTicked((now) =>
+              tickedOnPage.length === page.rows.length
+                ? now.filter((id) => !onPage.includes(id))
+                : [...new Set([...now, ...onPage])]
+            );
+          },
+          allLabel: labels.selectAll,
+          rowLabel: (row: QrCodeWithStatus) => labels.selectRow.replace("{name}", name(row)),
+        }
+      : undefined;
 
   const selected = all.find((qr) => qr.id === state.selected && !qr.deleted_at) ?? null;
 
@@ -291,11 +419,23 @@ export function QrWorkspace({
                 >
                   <RefreshCw className={`size-3.5 ${codes.isFetching ? "animate-spin" : ""}`} />
                 </Button>
+                {canRevoke ? (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="size-8"
+                    onClick={() => setSettingsOpen(true)}
+                    aria-label={t("registry.settings")}
+                    title={t("registry.settings")}
+                  >
+                    <Settings2 className="size-3.5" />
+                  </Button>
+                ) : null}
                 {canExport ? (
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={ticked.length === 0}
+                    disabled={tickedPrintable.length === 0}
                     onClick={openDesign}
                     title={ticked.length ? t("selection.designSelected") : t("selectHint")}
                   >
@@ -307,7 +447,62 @@ export function QrWorkspace({
                 ) : null}
               </div>
             </header>
-            {canCreate ? (
+            {ticked.length > 0 && canRevoke ? (
+              <div
+                role="toolbar"
+                aria-label={t("selectedCount", { count: ticked.length })}
+                className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-muted/40 px-3 py-2 md:px-4"
+              >
+                <span className="text-xs font-medium tabular-nums">
+                  {t("selectedCount", { count: ticked.length })}
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7"
+                  onClick={() => setTicked([])}
+                  aria-label={t("registry.clearSelection")}
+                  title={t("registry.clearSelection")}
+                >
+                  <X className="size-3.5" />
+                </Button>
+                <div className="ml-auto flex flex-wrap items-center gap-2">
+                  {tickedExpired.length ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7"
+                      disabled={isBulkRunning}
+                      onClick={() => runBulk("restore", tickedExpired)}
+                    >
+                      <RotateCcw className="mr-1.5 size-3.5" />
+                      {t("registry.restoreSelected")}
+                    </Button>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7"
+                    disabled={isBulkRunning}
+                    onClick={() => setBulkAction("revoke")}
+                  >
+                    <Ban className="mr-1.5 size-3.5" />
+                    {t("registry.revokeSelected")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-destructive hover:text-destructive"
+                    disabled={isBulkRunning}
+                    onClick={() => setBulkAction("delete")}
+                  >
+                    <Trash2 className="mr-1.5 size-3.5" />
+                    {t("registry.deleteSelected")}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            {canCreate && allowGenerate ? (
               <div className="flex shrink-0 flex-wrap items-end gap-3 border-b px-3 py-2.5 md:px-4">
                 <div className="flex flex-col gap-1">
                   <label htmlFor="qr-prefix" className="text-xs text-muted-foreground">
@@ -376,11 +571,13 @@ export function QrWorkspace({
                 cookie={cookie}
                 onLayoutChange={setLayout}
                 sortOf={(id) =>
-                  id === "status"
-                    ? sortOf("status")
-                    : id === "created_at"
-                      ? sortOf("created_at")
-                      : undefined
+                  id === "status" ||
+                  id === "created_at" ||
+                  id === "last_scanned_at" ||
+                  id === "scan_count" ||
+                  id === "batch"
+                    ? sortOf(id)
+                    : undefined
                 }
                 pinnedSort={sortOf("label")}
                 identity={(row) => (
@@ -412,7 +609,17 @@ export function QrWorkspace({
                   closeLabel={labels.close}
                   onClose={() => preview(null)}
                   actions={
-                    selected && canRevoke && selected.status === "active" ? (
+                    selected && canRevoke && selected.status === "expired" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => runBulk("restore", [selected.id])}
+                        disabled={isBulkRunning}
+                      >
+                        <RotateCcw className="mr-1.5 size-3.5" />
+                        {t("registry.restoreButton")}
+                      </Button>
+                    ) : selected && canRevoke && selected.status === "active" ? (
                       <Button
                         size="sm"
                         variant="outline"
@@ -442,12 +649,24 @@ export function QrWorkspace({
                       </div>
                       <div>
                         <dt className="text-xs text-muted-foreground">{t("detail.assignment")}</dt>
+                        <dd>{assignmentLink(selected)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">{t("registry.lastScan")}</dt>
                         <dd>
-                          {selected.assignment ? (
-                            selected.assignment.target_type
-                          ) : (
-                            <span className="text-muted-foreground">{t("detail.unassigned")}</span>
-                          )}
+                          {selected.last_scanned_at
+                            ? new Date(selected.last_scanned_at).toLocaleString(locale)
+                            : t("registry.neverScanned")}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">{t("registry.scanCount")}</dt>
+                        <dd className="tabular-nums">{selected.scan_count ?? 0}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">{t("registry.batch")}</dt>
+                        <dd>
+                          {selected.batch ? batchName(selected.batch) : t("registry.noBatch")}
                         </dd>
                       </div>
                       <div>
@@ -524,6 +743,36 @@ export function QrWorkspace({
           ) : null}
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={!!bulkAction} onOpenChange={(open) => !open && setBulkAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {bulkAction === "delete"
+                ? t("registry.deleteTitle", { count: ticked.length })
+                : t("registry.revokeTitle", { count: ticked.length })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {bulkAction === "delete"
+                ? t("registry.deleteDescription")
+                : t("registry.revokeDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("registry.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkAction === "delete"
+                ? t("registry.confirmDelete", { count: ticked.length })
+                : t("registry.confirmRevoke", { count: ticked.length })}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {canRevoke ? <QrSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} /> : null}
 
       <AlertDialog open={!!revokeTarget} onOpenChange={(open) => !open && setRevokeTarget(null)}>
         <AlertDialogContent>

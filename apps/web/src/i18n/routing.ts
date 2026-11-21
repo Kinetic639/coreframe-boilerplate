@@ -311,6 +311,10 @@ export const routing = defineRouting({
       en: "/dashboard/organization/branches",
       pl: "/dashboard/organizacja/oddzialy",
     },
+    "/dashboard/organization/qr-codes": {
+      en: "/dashboard/organization/qr-codes",
+      pl: "/dashboard/organizacja/kody-qr",
+    },
     "/dashboard/organization/billing": {
       en: "/dashboard/organization/billing",
       pl: "/dashboard/organizacja/rozliczenia",

@@ -9,7 +9,7 @@ interface QRRedirectPageProps {
 
 export default async function QRRedirectPage({ params }: QRRedirectPageProps) {
   const { token } = await params;
-  const result = await resolvePublicQrToken(token);
+  const result = await resolvePublicQrToken(token, { recordScan: "success" });
 
   if (result.ok) {
     redirect(result.redirectPath);
