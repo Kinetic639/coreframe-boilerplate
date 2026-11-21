@@ -12,6 +12,7 @@ import {
   createAndAssignQrToContainerAction,
 } from "@/app/actions/qr/assign-container";
 import { QrCameraScanner, type QrScanLookup } from "@/components/features/qr/qr-camera-scanner";
+import { QrPrintLabelDialog } from "@/components/features/qr/qr-print-label-dialog";
 
 type Props = {
   containerId: string;
@@ -25,10 +26,8 @@ type Props = {
 /**
  * Phase 10D: the container's QR identity. "Wygeneruj kod QR" creates a new
  * code and assigns it to this container in one step (server action gated on
- * qr.assign + warehouse.inventory.operate); "Drukuj etykietę" reuses the
- * generic QR label PDF route (gated on qr.export + the registry's read
- * permission), whose label text comes from the `inventory.container`
- * registry entry.
+ * qr.assign + warehouse.inventory.operate); "Drukuj etykietę" opens the
+ * shared label designer with the container's label templates (qr.export).
  */
 export function ContainerQrCard({
   containerId,
@@ -40,7 +39,7 @@ export function ContainerQrCard({
   const t = useTranslations("modules.warehouse.containers.qr");
   const router = useRouter();
   const [generating, setGenerating] = useState(false);
-  const [printing, setPrinting] = useState(false);
+  const [printOpen, setPrintOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [scannerKey, setScannerKey] = useState(0);
 
@@ -83,30 +82,6 @@ export function ContainerQrCard({
     }
   }
 
-  async function handlePrint() {
-    if (!qrCodeId) return;
-    setPrinting(true);
-    try {
-      const response = await fetch("/api/qr/labels", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ qrCodeIds: [qrCodeId], labelSize: "70x40" }),
-      });
-      if (!response.ok) {
-        toast.error(t("printError"));
-        return;
-      }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank", "noopener");
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch {
-      toast.error(t("printError"));
-    } finally {
-      setPrinting(false);
-    }
-  }
-
   return (
     <div
       className="bg-card border-border flex flex-col gap-3 rounded-lg border p-4"
@@ -126,13 +101,12 @@ export function ContainerQrCard({
             <Button
               type="button"
               variant="outline"
-              onClick={handlePrint}
-              disabled={printing}
+              onClick={() => setPrintOpen(true)}
               className="w-full sm:w-fit"
               data-testid="container-qr-print"
             >
               <Printer className="mr-2 h-4 w-4" />
-              {printing ? t("printing") : t("print")}
+              {t("print")}
             </Button>
           )}
         </>
@@ -172,6 +146,15 @@ export function ContainerQrCard({
           )}
         </>
       )}
+      {qrCodeId && canPrint ? (
+        <QrPrintLabelDialog
+          open={printOpen}
+          onOpenChange={setPrintOpen}
+          qrCodeId={qrCodeId}
+          name={containerCode}
+          targetType="inventory.container"
+        />
+      ) : null}
       <Dialog open={scanOpen} onOpenChange={setScanOpen}>
         <DialogContent className="w-[min(420px,calc(100vw-2rem))]" style={{ maxWidth: "none" }}>
           <DialogHeader>

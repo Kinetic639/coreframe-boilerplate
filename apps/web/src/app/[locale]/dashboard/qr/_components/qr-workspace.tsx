@@ -5,7 +5,6 @@ import {
   ArrowRight,
   Ban,
   ExternalLink,
-  Plus,
   QrCode,
   RefreshCw,
   RotateCcw,
@@ -19,7 +18,6 @@ import { useQueryStates } from "nuqs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -43,9 +41,8 @@ import { ListPane, ListSidePanel } from "@/components/data-table/list-pane";
 import { useListKeys } from "@/components/data-table/use-list-keys";
 import type { QrCodeWithStatus } from "@/server/services/qr.service";
 import { usePermissions } from "@/hooks/v2/use-permissions";
-import { QR_CREATE, QR_REVOKE, QR_EXPORT } from "@/lib/constants/permissions";
+import { QR_REVOKE, QR_EXPORT } from "@/lib/constants/permissions";
 import { listQrCodesAction } from "@/app/actions/qr/list";
-import { createQrBatchAction } from "@/app/actions/qr/create-batch";
 import { revokeQrAction } from "@/app/actions/qr/revoke";
 import {
   deleteQrCodesAction,
@@ -92,7 +89,6 @@ export function QrWorkspace({
   layout: savedLayout,
   widths = {},
   cookie,
-  allowGenerate = true,
 }: {
   orgId: string;
   initialCodes: QrCodeWithStatus[];
@@ -101,11 +97,6 @@ export function QrWorkspace({
   layout?: ColumnLayout;
   widths?: ColumnWidths;
   cookie: string;
-  /**
-   * Show the "generate N codes" form. The registry page (Organization → QR
-   * codes) leaves it out: codes are made by printing labels or assigning.
-   */
-  allowGenerate?: boolean;
 }) {
   const t = useTranslations("modules.qr.management");
   const tDesigner = useTranslations("modules.qr.designer");
@@ -113,7 +104,6 @@ export function QrWorkspace({
   const labels = useMemo(() => qrListLabels(t as (key: string) => string, locale), [t, locale]);
   const set = useMemo(() => qrColumnSet(labels), [labels]);
   const { can } = usePermissions();
-  const canCreate = can(QR_CREATE);
   const canRevoke = can(QR_REVOKE);
   const canExport = can(QR_EXPORT);
 
@@ -157,31 +147,11 @@ export function QrWorkspace({
   const [activeStage, setActiveStage] = useState<"select" | "design">("select");
   const [designIds, setDesignIds] = useState<string[]>([]);
 
-  const [generateCount, setGenerateCount] = useState(1);
-  const [labelPrefix, setLabelPrefix] = useState("");
-  const [isGenerating, startGenerate] = useTransition();
   const [revokeTarget, setRevokeTarget] = useState<string | null>(null);
   const [isRevoking, startRevoke] = useTransition();
   const [bulkAction, setBulkAction] = useState<BulkAction | null>(null);
   const [isBulkRunning, startBulk] = useTransition();
   const [settingsOpen, setSettingsOpen] = useState(false);
-
-  function handleGenerate() {
-    startGenerate(async () => {
-      const result = await createQrBatchAction({
-        count: generateCount,
-        labelPrefix: labelPrefix.trim() || undefined,
-      });
-      if (result.success) {
-        toast.success(t("toasts.created", { count: result.data.length }));
-        await refresh();
-        setLabelPrefix("");
-        setGenerateCount(1);
-      } else {
-        toast.error((result as { success: false; error: string }).error);
-      }
-    });
-  }
 
   function handleRevokeConfirm() {
     if (!revokeTarget) return;
@@ -491,44 +461,6 @@ export function QrWorkspace({
                     {t("registry.deleteSelected")}
                   </Button>
                 </div>
-              </div>
-            ) : null}
-            {canCreate && allowGenerate ? (
-              <div className="flex shrink-0 flex-wrap items-end gap-3 border-b px-3 py-2.5 md:px-4">
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="qr-prefix" className="text-xs text-muted-foreground">
-                    {t("generate.prefixLabel")}
-                  </label>
-                  <Input
-                    id="qr-prefix"
-                    value={labelPrefix}
-                    onChange={(e) => setLabelPrefix(e.target.value)}
-                    placeholder={t("generate.prefixPlaceholder")}
-                    className="h-8 w-44"
-                    disabled={isGenerating}
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="qr-count" className="text-xs text-muted-foreground">
-                    {t("generate.countLabel")}
-                  </label>
-                  <Input
-                    id="qr-count"
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={generateCount}
-                    onChange={(e) =>
-                      setGenerateCount(Math.min(50, Math.max(1, Number(e.target.value))))
-                    }
-                    className="h-8 w-24"
-                    disabled={isGenerating}
-                  />
-                </div>
-                <Button size="sm" onClick={handleGenerate} disabled={isGenerating}>
-                  <Plus className="mr-1.5 size-3.5" />
-                  {isGenerating ? t("generate.generating") : t("generate.submit")}
-                </Button>
               </div>
             ) : null}
             <div className="dt-list-filter-row">

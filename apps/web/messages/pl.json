@@ -1936,13 +1936,6 @@
           "unusedDays": "{days} dni",
           "batch": "Partia wydruku"
         },
-        "generate": {
-          "prefixLabel": "Prefiks etykiety",
-          "prefixPlaceholder": "np. Półka, Bin, Partia",
-          "countLabel": "Liczba",
-          "submit": "Generuj kody QR",
-          "generating": "Generowanie..."
-        },
         "selection": {
           "title": "Lista kodów QR",
           "description": "Wybierz kody QR, które chcesz zaprojektować i wyeksportować.",
@@ -1977,7 +1970,6 @@
           "confirm": "Unieważnij"
         },
         "toasts": {
-          "created": "Utworzono {count} kod(ów) QR.",
           "revoked": "Kod QR został unieważniony."
         },
         "detail": {
@@ -2916,10 +2908,8 @@
           "generate": "Wygeneruj kod QR",
           "generating": "Generowanie…",
           "print": "Drukuj etykietę",
-          "printing": "Przygotowywanie etykiety…",
           "generated": "Kod QR został wygenerowany i przypisany.",
           "error": "Nie udało się wygenerować kodu QR.",
-          "printError": "Nie udało się przygotować etykiety.",
           "noPermission": "Nie masz uprawnień do przypisywania kodów QR.",
           "scan": "Zeskanuj naklejkę QR",
           "scanTitle": "Przypisz naklejkę QR do kontenera",

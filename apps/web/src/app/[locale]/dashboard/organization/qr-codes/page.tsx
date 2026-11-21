@@ -55,7 +55,6 @@ export default async function QrCodesPage({ searchParams }: PageProps = {}) {
         layout={layout}
         widths={widths}
         cookie={cookie}
-        allowGenerate={false}
       />
     </div>
   );
