@@ -244,11 +244,15 @@ describe("QrPrintBatchesService", () => {
         ],
       },
     ]);
-    expect((await QrPrintBatchesService.lastLayoutOf(mixed.client, ORG, ["a", "b"])).data).toBe(
-      null
-    );
+    expect(await QrPrintBatchesService.lastLayoutOf(mixed.client, ORG, ["a", "b"])).toEqual({
+      success: true,
+      data: null,
+    });
 
     const never = mockClient([{ data: [{ last_print_batch: null }] }]);
-    expect((await QrPrintBatchesService.lastLayoutOf(never.client, ORG, ["a"])).data).toBe(null);
+    expect(await QrPrintBatchesService.lastLayoutOf(never.client, ORG, ["a"])).toEqual({
+      success: true,
+      data: null,
+    });
   });
 });
