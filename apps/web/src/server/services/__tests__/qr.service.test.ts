@@ -736,3 +736,43 @@ describe("QrAssignmentsService.revokeActiveForQr", () => {
     expect(result.success).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Registry (Organization → QR codes): bulk delete / restore, settings
+// ---------------------------------------------------------------------------
+
+describe("QrCodesService registry actions", () => {
+  it("soft-deletes through the RPC and returns how many went", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: 2, error: null });
+    const result = await QrCodesService.softDeleteMany({ rpc } as never, ORG_ID, ["a", "b", "c"]);
+    expect(rpc).toHaveBeenCalledWith("qr_codes_soft_delete", {
+      p_organization_id: ORG_ID,
+      p_ids: ["a", "b", "c"],
+    });
+    expect(result).toEqual({ success: true, data: 2 });
+  });
+
+  it("does not call the database for an empty selection", async () => {
+    const rpc = vi.fn();
+    expect(await QrCodesService.restoreMany({ rpc } as never, ORG_ID, [])).toEqual({
+      success: true,
+      data: 0,
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("passes RPC errors on (e.g. missing qr.revoke)", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: "permission denied" } });
+    const result = await QrCodesService.restoreMany({ rpc } as never, ORG_ID, ["a"]);
+    expect(result.success).toBe(false);
+  });
+
+  it("falls back to 180 days when the organization saved no settings", async () => {
+    const chain: Record<string, unknown> = {};
+    chain.select = () => chain;
+    chain.eq = () => chain;
+    chain.maybeSingle = () => Promise.resolve({ data: null, error: null });
+    const result = await QrCodesService.getSettings({ from: () => chain } as never, ORG_ID);
+    expect(result).toEqual({ success: true, data: { unused_expiry_days: 180 } });
+  });
+});

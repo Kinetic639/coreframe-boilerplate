@@ -27,6 +27,7 @@ import { canManageTicketBranchAction, getTicketDetailAction } from "@/app/action
 import { getQrAssignmentForTicketAction } from "@/app/actions/qr/assign";
 import { revokeQrAction } from "@/app/actions/qr/revoke";
 import { AssignQrDialog } from "../[ticketId]/_components/assign-qr-dialog";
+import { QrPrintLabelButton } from "@/components/features/qr";
 import {
   useAcceptTicketMutation,
   useSetTicketStatusMutation,
@@ -297,6 +298,12 @@ export function TicketDetailPanel({
                   <p className="font-medium truncate">{qrAssignment.label ?? "Unlabelled"}</p>
                   <p className="text-muted-foreground font-mono truncate">{qrAssignment.token}</p>
                 </div>
+                <QrPrintLabelButton
+                  qrCodeId={qrAssignment.qrCodeId}
+                  name={qrAssignment.label ?? detail.ticket_number}
+                  className="w-full h-7 text-xs"
+                  targetType="helpdesk.ticket"
+                />
                 {canManage && (
                   <Button
                     variant="outline"

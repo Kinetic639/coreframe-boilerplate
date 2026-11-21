@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { reportQrScan } from "@/lib/qr/record-scan";
 import {
   extractToken,
   type QrScanLookup,
@@ -100,6 +101,7 @@ export function useScanIndex({ qrCodes, organizationId, branchId, orders }: Opti
         known &&
         (target?.target_type !== "inventory.container" || containers.has(target.target_id))
       ) {
+        reportQrScan(token);
         return {
           ok: true,
           local: true,
@@ -120,6 +122,7 @@ export function useScanIndex({ qrCodes, organizationId, branchId, orders }: Opti
         if (!res.success || !lookup) return { ok: false, reason: "notFound" };
         if (lookup.status !== "active") return { ok: false, reason: "revoked" };
         byToken.current.set(token, { id: lookup.id, token, assignment: lookup.assignment });
+        reportQrScan(token);
         return {
           ok: true,
           local: false,

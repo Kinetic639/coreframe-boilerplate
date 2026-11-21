@@ -43,12 +43,28 @@ export interface QrCode {
   token: string;
   label: string | null;
   notes: string | null;
-  status: "active" | "revoked";
+  status: "active" | "revoked" | "expired";
   created_by: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  /** Print run that created the code (null for codes made by an assignment). */
+  batch_id?: string | null;
+  /** Latest print run of the code (its layout is reused for a reprint). */
+  last_print_batch_id?: string | null;
+  last_scanned_at?: string | null;
+  scan_count?: number;
+  expired_at?: string | null;
+  /** Start of the expiry clock (creation, migration or restore). */
+  unused_since?: string | null;
 }
+
+export interface QrSettings {
+  /** Days after which a never assigned, never scanned code expires; 0 = never. */
+  unused_expiry_days: number;
+}
+
+export const DEFAULT_QR_SETTINGS: QrSettings = { unused_expiry_days: 180 };
 
 export interface QrAssignment {
   id: string;
@@ -71,7 +87,9 @@ export interface QrCodeWithAssignment {
 
 export interface QrCodeWithStatus extends QrCode {
   /** Active assignment summary, or null if unassigned. */
-  assignment: { target_type: string; target_id: string } | null;
+  assignment: { target_type: string; target_id: string; assigned_at?: string } | null;
+  /** The print batch the code came from, if any. */
+  batch?: { id: string; name: string | null; created_at: string } | null;
 }
 
 export interface CreateQrInput {
@@ -173,6 +191,32 @@ export class QrCodesService {
   }
 
   /**
+   * Create many codes in one insert (tokens generated here, as in create).
+   * Labels are "<prefix> 1", "<prefix> 2"… when a prefix is given.
+   */
+  static async createBatch(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: {
+      count: number;
+      labelPrefix?: string | null;
+      createdBy?: string | null;
+      batchId?: string | null;
+    }
+  ): Promise<ServiceResult<QrCode[]>> {
+    const rows = Array.from({ length: input.count }, (_, i) => ({
+      organization_id: orgId,
+      token: generateQrToken(),
+      label: input.labelPrefix ? `${input.labelPrefix} ${i + 1}` : null,
+      created_by: input.createdBy ?? null,
+      ...(input.batchId ? { batch_id: input.batchId, last_print_batch_id: input.batchId } : {}),
+    }));
+    const { data, error } = await supabase.from("qr_codes").insert(rows).select("*");
+    if (error) return { success: false, error: normalizeDbError(error) };
+    return { success: true, data: (data ?? []) as QrCode[] };
+  }
+
+  /**
    * Get a single QR code by id, scoped to the org.
    * Returns null data (not an error) when not found or wrong org — prevents enumeration.
    */
@@ -241,14 +285,21 @@ export class QrCodesService {
     supabase: SupabaseClient,
     orgId: string
   ): Promise<ServiceResult<QrCodeWithStatus[]>> {
-    const { data, error } = await supabase
-      .from("qr_codes")
-      .select(
-        `*, qr_assignments!qr_assignments_qr_code_id_fkey(target_type, target_id, revoked_at)`
-      )
-      .eq("organization_id", orgId)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false });
+    const assignments =
+      "qr_assignments!qr_assignments_qr_code_id_fkey(target_type, target_id, assigned_at, revoked_at)";
+    const query = (select: string) =>
+      supabase
+        .from("qr_codes")
+        .select(select)
+        .eq("organization_id", orgId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+
+    let { data, error } = await query(
+      `*, batch:qr_print_batches(id, name, created_at), ${assignments}`
+    );
+    // Before migration 20261121140000 there are no print batches: list without.
+    if (error) ({ data, error } = await query(`*, ${assignments}`));
 
     if (error) return { success: false, error: normalizeDbError(error) };
 
@@ -258,16 +309,22 @@ export class QrCodesService {
             row.qr_assignments as {
               target_type: string;
               target_id: string;
+              assigned_at: string;
               revoked_at: string | null;
             }[]
           ).find((a) => a.revoked_at === null) ?? null)
         : null;
 
-      const { qr_assignments: _, ...qr } = row;
+      const { qr_assignments: _, batch, ...qr } = row;
       return {
         ...(qr as QrCode),
+        batch: (Array.isArray(batch) ? batch[0] : batch) ?? null,
         assignment: activeAssignment
-          ? { target_type: activeAssignment.target_type, target_id: activeAssignment.target_id }
+          ? {
+              target_type: activeAssignment.target_type,
+              target_id: activeAssignment.target_id,
+              assigned_at: activeAssignment.assigned_at,
+            }
           : null,
       };
     });
@@ -303,6 +360,73 @@ export class QrCodesService {
     if (error) return { success: false, error: normalizeDbError(error) };
     if (!data) return { success: false, error: "QR code not found or already revoked." };
     return { success: true, data: undefined };
+  }
+
+  /**
+   * Soft-delete codes that have no active assignment (RPC checks qr.revoke).
+   * Assigned codes are skipped -- they must be revoked first. Returns how
+   * many were deleted.
+   */
+  static async softDeleteMany(
+    supabase: SupabaseClient,
+    orgId: string,
+    ids: string[]
+  ): Promise<ServiceResult<number>> {
+    if (ids.length === 0) return { success: true, data: 0 };
+    const { data, error } = await supabase.rpc("qr_codes_soft_delete", {
+      p_organization_id: orgId,
+      p_ids: ids,
+    });
+    if (error) return { success: false, error: normalizeDbError(error) };
+    return { success: true, data: Number(data ?? 0) };
+  }
+
+  /** Bring expired codes back to active (RPC checks qr.revoke). */
+  static async restoreMany(
+    supabase: SupabaseClient,
+    orgId: string,
+    ids: string[]
+  ): Promise<ServiceResult<number>> {
+    if (ids.length === 0) return { success: true, data: 0 };
+    const { data, error } = await supabase.rpc("qr_codes_restore", {
+      p_organization_id: orgId,
+      p_ids: ids,
+    });
+    if (error) return { success: false, error: normalizeDbError(error) };
+    return { success: true, data: Number(data ?? 0) };
+  }
+
+  /** The organization's QR settings (defaults when none were saved). */
+  static async getSettings(
+    supabase: SupabaseClient,
+    orgId: string
+  ): Promise<ServiceResult<QrSettings>> {
+    const { data, error } = await supabase
+      .from("qr_settings")
+      .select("unused_expiry_days")
+      .eq("organization_id", orgId)
+      .maybeSingle();
+    if (error) return { success: false, error: normalizeDbError(error) };
+    return { success: true, data: (data as QrSettings | null) ?? DEFAULT_QR_SETTINGS };
+  }
+
+  static async saveSettings(
+    supabase: SupabaseClient,
+    orgId: string,
+    settings: QrSettings,
+    userId: string | null
+  ): Promise<ServiceResult<QrSettings>> {
+    const { error } = await supabase.from("qr_settings").upsert(
+      {
+        organization_id: orgId,
+        unused_expiry_days: settings.unused_expiry_days,
+        updated_by: userId,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "organization_id" }
+    );
+    if (error) return { success: false, error: normalizeDbError(error) };
+    return { success: true, data: settings };
   }
 }
 

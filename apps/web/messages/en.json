@@ -1968,20 +1968,18 @@
         "status": {
           "assigned": "Assigned",
           "unassigned": "Unassigned",
-          "revoked": "Revoked"
+          "revoked": "Revoked",
+          "expired": "Expired"
         },
         "filters": {
           "all": "All",
           "assigned": "Assigned",
           "unassigned": "Unassigned",
-          "revoked": "Revoked"
-        },
-        "generate": {
-          "prefixLabel": "Label prefix",
-          "prefixPlaceholder": "e.g. Shelf, Bin, Batch",
-          "countLabel": "Count",
-          "submit": "Generate QR codes",
-          "generating": "Generating..."
+          "revoked": "Revoked",
+          "expired": "Expired",
+          "unusedFor": "Not used for",
+          "unusedDays": "{days} days",
+          "batch": "Print batch"
         },
         "selection": {
           "title": "QR code list",
@@ -2017,7 +2015,6 @@
           "confirm": "Revoke"
         },
         "toasts": {
-          "created": "Created {count} QR code(s).",
           "revoked": "QR code revoked."
         },
         "detail": {
@@ -2032,6 +2029,45 @@
           "designButton": "Design {count} selected",
           "noSelection": "No codes selected",
           "revokeButton": "Revoke"
+        },
+        "targets": {
+          "warehouse_location": "Location",
+          "helpdesk_ticket": "Ticket",
+          "planning_task": "Task",
+          "inventory_container": "Container",
+          "open": "Open"
+        },
+        "registry": {
+          "neverScanned": "never",
+          "noBatch": "—",
+          "batchUnnamed": "Print of {date}",
+          "lastScan": "Last scan",
+          "scanCount": "Scans",
+          "batch": "Print batch",
+          "lastUsed": "Last used",
+          "revokeSelected": "Revoke",
+          "deleteSelected": "Delete",
+          "restoreSelected": "Restore",
+          "printSelected": "Print",
+          "clearSelection": "Clear selection",
+          "settings": "QR code settings",
+          "settingsTitle": "QR code settings",
+          "settingsDescription": "A code that was never assigned or scanned expires after this many days. An expired code can be restored for 90 days, then it leaves the list. 0 turns expiry off.",
+          "expiryDays": "Expire unused codes after (days)",
+          "save": "Save",
+          "cancel": "Cancel",
+          "saved": "Settings saved.",
+          "revokeTitle": "Revoke {count} QR code(s)?",
+          "revokeDescription": "Revoked codes stop working and their assignments are removed. This cannot be undone.",
+          "deleteTitle": "Delete {count} QR code(s)?",
+          "deleteDescription": "Only codes with no active assignment are deleted. Assigned codes must be revoked first.",
+          "confirmRevoke": "Revoke",
+          "confirmDelete": "Delete",
+          "revokedMany": "Revoked {count} QR code(s).",
+          "deletedMany": "Deleted {count} QR code(s).",
+          "deletedSkipped": "Skipped {count} assigned codes — revoke them first.",
+          "restoredMany": "Restored {count} QR code(s).",
+          "restoreButton": "Restore"
         }
       },
       "previewDialog": {
@@ -2189,6 +2225,110 @@
           "previewReady": "Preview ready for {count} label(s).",
           "exported": "Exported {count} label(s).",
           "exportFailed": "Export failed. Please try again."
+        }
+      },
+      "assign": {
+        "title": "Assign a QR code — {name}",
+        "description": "A new code is created and assigned right away. You can also scan a label that is already stuck on.",
+        "create": "Assign a new QR code",
+        "creating": "Assigning…",
+        "scan": "Scan a stuck-on label",
+        "scanHint": "Point the camera at the QR label",
+        "back": "Back",
+        "cancel": "Cancel",
+        "alreadyAssigned": "This code is already assigned to something else.",
+        "assigned": "QR code assigned.",
+        "failed": "Could not assign the QR code.",
+        "print": "Print label",
+        "printTitle": "Label — {name}",
+        "staged": "A new QR code will be created on save",
+        "addNew": "Add a QR code"
+      },
+      "templates": {
+        "layoutLabel": "Label layout",
+        "previous": "As last printed",
+        "builtin": "Built-in layout",
+        "defaultBadge": "default",
+        "types": {
+          "general": "General (blank labels)",
+          "warehouse_location": "Locations",
+          "helpdesk_ticket": "Tickets",
+          "planning_task": "Tasks",
+          "inventory_container": "Containers"
+        },
+        "tabs": {
+          "templates": "Templates",
+          "batches": "Print runs"
+        },
+        "description": "A template is a saved label design. The default template of a type is preselected when printing labels of those objects.",
+        "new": "New template",
+        "empty": "No templates yet",
+        "emptyHint": "Design a label once and print it with one click.",
+        "columns": {
+          "name": "Name",
+          "type": "For",
+          "format": "Format",
+          "size": "Size",
+          "actions": "Actions"
+        },
+        "actions": {
+          "print": "Print blank labels",
+          "edit": "Edit",
+          "duplicate": "Duplicate",
+          "setDefault": "Set as default",
+          "delete": "Delete"
+        },
+        "editor": {
+          "newTitle": "New template",
+          "editTitle": "Editing: {name}",
+          "name": "Name",
+          "type": "For",
+          "format": "Format",
+          "isDefault": "Default for this type",
+          "save": "Save template",
+          "summary": "Saving creates a new layout version. Labels printed earlier keep theirs.",
+          "back": "Back to templates",
+          "nameRequired": "Enter a template name"
+        },
+        "toasts": {
+          "saved": "Template saved",
+          "saveFailed": "Couldn't save the template. Try again.",
+          "duplicated": "Template duplicated",
+          "deleted": "Template deleted",
+          "defaultSet": "Default template set",
+          "failed": "Couldn't complete the action. Try again.",
+          "printFailed": "Couldn't generate the labels. Try again."
+        },
+        "copyOf": "{name} (copy)",
+        "deleteTitle": "Delete template “{name}”?",
+        "deleteDescription": "Printed labels and their codes stay as they are. The template only leaves the list.",
+        "deleteConfirm": "Delete template",
+        "cancel": "Cancel",
+        "print": {
+          "open": "Print blank labels",
+          "title": "Print blank labels",
+          "description": "Each label gets a new QR code. Assign the codes later by scanning the stuck-on label.",
+          "template": "Template",
+          "quantity": "Number of labels",
+          "quantityHint": "From 1 to {max} labels.",
+          "name": "Print name (optional)",
+          "namePlaceholder": "e.g. Rack A",
+          "submit": "Print {count, plural, one {# label} other {# labels}}",
+          "printing": "Creating codes...",
+          "done": "Created {count, plural, one {# QR code} other {# QR codes}}",
+          "previewTitle": "QR labels"
+        },
+        "batches": {
+          "description": "Blank labels printed in the generator. Printing again uses the same codes and the same layout.",
+          "empty": "No blank labels printed yet.",
+          "columns": {
+            "created": "Date",
+            "name": "Name",
+            "template": "Template",
+            "quantity": "Labels"
+          },
+          "again": "Print again",
+          "unnamed": "Untitled"
         }
       }
     },
@@ -2797,10 +2937,8 @@
           "generate": "Generate QR code",
           "generating": "Generating…",
           "print": "Print label",
-          "printing": "Preparing label…",
           "generated": "QR code generated and assigned.",
           "error": "Could not generate the QR code.",
-          "printError": "Could not prepare the label.",
           "noPermission": "You don't have permission to assign QR codes.",
           "scan": "Scan QR sticker",
           "scanTitle": "Assign a QR sticker to the container",
@@ -3500,7 +3638,8 @@
           "branches": "Branches"
         },
         "billing": "Billing & Subscriptions",
-        "branchAccess": "Branch Access"
+        "branchAccess": "Branch Access",
+        "qrCodes": "QR codes"
       },
       "branches": {
         "title": "Branches",

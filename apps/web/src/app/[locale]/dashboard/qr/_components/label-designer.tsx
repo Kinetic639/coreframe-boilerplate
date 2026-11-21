@@ -955,6 +955,11 @@ interface LabelDesignerProps {
   initialConfig?: LabelConfig;
   /** Called in template-editor mode when the user saves the current config as the default. */
   onSaveTemplate?: (config: LabelConfig) => Promise<void>;
+  /** Template-editor mode: text above and on the save button (defaults: "save as default"). */
+  saveTemplateSummary?: string;
+  saveTemplateLabel?: string;
+  /** Extra fields sent with the export request (e.g. the template the layout came from). */
+  extraBody?: Record<string, unknown>;
 }
 
 type PreviewZoom = "fit" | number;
@@ -978,23 +983,40 @@ export function LabelDesigner({
   mode = "export",
   initialConfig,
   onSaveTemplate,
+  saveTemplateSummary,
+  saveTemplateLabel,
+  extraBody,
 }: LabelDesignerProps) {
   const t = useTranslations("modules.qr.designer");
   const selectedIds = useMemo(() => items.map((item) => item.id), [items]);
   const [pdfConfig, setPdfConfig] = useState<LabelConfig>(initialConfig ?? DEFAULT_LABEL_CONFIG);
-  const [zplConfig, setZplConfig] = useState<LabelConfig>({
-    ...(initialConfig ?? DEFAULT_LABEL_CONFIG),
-    includeLogo: false,
-    showBorder: false,
-    textPosition: "right",
-    dimension: orientDimension(
-      ZPL_DIMENSIONS["50x30"],
-      (initialConfig ?? DEFAULT_LABEL_CONFIG).orientation
-    ),
-  });
+  // A saved ZPL layout keeps its own size; anything else starts as 50×30.
+  const initialZplSize: "50x30" | "70x40" =
+    format === "zpl" &&
+    initialConfig &&
+    Math.max(initialConfig.dimension.width, initialConfig.dimension.height) >= 70
+      ? "70x40"
+      : "50x30";
+  const [zplConfig, setZplConfig] = useState<LabelConfig>(
+    format === "zpl" && initialConfig
+      ? {
+          ...initialConfig,
+          dimension: orientDimension(ZPL_DIMENSIONS[initialZplSize], initialConfig.orientation),
+        }
+      : {
+          ...(initialConfig ?? DEFAULT_LABEL_CONFIG),
+          includeLogo: false,
+          showBorder: false,
+          textPosition: "right",
+          dimension: orientDimension(
+            ZPL_DIMENSIONS["50x30"],
+            (initialConfig ?? DEFAULT_LABEL_CONFIG).orientation
+          ),
+        }
+  );
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [optionsTab, setOptionsTab] = useState<"layout" | "qr" | "text">("layout");
-  const [zplSize, setZplSize] = useState<"50x30" | "70x40">("50x30");
+  const [zplSize, setZplSize] = useState<"50x30" | "70x40">(initialZplSize);
   const [isExporting, setIsExporting] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -1179,8 +1201,8 @@ export function LabelDesigner({
       const labelConfig = format === "zpl" ? zplConfig : pdfConfig;
       const body =
         format === "pdf"
-          ? { [idsBodyKey]: selectedIds, format: "pdf", labelConfig }
-          : { [idsBodyKey]: selectedIds, format: "zpl", labelConfig, zplSize };
+          ? { ...extraBody, [idsBodyKey]: selectedIds, format: "pdf", labelConfig }
+          : { ...extraBody, [idsBodyKey]: selectedIds, format: "zpl", labelConfig, zplSize };
 
       const res = await fetch(exportEndpoint, {
         method: "POST",
@@ -2160,7 +2182,9 @@ export function LabelDesigner({
         <div className="rounded-xl border bg-card p-4">
           {mode === "template-editor" ? (
             <div className="flex flex-col gap-3">
-              <p className="text-sm text-muted-foreground">{t("exportBar.templateSummary")}</p>
+              <p className="text-sm text-muted-foreground">
+                {saveTemplateSummary ?? t("exportBar.templateSummary")}
+              </p>
               <Button
                 onClick={async () => {
                   if (!onSaveTemplate) return;
@@ -2175,7 +2199,9 @@ export function LabelDesigner({
                 className="w-full gap-2"
               >
                 <Download className="h-4 w-4" />
-                {isSavingTemplate ? t("exportBar.savingTemplate") : t("exportBar.saveTemplate")}
+                {isSavingTemplate
+                  ? t("exportBar.savingTemplate")
+                  : (saveTemplateLabel ?? t("exportBar.saveTemplate"))}
               </Button>
             </div>
           ) : (

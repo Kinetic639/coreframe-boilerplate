@@ -1923,20 +1923,18 @@
         "status": {
           "assigned": "Przypisany",
           "unassigned": "Nieprzypisany",
-          "revoked": "Unieważniony"
+          "revoked": "Unieważniony",
+          "expired": "Wygasły"
         },
         "filters": {
           "all": "Wszystkie",
           "assigned": "Przypisane",
           "unassigned": "Nieprzypisane",
-          "revoked": "Unieważnione"
-        },
-        "generate": {
-          "prefixLabel": "Prefiks etykiety",
-          "prefixPlaceholder": "np. Półka, Bin, Partia",
-          "countLabel": "Liczba",
-          "submit": "Generuj kody QR",
-          "generating": "Generowanie..."
+          "revoked": "Unieważnione",
+          "expired": "Wygasłe",
+          "unusedFor": "Nieużywane od",
+          "unusedDays": "{days} dni",
+          "batch": "Partia wydruku"
         },
         "selection": {
           "title": "Lista kodów QR",
@@ -1972,7 +1970,6 @@
           "confirm": "Unieważnij"
         },
         "toasts": {
-          "created": "Utworzono {count} kod(ów) QR.",
           "revoked": "Kod QR został unieważniony."
         },
         "detail": {
@@ -1987,6 +1984,45 @@
           "designButton": "Projektuj {count} wybranych",
           "noSelection": "Brak wybranych kodów",
           "revokeButton": "Unieważnij"
+        },
+        "targets": {
+          "warehouse_location": "Lokalizacja",
+          "helpdesk_ticket": "Zgłoszenie",
+          "planning_task": "Zadanie",
+          "inventory_container": "Kontener",
+          "open": "Otwórz"
+        },
+        "registry": {
+          "neverScanned": "nigdy",
+          "noBatch": "—",
+          "batchUnnamed": "Wydruk z {date}",
+          "lastScan": "Ostatni skan",
+          "scanCount": "Liczba skanów",
+          "batch": "Partia wydruku",
+          "lastUsed": "Ostatnio użyty",
+          "revokeSelected": "Unieważnij",
+          "deleteSelected": "Usuń",
+          "restoreSelected": "Przywróć",
+          "printSelected": "Drukuj",
+          "clearSelection": "Wyczyść zaznaczenie",
+          "settings": "Ustawienia kodów QR",
+          "settingsTitle": "Ustawienia kodów QR",
+          "settingsDescription": "Kod, który nie został przypisany ani zeskanowany, wygasa po podanej liczbie dni. Wygasły kod można przywrócić przez 90 dni, potem znika z listy. 0 wyłącza wygasanie.",
+          "expiryDays": "Wygasanie nieużytych kodów (dni)",
+          "save": "Zapisz",
+          "cancel": "Anuluj",
+          "saved": "Zapisano ustawienia.",
+          "revokeTitle": "Unieważnić {count} kod(ów) QR?",
+          "revokeDescription": "Unieważnione kody przestają działać, a ich przypisania zostają zdjęte. Tej operacji nie da się cofnąć.",
+          "deleteTitle": "Usunąć {count} kod(ów) QR?",
+          "deleteDescription": "Usunięte zostaną tylko kody bez aktywnego przypisania. Przypisane kody trzeba najpierw unieważnić.",
+          "confirmRevoke": "Unieważnij",
+          "confirmDelete": "Usuń",
+          "revokedMany": "Unieważniono {count} kod(ów) QR.",
+          "deletedMany": "Usunięto {count} kod(ów) QR.",
+          "deletedSkipped": "Pominięto {count} przypisanych kodów — najpierw je unieważnij.",
+          "restoredMany": "Przywrócono {count} kod(ów) QR.",
+          "restoreButton": "Przywróć"
         }
       },
       "previewDialog": {
@@ -2144,6 +2180,110 @@
           "previewReady": "Podgląd gotowy dla {count} etykiet(y).",
           "exported": "Wyeksportowano {count} etykiet(y).",
           "exportFailed": "Eksport nie powiódł się. Spróbuj ponownie."
+        }
+      },
+      "assign": {
+        "title": "Przypisz kod QR — {name}",
+        "description": "Nowy kod zostanie utworzony i od razu przypisany. Możesz też zeskanować etykietę, która jest już naklejona.",
+        "create": "Przypisz nowy kod QR",
+        "creating": "Przypisywanie…",
+        "scan": "Zeskanuj naklejoną etykietę",
+        "scanHint": "Skieruj aparat na etykietę QR",
+        "back": "Wróć",
+        "cancel": "Anuluj",
+        "alreadyAssigned": "Ten kod jest już przypisany do czegoś innego.",
+        "assigned": "Kod QR przypisany.",
+        "failed": "Nie udało się przypisać kodu QR.",
+        "print": "Wydrukuj etykietę",
+        "printTitle": "Etykieta — {name}",
+        "staged": "Nowy kod QR zostanie utworzony przy zapisie",
+        "addNew": "Dodaj kod QR"
+      },
+      "templates": {
+        "layoutLabel": "Układ etykiety",
+        "previous": "Jak poprzednio",
+        "builtin": "Układ wbudowany",
+        "defaultBadge": "domyślny",
+        "types": {
+          "general": "Ogólny (puste etykiety)",
+          "warehouse_location": "Lokalizacje",
+          "helpdesk_ticket": "Zgłoszenia",
+          "planning_task": "Zadania",
+          "inventory_container": "Kontenery"
+        },
+        "tabs": {
+          "templates": "Szablony",
+          "batches": "Wydruki"
+        },
+        "description": "Szablon to zapisany wygląd etykiety. Domyślny szablon danego typu podpowiada się przy druku etykiet tych obiektów.",
+        "new": "Nowy szablon",
+        "empty": "Nie masz jeszcze szablonów",
+        "emptyHint": "Zaprojektuj etykietę raz i drukuj ją jednym kliknięciem.",
+        "columns": {
+          "name": "Nazwa",
+          "type": "Dla",
+          "format": "Format",
+          "size": "Rozmiar",
+          "actions": "Akcje"
+        },
+        "actions": {
+          "print": "Drukuj puste etykiety",
+          "edit": "Edytuj",
+          "duplicate": "Duplikuj",
+          "setDefault": "Ustaw jako domyślny",
+          "delete": "Usuń"
+        },
+        "editor": {
+          "newTitle": "Nowy szablon",
+          "editTitle": "Edycja: {name}",
+          "name": "Nazwa",
+          "type": "Dla",
+          "format": "Format",
+          "isDefault": "Domyślny dla tego typu",
+          "save": "Zapisz szablon",
+          "summary": "Zapis tworzy nową wersję układu. Wydrukowane wcześniej etykiety zachowują swoją wersję.",
+          "back": "Wróć do listy szablonów",
+          "nameRequired": "Podaj nazwę szablonu"
+        },
+        "toasts": {
+          "saved": "Szablon zapisany",
+          "saveFailed": "Nie udało się zapisać szablonu. Spróbuj ponownie.",
+          "duplicated": "Szablon zduplikowany",
+          "deleted": "Szablon usunięty",
+          "defaultSet": "Ustawiono szablon domyślny",
+          "failed": "Nie udało się wykonać akcji. Spróbuj ponownie.",
+          "printFailed": "Nie udało się wygenerować etykiet. Spróbuj ponownie."
+        },
+        "copyOf": "{name} (kopia)",
+        "deleteTitle": "Usunąć szablon „{name}”?",
+        "deleteDescription": "Wydrukowane etykiety i ich kody się nie zmienią. Szablon zniknie tylko z listy.",
+        "deleteConfirm": "Usuń szablon",
+        "cancel": "Anuluj",
+        "print": {
+          "open": "Drukuj puste etykiety",
+          "title": "Drukuj puste etykiety",
+          "description": "Każda etykieta dostaje nowy kod QR. Kody przypiszesz później, skanując naklejoną etykietę.",
+          "template": "Szablon",
+          "quantity": "Liczba etykiet",
+          "quantityHint": "Od 1 do {max} etykiet.",
+          "name": "Nazwa wydruku (opcjonalnie)",
+          "namePlaceholder": "np. Regał A",
+          "submit": "Drukuj {count, plural, one {# etykietę} few {# etykiety} other {# etykiet}}",
+          "printing": "Tworzenie kodów...",
+          "done": "Utworzono {count, plural, one {# kod QR} few {# kody QR} other {# kodów QR}}",
+          "previewTitle": "Etykiety QR"
+        },
+        "batches": {
+          "description": "Puste etykiety drukowane w generatorze. Ponowny wydruk używa tych samych kodów i tego samego układu.",
+          "empty": "Nie było jeszcze wydruków pustych etykiet.",
+          "columns": {
+            "created": "Data",
+            "name": "Nazwa",
+            "template": "Szablon",
+            "quantity": "Etykiet"
+          },
+          "again": "Drukuj ponownie",
+          "unnamed": "Bez nazwy"
         }
       }
     },
@@ -2768,10 +2908,8 @@
           "generate": "Wygeneruj kod QR",
           "generating": "Generowanie…",
           "print": "Drukuj etykietę",
-          "printing": "Przygotowywanie etykiety…",
           "generated": "Kod QR został wygenerowany i przypisany.",
           "error": "Nie udało się wygenerować kodu QR.",
-          "printError": "Nie udało się przygotować etykiety.",
           "noPermission": "Nie masz uprawnień do przypisywania kodów QR.",
           "scan": "Zeskanuj naklejkę QR",
           "scanTitle": "Przypisz naklejkę QR do kontenera",
@@ -3471,7 +3609,8 @@
           "branches": "Oddziały"
         },
         "billing": "Rozliczenia i subskrypcje",
-        "branchAccess": "Dostęp do oddziałów"
+        "branchAccess": "Dostęp do oddziałów",
+        "qrCodes": "Kody QR"
       },
       "branches": {
         "title": "Oddziały",

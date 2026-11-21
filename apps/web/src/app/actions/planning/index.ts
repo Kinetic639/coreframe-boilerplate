@@ -342,6 +342,43 @@ export async function assignQrToPlanningTaskAction(input: {
   }
 }
 
+/**
+ * Give the task a brand new QR code: the code is created and assigned in one
+ * step, so nobody has to generate codes by hand first. The code's label is
+ * the task's title (what a printed label shows).
+ */
+export async function createAndAssignQrToPlanningTaskAction(input: {
+  taskId: string;
+  label?: string | null;
+}): Promise<ActionResult<{ qrCodeId: string; token: string; label: string | null }>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_TASKS_UPDATE))
+      return { success: false, error: "Insufficient permissions" };
+
+    const { QrAssignmentsService } = await import("@/server/services/qr.service");
+    const result = await QrAssignmentsService.createAndAssign(ctx.supabase, ctx.orgId, {
+      targetType: "planning.task",
+      targetId: input.taskId,
+      assignedBy: ctx.userId,
+      permissionSnapshot: ctx.context.user.permissionSnapshot,
+      label: input.label?.slice(0, 200) ?? null,
+    });
+    if (!result.success) return { success: false, error: (result as { error: string }).error };
+    return {
+      success: true,
+      data: {
+        qrCodeId: result.data.qr.id,
+        token: result.data.qr.token,
+        label: result.data.qr.label,
+      },
+    };
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
 export async function getQrAssignmentForTaskAction(taskId: string): Promise<
   ActionResult<{
     assignmentId: string;

@@ -50,6 +50,7 @@ import {
 } from "@/hooks/queries/help-desk";
 import { revokeQrAction } from "@/app/actions/qr/revoke";
 import { AssignQrDialog } from "./assign-qr-dialog";
+import { QrPrintLabelButton } from "@/components/features/qr";
 import { useHelpdeskRealtime } from "@/hooks/queries/help-desk/use-helpdesk-realtime";
 
 type QrAssignmentInfo = {
@@ -263,6 +264,12 @@ export function TicketDetailClient({
                     {qrAssignment.token}
                   </p>
                 </div>
+                <QrPrintLabelButton
+                  qrCodeId={qrAssignment.qrCodeId}
+                  name={qrAssignment.label ?? ticket.ticket_number}
+                  className="w-full"
+                  targetType="helpdesk.ticket"
+                />
                 {canManage && (
                   <Button
                     variant="outline"
