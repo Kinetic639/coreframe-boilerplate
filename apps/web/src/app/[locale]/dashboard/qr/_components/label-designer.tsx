@@ -77,6 +77,7 @@ import type {
   TextVerticalAlign,
 } from "@/lib/qr/label-config";
 import { QrPdfPreviewDialog } from "@/app/[locale]/dashboard/qr/_components/qr-pdf-preview-dialog";
+import { ZplPreviewDialog } from "@/components/features/qr/zpl-preview-dialog";
 
 // ---------------------------------------------------------------------------
 // SVG preview helpers
@@ -1104,6 +1105,8 @@ export function LabelDesigner({
   const [isExporting, setIsExporting] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [zplPreviewOpen, setZplPreviewOpen] = useState(false);
+  const [zplPreview, setZplPreview] = useState<string | null>(null);
   const [layoutPreviewOpen, setLayoutPreviewOpen] = useState(false);
   const [singlePreviewOpen, setSinglePreviewOpen] = useState(false);
   const [pagePreviewZoom, setPagePreviewZoom] = useState<PreviewZoom>("fit");
@@ -1279,6 +1282,9 @@ export function LabelDesigner({
     }
     if (format === "pdf") {
       setPreviewOpen(true);
+    } else {
+      setZplPreview(null);
+      setZplPreviewOpen(true);
     }
     setIsExporting(true);
     try {
@@ -1296,8 +1302,15 @@ export function LabelDesigner({
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Export failed." }));
-        if (format === "pdf") setPreviewOpen(false);
+        setPreviewOpen(false);
+        setZplPreviewOpen(false);
         toast.error((err as { error?: string }).error ?? t("toasts.exportFailed"));
+        return;
+      }
+
+      if (format === "zpl") {
+        setZplPreview(await res.text());
+        toast.success(t("toasts.previewReady", { count: selectedIds.length }));
         return;
       }
 
@@ -1311,15 +1324,9 @@ export function LabelDesigner({
         toast.success(t("toasts.previewReady", { count: selectedIds.length }));
         return;
       }
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${fileNamePrefix}.zpl`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success(t("toasts.exported", { count: selectedIds.length }));
     } catch {
-      if (format === "pdf") setPreviewOpen(false);
+      setPreviewOpen(false);
+      setZplPreviewOpen(false);
       toast.error(t("toasts.exportFailed"));
     } finally {
       setIsExporting(false);
@@ -2312,15 +2319,11 @@ export function LabelDesigner({
                 }
                 className="w-full gap-2"
               >
-                {format === "pdf" ? <Eye className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                <Eye className="h-4 w-4" />
                 {isExporting
-                  ? format === "pdf"
-                    ? t("exportBar.generatingPreview")
-                    : t("exportBar.exporting")
+                  ? t("exportBar.generatingPreview")
                   : selectedIds.length > 0
-                    ? format === "pdf"
-                      ? t("exportBar.previewLabels", { count: selectedIds.length })
-                      : t("exportBar.exportLabels", { count: selectedIds.length })
+                    ? t("exportBar.previewLabels", { count: selectedIds.length })
                     : t("exportBar.selectCodes")}
               </Button>
             </div>
@@ -2334,6 +2337,15 @@ export function LabelDesigner({
         blobUrl={previewUrl}
         generating={isExporting && format === "pdf"}
         fileName={`${fileNamePrefix}.pdf`}
+        title={t("previewDialogTitle", { count: selectedIds.length })}
+      />
+
+      <ZplPreviewDialog
+        open={zplPreviewOpen}
+        onOpenChange={setZplPreviewOpen}
+        zpl={zplPreview}
+        generating={isExporting && format === "zpl"}
+        fileName={`${fileNamePrefix}.zpl`}
         title={t("previewDialogTitle", { count: selectedIds.length })}
       />
 

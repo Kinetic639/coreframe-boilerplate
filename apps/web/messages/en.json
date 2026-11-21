@@ -2344,6 +2344,21 @@
           "again": "Print again",
           "unnamed": "Untitled"
         }
+      },
+      "zplPreview": {
+        "title": "ZPL file preview",
+        "generating": "Generating ZPL labels...",
+        "download": "Download .zpl",
+        "rotate": "Rotate",
+        "summary": "{count, plural, one {1 label} other {# labels}} · {width} × {height} mm",
+        "rollHint": "This is how the label comes off the printer: width across the print head. Portrait labels are turned 90°; use Rotate to read them.",
+        "rotatedHint": "Rotated for reading. The printer prints the label unrotated.",
+        "partial": "The file has text or barcodes written as ZPL commands. The preview shows graphics only.",
+        "empty": "No labels with graphics found in the file.",
+        "more": "Showing the first 60 labels; {count} more.",
+        "open": "Preview ZPL file",
+        "openHint": "Open a .zpl file from disk and see what the printer will print.",
+        "readError": "Could not read the file."
       }
     },
     "warehouse": {

@@ -2299,6 +2299,21 @@
           "again": "Drukuj ponownie",
           "unnamed": "Bez nazwy"
         }
+      },
+      "zplPreview": {
+        "title": "Podgląd pliku ZPL",
+        "generating": "Generowanie etykiet ZPL...",
+        "download": "Pobierz .zpl",
+        "rotate": "Obróć",
+        "summary": "{count, plural, one {1 etykieta} few {# etykiety} many {# etykiet} other {# etykiety}} · {width} × {height} mm",
+        "rollHint": "Tak etykieta wychodzi z drukarki: szerokość w poprzek głowicy. Etykiety pionowe są obrócone o 90°, użyj „Obróć”, żeby je przeczytać.",
+        "rotatedHint": "Obrócony widok do czytania. Drukarka drukuje etykietę bez obrotu.",
+        "partial": "Plik zawiera teksty lub kody kreskowe zapisane komendami ZPL. Podgląd pokazuje tylko grafikę.",
+        "empty": "Nie znaleziono w pliku etykiet z grafiką.",
+        "more": "Pokazano 60 pierwszych etykiet, pozostałe: {count}.",
+        "open": "Podgląd pliku ZPL",
+        "openHint": "Otwórz plik .zpl z dysku i zobacz, co wydrukuje drukarka.",
+        "readError": "Nie udało się odczytać pliku."
       }
     },
     "warehouse": {
