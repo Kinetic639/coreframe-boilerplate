@@ -2379,7 +2379,13 @@
         "more": "Showing the first 60 labels; {count} more.",
         "open": "Preview ZPL file",
         "openHint": "Open a .zpl file from disk and see what the printer will print.",
-        "readError": "Could not read the file."
+        "readError": "Could not read the file.",
+        "realSize": "Real size",
+        "zoom": "Zoom in",
+        "realSizeHint": "Show the label at about its printed size",
+        "zoomHint": "Show every printer dot",
+        "realSizeNote": "About the printed size; on paper text usually looks a little sharper.",
+        "zoomNote": "Zoomed in: each square is one printer dot (0.125 mm); on paper it looks much smoother."
       }
     },
     "warehouse": {
