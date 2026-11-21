@@ -37,6 +37,10 @@ export const taskListQuery = (orgId: string, state: TaskState) => ({
     return result.data;
   },
   staleTime: LIST_STALE_TIME,
+  // Coming back to the tab refetches the page when it is older than the stale
+  // time, so changes made by others show up without a reload. The global
+  // default is off, and a tab in the background makes no requests.
+  refetchOnWindowFocus: true,
 });
 
 export const taskDetailQuery = (orgId: string, taskNumber: string) => ({
