@@ -2206,6 +2206,93 @@
         "printTitle": "Etykieta — {name}",
         "staged": "Nowy kod QR zostanie utworzony przy zapisie",
         "addNew": "Dodaj kod QR"
+      },
+      "templates": {
+        "layoutLabel": "Układ etykiety",
+        "previous": "Jak poprzednio",
+        "builtin": "Układ wbudowany",
+        "defaultBadge": "domyślny",
+        "types": {
+          "general": "Ogólny (puste etykiety)",
+          "warehouse_location": "Lokalizacje",
+          "helpdesk_ticket": "Zgłoszenia",
+          "planning_task": "Zadania",
+          "inventory_container": "Kontenery"
+        },
+        "tabs": {
+          "templates": "Szablony",
+          "batches": "Wydruki"
+        },
+        "description": "Szablon to zapisany wygląd etykiety. Domyślny szablon danego typu podpowiada się przy druku etykiet tych obiektów.",
+        "new": "Nowy szablon",
+        "empty": "Nie masz jeszcze szablonów",
+        "emptyHint": "Zaprojektuj etykietę raz i drukuj ją jednym kliknięciem.",
+        "columns": {
+          "name": "Nazwa",
+          "type": "Dla",
+          "format": "Format",
+          "size": "Rozmiar",
+          "actions": "Akcje"
+        },
+        "actions": {
+          "print": "Drukuj puste etykiety",
+          "edit": "Edytuj",
+          "duplicate": "Duplikuj",
+          "setDefault": "Ustaw jako domyślny",
+          "delete": "Usuń"
+        },
+        "editor": {
+          "newTitle": "Nowy szablon",
+          "editTitle": "Edycja: {name}",
+          "name": "Nazwa",
+          "type": "Dla",
+          "format": "Format",
+          "isDefault": "Domyślny dla tego typu",
+          "save": "Zapisz szablon",
+          "summary": "Zapis tworzy nową wersję układu. Wydrukowane wcześniej etykiety zachowują swoją wersję.",
+          "back": "Wróć do listy szablonów",
+          "nameRequired": "Podaj nazwę szablonu"
+        },
+        "toasts": {
+          "saved": "Szablon zapisany",
+          "saveFailed": "Nie udało się zapisać szablonu. Spróbuj ponownie.",
+          "duplicated": "Szablon zduplikowany",
+          "deleted": "Szablon usunięty",
+          "defaultSet": "Ustawiono szablon domyślny",
+          "failed": "Nie udało się wykonać akcji. Spróbuj ponownie.",
+          "printFailed": "Nie udało się wygenerować etykiet. Spróbuj ponownie."
+        },
+        "copyOf": "{name} (kopia)",
+        "deleteTitle": "Usunąć szablon „{name}”?",
+        "deleteDescription": "Wydrukowane etykiety i ich kody się nie zmienią. Szablon zniknie tylko z listy.",
+        "deleteConfirm": "Usuń szablon",
+        "cancel": "Anuluj",
+        "print": {
+          "open": "Drukuj puste etykiety",
+          "title": "Drukuj puste etykiety",
+          "description": "Każda etykieta dostaje nowy kod QR. Kody przypiszesz później, skanując naklejoną etykietę.",
+          "template": "Szablon",
+          "quantity": "Liczba etykiet",
+          "quantityHint": "Od 1 do {max} etykiet.",
+          "name": "Nazwa wydruku (opcjonalnie)",
+          "namePlaceholder": "np. Regał A",
+          "submit": "Drukuj {count, plural, one {# etykietę} few {# etykiety} other {# etykiet}}",
+          "printing": "Tworzenie kodów...",
+          "done": "Utworzono {count, plural, one {# kod QR} few {# kody QR} other {# kodów QR}}",
+          "previewTitle": "Etykiety QR"
+        },
+        "batches": {
+          "description": "Puste etykiety drukowane w generatorze. Ponowny wydruk używa tych samych kodów i tego samego układu.",
+          "empty": "Nie było jeszcze wydruków pustych etykiet.",
+          "columns": {
+            "created": "Data",
+            "name": "Nazwa",
+            "template": "Szablon",
+            "quantity": "Etykiet"
+          },
+          "again": "Drukuj ponownie",
+          "unnamed": "Bez nazwy"
+        }
       }
     },
     "warehouse": {

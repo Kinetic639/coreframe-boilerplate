@@ -19,15 +19,14 @@ import type { LabelConfig } from "@/lib/qr/label-config";
 import { QrCodesService } from "@/server/services/qr.service";
 import type { QrCode, ServiceResult } from "@/server/services/qr.service";
 
-export type QrLabelFormat = "pdf" | "zpl";
+import type { QrLabelFormat, QrLabelTargetType } from "@/lib/qr/label-templates";
 
-export const QR_LABEL_TARGET_TYPES = [
-  "warehouse.location",
-  "helpdesk.ticket",
-  "planning.task",
-  "inventory.container",
-] as const;
-export type QrLabelTargetType = (typeof QR_LABEL_TARGET_TYPES)[number];
+export {
+  QR_LABEL_TARGET_TYPES,
+  zplSizeForConfig,
+  type QrLabelFormat,
+  type QrLabelTargetType,
+} from "@/lib/qr/label-templates";
 
 export interface QrLabelLayout {
   id: string;
@@ -74,11 +73,6 @@ function failed(result: unknown): { success: false; error: string } {
 
 function cleanName(name: string): string {
   return name.trim().slice(0, 120);
-}
-
-/** ZPL printers take 50×30 or 70×40 mm; a ZPL layout's size picks one. */
-export function zplSizeForConfig(config: LabelConfig): "50x30" | "70x40" {
-  return Math.max(config.dimension.width, config.dimension.height) >= 70 ? "70x40" : "50x30";
 }
 
 export class QrLabelLayoutsService {

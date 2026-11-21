@@ -110,6 +110,7 @@ export function TaskQrSection({
             onOpenChange={setPrintOpen}
             qrCodeId={assignment.data.qrCodeId}
             name={assignment.data.label ?? name}
+            targetType="planning.task"
           />
         </div>
       ) : canUpdate ? (

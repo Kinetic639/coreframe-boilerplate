@@ -2251,6 +2251,93 @@
         "printTitle": "Label — {name}",
         "staged": "A new QR code will be created on save",
         "addNew": "Add a QR code"
+      },
+      "templates": {
+        "layoutLabel": "Label layout",
+        "previous": "As last printed",
+        "builtin": "Built-in layout",
+        "defaultBadge": "default",
+        "types": {
+          "general": "General (blank labels)",
+          "warehouse_location": "Locations",
+          "helpdesk_ticket": "Tickets",
+          "planning_task": "Tasks",
+          "inventory_container": "Containers"
+        },
+        "tabs": {
+          "templates": "Templates",
+          "batches": "Print runs"
+        },
+        "description": "A template is a saved label design. The default template of a type is preselected when printing labels of those objects.",
+        "new": "New template",
+        "empty": "No templates yet",
+        "emptyHint": "Design a label once and print it with one click.",
+        "columns": {
+          "name": "Name",
+          "type": "For",
+          "format": "Format",
+          "size": "Size",
+          "actions": "Actions"
+        },
+        "actions": {
+          "print": "Print blank labels",
+          "edit": "Edit",
+          "duplicate": "Duplicate",
+          "setDefault": "Set as default",
+          "delete": "Delete"
+        },
+        "editor": {
+          "newTitle": "New template",
+          "editTitle": "Editing: {name}",
+          "name": "Name",
+          "type": "For",
+          "format": "Format",
+          "isDefault": "Default for this type",
+          "save": "Save template",
+          "summary": "Saving creates a new layout version. Labels printed earlier keep theirs.",
+          "back": "Back to templates",
+          "nameRequired": "Enter a template name"
+        },
+        "toasts": {
+          "saved": "Template saved",
+          "saveFailed": "Couldn't save the template. Try again.",
+          "duplicated": "Template duplicated",
+          "deleted": "Template deleted",
+          "defaultSet": "Default template set",
+          "failed": "Couldn't complete the action. Try again.",
+          "printFailed": "Couldn't generate the labels. Try again."
+        },
+        "copyOf": "{name} (copy)",
+        "deleteTitle": "Delete template “{name}”?",
+        "deleteDescription": "Printed labels and their codes stay as they are. The template only leaves the list.",
+        "deleteConfirm": "Delete template",
+        "cancel": "Cancel",
+        "print": {
+          "open": "Print blank labels",
+          "title": "Print blank labels",
+          "description": "Each label gets a new QR code. Assign the codes later by scanning the stuck-on label.",
+          "template": "Template",
+          "quantity": "Number of labels",
+          "quantityHint": "From 1 to {max} labels.",
+          "name": "Print name (optional)",
+          "namePlaceholder": "e.g. Rack A",
+          "submit": "Print {count, plural, one {# label} other {# labels}}",
+          "printing": "Creating codes...",
+          "done": "Created {count, plural, one {# QR code} other {# QR codes}}",
+          "previewTitle": "QR labels"
+        },
+        "batches": {
+          "description": "Blank labels printed in the generator. Printing again uses the same codes and the same layout.",
+          "empty": "No blank labels printed yet.",
+          "columns": {
+            "created": "Date",
+            "name": "Name",
+            "template": "Template",
+            "quantity": "Labels"
+          },
+          "again": "Print again",
+          "unnamed": "Untitled"
+        }
       }
     },
     "warehouse": {

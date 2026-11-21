@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import {
   ArrowLeft,
   ArrowRight,
@@ -54,6 +53,7 @@ import {
   revokeQrCodesAction,
 } from "@/app/actions/qr/registry";
 import { QrSettingsDialog } from "./qr-settings-dialog";
+import { QrLabelPrintPanel } from "@/components/features/qr/qr-label-print-panel";
 import { PRIMARY_FIELD_KEY, TOKEN_FIELD_KEY, SCAN_URL_FIELD_KEY } from "@/lib/qr/label-config";
 import {
   getQrStatus,
@@ -68,14 +68,6 @@ import {
   type QrDisplayStatus,
   type QrState,
 } from "./qr-state";
-
-const LabelDesigner = dynamic(
-  () =>
-    import("@/app/[locale]/dashboard/qr/_components/label-designer").then(
-      (mod) => mod.LabelDesigner
-    ),
-  { ssr: false }
-);
 
 const STATUS_VARIANT: Record<QrDisplayStatus, "default" | "secondary" | "destructive"> = {
   assigned: "default",
@@ -164,7 +156,6 @@ export function QrWorkspace({
   const [ticked, setTicked] = useState<string[]>([]);
   const [activeStage, setActiveStage] = useState<"select" | "design">("select");
   const [designIds, setDesignIds] = useState<string[]>([]);
-  const [labelFormat, setLabelFormat] = useState<"pdf" | "zpl">("pdf");
 
   const [generateCount, setGenerateCount] = useState(1);
   const [labelPrefix, setLabelPrefix] = useState("");
@@ -696,26 +687,6 @@ export function QrWorkspace({
                   <p className="text-sm text-muted-foreground">{t("design.description")}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="grid h-9 w-[140px] grid-cols-2 rounded-lg border bg-muted p-1">
-                    <Button
-                      type="button"
-                      variant={labelFormat === "pdf" ? "default" : "ghost"}
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => setLabelFormat("pdf")}
-                    >
-                      PDF
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={labelFormat === "zpl" ? "default" : "ghost"}
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => setLabelFormat("zpl")}
-                    >
-                      ZPL
-                    </Button>
-                  </div>
                   <Button
                     variant="outline"
                     size="icon"
@@ -728,10 +699,11 @@ export function QrWorkspace({
                 </div>
               </div>
               <div className="min-h-0 flex-1 overflow-hidden pt-4">
-                <LabelDesigner
+                <QrLabelPrintPanel
+                  targetType={null}
+                  qrCodeIds={designIds}
                   items={designIds.map((id) => ({ id, primaryText: "" }))}
                   canExport={canExport}
-                  format={labelFormat}
                   availableFields={[
                     { key: PRIMARY_FIELD_KEY, label: tDesigner("fields.qrLabel") },
                     { key: TOKEN_FIELD_KEY, label: tDesigner("fields.qrToken") },
