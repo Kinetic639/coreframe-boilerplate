@@ -26,7 +26,14 @@ import {
 } from "./tasks-state";
 
 /** How long the pointer rests on a row before its card is fetched. */
-const HOVER_INTENT_MS = 150;
+const HOVER_INTENT_MS = 300;
+
+/**
+ * A card fetched on hover in the last minute is not fetched again on hover:
+ * moving the pointer up and down the list refetched the same tasks. Opening
+ * the task still refreshes it after the editor's own 15 s.
+ */
+const HOVER_PREFETCH_STALE_MS = 60 * 1000;
 
 const EMPTY_LIST: TaskList = { rows: [], totalCount: 0, page: 1, pageSize: 50 };
 
@@ -127,7 +134,10 @@ export function TasksWorkspace({
       hover.current = null;
       if (!taskNumber) return;
       hover.current = setTimeout(() => {
-        void queryClient.prefetchQuery(taskEditorQuery(orgId, taskNumber));
+        void queryClient.prefetchQuery({
+          ...taskEditorQuery(orgId, taskNumber),
+          staleTime: HOVER_PREFETCH_STALE_MS,
+        });
       }, HOVER_INTENT_MS);
     },
     [queryClient, orgId]

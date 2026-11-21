@@ -28,6 +28,8 @@ export interface GifResult {
   url: string;
   /** Small version for the picker grid */
   preview_url: string;
+  /** Same animation as a looping video (smaller and decoded off the main thread) */
+  mp4_url: string | null;
   width: number;
   height: number;
 }
@@ -67,6 +69,8 @@ export function parseGifResponse(body: unknown): GifSearchPage {
     // A medium-size GIF for the message (a few hundred KB), a tiny one for the grid
     const full = pick(formats, ["mediumgif", "gif", "tinygif"]);
     const preview = pick(formats, ["tinygif", "nanogif", "mediumgif", "gif"]);
+    // A video plays smoothly while the chat scrolls; a big animated GIF stutters
+    const video = pick(formats, ["tinymp4", "mp4", "nanomp4"]);
     const [width, height] = full?.dims ?? preview?.dims ?? [];
     if (!full || !preview || !width || !height || item.id == null) continue;
     results.push({
@@ -74,6 +78,7 @@ export function parseGifResponse(body: unknown): GifSearchPage {
       title: (item.title || item.content_description || "").slice(0, 200),
       url: full.url!,
       preview_url: preview.url!,
+      mp4_url: video?.url ?? null,
       width: Math.min(Math.max(Math.round(width), 1), 4096),
       height: Math.min(Math.max(Math.round(height), 1), 4096),
     });
@@ -89,6 +94,7 @@ export function gifToMedia(gif: GifResult): ChatMedia {
     id: gif.id,
     url: gif.url,
     preview_url: gif.preview_url,
+    ...(gif.mp4_url ? { mp4_url: gif.mp4_url } : {}),
     width: gif.width,
     height: gif.height,
     title: gif.title || null,

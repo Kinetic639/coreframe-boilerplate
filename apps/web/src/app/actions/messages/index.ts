@@ -60,6 +60,7 @@ const sendSchema = z.object({
       id: z.string().min(1).max(200),
       url: z.string().refine(isAllowedGifUrl),
       preview_url: z.string().refine(isAllowedGifUrl).nullish(),
+      mp4_url: z.string().refine(isAllowedGifUrl).nullish(),
       width: z.number().int().min(1).max(4096),
       height: z.number().int().min(1).max(4096),
       title: z.string().max(200).nullish(),

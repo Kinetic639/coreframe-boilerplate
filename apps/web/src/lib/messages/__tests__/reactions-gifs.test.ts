@@ -51,6 +51,14 @@ describe("GIFs", () => {
           media_formats: {
             mediumgif: { url: "https://static.klipy.com/m.gif", dims: [300, 200] },
             tinygif: { url: "https://static.klipy.com/t.gif", dims: [150, 100] },
+            tinymp4: { url: "https://static.klipy.com/t.mp4", dims: [300, 200] },
+          },
+        },
+        {
+          id: 9,
+          media_formats: {
+            gif: { url: "https://static.klipy.com/g.gif", dims: [200, 200] },
+            mp4: { url: "https://evil.test/v.mp4", dims: [200, 200] },
           },
         },
         { id: 8, media_formats: { gif: { url: "https://evil.test/x.gif", dims: [1, 1] } } },
@@ -63,11 +71,26 @@ describe("GIFs", () => {
         title: "Kot",
         url: "https://static.klipy.com/m.gif",
         preview_url: "https://static.klipy.com/t.gif",
+        mp4_url: "https://static.klipy.com/t.mp4",
         width: 300,
         height: 200,
       },
+      {
+        id: "9",
+        title: "",
+        url: "https://static.klipy.com/g.gif",
+        preview_url: "https://static.klipy.com/g.gif",
+        mp4_url: null,
+        width: 200,
+        height: 200,
+      },
     ]);
-    expect(gifToMedia(page.results[0])).toMatchObject({ kind: "gif", provider: "klipy" });
+    expect(gifToMedia(page.results[0])).toMatchObject({
+      kind: "gif",
+      provider: "klipy",
+      mp4_url: "https://static.klipy.com/t.mp4",
+    });
+    expect(gifToMedia(page.results[1])).not.toHaveProperty("mp4_url");
     expect(parseGifResponse({ results: [], next: "" }).next).toBeNull();
   });
 

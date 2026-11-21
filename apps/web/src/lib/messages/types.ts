@@ -135,6 +135,8 @@ export interface ChatMedia {
   id: string;
   url: string;
   preview_url?: string | null;
+  /** Looping video of the same GIF, shown instead of it when present */
+  mp4_url?: string | null;
   width: number;
   height: number;
   title?: string | null;

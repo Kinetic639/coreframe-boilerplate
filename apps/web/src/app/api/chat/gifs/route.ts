@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
   url.searchParams.set("client_key", "ambra-chat");
   url.searchParams.set("limit", String(PAGE_SIZE));
   url.searchParams.set("contentfilter", "medium");
-  url.searchParams.set("media_filter", "tinygif,nanogif,mediumgif,gif");
+  url.searchParams.set("media_filter", "tinygif,nanogif,mediumgif,gif,tinymp4,mp4,nanomp4");
   url.searchParams.set("locale", english ? "en_US" : "pl_PL");
   url.searchParams.set("country", english ? "US" : "PL");
   if (pos) url.searchParams.set("pos", pos);
