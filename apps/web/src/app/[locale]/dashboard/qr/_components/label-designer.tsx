@@ -57,6 +57,12 @@ import {
   A4_W_MM,
   A4_H_MM,
   GRID_MARGIN_MM,
+  zplPrintSettings,
+  type ZplPrintSettings,
+  type QrAlign,
+  type LabelFooterSize,
+  type ZplPrintSpeed,
+  type ZplMediaType,
 } from "@/lib/qr/label-config";
 import type {
   EdgeLineStyle,
@@ -73,6 +79,8 @@ import type {
   TextVerticalAlign,
 } from "@/lib/qr/label-config";
 import { QrPdfPreviewDialog } from "@/app/[locale]/dashboard/qr/_components/qr-pdf-preview-dialog";
+import { ZplPreviewDialog } from "@/components/features/qr/zpl-preview-dialog";
+import { computeLabelLayout, FOOTER_FONT_RATIO, FOOTER_TEXT_EMS } from "@/lib/qr/label-layout";
 
 // ---------------------------------------------------------------------------
 // SVG preview helpers
@@ -109,6 +117,8 @@ const QR_CORNER_DOT_OPTIONS: readonly QrCornerDotStyle[] = [
   "extra-rounded",
 ];
 const EDGE_LINE_STYLE_OPTIONS: readonly EdgeLineStyle[] = ["solid", "dotted", "dashed"];
+const QR_ALIGN_OPTIONS: readonly QrAlign[] = ["start", "center", "end"];
+const FOOTER_SIZE_OPTIONS: readonly LabelFooterSize[] = ["small", "medium", "large"];
 const TEXT_ALIGN_ICONS: Record<TextAlign, typeof AlignLeft> = {
   left: AlignLeft,
   center: AlignCenter,
@@ -194,8 +204,9 @@ function renderFooterPreview(
       {layout.footerH > 0 ? (
         <text
           x={layout.footerX + layout.footerW / 2}
-          y={layout.footerY + layout.footerH * 0.7}
-          fontSize={Math.max(3.7, layout.footerH * 0.46)}
+          y={layout.footerY + layout.footerH / 2}
+          dominantBaseline="central"
+          fontSize={Math.min(layout.footerH * FOOTER_FONT_RATIO, layout.footerW / FOOTER_TEXT_EMS)}
           textAnchor="middle"
           fill="#64748b"
         >
@@ -223,7 +234,7 @@ function getPreviewLayout(
   config: LabelConfig,
   cellW: number,
   cellH: number,
-  pad: number,
+  _pad: number,
   scale: number,
   showWatermark: boolean
 ): {
@@ -242,102 +253,30 @@ function getPreviewLayout(
   watermarkY: number;
   watermarkSize: number;
 } {
-  const innerW = Math.max(0, cellW - pad * 2);
-  const innerH = Math.max(0, cellH - pad * 2);
-  const gap = Math.max(1, Math.min(innerW, innerH) * 0.08);
-  const showText = hasVisibleText(config);
-  const footerEnabled = showText && config.footer.show;
-  const footerH = footerEnabled ? Math.max(5, cellH * 0.055) : 0;
-  const watermarkSize =
-    footerEnabled && showWatermark ? Math.max(9, Math.min(innerW, innerH) * 0.145) : 0;
-  const footerGap = footerEnabled ? Math.max(0.8, scale * 0.7) : 0;
-
-  if (!showText) {
-    const qrSize = Math.max(
-      0,
-      config.orientation === "portrait"
-        ? Math.min(innerH, innerW * config.qrHeightRatio)
-        : Math.min(innerW, innerH * config.qrHeightRatio)
-    );
-    const qrX = pad + (innerW - qrSize) / 2;
-    const qrY = pad + Math.max(0, (innerH - qrSize) / 2);
-    return {
-      qrX,
-      qrY,
-      qrSize,
-      textX: pad,
-      textY: pad,
-      textW: 0,
-      textH: 0,
-      footerX: 0,
-      footerY: 0,
-      footerW: 0,
-      footerH: 0,
-      watermarkX: 0,
-      watermarkY: 0,
-      watermarkSize: 0,
-    };
-  }
-
-  if (config.orientation === "portrait") {
-    const textContentH = estimatePreviewTextHeight(config, scale);
-    const textSectionH =
-      textContentH +
-      (footerEnabled
-        ? footerH + footerGap + (watermarkSize > 0 ? watermarkSize + footerGap : 0)
-        : 0);
-    const qrBudget = Math.max(0, innerH - textSectionH - gap);
-    const qrSize = Math.max(0, Math.min(qrBudget, innerW * config.qrHeightRatio));
-    const qrSectionH = qrSize;
-    const textY = config.textPosition === "above" ? pad : pad + qrSectionH + gap;
-    const qrY = config.textPosition === "above" ? pad + textSectionH + gap : pad;
-    return {
-      qrX: pad + (innerW - qrSize) / 2,
-      qrY,
-      qrSize,
-      textX: pad,
-      textY,
-      textW: innerW,
-      textH: textContentH,
-      footerX: pad,
-      footerY:
-        textY + textContentH + footerGap + watermarkSize + (watermarkSize > 0 ? footerGap : 0),
-      footerW: innerW,
-      footerH,
-      watermarkX: pad + innerW - watermarkSize,
-      watermarkY: textY + textContentH + footerGap,
-      watermarkSize,
-    };
-  }
-
-  const textRegionH = Math.max(
-    0,
-    innerH -
-      (footerEnabled
-        ? footerH + footerGap + (watermarkSize > 0 ? watermarkSize + footerGap : 0)
-        : 0)
-  );
-  const qrSize = Math.max(0, Math.min(innerW, innerH * config.qrHeightRatio));
-  const textW = Math.max(0, innerW - qrSize - gap);
-  const qrX = config.textPosition === "left" ? pad + textW + gap : pad;
-  const textX = config.textPosition === "left" ? pad : pad + qrSize + gap;
-  const qrY = pad + Math.max(0, (innerH - qrSize) / 2);
-
+  // Same layout as the PDF and ZPL output, scaled from millimetres to preview pixels.
+  const layout = computeLabelLayout(config, {
+    width: cellW / scale,
+    height: cellH / scale,
+    textHeight: hasVisibleText(config) ? estimatePreviewTextHeight(config, scale) / scale : 0,
+    hasText: hasVisibleText(config),
+    watermark: showWatermark,
+  });
+  const px = (value: number) => value * scale;
   return {
-    qrX,
-    qrY,
-    qrSize,
-    textX,
-    textY: pad,
-    textW,
-    textH: textRegionH,
-    footerX: textX,
-    footerY: pad + textRegionH + footerGap + watermarkSize + (watermarkSize > 0 ? footerGap : 0),
-    footerW: textW,
-    footerH,
-    watermarkX: textX + Math.max(0, textW - watermarkSize),
-    watermarkY: pad + textRegionH + footerGap,
-    watermarkSize,
+    qrX: px(layout.qr.x),
+    qrY: px(layout.qr.y),
+    qrSize: px(layout.qr.size),
+    textX: px(layout.text?.x ?? 0),
+    textY: px(layout.text?.y ?? 0),
+    textW: px(layout.text?.w ?? 0),
+    textH: px(layout.text?.h ?? 0),
+    footerX: px(layout.footer?.x ?? 0),
+    footerY: px(layout.footer?.y ?? 0),
+    footerW: px(layout.footer?.w ?? 0),
+    footerH: px(layout.footer?.h ?? 0),
+    watermarkX: px(layout.watermark?.x ?? 0),
+    watermarkY: px(layout.watermark?.y ?? 0),
+    watermarkSize: px(layout.watermark?.size ?? 0),
   };
 }
 
@@ -972,6 +911,86 @@ const MAX_PREVIEW_ZOOM = 2;
 // Component
 // ---------------------------------------------------------------------------
 
+const ZPL_SPEEDS: readonly ZplPrintSpeed[] = [2, 3, 4, 5];
+const ZPL_MEDIA: readonly ZplMediaType[] = ["printer", "transfer", "direct"];
+const ZPL_PRINTER_DARKNESS = "printer";
+
+/** Speed, darkness and ribbon mode sent to the thermal printer with ZPL labels. */
+function ZplPrintControls({
+  value,
+  onChange,
+}: {
+  value: ZplPrintSettings;
+  onChange: (value: ZplPrintSettings) => void;
+}) {
+  const t = useTranslations("modules.qr.designer.zplPrint");
+  return (
+    <div className="space-y-3 rounded-lg border p-3">
+      <div>
+        <p className="text-sm font-medium">{t("title")}</p>
+        <p className="text-xs text-muted-foreground">{t("hint")}</p>
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">{t("speed")}</Label>
+        <div className="grid grid-cols-4 gap-1">
+          {ZPL_SPEEDS.map((speed) => (
+            <Button
+              key={speed}
+              type="button"
+              size="sm"
+              variant={value.speed === speed ? "default" : "outline"}
+              className="h-8 text-xs"
+              onClick={() => onChange({ ...value, speed })}
+            >
+              {t("speedValue", { speed })}
+            </Button>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor="zpl-darkness" className="text-xs text-muted-foreground">
+          {t("darkness")}
+        </Label>
+        <Select
+          value={value.darkness === null ? ZPL_PRINTER_DARKNESS : String(value.darkness)}
+          onValueChange={(v) =>
+            onChange({ ...value, darkness: v === ZPL_PRINTER_DARKNESS ? null : Number(v) })
+          }
+        >
+          <SelectTrigger id="zpl-darkness" className="h-9">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ZPL_PRINTER_DARKNESS}>{t("darknessPrinter")}</SelectItem>
+            {Array.from({ length: 31 }, (_, d) => (
+              <SelectItem key={d} value={String(d)}>
+                {d}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">{t("media")}</Label>
+        <div className="grid grid-cols-3 gap-1">
+          {ZPL_MEDIA.map((media) => (
+            <Button
+              key={media}
+              type="button"
+              size="sm"
+              variant={value.media === media ? "default" : "outline"}
+              className="h-8 text-xs"
+              onClick={() => onChange({ ...value, media })}
+            >
+              {t(`mediaOptions.${media}`)}
+            </Button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function LabelDesigner({
   items,
   canExport,
@@ -1020,6 +1039,8 @@ export function LabelDesigner({
   const [isExporting, setIsExporting] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [zplPreviewOpen, setZplPreviewOpen] = useState(false);
+  const [zplPreview, setZplPreview] = useState<string | null>(null);
   const [layoutPreviewOpen, setLayoutPreviewOpen] = useState(false);
   const [singlePreviewOpen, setSinglePreviewOpen] = useState(false);
   const [pagePreviewZoom, setPagePreviewZoom] = useState<PreviewZoom>("fit");
@@ -1195,6 +1216,9 @@ export function LabelDesigner({
     }
     if (format === "pdf") {
       setPreviewOpen(true);
+    } else {
+      setZplPreview(null);
+      setZplPreviewOpen(true);
     }
     setIsExporting(true);
     try {
@@ -1212,8 +1236,15 @@ export function LabelDesigner({
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Export failed." }));
-        if (format === "pdf") setPreviewOpen(false);
+        setPreviewOpen(false);
+        setZplPreviewOpen(false);
         toast.error((err as { error?: string }).error ?? t("toasts.exportFailed"));
+        return;
+      }
+
+      if (format === "zpl") {
+        setZplPreview(await res.text());
+        toast.success(t("toasts.previewReady", { count: selectedIds.length }));
         return;
       }
 
@@ -1227,15 +1258,9 @@ export function LabelDesigner({
         toast.success(t("toasts.previewReady", { count: selectedIds.length }));
         return;
       }
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${fileNamePrefix}.zpl`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success(t("toasts.exported", { count: selectedIds.length }));
     } catch {
-      if (format === "pdf") setPreviewOpen(false);
+      setPreviewOpen(false);
+      setZplPreviewOpen(false);
       toast.error(t("toasts.exportFailed"));
     } finally {
       setIsExporting(false);
@@ -1491,6 +1516,13 @@ export function LabelDesigner({
                       </div>
                     )}
 
+                    {format === "zpl" ? (
+                      <ZplPrintControls
+                        value={zplPrintSettings(zplConfig)}
+                        onChange={(zpl) => setZplConfig((prev) => ({ ...prev, zpl }))}
+                      />
+                    ) : null}
+
                     <div className="grid gap-4 lg:grid-cols-2">
                       <div className="space-y-2">
                         <Label className="text-xs text-muted-foreground">
@@ -1600,6 +1632,37 @@ export function LabelDesigner({
                           }
                         />
                       </div>
+                      {activeConfig.footer.show ? (
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">
+                            {t("layout.footerSize")}
+                          </Label>
+                          <div className="grid grid-cols-3 gap-1">
+                            {FOOTER_SIZE_OPTIONS.map((size) => (
+                              <Button
+                                key={size}
+                                type="button"
+                                size="sm"
+                                variant={
+                                  (activeConfig.footer.size ?? "small") === size
+                                    ? "default"
+                                    : "outline"
+                                }
+                                className="h-8 text-xs"
+                                onClick={() =>
+                                  updateDraftConfig((prev) => ({
+                                    ...prev,
+                                    footer: { ...prev.footer, size },
+                                  }))
+                                }
+                              >
+                                {t(`layout.footerSizeOptions.${size}`)}
+                              </Button>
+                            ))}
+                          </div>
+                          <p className="text-xs text-muted-foreground">{t("layout.footerHint")}</p>
+                        </div>
+                      ) : null}
                     </div>
 
                     {format === "pdf" ? (
@@ -1736,6 +1799,34 @@ export function LabelDesigner({
                           value={[Math.round(activeConfig.qrHeightRatio * 100)]}
                           onValueChange={([v]) => set("qrHeightRatio", v / 100)}
                         />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">
+                          {t(
+                            activeConfig.orientation === "portrait"
+                              ? "qr.alignHorizontal"
+                              : "qr.alignVertical"
+                          )}
+                        </Label>
+                        <div className="grid grid-cols-3 gap-1">
+                          {QR_ALIGN_OPTIONS.map((align) => (
+                            <Button
+                              key={align}
+                              type="button"
+                              size="sm"
+                              variant={
+                                (activeConfig.qrAlign ?? "center") === align ? "default" : "outline"
+                              }
+                              className="h-8 text-xs"
+                              onClick={() => set("qrAlign", align)}
+                            >
+                              {t(
+                                `qr.alignOptions.${activeConfig.orientation === "portrait" ? "horizontal" : "vertical"}.${align}`
+                              )}
+                            </Button>
+                          ))}
+                        </div>
                       </div>
 
                       <div className="grid gap-4 lg:grid-cols-2">
@@ -2221,15 +2312,11 @@ export function LabelDesigner({
                 }
                 className="w-full gap-2"
               >
-                {format === "pdf" ? <Eye className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                <Eye className="h-4 w-4" />
                 {isExporting
-                  ? format === "pdf"
-                    ? t("exportBar.generatingPreview")
-                    : t("exportBar.exporting")
+                  ? t("exportBar.generatingPreview")
                   : selectedIds.length > 0
-                    ? format === "pdf"
-                      ? t("exportBar.previewLabels", { count: selectedIds.length })
-                      : t("exportBar.exportLabels", { count: selectedIds.length })
+                    ? t("exportBar.previewLabels", { count: selectedIds.length })
                     : t("exportBar.selectCodes")}
               </Button>
             </div>
@@ -2243,6 +2330,15 @@ export function LabelDesigner({
         blobUrl={previewUrl}
         generating={isExporting && format === "pdf"}
         fileName={`${fileNamePrefix}.pdf`}
+        title={t("previewDialogTitle", { count: selectedIds.length })}
+      />
+
+      <ZplPreviewDialog
+        open={zplPreviewOpen}
+        onOpenChange={setZplPreviewOpen}
+        zpl={zplPreview}
+        generating={isExporting && format === "zpl"}
+        fileName={`${fileNamePrefix}.zpl`}
         title={t("previewDialogTitle", { count: selectedIds.length })}
       />
 

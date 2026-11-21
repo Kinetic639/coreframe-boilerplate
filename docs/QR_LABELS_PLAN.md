@@ -75,9 +75,9 @@
 - **Slug narzędzia `qr-generator` zostaje,** żeby nikt nie stracił włączonego narzędzia.
 - **Layouty są osobną, niezmienną tabelą** (`qr_label_layouts`, deduplikacja po hashu). Szablon (Q3) = nazwa + wskazanie na aktualny layout; edycja szablonu tworzy nowy layout. Każdy wydruk wskazuje `layout_id` (i `template_id`), a kod pamięta ostatni wydruk (`qr_codes.last_print_batch_id`). „Wydrukuj etykietę” bierze układ: ostatni wydruk kodu → domyślny szablon typu obiektu → domyślny szablon organizacji, i otwiera projektant z nim. Na etykiecie zapisane są pola, nie tekst — wartości są z aktualnych danych.
 - **Dodruk etykiet istniejących kodów:** przy samym obiekcie (lokalizacja, kontener, zgłoszenie, zadanie) oraz zbiorczo w tabeli Organizacja → Kody QR. Generator etykiet nie zajmuje się dodrukiem.
+- **Generator etykiet nadal wymaga włączenia w Narzędziach** (decyzja 2026-11-21).
 - Uprawnienia bez zmian: `qr.read`, `qr.create`, `qr.assign`, `qr.export`, `qr.revoke`.
 
 ## Otwarte pytania
 
 - Czy usuwanie wygasłych kodów ma być twarde (DELETE), czy zostawiamy wiersz z `deleted_at` na zawsze dla audytu?
-- Czy Generator etykiet ma dalej wymagać włączenia w Narzędziach, czy być dostępny dla wszystkich z `qr.export`?

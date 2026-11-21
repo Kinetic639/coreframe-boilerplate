@@ -78,8 +78,38 @@ export interface EdgeGuideConfig {
   opacity: number;
 }
 
+export type LabelFooterSize = "small" | "medium" | "large";
+/** QR position across the label: left/centre/right when portrait, top/centre/bottom when landscape. */
+export type QrAlign = "start" | "center" | "end";
+
 export interface LabelFooterConfig {
   show: boolean;
+  /** Missing in layouts saved before it existed: "small". */
+  size?: LabelFooterSize;
+}
+
+export type ZplPrintSpeed = 2 | 3 | 4 | 5;
+export type ZplMediaType = "printer" | "transfer" | "direct";
+
+/**
+ * Thermal printer settings sent with ZPL labels. Large solid areas (the QR)
+ * print unevenly at the printer's default high speed; slower speed and a
+ * higher darkness give solid black. Ignored by the PDF output.
+ */
+export interface ZplPrintSettings {
+  /** Print speed in inches per second (^PR). */
+  speed: ZplPrintSpeed;
+  /** Absolute darkness 0–30 (~SD), or null to keep the printer's setting. */
+  darkness: number | null;
+  /** Thermal transfer (ribbon) or direct thermal (^MT), or keep the printer's mode. */
+  media: ZplMediaType;
+}
+
+export const DEFAULT_ZPL_PRINT: ZplPrintSettings = { speed: 2, darkness: null, media: "printer" };
+
+/** The label's ZPL print settings, filled in with defaults for older layouts. */
+export function zplPrintSettings(config: Pick<LabelConfig, "zpl">): ZplPrintSettings {
+  return { ...DEFAULT_ZPL_PRINT, ...config.zpl };
 }
 
 export interface LabelConfig {
@@ -100,6 +130,10 @@ export interface LabelConfig {
   textLines: TextLineConfig[];
   edgeGuides: EdgeGuideConfig;
   footer: LabelFooterConfig;
+  /** Missing in layouts saved before it existed: "center". */
+  qrAlign?: QrAlign;
+  /** ZPL only; missing in layouts saved before it existed. */
+  zpl?: ZplPrintSettings;
 }
 
 export interface GridSpec {

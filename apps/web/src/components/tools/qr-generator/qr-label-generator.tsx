@@ -1,10 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useFormatter, useTranslations } from "next-intl";
 import { toast } from "react-toastify";
-import { ArrowLeft, Copy, MoreHorizontal, Pencil, Plus, Printer, Star, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Copy,
+  FileSearch,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Printer,
+  Star,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -78,6 +88,7 @@ import {
 import type { QrLabelTemplate, QrPrintBatch } from "@/server/services/qr-labels.service";
 import type { LabelDesignerField } from "@/app/[locale]/dashboard/qr/_components/label-designer";
 import { QrPdfPreviewDialog } from "@/app/[locale]/dashboard/qr/_components/qr-pdf-preview-dialog";
+import { ZplPreviewDialog } from "@/components/features/qr/zpl-preview-dialog";
 import { getLocationLabelFields } from "@/app/[locale]/dashboard/warehouse/locations/_lib/label-fields";
 
 const LabelDesigner = dynamic(
@@ -124,6 +135,23 @@ export function QrLabelGenerator({ orgId }: { orgId: string }) {
   const [printOpen, setPrintOpen] = useState(false);
   const [toDelete, setToDelete] = useState<QrLabelTemplate | null>(null);
   const [preview, setPreview] = useState<{ url: string | null; generating: boolean } | null>(null);
+  const [zplPreview, setZplPreview] = useState<{
+    zpl: string | null;
+    /** Generated files can be downloaded; an opened file has its name as the title. */
+    fileName?: string;
+    title: string;
+  } | null>(null);
+  const zplFileInput = useRef<HTMLInputElement | null>(null);
+  const tZpl = useTranslations("modules.qr.zplPreview");
+
+  async function openZplFile(file: File | undefined) {
+    if (!file) return;
+    try {
+      setZplPreview({ zpl: await file.text(), title: file.name });
+    } catch {
+      toast.error(tZpl("readError"));
+    }
+  }
 
   const loadTemplates = useCallback(async () => {
     const result = await listQrLabelTemplatesAction();
@@ -143,10 +171,12 @@ export function QrLabelGenerator({ orgId }: { orgId: string }) {
     void loadBatches();
   }, [orgId, loadTemplates, loadBatches]);
 
-  /** Shows a PDF in the preview, downloads a ZPL file. */
+  /** Shows the printed labels in the PDF or ZPL preview, which also downloads them. */
   async function runPrint(body: Record<string, unknown>): Promise<boolean> {
     const isZpl = body.mode === "new" && body.format === "zpl";
-    if (!isZpl) setPreview({ url: null, generating: true });
+    const zplTarget = { fileName: "qr-labels.zpl", title: t("print.previewTitle") };
+    if (isZpl) setZplPreview({ zpl: null, ...zplTarget });
+    else setPreview({ url: null, generating: true });
     try {
       const res = await fetch("/api/qr/print", {
         method: "POST",
@@ -156,24 +186,21 @@ export function QrLabelGenerator({ orgId }: { orgId: string }) {
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { error?: string };
         setPreview(null);
+        setZplPreview(null);
         toast.error(err.error ?? t("toasts.printFailed"));
         return false;
       }
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
       if (blob.type.startsWith("application/pdf")) {
-        setPreview({ url, generating: false });
+        setPreview({ url: URL.createObjectURL(blob), generating: false });
       } else {
         setPreview(null);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "qr-labels.zpl";
-        a.click();
-        URL.revokeObjectURL(url);
+        setZplPreview({ zpl: await blob.text(), ...zplTarget });
       }
       return true;
     } catch {
       setPreview(null);
+      setZplPreview(null);
       toast.error(t("toasts.printFailed"));
       return false;
     }
@@ -228,6 +255,24 @@ export function QrLabelGenerator({ orgId }: { orgId: string }) {
             {canRead ? <TabsTrigger value="batches">{t("tabs.batches")}</TabsTrigger> : null}
           </TabsList>
           <div className="flex items-center gap-2">
+            <input
+              ref={zplFileInput}
+              type="file"
+              accept=".zpl,.txt,text/plain"
+              className="hidden"
+              onChange={(e) => {
+                void openZplFile(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              variant="outline"
+              title={tZpl("openHint")}
+              onClick={() => zplFileInput.current?.click()}
+            >
+              <FileSearch className="mr-1.5 size-4" />
+              {tZpl("open")}
+            </Button>
             {canExport ? (
               <Button variant="outline" onClick={() => setEditor({ template: null })}>
                 <Plus className="mr-1.5 size-4" />
@@ -399,6 +444,17 @@ export function QrLabelGenerator({ orgId }: { orgId: string }) {
         generating={!!preview?.generating}
         fileName="qr-labels.pdf"
         title={t("print.previewTitle")}
+      />
+
+      <ZplPreviewDialog
+        open={!!zplPreview}
+        onOpenChange={(open) => {
+          if (!open) setZplPreview(null);
+        }}
+        zpl={zplPreview?.zpl ?? null}
+        generating={!!zplPreview && zplPreview.zpl === null}
+        fileName={zplPreview?.fileName}
+        title={zplPreview?.title ?? ""}
       />
 
       <AlertDialog open={!!toDelete} onOpenChange={(open) => !open && setToDelete(null)}>
