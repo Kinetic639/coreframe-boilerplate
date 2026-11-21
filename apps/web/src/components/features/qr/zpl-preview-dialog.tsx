@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Download, RotateCw } from "lucide-react";
+import { Download, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
 import { BrandLoader } from "@/components/branding";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -37,6 +37,8 @@ export function ZplPreviewDialog({
 }: ZplPreviewDialogProps) {
   const t = useTranslations("modules.qr.zplPreview");
   const [rotation, setRotation] = useState(0);
+  // Real size by default: closer to the print than one screen pixel per dot.
+  const [realSize, setRealSize] = useState(true);
   const labels = useMemo(() => (zpl ? parseZplLabels(zpl) : []), [zpl]);
   const skipped = labels.reduce((sum, label) => sum + label.skipped, 0);
 
@@ -76,6 +78,20 @@ export function ZplPreviewDialog({
             <Button
               size="sm"
               variant="outline"
+              onClick={() => setRealSize((value) => !value)}
+              disabled={labels.length === 0}
+              title={realSize ? t("zoomHint") : t("realSizeHint")}
+            >
+              {realSize ? (
+                <ZoomIn className="mr-1.5 h-4 w-4" />
+              ) : (
+                <ZoomOut className="mr-1.5 h-4 w-4" />
+              )}
+              {realSize ? t("zoom") : t("realSize")}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => setRotation((r) => (r + 90) % 360)}
               disabled={labels.length === 0}
             >
@@ -108,14 +124,20 @@ export function ZplPreviewDialog({
           ) : (
             <div className="flex flex-col items-center gap-4">
               <p className="max-w-xl text-center text-xs text-muted-foreground">
-                {rotation === 0 ? t("rollHint") : t("rotatedHint")}
+                {rotation === 0 ? t("rollHint") : t("rotatedHint")}{" "}
+                {realSize ? t("realSizeNote") : t("zoomNote")}
               </p>
               {skipped > 0 ? (
                 <p className="max-w-xl text-center text-xs text-amber-600">{t("partial")}</p>
               ) : null}
               <div className="flex flex-wrap justify-center gap-4">
                 {labels.slice(0, MAX_PREVIEW_LABELS).map((label, index) => (
-                  <ZplLabelCanvas key={index} label={label} rotation={rotation} />
+                  <ZplLabelCanvas
+                    key={index}
+                    label={label}
+                    rotation={rotation}
+                    realSize={realSize}
+                  />
                 ))}
               </div>
               {labels.length > MAX_PREVIEW_LABELS ? (
@@ -131,7 +153,15 @@ export function ZplPreviewDialog({
   );
 }
 
-function ZplLabelCanvas({ label, rotation }: { label: ZplPreviewLabel; rotation: number }) {
+function ZplLabelCanvas({
+  label,
+  rotation,
+  realSize,
+}: {
+  label: ZplPreviewLabel;
+  rotation: number;
+  realSize: boolean;
+}) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const sideways = rotation === 90 || rotation === 270;
   const width = sideways ? label.height : label.width;
@@ -170,12 +200,15 @@ function ZplLabelCanvas({ label, rotation }: { label: ZplPreviewLabel; rotation:
     ctx.restore();
   }, [label, rotation, width, height]);
 
-  // Shown at 1 dot per CSS pixel, capped so wide labels still fit.
+  // Real size: the label's millimetres in CSS mm, smoothed like ink on paper.
+  // Zoomed: one dot per CSS pixel (about 2× real size), every dot visible.
   return (
     <canvas
       ref={ref}
-      className="h-auto max-w-full rounded-sm border bg-white shadow-sm [image-rendering:pixelated]"
-      style={{ width: Math.min(width, 640) }}
+      className={`h-auto max-w-full rounded-sm border bg-white shadow-sm ${
+        realSize ? "" : "[image-rendering:pixelated]"
+      }`}
+      style={{ width: realSize ? `${width / DOTS_PER_MM}mm` : Math.min(width, 640) }}
     />
   );
 }

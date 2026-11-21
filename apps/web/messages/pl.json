@@ -2334,7 +2334,13 @@
         "more": "Pokazano 60 pierwszych etykiet, pozostałe: {count}.",
         "open": "Podgląd pliku ZPL",
         "openHint": "Otwórz plik .zpl z dysku i zobacz, co wydrukuje drukarka.",
-        "readError": "Nie udało się odczytać pliku."
+        "readError": "Nie udało się odczytać pliku.",
+        "realSize": "Rozmiar rzeczywisty",
+        "zoom": "Powiększ",
+        "realSizeHint": "Pokaż etykietę w przybliżeniu w rozmiarze wydruku",
+        "zoomHint": "Pokaż każdy punkt drukarki",
+        "realSizeNote": "Rozmiar przybliżony do wydruku; na papierze tekst jest zwykle odrobinę ostrzejszy.",
+        "zoomNote": "Powiększenie: każdy kwadracik to jeden punkt drukarki (0,125 mm), na papierze wygląda dużo gładziej."
       }
     },
     "warehouse": {
