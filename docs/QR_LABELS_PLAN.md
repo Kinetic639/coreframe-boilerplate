@@ -43,6 +43,8 @@
   - [ ] Narzędzie „Generator etykiet QR” (slug `qr-generator` bez zmian, nowa nazwa i opis w `tools_catalog`)
   - [ ] Lista szablonów: utwórz, edytuj w projektancie, duplikuj, usuń, ustaw domyślny
   - [ ] Druk: wybór szablonu + liczba etykiet → tokeny tworzone przy wydruku jako jedna partia
+  - [ ] Każdy wydruk (nowy i dodruk) zapisuje się w `qr_print_batches` z kopią układu; `last_print_batch_id` na kodach
+  - [ ] „Wydrukuj etykietę” przy obiekcie i w tabeli: układ z ostatniego wydruku → szablon domyślny typu → szablon organizacji
   - [ ] Ponowne generowanie tego samego wydruku używa tych samych kodów (bez nowych tokenów)
   - [ ] Podgląd w projektancie na przykładowym tokenie, bez zapisu w bazie
   - [ ] Dodruk z tabeli kodów i druk etykiet lokalizacji korzystają z szablonów
@@ -69,6 +71,7 @@
 - **Nieużyte kody sprzątamy przez wygasanie (opcja 1),** nie przez tokeny bez wierszy w bazie. Koszt w bazie to ok. 250 B na kod, więc problem jest porządkowy, nie wydajnościowy. Przejście na zakresy podpisanych tokenów jest możliwe później bez zmiany UI.
 - **Wygasa tylko kod nieprzypisany i nigdy nie zeskanowany.** Kody przypisane nie wygasają; żeby je usunąć, trzeba je najpierw unieważnić.
 - **Slug narzędzia `qr-generator` zostaje,** żeby nikt nie stracił włączonego narzędzia.
+- **Każdy wydruk zapamiętuje swój układ** (`qr_print_batches.label_config`, format, szablon), a kod pamięta ostatni wydruk (`qr_codes.last_print_batch_id`). „Wydrukuj etykietę” bierze układ: ostatni wydruk kodu → domyślny szablon typu obiektu → domyślny szablon organizacji, i otwiera projektant z nim. Na etykiecie zapisane są pola, nie tekst — wartości są z aktualnych danych.
 - **Dodruk etykiet istniejących kodów:** przy samym obiekcie (lokalizacja, kontener, zgłoszenie, zadanie) oraz zbiorczo w tabeli Organizacja → Kody QR. Generator etykiet nie zajmuje się dodrukiem.
 - Uprawnienia bez zmian: `qr.read`, `qr.create`, `qr.assign`, `qr.export`, `qr.revoke`.
 

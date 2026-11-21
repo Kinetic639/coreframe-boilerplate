@@ -1,6 +1,10 @@
 -- QR codes registry (docs/QR_LABELS_PLAN.md, phase Q1)
 --
--- * Print batches: every label print run that creates codes is one batch.
+-- * Print batches: every label print run is one row -- new blank labels and
+--   reprints alike -- with a full copy of the layout used (label_config,
+--   format, template). qr_codes.batch_id is the run that created the code;
+--   qr_codes.last_print_batch_id the latest run that printed it, so
+--   "print label again" can reuse exactly the same layout.
 -- * Scan tracking: last_scanned_at + scan_count, written only by the server
 --   (service role) through qr_record_scan().
 -- * Expiry: a code that was never assigned and never scanned expires after
@@ -16,7 +20,12 @@ CREATE TABLE IF NOT EXISTS public.qr_print_batches (
   id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id  UUID        NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   name             TEXT        NULL CHECK (name IS NULL OR char_length(name) <= 120),
+  kind             TEXT        NOT NULL DEFAULT 'new' CHECK (kind IN ('new', 'reprint')),
   quantity         INTEGER     NOT NULL CHECK (quantity BETWEEN 1 AND 1000),
+  format           TEXT        NOT NULL DEFAULT 'pdf' CHECK (format IN ('pdf', 'zpl')),
+  -- Snapshot of the LabelConfig used (src/lib/qr/label-config.ts), whether
+  -- it came from a template or was set up by hand for this print.
+  label_config     JSONB       NULL,
   template_id      UUID        NULL,
   created_by       UUID        NULL REFERENCES public.users(id),
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -40,6 +49,7 @@ CREATE POLICY qrpb_insert ON public.qr_print_batches
 -- ── 2. qr_codes: batch, scans, expiry ────────────────────────────────────
 ALTER TABLE public.qr_codes
   ADD COLUMN IF NOT EXISTS batch_id        UUID        NULL REFERENCES public.qr_print_batches(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS last_print_batch_id UUID    NULL REFERENCES public.qr_print_batches(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS last_scanned_at TIMESTAMPTZ NULL,
   ADD COLUMN IF NOT EXISTS scan_count      INTEGER     NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS expired_at      TIMESTAMPTZ NULL,

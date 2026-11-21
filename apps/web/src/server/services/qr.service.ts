@@ -50,6 +50,8 @@ export interface QrCode {
   deleted_at: string | null;
   /** Print run that created the code (null for codes made by an assignment). */
   batch_id?: string | null;
+  /** Latest print run of the code (its layout is reused for a reprint). */
+  last_print_batch_id?: string | null;
   last_scanned_at?: string | null;
   scan_count?: number;
   expired_at?: string | null;
