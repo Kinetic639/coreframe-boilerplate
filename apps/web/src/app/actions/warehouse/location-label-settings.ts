@@ -8,25 +8,6 @@ import { WarehouseLocationLabelSettingsService } from "@/server/services/warehou
 import { labelConfigSchema } from "@/lib/qr/label-config-schema";
 import type { LabelConfig } from "@/lib/qr/label-config";
 
-export async function getLocationLabelSettingsAction() {
-  try {
-    const context = await loadDashboardContextV2();
-    if (!context?.app.activeOrgId)
-      return { success: false as const, error: "No active organization" };
-
-    const supabase = await createClient();
-    const result = await WarehouseLocationLabelSettingsService.get(
-      supabase,
-      context.app.activeOrgId
-    );
-    if (!result.success) return result;
-
-    return { success: true as const, data: result.data?.label_config ?? null };
-  } catch {
-    return { success: false as const, error: "Unexpected error" };
-  }
-}
-
 export async function saveLocationLabelSettingsAction(rawInput: unknown) {
   try {
     const context = await loadDashboardContextV2();
@@ -44,7 +25,8 @@ export async function saveLocationLabelSettingsAction(rawInput: unknown) {
     const result = await WarehouseLocationLabelSettingsService.upsert(
       supabase,
       context.app.activeOrgId,
-      parsed.data as LabelConfig
+      parsed.data as LabelConfig,
+      context.user.user?.id ?? null
     );
     if (!result.success) return result;
 

@@ -10,7 +10,7 @@ import {
 } from "@/lib/constants/permissions";
 import { WarehouseLocationsService } from "@/server/services/warehouse-locations.service";
 import { QrAssignmentsService } from "@/server/services/qr.service";
-import { generateStyledQrPngDataUrl, buildQrScanUrl } from "@/lib/qr/generate";
+import { buildQrScanUrl } from "@/lib/qr/generate";
 import type { LabelConfig } from "@/lib/qr/label-config";
 import {
   PRIMARY_FIELD_KEY,
@@ -19,17 +19,15 @@ import {
   SCAN_URL_FIELD_KEY,
 } from "@/lib/qr/label-config";
 import { labelConfigSchema } from "@/lib/qr/label-config-schema";
-import { generateQrLabelsPdfWithConfig } from "@/server/qr/label-pdf";
-import type { QrLabelPdfItem } from "@/server/qr/label-pdf";
-import { generateZplLabels } from "@/lib/qr/zpl";
-import type { ZplLabelItem, ZplLabelSize } from "@/lib/qr/zpl";
-import { mapWithConcurrency } from "@/lib/utils/concurrency";
+import type { ZplLabelSize } from "@/lib/qr/zpl";
+import { renderQrLabels, labelsResponse } from "@/server/qr/render-labels";
+import type { RenderLabelItem } from "@/server/qr/render-labels";
+import { recordReprint, verifiedTemplateId } from "@/server/qr/record-print";
 import { eventService } from "@/server/services/event.service";
 
 export const dynamic = "force-dynamic";
 
 const MAX_IDS = 200;
-const QR_PREVIEW_CONCURRENCY = 8;
 
 const requestSchema = z.object({
   locationIds: z
@@ -39,6 +37,8 @@ const requestSchema = z.object({
   format: z.enum(["pdf", "zpl"]),
   labelConfig: labelConfigSchema,
   zplSize: z.enum(["50x30", "70x40"]).optional().default("50x30"),
+  /** Template the layout came from (recorded with the print). */
+  templateId: z.string().uuid().nullish(),
 });
 
 function jsonError(message: string, status: number) {
@@ -120,6 +120,7 @@ export async function POST(request: NextRequest) {
   // Resolve tokens — reuse existing assignments, auto-provision the rest.
   // qr_assignments doesn't store the token itself, so batch-fetch from qr_codes.
   const tokenById = new Map<string, string>();
+  const qrIdByLocation = new Map<string, string>();
   if (assignmentsResult.data.size > 0) {
     const { data: qrRows, error: qrErr } = await supabase
       .from("qr_codes")
@@ -132,6 +133,7 @@ export async function POST(request: NextRequest) {
     const tokenByQrId = new Map((qrRows ?? []).map((r) => [r.id as string, r.token as string]));
     for (const [locationId, assignment] of assignmentsResult.data) {
       tokenById.set(locationId, tokenByQrId.get(assignment.qr_code_id) ?? "");
+      qrIdByLocation.set(locationId, assignment.qr_code_id);
     }
   }
 
@@ -152,51 +154,17 @@ export async function POST(request: NextRequest) {
       );
     }
     tokenById.set(locationId, result.data.qr.token);
+    qrIdByLocation.set(locationId, result.data.qr.id);
   }
 
   try {
-    if (format === "pdf") {
-      const items: QrLabelPdfItem[] = await mapWithConcurrency(
-        uniqueIds,
-        QR_PREVIEW_CONCURRENCY,
-        async (locationId) => {
-          const location = locationById.get(locationId)!;
-          const token = tokenById.get(locationId) ?? "";
-          return {
-            qrCodeId: locationId,
-            token,
-            qrDataUrl: await generateStyledQrPngDataUrl(token, labelConfig.qrStyle),
-            primaryText: location.name,
-            fields: {
-              [PRIMARY_FIELD_KEY]: location.name,
-              [SECONDARY_FIELD_KEY]: location.code ?? "",
-              [TOKEN_FIELD_KEY]: token.slice(0, 10),
-              [SCAN_URL_FIELD_KEY]: token ? buildQrScanUrl(token) : "",
-            },
-          };
-        }
-      );
-
-      const buffer = await generateQrLabelsPdfWithConfig(items, labelConfig);
-
-      emitExportEvent(userId, orgId, uniqueIds, format, labelConfig.dimension);
-
-      return new Response(new Uint8Array(buffer), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": 'attachment; filename="location-labels.pdf"',
-          "Cache-Control": "no-store",
-        },
-      });
-    }
-
-    // format === "zpl"
-    const items: ZplLabelItem[] = uniqueIds.map((locationId) => {
+    const items: RenderLabelItem[] = uniqueIds.map((locationId) => {
       const location = locationById.get(locationId)!;
       const token = tokenById.get(locationId) ?? "";
       return {
+        id: locationId,
         token,
+        primaryText: location.name,
         fields: {
           [PRIMARY_FIELD_KEY]: location.name,
           [SECONDARY_FIELD_KEY]: location.code ?? "",
@@ -206,33 +174,19 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    const thermalBaseDimension =
-      zplSize === "50x30" ? { width: 50, height: 30 } : { width: 70, height: 40 };
-
-    const zpl = await generateZplLabels(items, zplSize as ZplLabelSize, {
-      ...labelConfig,
-      dimension: {
-        width:
-          labelConfig.orientation === "portrait"
-            ? thermalBaseDimension.height
-            : thermalBaseDimension.width,
-        height:
-          labelConfig.orientation === "portrait"
-            ? thermalBaseDimension.width
-            : thermalBaseDimension.height,
-      },
-    });
+    const rendered = await renderQrLabels(items, format, labelConfig, zplSize as ZplLabelSize);
 
     emitExportEvent(userId, orgId, uniqueIds, format, labelConfig.dimension);
-
-    return new Response(new TextEncoder().encode(zpl), {
-      status: 200,
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Content-Disposition": 'attachment; filename="location-labels.zpl"',
-        "Cache-Control": "no-store",
-      },
+    await recordReprint({
+      orgId,
+      userId,
+      qrCodeIds: [...qrIdByLocation.values()],
+      format,
+      labelConfig,
+      templateId: await verifiedTemplateId(supabase, orgId, parsed.data.templateId),
     });
+
+    return labelsResponse(rendered, "location-labels");
   } catch (err) {
     console.error("[POST /api/warehouse/locations/export-labels] Generation failed:", err);
     return jsonError("Export generation failed. Please try again.", 500);

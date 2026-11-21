@@ -209,7 +209,7 @@ export class QrCodesService {
       token: generateQrToken(),
       label: input.labelPrefix ? `${input.labelPrefix} ${i + 1}` : null,
       created_by: input.createdBy ?? null,
-      ...(input.batchId ? { batch_id: input.batchId } : {}),
+      ...(input.batchId ? { batch_id: input.batchId, last_print_batch_id: input.batchId } : {}),
     }));
     const { data, error } = await supabase.from("qr_codes").insert(rows).select("*");
     if (error) return { success: false, error: normalizeDbError(error) };

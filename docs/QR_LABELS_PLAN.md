@@ -7,12 +7,12 @@
 
 | Faza | Zakres                                             | Status                               |
 | ---- | -------------------------------------------------- | ------------------------------------ |
-| Q1   | Tabela kodów QR, skany, partie, wygasanie          | 🟡 PR otwarty, migracja do wdrożenia |
-| Q2   | Przypisywanie QR wszędzie bez ręcznego generowania | ⬜ do zrobienia                      |
-| Q3   | Generator etykiet QR: szablony + druk              | ⬜ do zrobienia                      |
+| Q1   | Tabela kodów QR, skany, partie, wygasanie          | ✅ wdrożone (#590), cron włączony    |
+| Q2   | Przypisywanie QR wszędzie bez ręcznego generowania | ✅ wdrożone (#590)                   |
+| Q3   | Generator etykiet QR: szablony + druk              | 🟡 PR otwarty, migracja do wdrożenia |
 | Q4   | Sprzątanie starego kodu                            | ⬜ do zrobienia                      |
 
-- [ ] **Q1** — tabela kodów QR, skany, partie, wygasanie (PR 1)
+- [x] **Q1** — tabela kodów QR, skany, partie, wygasanie (PR 1)
   - [x] Migracja: `qr_codes.batch_id`, `last_scanned_at`, `scan_count`, `expired_at`, `unused_since`; status `expired`; indeksy (`20261121140000_qr_codes_registry`)
   - [x] Migracja: tabele `qr_label_layouts` (niezmienne, hash) i `qr_print_batches` (org, layout, szablon, liczba, kto, kiedy) + RLS
   - [x] Ustawienie organizacji: wygasanie nieużytych kodów po X dniach (domyślnie 180, 0 = wyłączone)
@@ -28,7 +28,7 @@
   - [x] Testy (serwis, RPC skanu, wygasanie, akcje), i18n pl/en
   - [ ] Test ręczny na deployu
 
-- [ ] **Q2** — przypisywanie QR bez ręcznego generowania (PR 2)
+- [x] **Q2** — przypisywanie QR bez ręcznego generowania (PR 2)
   - [x] Wspólny komponent „Przypisz kod QR”: domyślnie tworzy i przypisuje, druga opcja „Zeskanuj naklejoną etykietę”
   - [x] Lokalizacje, zgłoszenia, zadania — na wspólny komponent (kontenery miały już jedno kliknięcie + skan; ich druk w Q4)
   - [x] Zgłoszenia i zadania: „Drukuj etykietę” w sekcji QR (dodruk przy obiekcie, jak w lokalizacjach)
@@ -38,23 +38,24 @@
   - [ ] Test ręczny na deployu
 
 - [ ] **Q3** — Generator etykiet QR: szablony + druk (PR 3)
-  - [ ] Migracja: tabela `qr_label_templates` (nazwa, `layout_id` → aktualny layout, domyślny, kontekst) + RLS; FK `qr_print_batches.template_id`
-  - [ ] Przeniesienie `warehouse_location_label_settings` do szablonu domyślnego dla lokalizacji
-  - [ ] Narzędzie „Generator etykiet QR” (slug `qr-generator` bez zmian, nowa nazwa i opis w `tools_catalog`)
-  - [ ] Lista szablonów: utwórz, edytuj w projektancie, duplikuj, usuń, ustaw domyślny
-  - [ ] Druk: wybór szablonu + liczba etykiet → tokeny tworzone przy wydruku jako jedna partia
-  - [ ] Każdy wydruk (nowy i dodruk) zapisuje layout w `qr_label_layouts` (lub znajduje istniejący po hashu) i rekord w `qr_print_batches`; `last_print_batch_id` na kodach
-  - [ ] Dodruk: „tak jak poprzednio” albo „według aktualnej wersji szablonu”
-  - [ ] „Wydrukuj etykietę” przy obiekcie i w tabeli: układ z ostatniego wydruku → szablon domyślny typu → szablon organizacji
-  - [ ] Ponowne generowanie tego samego wydruku używa tych samych kodów (bez nowych tokenów)
-  - [ ] Podgląd w projektancie na przykładowym tokenie, bez zapisu w bazie
-  - [ ] Dodruk z tabeli kodów i druk etykiet lokalizacji korzystają z szablonów
-  - [ ] Testy, i18n pl/en
+  - [x] Migracja `20261122090000_qr_label_templates`: tabela `qr_label_templates` (nazwa, typ obiektu, `layout_id`, domyślny) + RLS; FK `qr_print_batches.template_id`; `qr_label_layout_ensure()`; `qr_label_template_set_default()`
+  - [x] Przeniesienie `warehouse_location_label_settings` do szablonu domyślnego dla lokalizacji (ustawienia magazynu edytują teraz ten szablon)
+  - [x] Narzędzie „QR Label Generator” (slug `qr-generator` bez zmian, nowa nazwa i opis w `tools_catalog`)
+  - [x] Lista szablonów: utwórz, edytuj w projektancie, duplikuj, usuń, ustaw domyślny
+  - [x] Druk: wybór szablonu + liczba etykiet → tokeny tworzone przy wydruku jako jedna partia (`/api/qr/print`, maks. 500)
+  - [x] Każdy wydruk (nowy i dodruk) zapisuje layout w `qr_label_layouts` (lub znajduje istniejący po hashu) i rekord w `qr_print_batches`; `last_print_batch_id` na kodach
+  - [x] Dodruk: „Jak poprzednio” albo dowolny szablon (wybór nad projektantem)
+  - [x] „Wydrukuj etykietę” przy obiekcie i w tabeli: układ z ostatniego wydruku → szablon domyślny typu → szablon ogólny → układ wbudowany
+  - [x] Ponowne generowanie tego samego wydruku używa tych samych kodów (zakładka „Wydruki” → „Drukuj ponownie”)
+  - [x] Podgląd w projektancie na przykładowym tokenie, bez zapisu w bazie (tryb edytora szablonu)
+  - [x] Dodruk z tabeli kodów i druk etykiet lokalizacji korzystają z szablonów
+  - [x] Testy, i18n pl/en
   - [ ] Test ręczny na deployu
 
 - [ ] **Q4** — sprzątanie
   - [ ] Kontenery: druk przez wspólny projektant zamiast `/api/qr/labels`, usunięcie starego endpointu
-  - [ ] Usunięcie `QrWorkspace` z narzędzia i nieużywanych akcji
+  - [x] Usunięcie `QrWorkspace` z narzędzia (Q3)
+  - [ ] Usunięcie nieużywanych akcji (`create-batch` itp.)
   - [ ] Aktualizacja `apps/web/docs/QR_BARCODE_SYSTEM_PLAN.md`
 
 ## Stan obecny (2026-11-21)

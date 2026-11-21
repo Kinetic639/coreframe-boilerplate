@@ -268,6 +268,7 @@ export function TicketDetailClient({
                   qrCodeId={qrAssignment.qrCodeId}
                   name={qrAssignment.label ?? ticket.ticket_number}
                   className="w-full"
+                  targetType="helpdesk.ticket"
                 />
                 {canManage && (
                   <Button
