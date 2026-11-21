@@ -18,6 +18,7 @@ import {
   renderToBuffer,
 } from "@react-pdf/renderer";
 import type { LabelConfig } from "@/lib/qr/label-config";
+import { computeLabelLayout, FOOTER_FONT_RATIO, FOOTER_TEXT_EMS } from "@/lib/qr/label-layout";
 import {
   computeGrid,
   getEffectiveLabelDimension,
@@ -449,13 +450,18 @@ function getPdfDashArray(style: LabelConfig["edgeGuides"]["style"]) {
   return undefined;
 }
 
+/** Footer text size: a share of the strip, shrunk to fit the strip's width. */
+function footerFontSize(width: number, height: number) {
+  return Math.min(height * FOOTER_FONT_RATIO, width / FOOTER_TEXT_EMS);
+}
+
 function LabelFooterUrl({ widthPt, heightPt }: { widthPt: number; heightPt: number }) {
   return (
     <View style={{ width: widthPt, height: heightPt, justifyContent: "center" }}>
       <Text
         style={{
           fontFamily: ROBOTO,
-          fontSize: Math.max(4.3, heightPt * 0.46),
+          fontSize: footerFontSize(widthPt, heightPt),
           color: "#666666",
           textAlign: "center",
         }}
@@ -486,116 +492,22 @@ function LabelWatermarkLogo({ sizePt }: { sizePt: number }) {
 }
 
 function LabelCellV2({ item, config, cellWPt, cellHPt }: LabelCellV2Props) {
-  const contentInsetPt = mm(
-    config.innerPaddingMm + (config.showBorder ? config.outerPaddingMm : 0)
-  );
-  const gapPt = mm(1.5);
-  const innerW = Math.max(0, cellWPt - contentInsetPt * 2);
-  const innerH = Math.max(0, cellHPt - contentInsetPt * 2);
   const lines = getVisibleTextLines(item, config);
   const hasText = lines.length > 0;
-  const isStacked = config.orientation === "portrait";
   const textHeightPt = hasText ? estimatePdfTextHeight(lines) : 0;
   const borderInsetPt = mm(config.outerPaddingMm);
-  const footerEnabled = hasText && config.footer.show;
-  const footerHeightPt = footerEnabled ? Math.max(mm(1.8), cellHPt * 0.055) : 0;
-  const watermarkSizePt = footerEnabled ? Math.max(mm(3.2), Math.min(innerW, innerH) * 0.145) : 0;
-  const footerGapPt = footerEnabled ? mm(0.8) : 0;
-  const textExtraPt = footerEnabled ? footerHeightPt + watermarkSizePt + footerGapPt * 2 : 0;
-
-  const qrSizePt = hasText
-    ? isStacked
-      ? Math.max(
-          0,
-          Math.min(innerH - textHeightPt - gapPt - textExtraPt, innerW * config.qrHeightRatio)
-        )
-      : Math.max(0, Math.min(innerW, innerH * config.qrHeightRatio))
-    : Math.max(
-        0,
-        isStacked
-          ? Math.min(innerH, innerW * config.qrHeightRatio)
-          : Math.min(innerW, innerH * config.qrHeightRatio)
-      );
-
-  const textRegionHeightPt = isStacked ? textHeightPt : Math.max(0, innerH - textExtraPt);
-
-  const textAreaWidthPt = isStacked ? innerW : Math.max(0, innerW - qrSizePt - gapPt);
-  const textAreaXPt = isStacked
-    ? contentInsetPt
-    : config.textPosition === "left"
-      ? contentInsetPt
-      : contentInsetPt + qrSizePt + gapPt;
-  const textAreaYPt = isStacked
-    ? config.textPosition === "above"
-      ? contentInsetPt
-      : contentInsetPt + qrSizePt + gapPt
-    : contentInsetPt;
-  const footerXPt = textAreaXPt;
-  const footerYPt = textAreaYPt + textRegionHeightPt + footerGapPt + watermarkSizePt + footerGapPt;
-  const watermarkXPt = textAreaXPt + Math.max(0, textAreaWidthPt - watermarkSizePt);
-  const watermarkYPt = textAreaYPt + textRegionHeightPt + footerGapPt;
-
-  const textBlock = hasText ? (
-    <View
-      style={{
-        flex: isStacked ? 0 : 1,
-        width: isStacked ? "100%" : undefined,
-        height: textRegionHeightPt,
-        justifyContent:
-          config.textVerticalAlign === "start"
-            ? "flex-start"
-            : config.textVerticalAlign === "end"
-              ? "flex-end"
-              : "center",
-      }}
-    >
-      {lines.map((line, index) => (
-        <Text
-          key={line.key}
-          style={{
-            fontFamily: ROBOTO,
-            fontSize: line.size,
-            fontWeight: line.weight,
-            color: line.color,
-            textAlign: line.align,
-            marginBottom: index === lines.length - 1 ? 0 : line.marginBottom,
-          }}
-        >
-          {line.text}
-        </Text>
-      ))}
-    </View>
-  ) : null;
-
-  const qrBlock = (
-    <View
-      style={{
-        width: qrSizePt,
-        height: qrSizePt,
-        alignSelf: "center",
-      }}
-    >
-      <QrWithLogo
-        dataUrl={item.qrDataUrl}
-        size={qrSizePt}
-        includeLogo={config.includeLogo}
-        logoBackgroundStyle={config.logoBackgroundStyle}
-      />
-    </View>
-  );
+  const ptPerMm = mm(1);
+  const layout = computeLabelLayout(config, {
+    width: cellWPt / ptPerMm,
+    height: cellHPt / ptPerMm,
+    textHeight: textHeightPt / ptPerMm,
+    hasText,
+    watermark: true,
+  });
+  const qr = { x: mm(layout.qr.x), y: mm(layout.qr.y), size: mm(layout.qr.size) };
 
   return (
-    <View
-      style={{
-        width: cellWPt,
-        height: cellHPt,
-        flexDirection: isStacked ? "column" : "row",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: contentInsetPt,
-        overflow: "hidden",
-      }}
-    >
+    <View style={{ width: cellWPt, height: cellHPt, overflow: "hidden" }}>
       {config.showBorder ? (
         <View
           style={{
@@ -610,46 +522,74 @@ function LabelCellV2({ item, config, cellWPt, cellHPt }: LabelCellV2Props) {
           }}
         />
       ) : null}
-      {isStacked ? (
-        <>
-          {config.textPosition === "above" ? textBlock : qrBlock}
-          {hasText ? <View style={{ width: 0, height: gapPt }} /> : null}
-          {config.textPosition === "above" ? qrBlock : textBlock}
-        </>
-      ) : (
-        <>
-          {config.textPosition === "left" ? textBlock : qrBlock}
-          {hasText ? <View style={{ width: gapPt, height: 0 }} /> : null}
-          {config.textPosition === "left" ? qrBlock : textBlock}
-        </>
-      )}
-      {config.footer.show ? (
-        footerEnabled ? (
-          <>
-            <View
+      <View
+        style={{ position: "absolute", left: qr.x, top: qr.y, width: qr.size, height: qr.size }}
+      >
+        <QrWithLogo
+          dataUrl={item.qrDataUrl}
+          size={qr.size}
+          includeLogo={config.includeLogo}
+          logoBackgroundStyle={config.logoBackgroundStyle}
+        />
+      </View>
+      {layout.text ? (
+        <View
+          style={{
+            position: "absolute",
+            left: mm(layout.text.x),
+            top: mm(layout.text.y),
+            width: mm(layout.text.w),
+            height: mm(layout.text.h),
+            justifyContent:
+              config.textVerticalAlign === "start"
+                ? "flex-start"
+                : config.textVerticalAlign === "end"
+                  ? "flex-end"
+                  : "center",
+          }}
+        >
+          {lines.map((line, index) => (
+            <Text
+              key={line.key}
               style={{
-                position: "absolute",
-                left: watermarkXPt,
-                top: watermarkYPt,
-                width: watermarkSizePt,
-                height: watermarkSizePt,
+                fontFamily: ROBOTO,
+                fontSize: line.size,
+                fontWeight: line.weight,
+                color: line.color,
+                textAlign: line.align,
+                marginBottom: index === lines.length - 1 ? 0 : line.marginBottom,
               }}
             >
-              <LabelWatermarkLogo sizePt={watermarkSizePt} />
-            </View>
-            <View
-              style={{
-                position: "absolute",
-                left: footerXPt,
-                top: footerYPt,
-                width: textAreaWidthPt,
-                height: footerHeightPt,
-              }}
-            >
-              <LabelFooterUrl widthPt={textAreaWidthPt} heightPt={footerHeightPt} />
-            </View>
-          </>
-        ) : null
+              {line.text}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+      {layout.watermark ? (
+        <View
+          style={{
+            position: "absolute",
+            left: mm(layout.watermark.x),
+            top: mm(layout.watermark.y),
+            width: mm(layout.watermark.size),
+            height: mm(layout.watermark.size),
+          }}
+        >
+          <LabelWatermarkLogo sizePt={mm(layout.watermark.size)} />
+        </View>
+      ) : null}
+      {layout.footer ? (
+        <View
+          style={{
+            position: "absolute",
+            left: mm(layout.footer.x),
+            top: mm(layout.footer.y),
+            width: mm(layout.footer.w),
+            height: mm(layout.footer.h),
+          }}
+        >
+          <LabelFooterUrl widthPt={mm(layout.footer.w)} heightPt={mm(layout.footer.h)} />
+        </View>
       ) : null}
     </View>
   );

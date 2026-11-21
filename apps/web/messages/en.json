@@ -2113,7 +2113,14 @@
             "dashed": "Dashed"
           },
           "edgeGuideOpacity": "Line opacity",
-          "edgeGuideColor": "Line color"
+          "edgeGuideColor": "Line color",
+          "footerSize": "Footer size",
+          "footerSizeOptions": {
+            "small": "Small",
+            "medium": "Medium",
+            "large": "Large"
+          },
+          "footerHint": "The footer has its own space at the bottom of the text area: under the text column in landscape, at the bottom of the label in portrait."
         },
         "qr": {
           "qrSize": "QR size",
@@ -2148,6 +2155,20 @@
             "brand": "Brand",
             "circle": "Circle",
             "square": "Square"
+          },
+          "alignHorizontal": "QR code position across",
+          "alignVertical": "QR code position up/down",
+          "alignOptions": {
+            "horizontal": {
+              "start": "Left",
+              "center": "Centre",
+              "end": "Right"
+            },
+            "vertical": {
+              "start": "Top",
+              "center": "Centre",
+              "end": "Bottom"
+            }
           }
         },
         "text": {
@@ -2225,6 +2246,20 @@
           "previewReady": "Preview ready for {count} label(s).",
           "exported": "Exported {count} label(s).",
           "exportFailed": "Export failed. Please try again."
+        },
+        "zplPrint": {
+          "title": "Zebra printer settings",
+          "hint": "Slower printing and higher darkness give a solid black QR code. If the code comes out greyish, slow down to 2 ips and raise the darkness.",
+          "speed": "Print speed",
+          "speedValue": "{speed} ips",
+          "darkness": "Darkness (0–30)",
+          "darknessPrinter": "Printer setting",
+          "media": "Print mode",
+          "mediaOptions": {
+            "printer": "Printer setting",
+            "transfer": "Ribbon",
+            "direct": "Direct thermal"
+          }
         }
       },
       "assign": {
@@ -2330,6 +2365,21 @@
           "again": "Print again",
           "unnamed": "Untitled"
         }
+      },
+      "zplPreview": {
+        "title": "ZPL file preview",
+        "generating": "Generating ZPL labels...",
+        "download": "Download .zpl",
+        "rotate": "Rotate",
+        "summary": "{count, plural, one {1 label} other {# labels}} · {width} × {height} mm",
+        "rollHint": "This is how the label comes off the printer: width across the print head. Portrait labels are turned 90°; use Rotate to read them.",
+        "rotatedHint": "Rotated for reading. The printer prints the label unrotated.",
+        "partial": "The file has text or barcodes written as ZPL commands. The preview shows graphics only.",
+        "empty": "No labels with graphics found in the file.",
+        "more": "Showing the first 60 labels; {count} more.",
+        "open": "Preview ZPL file",
+        "openHint": "Open a .zpl file from disk and see what the printer will print.",
+        "readError": "Could not read the file."
       }
     },
     "warehouse": {
