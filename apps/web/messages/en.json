@@ -1981,13 +1981,6 @@
           "unusedDays": "{days} days",
           "batch": "Print batch"
         },
-        "generate": {
-          "prefixLabel": "Label prefix",
-          "prefixPlaceholder": "e.g. Shelf, Bin, Batch",
-          "countLabel": "Count",
-          "submit": "Generate QR codes",
-          "generating": "Generating..."
-        },
         "selection": {
           "title": "QR code list",
           "description": "Choose the QR codes you want to design and export.",
@@ -2022,7 +2015,6 @@
           "confirm": "Revoke"
         },
         "toasts": {
-          "created": "Created {count} QR code(s).",
           "revoked": "QR code revoked."
         },
         "detail": {
@@ -2945,10 +2937,8 @@
           "generate": "Generate QR code",
           "generating": "Generating…",
           "print": "Print label",
-          "printing": "Preparing label…",
           "generated": "QR code generated and assigned.",
           "error": "Could not generate the QR code.",
-          "printError": "Could not prepare the label.",
           "noPermission": "You don't have permission to assign QR codes.",
           "scan": "Scan QR sticker",
           "scanTitle": "Assign a QR sticker to the container",

@@ -5,12 +5,12 @@
 
 ## Progress
 
-| Faza | Zakres                                             | Status                               |
-| ---- | -------------------------------------------------- | ------------------------------------ |
-| Q1   | Tabela kodów QR, skany, partie, wygasanie          | ✅ wdrożone (#590), cron włączony    |
-| Q2   | Przypisywanie QR wszędzie bez ręcznego generowania | ✅ wdrożone (#590)                   |
-| Q3   | Generator etykiet QR: szablony + druk              | 🟡 PR otwarty, migracja do wdrożenia |
-| Q4   | Sprzątanie starego kodu                            | ⬜ do zrobienia                      |
+| Faza | Zakres                                             | Status                            |
+| ---- | -------------------------------------------------- | --------------------------------- |
+| Q1   | Tabela kodów QR, skany, partie, wygasanie          | ✅ wdrożone (#590), cron włączony |
+| Q2   | Przypisywanie QR wszędzie bez ręcznego generowania | ✅ wdrożone (#590)                |
+| Q3   | Generator etykiet QR: szablony + druk              | ✅ wdrożone (#591)                |
+| Q4   | Sprzątanie starego kodu                            | 🟡 PR otwarty                     |
 
 - [x] **Q1** — tabela kodów QR, skany, partie, wygasanie (PR 1)
   - [x] Migracja: `qr_codes.batch_id`, `last_scanned_at`, `scan_count`, `expired_at`, `unused_since`; status `expired`; indeksy (`20261121140000_qr_codes_registry`)
@@ -37,7 +37,7 @@
   - [x] Testy, i18n pl/en
   - [ ] Test ręczny na deployu
 
-- [ ] **Q3** — Generator etykiet QR: szablony + druk (PR 3)
+- [x] **Q3** — Generator etykiet QR: szablony + druk (PR 3)
   - [x] Migracja `20261122090000_qr_label_templates`: tabela `qr_label_templates` (nazwa, typ obiektu, `layout_id`, domyślny) + RLS; FK `qr_print_batches.template_id`; `qr_label_layout_ensure()`; `qr_label_template_set_default()`
   - [x] Przeniesienie `warehouse_location_label_settings` do szablonu domyślnego dla lokalizacji (ustawienia magazynu edytują teraz ten szablon)
   - [x] Narzędzie „QR Label Generator” (slug `qr-generator` bez zmian, nowa nazwa i opis w `tools_catalog`)
@@ -52,13 +52,13 @@
   - [x] Testy, i18n pl/en
   - [ ] Test ręczny na deployu
 
-- [ ] **Q4** — sprzątanie
-  - [ ] Kontenery: druk przez wspólny projektant zamiast `/api/qr/labels`, usunięcie starego endpointu
+- [ ] **Q4** — sprzątanie (PR 4)
+  - [x] Kontenery: druk przez wspólny projektant (z szablonami dla kontenerów) zamiast `/api/qr/labels`, usunięcie starego endpointu
   - [x] Usunięcie `QrWorkspace` z narzędzia (Q3)
-  - [ ] Usunięcie nieużywanych akcji (`create-batch` itp.)
-  - [ ] Aktualizacja `apps/web/docs/QR_BARCODE_SYSTEM_PLAN.md`
+  - [x] Usunięcie formularza „Generuj N tokenów”, akcji `create-batch` i nieużywanych tłumaczeń
+  - [x] Aktualizacja `apps/web/docs/QR_BARCODE_SYSTEM_PLAN.md` (nota o aktualnym stanie)
 
-## Stan obecny (2026-11-21)
+## Stan wyjściowy (przed Q1, 2026-11-21)
 
 - Narzędzie `qr-generator` (katalog narzędzi, włączane per użytkownik) i strona `/dashboard/kody-qr` (poza sidebarem) pokazują ten sam `QrWorkspace`: formularz „generuj N tokenów” (maks. 50, osobny insert na token), lista, zaznaczenie, zakładka „Projekt” z `LabelDesigner`, eksport `/api/qr/export` (PDF/ZPL, maks. 200).
 - Tokeny tworzą się już automatycznie w wielu miejscach: druk etykiet lokalizacji (`/api/warehouse/locations/export-labels`), kontenery, zgłoszenia (`createAndAssign`), pole `QrCodeStagingField` w formularzach zgłoszeń i zadań.

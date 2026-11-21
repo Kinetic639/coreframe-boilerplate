@@ -43,6 +43,24 @@ vi.mock("@/components/features/qr/qr-camera-scanner", () => ({
     </button>
   ),
 }));
+// The shared print dialog (label designer + templates) is covered elsewhere;
+// here it only shows what it was opened with.
+vi.mock("@/components/features/qr/qr-print-label-dialog", () => ({
+  QrPrintLabelDialog: (props: {
+    open: boolean;
+    qrCodeId: string;
+    name: string;
+    targetType: string;
+  }) =>
+    props.open ? (
+      <div
+        data-testid="print-dialog"
+        data-qr={props.qrCodeId}
+        data-name={props.name}
+        data-type={props.targetType}
+      />
+    ) : null,
+}));
 vi.mock("@/app/actions/shared/changeBranch", () => ({
   changeBranch: (...args: unknown[]) => h.changeBranch(...args),
 }));
@@ -117,17 +135,7 @@ describe("ContainerQrCard", () => {
     expect(screen.getByText("noPermission")).toBeInTheDocument();
   });
 
-  it("with an assigned QR, prints its label through the QR label route", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      blob: () => Promise.resolve(new Blob(["%PDF"])),
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    const openMock = vi.fn();
-    vi.stubGlobal("open", openMock);
-    URL.createObjectURL = vi.fn(() => "blob:label");
-    URL.revokeObjectURL = vi.fn();
-
+  it("with an assigned QR, opens the shared label designer for the container", () => {
     render(
       <ContainerQrCard
         containerId={CONTAINER_ID}
@@ -138,19 +146,13 @@ describe("ContainerQrCard", () => {
       />
     );
     expect(screen.getByTestId("container-qr-assigned")).toBeInTheDocument();
+    expect(screen.queryByTestId("print-dialog")).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("container-qr-print"));
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/qr/labels",
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify({ qrCodeIds: ["qr-1"], labelSize: "70x40" }),
-        })
-      )
-    );
-    await waitFor(() => expect(openMock).toHaveBeenCalledWith("blob:label", "_blank", "noopener"));
-    vi.unstubAllGlobals();
+    const dialog = screen.getByTestId("print-dialog");
+    expect(dialog).toHaveAttribute("data-qr", "qr-1");
+    expect(dialog).toHaveAttribute("data-name", "K-184213-01");
+    expect(dialog).toHaveAttribute("data-type", "inventory.container");
   });
 });
 
