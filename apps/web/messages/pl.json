@@ -2068,7 +2068,14 @@
             "dashed": "Przerywana"
           },
           "edgeGuideOpacity": "Przezroczystość linii",
-          "edgeGuideColor": "Kolor linii"
+          "edgeGuideColor": "Kolor linii",
+          "footerSize": "Rozmiar stopki",
+          "footerSizeOptions": {
+            "small": "Mała",
+            "medium": "Średnia",
+            "large": "Duża"
+          },
+          "footerHint": "Stopka ma stałe miejsce na dole strefy tekstu: w poziomie pod kolumną tekstu, w pionie na dole etykiety."
         },
         "qr": {
           "qrSize": "Rozmiar QR",
@@ -2103,6 +2110,20 @@
             "brand": "Brand",
             "circle": "Koło",
             "square": "Kwadrat"
+          },
+          "alignHorizontal": "Położenie kodu QR w poziomie",
+          "alignVertical": "Położenie kodu QR w pionie",
+          "alignOptions": {
+            "horizontal": {
+              "start": "Do lewej",
+              "center": "Na środku",
+              "end": "Do prawej"
+            },
+            "vertical": {
+              "start": "Do góry",
+              "center": "Na środku",
+              "end": "Do dołu"
+            }
           }
         },
         "text": {

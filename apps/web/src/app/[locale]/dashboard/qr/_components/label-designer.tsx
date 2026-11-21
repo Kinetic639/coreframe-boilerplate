@@ -59,6 +59,8 @@ import {
   GRID_MARGIN_MM,
   zplPrintSettings,
   type ZplPrintSettings,
+  type QrAlign,
+  type LabelFooterSize,
   type ZplPrintSpeed,
   type ZplMediaType,
 } from "@/lib/qr/label-config";
@@ -78,6 +80,7 @@ import type {
 } from "@/lib/qr/label-config";
 import { QrPdfPreviewDialog } from "@/app/[locale]/dashboard/qr/_components/qr-pdf-preview-dialog";
 import { ZplPreviewDialog } from "@/components/features/qr/zpl-preview-dialog";
+import { computeLabelLayout, FOOTER_FONT_RATIO, FOOTER_TEXT_EMS } from "@/lib/qr/label-layout";
 
 // ---------------------------------------------------------------------------
 // SVG preview helpers
@@ -114,6 +117,8 @@ const QR_CORNER_DOT_OPTIONS: readonly QrCornerDotStyle[] = [
   "extra-rounded",
 ];
 const EDGE_LINE_STYLE_OPTIONS: readonly EdgeLineStyle[] = ["solid", "dotted", "dashed"];
+const QR_ALIGN_OPTIONS: readonly QrAlign[] = ["start", "center", "end"];
+const FOOTER_SIZE_OPTIONS: readonly LabelFooterSize[] = ["small", "medium", "large"];
 const TEXT_ALIGN_ICONS: Record<TextAlign, typeof AlignLeft> = {
   left: AlignLeft,
   center: AlignCenter,
@@ -199,8 +204,9 @@ function renderFooterPreview(
       {layout.footerH > 0 ? (
         <text
           x={layout.footerX + layout.footerW / 2}
-          y={layout.footerY + layout.footerH * 0.7}
-          fontSize={Math.max(3.7, layout.footerH * 0.46)}
+          y={layout.footerY + layout.footerH / 2}
+          dominantBaseline="central"
+          fontSize={Math.min(layout.footerH * FOOTER_FONT_RATIO, layout.footerW / FOOTER_TEXT_EMS)}
           textAnchor="middle"
           fill="#64748b"
         >
@@ -228,7 +234,7 @@ function getPreviewLayout(
   config: LabelConfig,
   cellW: number,
   cellH: number,
-  pad: number,
+  _pad: number,
   scale: number,
   showWatermark: boolean
 ): {
@@ -247,102 +253,30 @@ function getPreviewLayout(
   watermarkY: number;
   watermarkSize: number;
 } {
-  const innerW = Math.max(0, cellW - pad * 2);
-  const innerH = Math.max(0, cellH - pad * 2);
-  const gap = Math.max(1, Math.min(innerW, innerH) * 0.08);
-  const showText = hasVisibleText(config);
-  const footerEnabled = showText && config.footer.show;
-  const footerH = footerEnabled ? Math.max(5, cellH * 0.055) : 0;
-  const watermarkSize =
-    footerEnabled && showWatermark ? Math.max(9, Math.min(innerW, innerH) * 0.145) : 0;
-  const footerGap = footerEnabled ? Math.max(0.8, scale * 0.7) : 0;
-
-  if (!showText) {
-    const qrSize = Math.max(
-      0,
-      config.orientation === "portrait"
-        ? Math.min(innerH, innerW * config.qrHeightRatio)
-        : Math.min(innerW, innerH * config.qrHeightRatio)
-    );
-    const qrX = pad + (innerW - qrSize) / 2;
-    const qrY = pad + Math.max(0, (innerH - qrSize) / 2);
-    return {
-      qrX,
-      qrY,
-      qrSize,
-      textX: pad,
-      textY: pad,
-      textW: 0,
-      textH: 0,
-      footerX: 0,
-      footerY: 0,
-      footerW: 0,
-      footerH: 0,
-      watermarkX: 0,
-      watermarkY: 0,
-      watermarkSize: 0,
-    };
-  }
-
-  if (config.orientation === "portrait") {
-    const textContentH = estimatePreviewTextHeight(config, scale);
-    const textSectionH =
-      textContentH +
-      (footerEnabled
-        ? footerH + footerGap + (watermarkSize > 0 ? watermarkSize + footerGap : 0)
-        : 0);
-    const qrBudget = Math.max(0, innerH - textSectionH - gap);
-    const qrSize = Math.max(0, Math.min(qrBudget, innerW * config.qrHeightRatio));
-    const qrSectionH = qrSize;
-    const textY = config.textPosition === "above" ? pad : pad + qrSectionH + gap;
-    const qrY = config.textPosition === "above" ? pad + textSectionH + gap : pad;
-    return {
-      qrX: pad + (innerW - qrSize) / 2,
-      qrY,
-      qrSize,
-      textX: pad,
-      textY,
-      textW: innerW,
-      textH: textContentH,
-      footerX: pad,
-      footerY:
-        textY + textContentH + footerGap + watermarkSize + (watermarkSize > 0 ? footerGap : 0),
-      footerW: innerW,
-      footerH,
-      watermarkX: pad + innerW - watermarkSize,
-      watermarkY: textY + textContentH + footerGap,
-      watermarkSize,
-    };
-  }
-
-  const textRegionH = Math.max(
-    0,
-    innerH -
-      (footerEnabled
-        ? footerH + footerGap + (watermarkSize > 0 ? watermarkSize + footerGap : 0)
-        : 0)
-  );
-  const qrSize = Math.max(0, Math.min(innerW, innerH * config.qrHeightRatio));
-  const textW = Math.max(0, innerW - qrSize - gap);
-  const qrX = config.textPosition === "left" ? pad + textW + gap : pad;
-  const textX = config.textPosition === "left" ? pad : pad + qrSize + gap;
-  const qrY = pad + Math.max(0, (innerH - qrSize) / 2);
-
+  // Same layout as the PDF and ZPL output, scaled from millimetres to preview pixels.
+  const layout = computeLabelLayout(config, {
+    width: cellW / scale,
+    height: cellH / scale,
+    textHeight: hasVisibleText(config) ? estimatePreviewTextHeight(config, scale) / scale : 0,
+    hasText: hasVisibleText(config),
+    watermark: showWatermark,
+  });
+  const px = (value: number) => value * scale;
   return {
-    qrX,
-    qrY,
-    qrSize,
-    textX,
-    textY: pad,
-    textW,
-    textH: textRegionH,
-    footerX: textX,
-    footerY: pad + textRegionH + footerGap + watermarkSize + (watermarkSize > 0 ? footerGap : 0),
-    footerW: textW,
-    footerH,
-    watermarkX: textX + Math.max(0, textW - watermarkSize),
-    watermarkY: pad + textRegionH + footerGap,
-    watermarkSize,
+    qrX: px(layout.qr.x),
+    qrY: px(layout.qr.y),
+    qrSize: px(layout.qr.size),
+    textX: px(layout.text?.x ?? 0),
+    textY: px(layout.text?.y ?? 0),
+    textW: px(layout.text?.w ?? 0),
+    textH: px(layout.text?.h ?? 0),
+    footerX: px(layout.footer?.x ?? 0),
+    footerY: px(layout.footer?.y ?? 0),
+    footerW: px(layout.footer?.w ?? 0),
+    footerH: px(layout.footer?.h ?? 0),
+    watermarkX: px(layout.watermark?.x ?? 0),
+    watermarkY: px(layout.watermark?.y ?? 0),
+    watermarkSize: px(layout.watermark?.size ?? 0),
   };
 }
 
@@ -1698,6 +1632,37 @@ export function LabelDesigner({
                           }
                         />
                       </div>
+                      {activeConfig.footer.show ? (
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">
+                            {t("layout.footerSize")}
+                          </Label>
+                          <div className="grid grid-cols-3 gap-1">
+                            {FOOTER_SIZE_OPTIONS.map((size) => (
+                              <Button
+                                key={size}
+                                type="button"
+                                size="sm"
+                                variant={
+                                  (activeConfig.footer.size ?? "small") === size
+                                    ? "default"
+                                    : "outline"
+                                }
+                                className="h-8 text-xs"
+                                onClick={() =>
+                                  updateDraftConfig((prev) => ({
+                                    ...prev,
+                                    footer: { ...prev.footer, size },
+                                  }))
+                                }
+                              >
+                                {t(`layout.footerSizeOptions.${size}`)}
+                              </Button>
+                            ))}
+                          </div>
+                          <p className="text-xs text-muted-foreground">{t("layout.footerHint")}</p>
+                        </div>
+                      ) : null}
                     </div>
 
                     {format === "pdf" ? (
@@ -1834,6 +1799,34 @@ export function LabelDesigner({
                           value={[Math.round(activeConfig.qrHeightRatio * 100)]}
                           onValueChange={([v]) => set("qrHeightRatio", v / 100)}
                         />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">
+                          {t(
+                            activeConfig.orientation === "portrait"
+                              ? "qr.alignHorizontal"
+                              : "qr.alignVertical"
+                          )}
+                        </Label>
+                        <div className="grid grid-cols-3 gap-1">
+                          {QR_ALIGN_OPTIONS.map((align) => (
+                            <Button
+                              key={align}
+                              type="button"
+                              size="sm"
+                              variant={
+                                (activeConfig.qrAlign ?? "center") === align ? "default" : "outline"
+                              }
+                              className="h-8 text-xs"
+                              onClick={() => set("qrAlign", align)}
+                            >
+                              {t(
+                                `qr.alignOptions.${activeConfig.orientation === "portrait" ? "horizontal" : "vertical"}.${align}`
+                              )}
+                            </Button>
+                          ))}
+                        </div>
                       </div>
 
                       <div className="grid gap-4 lg:grid-cols-2">

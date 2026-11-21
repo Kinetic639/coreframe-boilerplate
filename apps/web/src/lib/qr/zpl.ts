@@ -3,6 +3,7 @@ import path from "path";
 import type { LabelConfig } from "@/lib/qr/label-config";
 import { applyCaseTransform, zplPrintSettings } from "@/lib/qr/label-config";
 import QRCode from "qrcode";
+import { computeLabelLayout, FOOTER_FONT_RATIO } from "@/lib/qr/label-layout";
 import { buildQrScanUrl } from "@/lib/qr/generate";
 
 /**
@@ -107,86 +108,28 @@ function getVisibleTextLines(item: ZplLabelItem, config: LabelConfig) {
 }
 
 function getLabelLayout(width: number, height: number, config: LabelConfig, item: ZplLabelItem) {
-  const pad = mm(config.innerPaddingMm + (config.showBorder ? config.outerPaddingMm : 0));
-  const gap = mm(2);
-  const innerW = Math.max(0, width - pad * 2);
-  const innerH = Math.max(0, height - pad * 2);
   const lines = getVisibleTextLines(item, config);
-  const showText = hasVisibleText(item, config);
-  const footerEnabled = showText && config.footer.show;
-  const footerH = footerEnabled ? Math.max(mm(1.8), height * 0.055) : 0;
-  const footerGap = footerEnabled ? mm(0.8) : 0;
-
-  if (!showText) {
-    const qrSize = Math.max(
-      0,
-      config.orientation === "portrait"
-        ? Math.min(innerH, innerW * config.qrHeightRatio)
-        : Math.min(innerW, innerH * config.qrHeightRatio)
-    );
-    return {
-      qrX: pad + (innerW - qrSize) / 2,
-      qrY: pad + Math.max(0, (innerH - qrSize) / 2),
-      qrSize,
-      textX: pad,
-      textY: pad,
-      textW: 0,
-      textH: 0,
-      lines,
-      footerX: 0,
-      footerY: 0,
-      footerW: 0,
-      footerH: 0,
-      footerGap,
-    };
-  }
-
-  if (config.textPosition === "above" || config.textPosition === "below") {
-    const textHeight = estimateTextHeight(lines) + gap;
-    const qrBudget = Math.max(0, innerH - textHeight - footerH - footerGap);
-    const qrSize = Math.max(0, Math.min(qrBudget, innerW * config.qrHeightRatio));
-    const textH = Math.max(0, textHeight - gap);
-    const textY = config.textPosition === "above" ? pad : pad + qrSize + gap;
-    const qrY = config.textPosition === "above" ? pad + textH + footerH + footerGap + gap : pad;
-
-    return {
-      qrX: pad + (innerW - qrSize) / 2,
-      qrY,
-      qrSize,
-      textX: pad,
-      textY,
-      textW: innerW,
-      textH,
-      lines,
-      footerX: pad,
-      footerY: textY + textH + footerGap,
-      footerW: innerW,
-      footerH,
-      footerGap,
-    };
-  }
-
-  const qrRegionH = innerH;
-  const textRegionH = Math.max(0, innerH - footerH - footerGap);
-  const qrSize = Math.max(0, Math.min(innerW, qrRegionH * config.qrHeightRatio));
-  const textW = Math.max(0, innerW - qrSize - gap);
-  const qrX = config.textPosition === "left" ? pad + textW + gap : pad;
-  const textX = config.textPosition === "left" ? pad : pad + qrSize + gap;
-
+  const layout = computeLabelLayout(config, {
+    width: width / DOTS_PER_MM,
+    height: height / DOTS_PER_MM,
+    textHeight: estimateTextHeight(lines) / DOTS_PER_MM,
+    hasText: hasVisibleText(item, config),
+    watermark: false,
+  });
+  const dots = (value: number) => value * DOTS_PER_MM;
   return {
-    qrX,
-    qrY: pad + Math.max(0, (qrRegionH - qrSize) / 2),
-    qrSize,
-    textX,
-    textY: pad,
-    textW,
-    textH: textRegionH,
+    qrX: dots(layout.qr.x),
+    qrY: dots(layout.qr.y),
+    qrSize: dots(layout.qr.size),
+    textX: dots(layout.text?.x ?? 0),
+    textY: dots(layout.text?.y ?? 0),
+    textW: dots(layout.text?.w ?? 0),
+    textH: dots(layout.text?.h ?? 0),
     lines,
-    footerX: textX,
-    footerY: pad + textRegionH + footerGap,
-    footerW: textW,
-    footerH,
-    footerGap,
+    footerX: dots(layout.footer?.x ?? 0),
+    footerY: dots(layout.footer?.y ?? 0),
+    footerW: dots(layout.footer?.w ?? 0),
+    footerH: dots(layout.footer?.h ?? 0),
   };
 }
 
@@ -198,10 +141,15 @@ function drawFooterUrl(
   height: number
 ) {
   ctx.save();
-  ctx.fillStyle = "#666666";
-  ctx.font = `${Math.max(9, Math.round(height * 0.46))}px ${LABEL_FONT_FAMILY}`;
-  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#000000";
   const text = "www.ambra-system.com";
+  let fontSize = Math.max(9, Math.round(height * FOOTER_FONT_RATIO));
+  ctx.font = `${fontSize}px ${LABEL_FONT_FAMILY}`;
+  while (fontSize > 9 && ctx.measureText(text).width > width) {
+    fontSize -= 1;
+    ctx.font = `${fontSize}px ${LABEL_FONT_FAMILY}`;
+  }
+  ctx.textBaseline = "middle";
   const measured = ctx.measureText(text).width;
   ctx.fillText(text, x + (width - measured) / 2, y + height / 2);
   ctx.restore();

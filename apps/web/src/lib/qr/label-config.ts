@@ -78,8 +78,14 @@ export interface EdgeGuideConfig {
   opacity: number;
 }
 
+export type LabelFooterSize = "small" | "medium" | "large";
+/** QR position across the label: left/centre/right when portrait, top/centre/bottom when landscape. */
+export type QrAlign = "start" | "center" | "end";
+
 export interface LabelFooterConfig {
   show: boolean;
+  /** Missing in layouts saved before it existed: "small". */
+  size?: LabelFooterSize;
 }
 
 export type ZplPrintSpeed = 2 | 3 | 4 | 5;
@@ -124,6 +130,8 @@ export interface LabelConfig {
   textLines: TextLineConfig[];
   edgeGuides: EdgeGuideConfig;
   footer: LabelFooterConfig;
+  /** Missing in layouts saved before it existed: "center". */
+  qrAlign?: QrAlign;
   /** ZPL only; missing in layouts saved before it existed. */
   zpl?: ZplPrintSettings;
 }
