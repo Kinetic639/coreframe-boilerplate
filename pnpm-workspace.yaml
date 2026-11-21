@@ -22,3 +22,6 @@ onlyBuiltDependencies:
 overrides:
   react: ^19.2.0
   react-dom: ^19.2.0
+
+patchedDependencies:
+  next@16.1.7: patches/next@16.1.7.patch

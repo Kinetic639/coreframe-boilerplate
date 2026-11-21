@@ -9,7 +9,7 @@ import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { assignQrToPlanningTaskAction } from "@/app/actions/planning";
 import { revokeQrAction } from "@/app/actions/qr/revoke";
-import { listQrCodesAction } from "@/app/actions/qr/list";
+import { appRead } from "@/lib/read";
 
 interface QrOption {
   id: string;
@@ -37,7 +37,7 @@ export function TaskQrSection({ taskId, canUpdate }: { taskId: string; canUpdate
   const [busy, setBusy] = useState(false);
 
   const openChooser = async () => {
-    const result = await listQrCodesAction();
+    const result = await appRead("qrCodes");
     if (result.success) {
       setOptions(
         result.data.map((code) => ({

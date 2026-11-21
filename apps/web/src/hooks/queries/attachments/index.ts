@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import { useCallback, useRef, useState } from "react";
-import { deleteAttachmentAction, listAttachmentsForTargetAction } from "@/app/actions/attachments";
+import { deleteAttachmentAction } from "@/app/actions/attachments";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import type { ListAttachmentsInput } from "@/lib/validations/attachments";
 import type { AppAttachment } from "@/server/services/attachments.service";
@@ -13,6 +13,7 @@ import {
   uploadAttachmentDirect,
   type AttachmentUploadProblem,
 } from "./direct-upload";
+import { appRead } from "@/lib/read";
 
 export { attachmentUploadProblem, type AttachmentUploadProblem } from "./direct-upload";
 
@@ -26,7 +27,7 @@ export function useAttachmentsQuery(input: ListAttachmentsInput, initialData?: A
   return useQuery({
     queryKey: attachmentsKeys.target(input.targetType, input.targetId),
     queryFn: async () => {
-      const result = await listAttachmentsForTargetAction(input);
+      const result = await appRead("attachments", input);
       if (!result.success) throw new Error((result as { success: false; error: string }).error);
       return result.data;
     },

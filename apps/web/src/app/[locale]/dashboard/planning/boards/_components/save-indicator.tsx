@@ -15,7 +15,7 @@ const SAVED_FOR_MS = 2000;
  * server has caught up.
  */
 export function SaveIndicator() {
-  const t = useTranslations("modules.planning.boards.save");
+  const t = useTranslations("modules.planning.boards.saveState");
   const saving = useIsMutating() > 0;
   const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
   const shown = useRef(false);

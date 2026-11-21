@@ -38,6 +38,10 @@ vi.mock("@/app/actions/notifications", () => ({
   setNotificationsReadAction: (input: unknown) => setReadMock(input),
   markAllNotificationsReadAction: () => markAllMock(),
 }));
+vi.mock("@/lib/read", () => ({
+  appRead: (name: string, input?: unknown) =>
+    name === "notifications" ? listMock(input) : countMock(),
+}));
 vi.mock("@/lib/stores/v2/app-store", () => ({
   useAppStoreV2: (selector: (s: { activeOrgId: string }) => unknown) =>
     selector({ activeOrgId: "o1" }),

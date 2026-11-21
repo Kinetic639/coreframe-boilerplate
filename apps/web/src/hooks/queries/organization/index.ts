@@ -17,7 +17,6 @@ import {
   updateMemberStatusAction,
   removeMemberAction,
 } from "@/app/actions/organization/members";
-import { listOrgMemberPublicProfilesAction } from "@/app/actions/organization/member-public-profiles";
 import {
   listInvitationsAction,
   createInvitationAction,
@@ -60,6 +59,7 @@ import type {
   UpdateOrgProfileInput,
 } from "@/server/services/organization.service";
 import type { OrgMemberPublicProfile } from "@/server/services/org-member-public-profile.service";
+import { appRead } from "@/lib/read";
 
 // ─── Discriminated result helper ──────────────────────────────────────────────
 // Narrowing happens inside the helper where `result` is typed as a parameter,
@@ -168,7 +168,7 @@ export function useOrgMemberPublicProfilesQuery(userIds: string[], enabled = tru
     queryKey: organizationKeys.memberPublicProfiles(uniqueUserIds),
     queryFn: async () =>
       unwrapSR(
-        (await listOrgMemberPublicProfilesAction({
+        (await appRead("memberProfiles", {
           userIds: uniqueUserIds,
         })) as SR<OrgMemberPublicProfile[]>
       ),

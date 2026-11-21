@@ -4,7 +4,6 @@ import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { extractMentions, type MentionItem } from "@repo/rich-text/mention-utils";
 import { normalizeRichText } from "@repo/rich-text/rich-text-utils";
-import { listMentionPeopleAction, resolveMentionsAction } from "@/app/actions/mentions";
 import {
   MENTION_OBJECT_TYPES,
   MENTION_PERSON,
@@ -12,6 +11,7 @@ import {
   mentionKey,
   type MentionPerson,
 } from "@/lib/mentions";
+import { appRead } from "@/lib/read";
 
 export const mentionsKeys = {
   people: (orgId: string) => ["mentions", "people", orgId] as const,
@@ -23,7 +23,7 @@ export function useMentionPeople(orgId: string | null | undefined) {
   return useQuery({
     queryKey: mentionsKeys.people(orgId ?? ""),
     queryFn: async (): Promise<MentionPerson[]> => {
-      const result = await listMentionPeopleAction();
+      const result = await appRead("mentionPeople");
       if (!result.success) throw new Error((result as { error: string }).error);
       return result.data;
     },
@@ -58,7 +58,7 @@ export function useMentionAccess(orgId: string | null | undefined, documents: re
         const [type, id] = key.split(":");
         return { type, id };
       });
-      const result = await resolveMentionsAction(refs);
+      const result = await appRead("resolveMentions", refs);
       if (!result.success) throw new Error((result as { error: string }).error);
       return new Set(result.data);
     },

@@ -99,7 +99,7 @@ describe("OrgMemberPublicProfileService", () => {
       ],
     });
     expect(mockStorageFrom).toHaveBeenCalledWith("user-avatars");
-    expect(mockCreateSignedUrl).toHaveBeenCalledWith(`${USER_ID}/avatar.png`, 3600);
+    expect(mockCreateSignedUrl).toHaveBeenCalledWith(`${USER_ID}/avatar.png`, 7200);
   });
 
   it("uses the member's own display name and public details", async () => {

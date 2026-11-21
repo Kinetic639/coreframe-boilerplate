@@ -78,7 +78,7 @@ import {
   type TaskDatesPayload,
 } from "./task-dates";
 import { LABEL_COLORS } from "./task-labels";
-import { attachmentImageSrc } from "@/lib/attachments/image-variants";
+import { attachmentImageSrc, retryAttachmentImage } from "@/lib/attachments/image-variants";
 import { taskEditorKeys, unwrapTaskResult } from "./task-editor-queries";
 import { checklistProgress } from "./task-checklist-progress";
 import type { TaskEditorPerson } from "./task-editor";
@@ -543,6 +543,7 @@ export function CoverPicker({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={attachmentImageSrc(file.id, "thumb")}
+                  onError={retryAttachmentImage}
                   alt={file.file_name}
                   loading="lazy"
                   decoding="async"

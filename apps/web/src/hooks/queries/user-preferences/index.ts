@@ -3,8 +3,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import {
-  getUserPreferencesAction,
-  getDashboardSettingsAction,
   updateProfileAction,
   updateRegionalSettingsAction,
   updateNotificationSettingsAction,
@@ -21,6 +19,7 @@ import type {
   NotificationSettings,
   SyncUiSettingsInput,
 } from "@/lib/types/user-preferences";
+import { appRead } from "@/lib/read";
 
 // Query key factory for consistent cache management
 export const userPreferencesKeys = {
@@ -39,7 +38,7 @@ export function usePreferencesQuery(enabled = true) {
   return useQuery({
     queryKey: userPreferencesKeys.preferences(),
     queryFn: async () => {
-      const result = await getUserPreferencesAction();
+      const result = await appRead("userPreferences");
       if (result.success === false) {
         throw new Error(result.error);
       }
@@ -63,7 +62,7 @@ export function useDashboardSettingsQuery(enabled = true) {
   return useQuery({
     queryKey: userPreferencesKeys.dashboardSettings(),
     queryFn: async () => {
-      const result = await getDashboardSettingsAction();
+      const result = await appRead("dashboardSettings");
       if (result.success === false) {
         throw new Error(result.error);
       }
