@@ -36,6 +36,13 @@ function writeDraft(key: string, value: RichTextValue | null) {
   }
 }
 
+/** True when the user has selected some text inside `element`. */
+function hasSelectionIn(element: HTMLElement): boolean {
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed || !selection.toString().trim()) return false;
+  return element.contains(selection.anchorNode) || element.contains(selection.focusNode);
+}
+
 function same(a: RichTextValue | null | undefined, b: RichTextValue | null | undefined) {
   const left = a && !isRichTextEmpty(a) ? JSON.stringify(a) : "";
   const right = b && !isRichTextEmpty(b) ? JSON.stringify(b) : "";
@@ -76,7 +83,7 @@ interface RichTextInlineFieldProps {
 
 /**
  * Text shown as text; a click on it (or Edit) turns it into the editor with
- * Save and Cancel. What is typed is kept as a draft in this browser while
+ * Save and Cancel. Selecting part of the text (to copy it) does not open it. What is typed is kept as a draft in this browser while
  * editing, so closing the window without saving loses nothing: the field then
  * shows an "Unsaved changes" badge and opening it again brings the draft back.
  * Cancel throws the draft away. Esc closes the editor and keeps the draft;
@@ -223,6 +230,7 @@ export function RichTextInlineField({
             mention={mention}
             maxLength={maxLength}
             autoFocus
+            stickyToolbar
             contentClassName={contentClassName}
           />
           <div className="flex items-center gap-2">
@@ -250,6 +258,8 @@ export function RichTextInlineField({
           onClick={(event) => {
             // Links and mentions in the text keep working.
             if ((event.target as HTMLElement).closest("a, button")) return;
+            // Selecting text (to copy it) ends with a click too: keep the text as it is.
+            if (hasSelectionIn(event.currentTarget)) return;
             open();
           }}
           onKeyDown={(event) => {

@@ -45,6 +45,7 @@ import { cn } from "@/utils";
 import { MemberAvatar } from "@/components/planning/member-avatar";
 import { DUE_STATE_CLASSES, columnName, dueState, priorityLabel } from "./board-format";
 import type { BoardActions } from "./use-board-actions";
+import { retryAttachmentImage } from "@/lib/attachments/image-variants";
 
 interface BoardCardProps {
   card: KanbanBoardCard;
@@ -120,6 +121,7 @@ export const BoardCard = memo(function BoardCard({
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={card.cover_url}
+          onError={retryAttachmentImage}
           alt=""
           className="h-32 w-full rounded-t-md object-cover"
           draggable={false}

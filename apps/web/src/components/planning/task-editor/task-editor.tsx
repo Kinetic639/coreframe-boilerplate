@@ -907,7 +907,8 @@ function TaskEditorBody({
         </>
       ) : (
         <>
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          {/* The editor toolbar sticks under the tab bar (its height: 2rem tabs, padding, border). */}
+          <div className="min-h-0 flex-1 overflow-y-auto [--rich-text-toolbar-top:calc(3.5rem+1px)]">
             {cover}
             {heading}
             <div className="sticky top-0 z-20 mt-3 border-b bg-background/95 px-4 py-2 backdrop-blur sm:px-6">

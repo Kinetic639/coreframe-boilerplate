@@ -249,6 +249,31 @@
         "typeNotAllowed": "Tego typu pliku nie można dodać.",
         "empty": "Plik jest pusty."
       }
+    },
+    "richText": {
+      "toolbar": {
+        "heading1": "Nagłówek 1",
+        "heading2": "Nagłówek 2",
+        "heading3": "Nagłówek 3",
+        "bold": "Pogrubienie",
+        "italic": "Kursywa",
+        "underline": "Podkreślenie",
+        "strikethrough": "Przekreślenie",
+        "code": "Kod",
+        "bulletList": "Lista punktowana",
+        "orderedList": "Lista numerowana",
+        "blockquote": "Cytat",
+        "horizontalRule": "Linia pozioma",
+        "link": "Wstaw link",
+        "linkPrompt": "Adres linku",
+        "alignLeft": "Wyrównaj do lewej",
+        "alignCenter": "Wyśrodkuj",
+        "alignRight": "Wyrównaj do prawej",
+        "justify": "Wyjustuj",
+        "clearFormatting": "Wyczyść formatowanie",
+        "undo": "Cofnij",
+        "redo": "Ponów"
+      }
     }
   },
   "admin": {
@@ -4694,6 +4719,10 @@
         "description": "Opis",
         "descriptionPlaceholder": "Do czego służy ta tablica?",
         "save": "Zapisz",
+        "saveState": {
+          "saving": "Zapisywanie…",
+          "saved": "Zapisano"
+        },
         "cancel": "Anuluj",
         "boardMenu": "Menu tablicy",
         "boardSettings": "Ustawienia tablicy",
@@ -4905,10 +4934,6 @@
           "branchNamed": "Oddział: widzą ją wszyscy w oddziale {branch}",
           "organization": "Organizacja: widzą ją wszyscy w organizacji",
           "plusPeople": "+ {count} {count, plural, one {osoba} few {osoby} many {osób} other {osoby}}"
-        },
-        "save": {
-          "saving": "Zapisywanie…",
-          "saved": "Zapisano"
         }
       },
       "settings": {

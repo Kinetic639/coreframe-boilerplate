@@ -26,12 +26,39 @@ import {
 import { Toggle } from "./ui/toggle";
 import { Separator } from "./ui/separator";
 import { cn } from "@repo/ui/utils";
-import type { EditorMode } from "./rich-text-types";
+import type { EditorMode, RichTextToolbarLabels } from "./rich-text-types";
+
+export const DEFAULT_TOOLBAR_LABELS: RichTextToolbarLabels = {
+  heading1: "Heading 1",
+  heading2: "Heading 2",
+  heading3: "Heading 3",
+  bold: "Bold",
+  italic: "Italic",
+  underline: "Underline",
+  strikethrough: "Strikethrough",
+  code: "Inline code",
+  bulletList: "Bullet list",
+  orderedList: "Ordered list",
+  blockquote: "Blockquote",
+  horizontalRule: "Horizontal rule",
+  link: "Insert link",
+  alignLeft: "Align left",
+  alignCenter: "Align center",
+  alignRight: "Align right",
+  justify: "Justify",
+  clearFormatting: "Clear formatting",
+  undo: "Undo",
+  redo: "Redo",
+  linkPrompt: "URL",
+};
 
 interface RichTextToolbarProps {
   editor: Editor;
   mode: EditorMode;
   disabled?: boolean;
+  labels?: Partial<RichTextToolbarLabels>;
+  /** Stays at the top of the scrolling area (see RichTextEditorFieldProps.stickyToolbar). */
+  sticky?: boolean;
 }
 
 interface ToolbarButtonProps {
@@ -61,10 +88,11 @@ function ToolbarSeparator() {
   return <Separator orientation="vertical" className="mx-0.5 h-5" />;
 }
 
-export function RichTextToolbar({ editor, mode, disabled }: RichTextToolbarProps) {
+export function RichTextToolbar({ editor, mode, disabled, labels, sticky }: RichTextToolbarProps) {
+  const t = { ...DEFAULT_TOOLBAR_LABELS, ...labels };
   const setLink = () => {
     const prev = editor.getAttributes("link").href as string | undefined;
-    const url = window.prompt("URL", prev ?? "https://");
+    const url = window.prompt(t.linkPrompt, prev ?? "https://");
     if (url === null) return;
     if (url === "") {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
@@ -77,27 +105,30 @@ export function RichTextToolbar({ editor, mode, disabled }: RichTextToolbarProps
     <div
       className={cn(
         "flex flex-wrap items-center gap-0.5 rounded-t-md border border-b-0 border-input bg-muted/40 px-2 py-1.5",
+        // Opaque while stuck, so the text scrolling under it does not show through.
+        // A host with its own sticky bar sets --rich-text-toolbar-top to sit below it.
+        sticky && "sticky top-[var(--rich-text-toolbar-top,0px)] z-10 bg-muted",
         disabled && "opacity-50 pointer-events-none"
       )}
     >
       {mode === "full" && (
         <>
           <ToolbarButton
-            label="Heading 1"
+            label={t.heading1}
             active={editor.isActive("heading", { level: 1 })}
             onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
           >
             <Heading1 className="h-3.5 w-3.5" />
           </ToolbarButton>
           <ToolbarButton
-            label="Heading 2"
+            label={t.heading2}
             active={editor.isActive("heading", { level: 2 })}
             onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           >
             <Heading2 className="h-3.5 w-3.5" />
           </ToolbarButton>
           <ToolbarButton
-            label="Heading 3"
+            label={t.heading3}
             active={editor.isActive("heading", { level: 3 })}
             onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
           >
@@ -108,21 +139,21 @@ export function RichTextToolbar({ editor, mode, disabled }: RichTextToolbarProps
       )}
 
       <ToolbarButton
-        label="Bold"
+        label={t.bold}
         active={editor.isActive("bold")}
         onClick={() => editor.chain().focus().toggleBold().run()}
       >
         <Bold className="h-3.5 w-3.5" />
       </ToolbarButton>
       <ToolbarButton
-        label="Italic"
+        label={t.italic}
         active={editor.isActive("italic")}
         onClick={() => editor.chain().focus().toggleItalic().run()}
       >
         <Italic className="h-3.5 w-3.5" />
       </ToolbarButton>
       <ToolbarButton
-        label="Underline"
+        label={t.underline}
         active={editor.isActive("underline")}
         onClick={() => editor.chain().focus().toggleUnderline().run()}
       >
@@ -132,14 +163,14 @@ export function RichTextToolbar({ editor, mode, disabled }: RichTextToolbarProps
       {mode === "full" && (
         <>
           <ToolbarButton
-            label="Strikethrough"
+            label={t.strikethrough}
             active={editor.isActive("strike")}
             onClick={() => editor.chain().focus().toggleStrike().run()}
           >
             <Strikethrough className="h-3.5 w-3.5" />
           </ToolbarButton>
           <ToolbarButton
-            label="Inline code"
+            label={t.code}
             active={editor.isActive("code")}
             onClick={() => editor.chain().focus().toggleCode().run()}
           >
@@ -151,14 +182,14 @@ export function RichTextToolbar({ editor, mode, disabled }: RichTextToolbarProps
       <ToolbarSeparator />
 
       <ToolbarButton
-        label="Bullet list"
+        label={t.bulletList}
         active={editor.isActive("bulletList")}
         onClick={() => editor.chain().focus().toggleBulletList().run()}
       >
         <List className="h-3.5 w-3.5" />
       </ToolbarButton>
       <ToolbarButton
-        label="Ordered list"
+        label={t.orderedList}
         active={editor.isActive("orderedList")}
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
       >
@@ -168,14 +199,14 @@ export function RichTextToolbar({ editor, mode, disabled }: RichTextToolbarProps
       {mode === "full" && (
         <>
           <ToolbarButton
-            label="Blockquote"
+            label={t.blockquote}
             active={editor.isActive("blockquote")}
             onClick={() => editor.chain().focus().toggleBlockquote().run()}
           >
             <Quote className="h-3.5 w-3.5" />
           </ToolbarButton>
           <ToolbarButton
-            label="Horizontal rule"
+            label={t.horizontalRule}
             active={false}
             onClick={() => editor.chain().focus().setHorizontalRule().run()}
           >
@@ -186,7 +217,7 @@ export function RichTextToolbar({ editor, mode, disabled }: RichTextToolbarProps
 
       <ToolbarSeparator />
 
-      <ToolbarButton label="Insert link" active={editor.isActive("link")} onClick={setLink}>
+      <ToolbarButton label={t.link} active={editor.isActive("link")} onClick={setLink}>
         <Link className="h-3.5 w-3.5" />
       </ToolbarButton>
 
@@ -194,28 +225,28 @@ export function RichTextToolbar({ editor, mode, disabled }: RichTextToolbarProps
         <>
           <ToolbarSeparator />
           <ToolbarButton
-            label="Align left"
+            label={t.alignLeft}
             active={editor.isActive({ textAlign: "left" })}
             onClick={() => editor.chain().focus().setTextAlign("left").run()}
           >
             <AlignLeft className="h-3.5 w-3.5" />
           </ToolbarButton>
           <ToolbarButton
-            label="Align center"
+            label={t.alignCenter}
             active={editor.isActive({ textAlign: "center" })}
             onClick={() => editor.chain().focus().setTextAlign("center").run()}
           >
             <AlignCenter className="h-3.5 w-3.5" />
           </ToolbarButton>
           <ToolbarButton
-            label="Align right"
+            label={t.alignRight}
             active={editor.isActive({ textAlign: "right" })}
             onClick={() => editor.chain().focus().setTextAlign("right").run()}
           >
             <AlignRight className="h-3.5 w-3.5" />
           </ToolbarButton>
           <ToolbarButton
-            label="Justify"
+            label={t.justify}
             active={editor.isActive({ textAlign: "justify" })}
             onClick={() => editor.chain().focus().setTextAlign("justify").run()}
           >
@@ -223,7 +254,7 @@ export function RichTextToolbar({ editor, mode, disabled }: RichTextToolbarProps
           </ToolbarButton>
           <ToolbarSeparator />
           <ToolbarButton
-            label="Clear formatting"
+            label={t.clearFormatting}
             active={false}
             onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
           >
@@ -235,7 +266,7 @@ export function RichTextToolbar({ editor, mode, disabled }: RichTextToolbarProps
       <ToolbarSeparator />
 
       <ToolbarButton
-        label="Undo"
+        label={t.undo}
         active={false}
         disabled={!editor.can().undo()}
         onClick={() => editor.chain().focus().undo().run()}
@@ -243,7 +274,7 @@ export function RichTextToolbar({ editor, mode, disabled }: RichTextToolbarProps
         <Undo className="h-3.5 w-3.5" />
       </ToolbarButton>
       <ToolbarButton
-        label="Redo"
+        label={t.redo}
         active={false}
         disabled={!editor.can().redo()}
         onClick={() => editor.chain().focus().redo().run()}

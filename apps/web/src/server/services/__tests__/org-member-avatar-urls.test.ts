@@ -81,7 +81,7 @@ describe("OrgMemberPublicProfileService.avatarUrls", () => {
     ]);
 
     expect(mockCreateSignedUrls).toHaveBeenCalledTimes(1);
-    expect(mockCreateSignedUrls).toHaveBeenCalledWith(["u1/avatar.png", "u3/a.jpg"], 3600);
+    expect(mockCreateSignedUrls).toHaveBeenCalledWith(["u1/avatar.png", "u3/a.jpg"], 7200);
     expect(Object.fromEntries(urls)).toEqual({
       u1: "https://signed/u1",
       u2: "https://public/u2.png",

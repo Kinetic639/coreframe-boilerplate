@@ -22,6 +22,35 @@ export interface RichTextEditorFieldProps {
   mention?: MentionOptions;
   /** Puts the cursor at the end once the editor is ready (an editor opened by a click). */
   autoFocus?: boolean;
+  /** The toolbar's button names (tooltips and screen readers); English by default. */
+  toolbarLabels?: Partial<RichTextToolbarLabels>;
+  /** Keeps the toolbar at the top of the scrolling area while a long text is edited. */
+  stickyToolbar?: boolean;
+}
+
+export interface RichTextToolbarLabels {
+  heading1: string;
+  heading2: string;
+  heading3: string;
+  bold: string;
+  italic: string;
+  underline: string;
+  strikethrough: string;
+  code: string;
+  bulletList: string;
+  orderedList: string;
+  blockquote: string;
+  horizontalRule: string;
+  link: string;
+  /** The prompt asking for the link's address. */
+  linkPrompt: string;
+  alignLeft: string;
+  alignCenter: string;
+  alignRight: string;
+  justify: string;
+  clearFormatting: string;
+  undo: string;
+  redo: string;
 }
 
 export interface RichTextRendererProps {

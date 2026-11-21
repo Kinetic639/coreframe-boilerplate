@@ -9,12 +9,6 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import {
-  getConversationAction,
-  listChatInvitationsAction,
-  listChatPeopleAction,
-  listPendingChatInvitesAction,
-  listConversationsAction,
-  listMessagesAction,
   deleteMessageAction,
   editMessageAction,
   markConversationReadAction,
@@ -45,6 +39,7 @@ import type {
   ChatMessageCursor,
   ChatMessagesPage,
 } from "@/lib/messages/types";
+import { appRead } from "@/lib/read";
 
 export const messagesKeys = {
   all: ["messages"] as const,
@@ -61,7 +56,7 @@ export function useConversations(orgId: string | null | undefined) {
   return useQuery({
     queryKey: messagesKeys.conversations(orgId ?? ""),
     queryFn: async (): Promise<ChatConversationSummary[]> => {
-      const result = await listConversationsAction({ limit: 100 });
+      const result = await appRead("conversations", { limit: 100 });
       if (!result.success) throw new Error((result as { error: string }).error);
       return result.data;
     },
@@ -74,7 +69,7 @@ export function useConversation(conversationId: string | null | undefined) {
   return useQuery({
     queryKey: messagesKeys.conversation(conversationId ?? ""),
     queryFn: async (): Promise<ChatConversationDetail> => {
-      const result = await getConversationAction({ conversationId });
+      const result = await appRead("conversation", { conversationId });
       if (!result.success) throw new Error((result as { error: string }).error);
       return result.data;
     },
@@ -88,7 +83,7 @@ export function useMessages(conversationId: string | null | undefined) {
   const query = useInfiniteQuery({
     queryKey: messagesKeys.thread(conversationId ?? ""),
     queryFn: async ({ pageParam }): Promise<ChatMessagesPage> => {
-      const result = await listMessagesAction({
+      const result = await appRead("messages", {
         conversationId,
         before: (pageParam as ChatMessageCursor | null) ?? null,
       });
@@ -108,7 +103,7 @@ export function useChatInvitations(orgId: string | null | undefined) {
   return useQuery({
     queryKey: messagesKeys.invitations(orgId ?? ""),
     queryFn: async (): Promise<ChatInvitation[]> => {
-      const result = await listChatInvitationsAction();
+      const result = await appRead("chatInvitations");
       if (!result.success) throw new Error((result as { error: string }).error);
       return result.data;
     },
@@ -122,7 +117,7 @@ export function usePendingChatInvites(conversationId: string | null | undefined,
   return useQuery({
     queryKey: messagesKeys.pendingInvites(conversationId ?? ""),
     queryFn: async (): Promise<ChatPendingInvite[]> => {
-      const result = await listPendingChatInvitesAction({ conversationId });
+      const result = await appRead("pendingChatInvites", { conversationId });
       if (!result.success) throw new Error((result as { error: string }).error);
       return result.data;
     },
@@ -135,7 +130,7 @@ export function useChatPeople(orgId: string | null | undefined) {
   return useQuery({
     queryKey: messagesKeys.people(orgId ?? ""),
     queryFn: async (): Promise<ChatPerson[]> => {
-      const result = await listChatPeopleAction();
+      const result = await appRead("chatPeople");
       if (!result.success) throw new Error((result as { error: string }).error);
       return result.data;
     },

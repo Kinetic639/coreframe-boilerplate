@@ -16,7 +16,7 @@ import type { ServiceResult } from "./organization.service";
 import { getAuthUser } from "@/server/auth/get-auth-user";
 
 const USER_AVATAR_BUCKET = "user-avatars";
-const AVATAR_SIGNED_URL_TTL_SECONDS = 60 * 60;
+const AVATAR_SIGNED_URL_TTL_SECONDS = 2 * 60 * 60;
 const MAX_PROFILE_LOOKUP_USERS = 100;
 const MAX_PROFILE_PAGE_SIZE = 48;
 const MAX_AVATAR_LOOKUP_USERS = 300;
