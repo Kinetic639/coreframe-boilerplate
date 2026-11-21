@@ -2234,6 +2234,23 @@
           "exported": "Exported {count} label(s).",
           "exportFailed": "Export failed. Please try again."
         }
+      },
+      "assign": {
+        "title": "Assign a QR code — {name}",
+        "description": "A new code is created and assigned right away. You can also scan a label that is already stuck on.",
+        "create": "Assign a new QR code",
+        "creating": "Assigning…",
+        "scan": "Scan a stuck-on label",
+        "scanHint": "Point the camera at the QR label",
+        "back": "Back",
+        "cancel": "Cancel",
+        "alreadyAssigned": "This code is already assigned to something else.",
+        "assigned": "QR code assigned.",
+        "failed": "Could not assign the QR code.",
+        "print": "Print label",
+        "printTitle": "Label — {name}",
+        "staged": "A new QR code will be created on save",
+        "addNew": "Add a QR code"
       }
     },
     "warehouse": {

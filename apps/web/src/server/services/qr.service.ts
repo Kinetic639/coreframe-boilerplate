@@ -191,6 +191,32 @@ export class QrCodesService {
   }
 
   /**
+   * Create many codes in one insert (tokens generated here, as in create).
+   * Labels are "<prefix> 1", "<prefix> 2"… when a prefix is given.
+   */
+  static async createBatch(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: {
+      count: number;
+      labelPrefix?: string | null;
+      createdBy?: string | null;
+      batchId?: string | null;
+    }
+  ): Promise<ServiceResult<QrCode[]>> {
+    const rows = Array.from({ length: input.count }, (_, i) => ({
+      organization_id: orgId,
+      token: generateQrToken(),
+      label: input.labelPrefix ? `${input.labelPrefix} ${i + 1}` : null,
+      created_by: input.createdBy ?? null,
+      ...(input.batchId ? { batch_id: input.batchId } : {}),
+    }));
+    const { data, error } = await supabase.from("qr_codes").insert(rows).select("*");
+    if (error) return { success: false, error: normalizeDbError(error) };
+    return { success: true, data: (data ?? []) as QrCode[] };
+  }
+
+  /**
    * Get a single QR code by id, scoped to the org.
    * Returns null data (not an error) when not found or wrong org — prevents enumeration.
    */

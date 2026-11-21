@@ -2189,6 +2189,23 @@
           "exported": "Wyeksportowano {count} etykiet(y).",
           "exportFailed": "Eksport nie powiódł się. Spróbuj ponownie."
         }
+      },
+      "assign": {
+        "title": "Przypisz kod QR — {name}",
+        "description": "Nowy kod zostanie utworzony i od razu przypisany. Możesz też zeskanować etykietę, która jest już naklejona.",
+        "create": "Przypisz nowy kod QR",
+        "creating": "Przypisywanie…",
+        "scan": "Zeskanuj naklejoną etykietę",
+        "scanHint": "Skieruj aparat na etykietę QR",
+        "back": "Wróć",
+        "cancel": "Anuluj",
+        "alreadyAssigned": "Ten kod jest już przypisany do czegoś innego.",
+        "assigned": "Kod QR przypisany.",
+        "failed": "Nie udało się przypisać kodu QR.",
+        "print": "Wydrukuj etykietę",
+        "printTitle": "Etykieta — {name}",
+        "staged": "Nowy kod QR zostanie utworzony przy zapisie",
+        "addNew": "Dodaj kod QR"
       }
     },
     "warehouse": {

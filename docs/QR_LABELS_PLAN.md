@@ -29,12 +29,12 @@
   - [ ] Test ręczny na deployu
 
 - [ ] **Q2** — przypisywanie QR bez ręcznego generowania (PR 2)
-  - [ ] Wspólny komponent „Przypisz kod QR”: domyślnie tworzy i przypisuje, druga opcja „Zeskanuj naklejoną etykietę”
-  - [ ] Lokalizacje, kontenery, zgłoszenia, zadania — na wspólny komponent
-  - [ ] Zgłoszenia i zadania: „Drukuj etykietę” w sekcji QR (dodruk przy obiekcie, jak w lokalizacjach)
-  - [ ] Formularze nowego zgłoszenia i zadania: bez przycisku „Generuj”, kod tworzony przy zapisie (chyba że zeskanowano etykietę)
-  - [ ] Zbiorcze tworzenie kodów jednym insertem (`QrCodesService.createBatch`) zamiast N zapytań
-  - [ ] Testy, i18n pl/en
+  - [x] Wspólny komponent „Przypisz kod QR”: domyślnie tworzy i przypisuje, druga opcja „Zeskanuj naklejoną etykietę”
+  - [x] Lokalizacje, zgłoszenia, zadania — na wspólny komponent (kontenery miały już jedno kliknięcie + skan; ich druk w Q4)
+  - [x] Zgłoszenia i zadania: „Drukuj etykietę” w sekcji QR (dodruk przy obiekcie, jak w lokalizacjach)
+  - [x] Formularze nowego zgłoszenia i zadania: bez przycisku „Generuj”, kod tworzony przy zapisie (chyba że zeskanowano etykietę)
+  - [x] Zbiorcze tworzenie kodów jednym insertem (`QrCodesService.createBatch`) zamiast N zapytań
+  - [x] Testy, i18n pl/en
   - [ ] Test ręczny na deployu
 
 - [ ] **Q3** — Generator etykiet QR: szablony + druk (PR 3)

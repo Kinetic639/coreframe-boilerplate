@@ -31,7 +31,11 @@ import {
   createEmptyRichText,
   extractPlainText,
 } from "@/components/primitives/rich-text/rich-text-utils";
-import { createTaskAction, assignQrToPlanningTaskAction } from "@/app/actions/planning";
+import {
+  createTaskAction,
+  assignQrToPlanningTaskAction,
+  createAndAssignQrToPlanningTaskAction,
+} from "@/app/actions/planning";
 import { TASK_PRIORITIES, type TaskPriority } from "@/lib/validations/planning";
 import type { PlanningTaskDetail } from "@/server/services/planning-tasks.service";
 import type { PlanningPriorityBadgeConfig } from "@/components/planning/planning-task-priority-badge";
@@ -268,7 +272,14 @@ export function PlanningTaskCreateForm({
       const followUps: Promise<unknown>[] = [];
       if (stagedQr) {
         followUps.push(
-          assignQrToPlanningTaskAction({ qrCodeId: stagedQr.qrCodeId, taskId: result.data.id })
+          // "New code": created and assigned now that the task exists.
+          (stagedQr.isNew
+            ? createAndAssignQrToPlanningTaskAction({
+                taskId: result.data.id,
+                label: title.trim() || null,
+              })
+            : assignQrToPlanningTaskAction({ qrCodeId: stagedQr.qrCodeId, taskId: result.data.id })
+          )
             .then((qrResult) => {
               if (!qrResult.success) toast.error(t("qrAssignFailed"));
             })
