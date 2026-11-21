@@ -1,7 +1,7 @@
 import type { CanvasRenderingContext2D } from "canvas";
 import path from "path";
 import type { LabelConfig } from "@/lib/qr/label-config";
-import { applyCaseTransform } from "@/lib/qr/label-config";
+import { applyCaseTransform, zplPrintSettings } from "@/lib/qr/label-config";
 import QRCode from "qrcode";
 import { buildQrScanUrl } from "@/lib/qr/generate";
 
@@ -456,6 +456,20 @@ async function renderLabelGraphic(item: ZplLabelItem, size: ZplLabelSize, config
   return toMonochromeHex(ctx, width, height);
 }
 
+/**
+ * Speed, darkness and media commands. Without them the printer uses its own
+ * defaults (often its top speed), which leaves big black areas like the QR
+ * partly grey on thermal transfer printers such as the GK420d.
+ */
+export function zplPrintCommands(config: LabelConfig): string[] {
+  const { speed, darkness, media } = zplPrintSettings(config);
+  const commands = [`^PR${speed},${speed},${speed}`];
+  if (darkness !== null) commands.push(`~SD${String(darkness).padStart(2, "0")}`);
+  if (media === "transfer") commands.push("^MTT");
+  if (media === "direct") commands.push("^MTD");
+  return commands;
+}
+
 async function singleLabel(item: ZplLabelItem, size: ZplLabelSize, config: LabelConfig) {
   const { widthMm, heightMm } = SIZE_CONFIG[size];
   const width = mm(widthMm);
@@ -464,6 +478,7 @@ async function singleLabel(item: ZplLabelItem, size: ZplLabelSize, config: Label
 
   return [
     "^XA",
+    ...zplPrintCommands(config),
     "^CI28",
     "^LH0,0",
     `^PW${width}`,

@@ -59,4 +59,11 @@ export const labelConfigSchema = z.object({
   footer: z.object({
     show: z.boolean(),
   }),
+  zpl: z
+    .object({
+      speed: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
+      darkness: z.number().int().min(0).max(30).nullable(),
+      media: z.enum(["printer", "transfer", "direct"]),
+    })
+    .optional(),
 });

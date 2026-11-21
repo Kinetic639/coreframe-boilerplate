@@ -2180,6 +2180,20 @@
           "previewReady": "Podgląd gotowy dla {count} etykiet(y).",
           "exported": "Wyeksportowano {count} etykiet(y).",
           "exportFailed": "Eksport nie powiódł się. Spróbuj ponownie."
+        },
+        "zplPrint": {
+          "title": "Druk na drukarce Zebra",
+          "hint": "Wolniejszy druk i wyższe zaczernienie dają jednolicie czarny kod QR. Gdy kod wychodzi szarawy, zwolnij do 2 ips i podnieś zaczernienie.",
+          "speed": "Prędkość druku",
+          "speedValue": "{speed} ips",
+          "darkness": "Zaczernienie (0–30)",
+          "darknessPrinter": "Jak w drukarce",
+          "media": "Tryb druku",
+          "mediaOptions": {
+            "printer": "Jak w drukarce",
+            "transfer": "Z taśmą",
+            "direct": "Termiczny"
+          }
         }
       },
       "assign": {

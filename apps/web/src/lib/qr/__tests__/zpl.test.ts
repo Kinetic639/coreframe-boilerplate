@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { generateZplLabels } from "../zpl";
+import { generateZplLabels, zplPrintCommands } from "../zpl";
 import { DEFAULT_LABEL_CONFIG } from "../label-config";
 import type { ZplLabelItem } from "../zpl";
 
@@ -90,5 +90,28 @@ describe("generateZplLabels", () => {
     const zpl = await generateZplLabels(items, "70x40", DEFAULT_LABEL_CONFIG);
     const count = (zpl.match(/\^XA/g) ?? []).length;
     expect(count).toBe(12);
+  });
+});
+
+describe("zplPrintCommands", () => {
+  it("slows the printer down by default and keeps its darkness and mode", () => {
+    expect(zplPrintCommands(DEFAULT_LABEL_CONFIG)).toEqual(["^PR2,2,2"]);
+  });
+
+  it("sends speed, darkness and ribbon mode when set", () => {
+    const config = {
+      ...DEFAULT_LABEL_CONFIG,
+      zpl: { speed: 3 as const, darkness: 8, media: "transfer" as const },
+    };
+    expect(zplPrintCommands(config)).toEqual(["^PR3,3,3", "~SD08", "^MTT"]);
+  });
+
+  it("puts the settings into every label", async () => {
+    const config = {
+      ...DEFAULT_LABEL_CONFIG,
+      zpl: { speed: 2 as const, darkness: 25, media: "direct" as const },
+    };
+    const zpl = await generateZplLabels([makeItem(), makeItem()], "70x40", config);
+    expect((zpl.match(/\^PR2,2,2\n~SD25\n\^MTD/g) ?? []).length).toBe(2);
   });
 });

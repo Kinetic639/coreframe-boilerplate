@@ -57,6 +57,10 @@ import {
   A4_W_MM,
   A4_H_MM,
   GRID_MARGIN_MM,
+  zplPrintSettings,
+  type ZplPrintSettings,
+  type ZplPrintSpeed,
+  type ZplMediaType,
 } from "@/lib/qr/label-config";
 import type {
   EdgeLineStyle,
@@ -972,6 +976,86 @@ const MAX_PREVIEW_ZOOM = 2;
 // Component
 // ---------------------------------------------------------------------------
 
+const ZPL_SPEEDS: readonly ZplPrintSpeed[] = [2, 3, 4, 5];
+const ZPL_MEDIA: readonly ZplMediaType[] = ["printer", "transfer", "direct"];
+const ZPL_PRINTER_DARKNESS = "printer";
+
+/** Speed, darkness and ribbon mode sent to the thermal printer with ZPL labels. */
+function ZplPrintControls({
+  value,
+  onChange,
+}: {
+  value: ZplPrintSettings;
+  onChange: (value: ZplPrintSettings) => void;
+}) {
+  const t = useTranslations("modules.qr.designer.zplPrint");
+  return (
+    <div className="space-y-3 rounded-lg border p-3">
+      <div>
+        <p className="text-sm font-medium">{t("title")}</p>
+        <p className="text-xs text-muted-foreground">{t("hint")}</p>
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">{t("speed")}</Label>
+        <div className="grid grid-cols-4 gap-1">
+          {ZPL_SPEEDS.map((speed) => (
+            <Button
+              key={speed}
+              type="button"
+              size="sm"
+              variant={value.speed === speed ? "default" : "outline"}
+              className="h-8 text-xs"
+              onClick={() => onChange({ ...value, speed })}
+            >
+              {t("speedValue", { speed })}
+            </Button>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor="zpl-darkness" className="text-xs text-muted-foreground">
+          {t("darkness")}
+        </Label>
+        <Select
+          value={value.darkness === null ? ZPL_PRINTER_DARKNESS : String(value.darkness)}
+          onValueChange={(v) =>
+            onChange({ ...value, darkness: v === ZPL_PRINTER_DARKNESS ? null : Number(v) })
+          }
+        >
+          <SelectTrigger id="zpl-darkness" className="h-9">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ZPL_PRINTER_DARKNESS}>{t("darknessPrinter")}</SelectItem>
+            {Array.from({ length: 31 }, (_, d) => (
+              <SelectItem key={d} value={String(d)}>
+                {d}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">{t("media")}</Label>
+        <div className="grid grid-cols-3 gap-1">
+          {ZPL_MEDIA.map((media) => (
+            <Button
+              key={media}
+              type="button"
+              size="sm"
+              variant={value.media === media ? "default" : "outline"}
+              className="h-8 text-xs"
+              onClick={() => onChange({ ...value, media })}
+            >
+              {t(`mediaOptions.${media}`)}
+            </Button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function LabelDesigner({
   items,
   canExport,
@@ -1490,6 +1574,13 @@ export function LabelDesigner({
                         ))}
                       </div>
                     )}
+
+                    {format === "zpl" ? (
+                      <ZplPrintControls
+                        value={zplPrintSettings(zplConfig)}
+                        onChange={(zpl) => setZplConfig((prev) => ({ ...prev, zpl }))}
+                      />
+                    ) : null}
 
                     <div className="grid gap-4 lg:grid-cols-2">
                       <div className="space-y-2">

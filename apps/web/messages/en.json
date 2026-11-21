@@ -2225,6 +2225,20 @@
           "previewReady": "Preview ready for {count} label(s).",
           "exported": "Exported {count} label(s).",
           "exportFailed": "Export failed. Please try again."
+        },
+        "zplPrint": {
+          "title": "Zebra printer settings",
+          "hint": "Slower printing and higher darkness give a solid black QR code. If the code comes out greyish, slow down to 2 ips and raise the darkness.",
+          "speed": "Print speed",
+          "speedValue": "{speed} ips",
+          "darkness": "Darkness (0–30)",
+          "darknessPrinter": "Printer setting",
+          "media": "Print mode",
+          "mediaOptions": {
+            "printer": "Printer setting",
+            "transfer": "Ribbon",
+            "direct": "Direct thermal"
+          }
         }
       },
       "assign": {
