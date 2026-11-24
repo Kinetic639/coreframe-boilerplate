@@ -41,7 +41,7 @@ import {
   type AttachmentUploadItem,
 } from "@/hooks/queries/attachments";
 import { keepFilesInMemory } from "@/hooks/queries/attachments/direct-upload";
-import { ALLOWED_ATTACHMENT_MIME_TYPES } from "@/lib/validations/attachments";
+import { ATTACHMENT_INPUT_ACCEPT } from "@/lib/validations/attachments";
 import type { AppAttachment } from "@/server/services/attachments.service";
 import { cn } from "@/utils";
 
@@ -66,8 +66,6 @@ interface AttachmentsPanelProps {
   onUploaded?: (attachments: AppAttachment[]) => void | Promise<void>;
   onDeleted?: (attachmentId: string) => void | Promise<void>;
 }
-
-const ACCEPT = ALLOWED_ATTACHMENT_MIME_TYPES.join(",");
 
 /**
  * The files of one thing (a task, a ticket, a job). "Add files" opens the
@@ -238,8 +236,12 @@ export function AttachmentsPanel({
             ref={fileInput}
             type="file"
             multiple
-            accept={ACCEPT}
-            className="hidden"
+            accept={ATTACHMENT_INPUT_ACCEPT}
+            // Visually hidden, not display:none: some Android browsers ignore
+            // a click() from code on an input that is not rendered.
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden
             onChange={(event) => {
               pick(event.target.files);
               event.target.value = "";
@@ -250,7 +252,11 @@ export function AttachmentsPanel({
             type="file"
             accept="image/*"
             capture="environment"
-            className="hidden"
+            // Visually hidden, not display:none: some Android browsers ignore
+            // a click() from code on an input that is not rendered.
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden
             onChange={(event) => {
               pick(event.target.files);
               event.target.value = "";

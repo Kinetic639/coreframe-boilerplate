@@ -4876,6 +4876,11 @@
         "addPhoto": "Zrób zdjęcie",
         "addFiles": "Dodaj pliki",
         "removeFile": "Usuń {name}",
+        "retryFile": "Wyślij ponownie {name}",
+        "fileUploading": "Wysyłanie…",
+        "fileFailed": "Nie udało się wysłać",
+        "filesNotSent": "Nie wszystkie pliki zostały wysłane. Wyślij je ponownie albo usuń z listy.",
+        "waitingForFiles": "{count, plural, =0 {Tworzenie…} one {Kończę wysyłanie zdjęcia…} other {Kończę wysyłanie zdjęć (#)…}}",
         "attachmentsUploadFailed": "Zadanie utworzone, ale części plików nie udało się dodać.",
         "placement": {
           "label": "Gdzie dodać zadanie",

@@ -4796,6 +4796,11 @@
         "addPhoto": "Take a photo",
         "addFiles": "Add files",
         "removeFile": "Remove {name}",
+        "retryFile": "Send {name} again",
+        "fileUploading": "Uploading…",
+        "fileFailed": "Upload failed",
+        "filesNotSent": "Not every file was uploaded. Send them again or remove them from the list.",
+        "waitingForFiles": "{count, plural, =0 {Creating…} one {Finishing photo upload…} other {Finishing photo uploads (#)…}}",
         "attachmentsUploadFailed": "The task was created, but some files could not be added.",
         "placement": {
           "label": "Where to add the task",
