@@ -35,10 +35,10 @@ password="${E2E_TEST_PASSWORD:-e2e-$(openssl rand -hex 12)}"
 rm -rf "$work"
 mkdir -p "$work/supabase/migrations" "$work/data"
 
-# Same settings as the real project (auth hook, no email confirmation), on
-# Postgres 17 like production, without the services the app does not use here.
-sed -e 's/^major_version = .*/major_version = 17/' \
-  "$web/supabase-target/supabase/config.toml" > "$work/supabase/config.toml"
+# Own config: the CLI reads config.toml from the working directory even for a
+# dump, and the repo's older configs use keys newer CLIs reject.
+cp "$here/config.toml" "$work/supabase/config.toml"
+cd "$work"
 
 echo "::group::Dump the production schema"
 supabase db dump --db-url "$SUPABASE_DB_URL" -f "$work/supabase/migrations/00000000000000_schema.sql"
@@ -67,7 +67,6 @@ done
 echo "::endgroup::"
 
 echo "::group::Start Supabase"
-cd "$work"
 supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit
 eval "$(supabase status -o env | sed -n -E 's/^(API_URL|DB_URL|ANON_KEY|SERVICE_ROLE_KEY)=/LOCAL_\1=/p')"
 echo "::endgroup::"

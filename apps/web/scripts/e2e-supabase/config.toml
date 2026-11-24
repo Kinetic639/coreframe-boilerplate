@@ -1,0 +1,49 @@
+# Throwaway Supabase for the e2e job (see start.sh). Mirrors the production
+# auth settings the app relies on; everything else is the CLI default.
+project_id = "ambra-e2e"
+
+[api]
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.seed]
+enabled = false
+
+[studio]
+enabled = false
+
+[storage]
+file_size_limit = "50MiB"
+
+[auth]
+site_url = "http://127.0.0.1:3001"
+additional_redirect_urls = ["http://127.0.0.1:3001"]
+jwt_expiry = 3600
+enable_signup = true
+minimum_password_length = 6
+
+[auth.rate_limit]
+sign_in_sign_ups = 1000
+token_refresh = 1000
+token_verifications = 1000
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+[auth.hook.custom_access_token]
+enabled = true
+uri = "pg-functions://postgres/public/custom_access_token_hook"
+
+[edge_runtime]
+enabled = false
+
+[analytics]
+enabled = false

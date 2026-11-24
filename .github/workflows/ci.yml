@@ -116,7 +116,7 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.81.3
 
       # Exports NEXT_PUBLIC_SUPABASE_URL / _ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
       # and the seeded E2E_TEST_EMAIL / E2E_TEST_PASSWORD for the steps below.
