@@ -2120,7 +2120,10 @@
             "medium": "Medium",
             "large": "Large"
           },
-          "footerHint": "The footer has its own space at the bottom of the text area: under the text column in landscape, at the bottom of the label in portrait."
+          "footerHint": "The footer has its own space at the bottom of the text area: under the text column in landscape, at the bottom of the label in portrait.",
+          "zplCustom": "Custom size (width across the printer × length)",
+          "zplCustomApply": "Set",
+          "zplCustomHint": "Whole millimetres: at least {min} mm, width up to {maxWidth} mm, length up to {maxHeight} mm. The longer side runs across the print head."
         },
         "qr": {
           "qrSize": "QR size",

@@ -2075,7 +2075,10 @@
             "medium": "Średnia",
             "large": "Duża"
           },
-          "footerHint": "Stopka ma stałe miejsce na dole strefy tekstu: w poziomie pod kolumną tekstu, w pionie na dole etykiety."
+          "footerHint": "Stopka ma stałe miejsce na dole strefy tekstu: w poziomie pod kolumną tekstu, w pionie na dole etykiety.",
+          "zplCustom": "Własny rozmiar (szerokość w poprzek drukarki × długość)",
+          "zplCustomApply": "Ustaw",
+          "zplCustomHint": "Całe milimetry: od {min} mm, szerokość do {maxWidth} mm, długość do {maxHeight} mm. Dłuższy bok idzie w poprzek głowicy."
         },
         "qr": {
           "qrSize": "Rozmiar QR",

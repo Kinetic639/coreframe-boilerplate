@@ -81,12 +81,13 @@ function template(overrides: Partial<QrLabelTemplate>): QrLabelTemplate {
 }
 
 describe("zplSizeForConfig", () => {
-  it("picks 70×40 for large labels in either orientation", () => {
+  it("keeps the label's own size, longer side first", () => {
     const at = (width: number, height: number) =>
       zplSizeForConfig({ ...DEFAULT_LABEL_CONFIG, dimension: { width, height } });
     expect(at(50, 30)).toBe("50x30");
     expect(at(70, 40)).toBe("70x40");
     expect(at(40, 70)).toBe("70x40");
+    expect(at(50, 70)).toBe("70x50");
   });
 });
 

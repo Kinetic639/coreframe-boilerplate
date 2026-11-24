@@ -15,6 +15,7 @@ import {
   zplSizeForConfig,
 } from "@/server/services/qr-labels.service";
 import { renderQrLabels, labelsResponse } from "@/server/qr/render-labels";
+import { parseZplSize, type ZplLabelSize } from "@/lib/qr/label-templates";
 import { verifiedTemplateId } from "@/server/qr/record-print";
 import { eventService } from "@/server/services/event.service";
 
@@ -32,7 +33,10 @@ const requestSchema = z.discriminatedUnion("mode", [
     templateId: z.string().uuid().nullish(),
     format: z.enum(["pdf", "zpl"]),
     labelConfig: labelConfigSchema,
-    zplSize: z.enum(["50x30", "70x40"]).optional(),
+    zplSize: z
+      .string()
+      .refine((value) => parseZplSize(value) !== null, "Unsupported ZPL label size.")
+      .optional(),
   }),
   // The same print run again: same codes, same layout, no new tokens.
   z.object({
@@ -125,7 +129,7 @@ export async function POST(request: NextRequest) {
   }
 
   const labelConfig = input.labelConfig as LabelConfig;
-  const zplSize = input.zplSize ?? zplSizeForConfig(labelConfig);
+  const zplSize = (input.zplSize as ZplLabelSize | undefined) ?? zplSizeForConfig(labelConfig);
 
   const layout = await QrLabelLayoutsService.ensure(orgId, input.format, labelConfig, userId);
   if (!layout.success) return jsonError("Failed to save the label layout.", 500);
