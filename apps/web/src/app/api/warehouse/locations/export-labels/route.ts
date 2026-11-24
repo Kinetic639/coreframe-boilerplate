@@ -20,6 +20,7 @@ import {
 } from "@/lib/qr/label-config";
 import { labelConfigSchema } from "@/lib/qr/label-config-schema";
 import type { ZplLabelSize } from "@/lib/qr/zpl";
+import { parseZplSize } from "@/lib/qr/label-templates";
 import { renderQrLabels, labelsResponse } from "@/server/qr/render-labels";
 import type { RenderLabelItem } from "@/server/qr/render-labels";
 import { recordReprint, verifiedTemplateId } from "@/server/qr/record-print";
@@ -36,7 +37,11 @@ const requestSchema = z.object({
     .max(MAX_IDS, `Cannot export more than ${MAX_IDS} labels at once.`),
   format: z.enum(["pdf", "zpl"]),
   labelConfig: labelConfigSchema,
-  zplSize: z.enum(["50x30", "70x40"]).optional().default("50x30"),
+  zplSize: z
+    .string()
+    .refine((value) => parseZplSize(value) !== null, "Unsupported ZPL label size.")
+    .optional()
+    .default("50x30"),
   /** Template the layout came from (recorded with the print). */
   templateId: z.string().uuid().nullish(),
 });

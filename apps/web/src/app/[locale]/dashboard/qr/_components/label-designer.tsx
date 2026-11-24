@@ -81,6 +81,16 @@ import type {
 import { QrPdfPreviewDialog } from "@/app/[locale]/dashboard/qr/_components/qr-pdf-preview-dialog";
 import { ZplPreviewDialog } from "@/components/features/qr/zpl-preview-dialog";
 import { computeLabelLayout, FOOTER_FONT_RATIO, FOOTER_TEXT_EMS } from "@/lib/qr/label-layout";
+import {
+  parseZplSize,
+  zplSizeForConfig,
+  zplSizeOf,
+  ZPL_MAX_HEIGHT_MM,
+  ZPL_MAX_WIDTH_MM,
+  ZPL_MIN_SIDE_MM,
+  ZPL_SIZE_PRESETS,
+  type ZplLabelSize,
+} from "@/lib/qr/label-templates";
 
 // ---------------------------------------------------------------------------
 // SVG preview helpers
@@ -131,10 +141,9 @@ const LINE_PREVIEW_COLORS = ["#0f172a", "#475569", "#64748b", "#94a3b8"];
 function previewLineColor(index: number) {
   return LINE_PREVIEW_COLORS[Math.min(index, LINE_PREVIEW_COLORS.length - 1)];
 }
-const ZPL_DIMENSIONS = {
-  "50x30": { width: 50, height: 30 },
-  "70x40": { width: 70, height: 40 },
-} as const;
+function zplDimensions(size: ZplLabelSize) {
+  return parseZplSize(size) ?? { width: 50, height: 30 };
+}
 
 function orientDimension(
   dimension: { width: number; height: number },
@@ -911,6 +920,73 @@ const MAX_PREVIEW_ZOOM = 2;
 // Component
 // ---------------------------------------------------------------------------
 
+/**
+ * Any label size for ZPL, in mm as the label runs through the printer: width
+ * across the head (the longer side) and height along the feed.
+ */
+function ZplCustomSize({
+  size,
+  onApply,
+}: {
+  size: ZplLabelSize;
+  onApply: (size: ZplLabelSize) => void;
+}) {
+  const t = useTranslations("modules.qr.designer.layout");
+  const current = parseZplSize(size) ?? { width: 50, height: 30 };
+  const [width, setWidth] = useState(String(current.width));
+  const [height, setHeight] = useState(String(current.height));
+  const w = Number(width);
+  const h = Number(height);
+  const next =
+    Number.isInteger(w) && Number.isInteger(h) && Math.max(w, h) <= ZPL_MAX_WIDTH_MM
+      ? zplSizeOf(w, h)
+      : null;
+  const valid = next !== null && parseZplSize(next) !== null;
+
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs text-muted-foreground">{t("zplCustom")}</Label>
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          inputMode="numeric"
+          aria-label={t("widthMm")}
+          value={width}
+          onChange={(e) => setWidth(e.target.value)}
+          className="h-9 w-20"
+        />
+        <span className="text-xs text-muted-foreground">×</span>
+        <Input
+          type="number"
+          inputMode="numeric"
+          aria-label={t("heightMm")}
+          value={height}
+          onChange={(e) => setHeight(e.target.value)}
+          className="h-9 w-20"
+        />
+        <span className="text-xs text-muted-foreground">mm</span>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-9"
+          disabled={!valid || next === size}
+          onClick={() => valid && next && onApply(next)}
+        >
+          {t("zplCustomApply")}
+        </Button>
+      </div>
+      <p className={`text-xs ${valid ? "text-muted-foreground" : "text-destructive"}`}>
+        {t("zplCustomHint", {
+          min: ZPL_MIN_SIDE_MM,
+          maxWidth: ZPL_MAX_WIDTH_MM,
+          maxHeight: ZPL_MAX_HEIGHT_MM,
+        })}
+      </p>
+    </div>
+  );
+}
+
 const ZPL_SPEEDS: readonly ZplPrintSpeed[] = [2, 3, 4, 5];
 const ZPL_MEDIA: readonly ZplMediaType[] = ["printer", "transfer", "direct"];
 const ZPL_PRINTER_DARKNESS = "printer";
@@ -1010,17 +1086,15 @@ export function LabelDesigner({
   const selectedIds = useMemo(() => items.map((item) => item.id), [items]);
   const [pdfConfig, setPdfConfig] = useState<LabelConfig>(initialConfig ?? DEFAULT_LABEL_CONFIG);
   // A saved ZPL layout keeps its own size; anything else starts as 50×30.
-  const initialZplSize: "50x30" | "70x40" =
-    format === "zpl" &&
-    initialConfig &&
-    Math.max(initialConfig.dimension.width, initialConfig.dimension.height) >= 70
-      ? "70x40"
+  const initialZplSize: ZplLabelSize =
+    format === "zpl" && initialConfig && parseZplSize(zplSizeForConfig(initialConfig))
+      ? zplSizeForConfig(initialConfig)
       : "50x30";
   const [zplConfig, setZplConfig] = useState<LabelConfig>(
     format === "zpl" && initialConfig
       ? {
           ...initialConfig,
-          dimension: orientDimension(ZPL_DIMENSIONS[initialZplSize], initialConfig.orientation),
+          dimension: orientDimension(zplDimensions(initialZplSize), initialConfig.orientation),
         }
       : {
           ...(initialConfig ?? DEFAULT_LABEL_CONFIG),
@@ -1028,14 +1102,22 @@ export function LabelDesigner({
           showBorder: false,
           textPosition: "right",
           dimension: orientDimension(
-            ZPL_DIMENSIONS["50x30"],
+            zplDimensions("50x30"),
             (initialConfig ?? DEFAULT_LABEL_CONFIG).orientation
           ),
         }
   );
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [optionsTab, setOptionsTab] = useState<"layout" | "qr" | "text">("layout");
-  const [zplSize, setZplSize] = useState<"50x30" | "70x40">(initialZplSize);
+  const [zplSize, setZplSize] = useState<ZplLabelSize>(initialZplSize);
+
+  function applyZplSize(size: ZplLabelSize) {
+    setZplSize(size);
+    setZplConfig((prev) => ({
+      ...prev,
+      dimension: orientDimension(zplDimensions(size), prev.orientation),
+    }));
+  }
   const [isExporting, setIsExporting] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -1495,24 +1577,21 @@ export function LabelDesigner({
                         </div>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 gap-2">
-                        {(["50x30", "70x40"] as const).map((s) => (
-                          <Button
-                            key={s}
-                            size="sm"
-                            variant={zplSize === s ? "default" : "outline"}
-                            onClick={() => {
-                              setZplSize(s);
-                              setZplConfig((prev) => ({
-                                ...prev,
-                                dimension: orientDimension(ZPL_DIMENSIONS[s], prev.orientation),
-                              }));
-                            }}
-                            className="h-9 text-xs"
-                          >
-                            {t("layout.zplPreset", { size: s })}
-                          </Button>
-                        ))}
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-4 gap-2">
+                          {ZPL_SIZE_PRESETS.map((s) => (
+                            <Button
+                              key={s}
+                              size="sm"
+                              variant={zplSize === s ? "default" : "outline"}
+                              onClick={() => applyZplSize(s)}
+                              className="h-9 text-xs"
+                            >
+                              {t("layout.zplPreset", { size: s })}
+                            </Button>
+                          ))}
+                        </div>
+                        <ZplCustomSize key={zplSize} size={zplSize} onApply={applyZplSize} />
                       </div>
                     )}
 
@@ -2461,8 +2540,8 @@ export function LabelDesigner({
                 ) : (
                   <>
                     {t("layoutDialog.fixedZpl", {
-                      width: ZPL_DIMENSIONS[zplSize].width,
-                      height: ZPL_DIMENSIONS[zplSize].height,
+                      width: zplDimensions(zplSize).width,
+                      height: zplDimensions(zplSize).height,
                     })}
                   </>
                 )}

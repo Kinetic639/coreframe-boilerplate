@@ -4,6 +4,7 @@ import type { LabelConfig } from "@/lib/qr/label-config";
 import { applyCaseTransform, zplPrintSettings } from "@/lib/qr/label-config";
 import QRCode from "qrcode";
 import { computeLabelLayout, FOOTER_FONT_RATIO } from "@/lib/qr/label-layout";
+import { parseZplSize, type ZplLabelSize } from "@/lib/qr/label-templates";
 import { buildQrScanUrl } from "@/lib/qr/generate";
 
 /**
@@ -46,7 +47,7 @@ function ensureFontsRegistered(): Promise<void> {
   return fontsRegisteredPromise;
 }
 
-export type ZplLabelSize = "50x30" | "70x40";
+export type { ZplLabelSize } from "@/lib/qr/label-templates";
 
 export interface ZplLabelItem {
   token: string;
@@ -58,10 +59,11 @@ const DOTS_PER_MM = 8;
 /** White modules kept around the code (the label padding adds to it) */
 const QR_QUIET_MODULES = 2;
 const DOTS_PER_PT = 203 / 72;
-const SIZE_CONFIG = {
-  "50x30": { widthMm: 50, heightMm: 30 },
-  "70x40": { widthMm: 70, heightMm: 40 },
-} as const;
+function sizeMm(size: ZplLabelSize) {
+  const parsed = parseZplSize(size);
+  if (!parsed) throw new Error(`Unsupported ZPL label size: ${size}`);
+  return { widthMm: parsed.width, heightMm: parsed.height };
+}
 
 function mm(value: number): number {
   return Math.round(value * DOTS_PER_MM);
@@ -311,7 +313,7 @@ function drawDotGridQr(
 async function renderLabelGraphic(item: ZplLabelItem, size: ZplLabelSize, config: LabelConfig) {
   await ensureFontsRegistered();
   const { createCanvas } = await import("canvas");
-  const { widthMm, heightMm } = SIZE_CONFIG[size];
+  const { widthMm, heightMm } = sizeMm(size);
   const width = mm(widthMm);
   const height = mm(heightMm);
   const isPortraitComposition = config.orientation === "portrait";
@@ -419,7 +421,7 @@ export function zplPrintCommands(config: LabelConfig): string[] {
 }
 
 async function singleLabel(item: ZplLabelItem, size: ZplLabelSize, config: LabelConfig) {
-  const { widthMm, heightMm } = SIZE_CONFIG[size];
+  const { widthMm, heightMm } = sizeMm(size);
   const width = mm(widthMm);
   const height = mm(heightMm);
   const { bytesPerRow, totalBytes, hex } = await renderLabelGraphic(item, size, config);
