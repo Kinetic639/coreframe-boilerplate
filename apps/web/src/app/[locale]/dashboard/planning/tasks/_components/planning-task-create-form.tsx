@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Camera,
@@ -11,10 +11,12 @@ import {
   Loader2,
   Paperclip,
   QrCode,
+  RotateCw,
+  TriangleAlert,
   X,
 } from "lucide-react";
 import { toast } from "react-toastify";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -41,11 +43,8 @@ import type { PlanningTaskDetail } from "@/server/services/planning-tasks.servic
 import type { PlanningPriorityBadgeConfig } from "@/components/planning/planning-task-priority-badge";
 import { QrCodeStagingField, type StagedQrCode } from "@/components/features/qr";
 import { usePermissions } from "@/hooks/v2/use-permissions";
-import {
-  attachmentUploadProblem,
-  keepFilesInMemory,
-  uploadAttachmentDirect,
-} from "@/hooks/queries/attachments/direct-upload";
+import { registerUploadedAttachments } from "@/hooks/queries/attachments/direct-upload";
+import { useStagedAttachmentUploads } from "@/hooks/queries/attachments/use-staged-attachment-uploads";
 import {
   useCopyTargetBoards,
   useCopyTargetColumns,
@@ -54,7 +53,7 @@ import { columnName } from "@/components/planning/task-editor/task-labels";
 import { MemberAvatar, MemberProfilesProvider } from "@/components/planning/member-avatar";
 import { formatFileSize } from "@/components/primitives/attachments";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
-import { ALLOWED_ATTACHMENT_MIME_TYPES } from "@/lib/validations/attachments";
+import { ATTACHMENT_INPUT_ACCEPT } from "@/lib/validations/attachments";
 import { cn } from "@/utils";
 import { QR_ASSIGN, QR_CREATE } from "@/lib/constants/permissions";
 
@@ -169,7 +168,8 @@ export function PlanningTaskCreateForm({
   const [dueAt, setDueAt] = useState<string>(initialDueAt ?? "");
   const [titleError, setTitleError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
+  const staged = useStagedAttachmentUploads(orgId);
+  const [waitingForFiles, setWaitingForFiles] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [placement, setPlacement] = useState<Placement>("list");
   const [boardId, setBoardId] = useState<string | null>(null);
@@ -178,8 +178,6 @@ export function PlanningTaskCreateForm({
   const tPlanning = useTranslations("modules.planning");
   const boards = useCopyTargetBoards(orgId ?? "", placement === "board" && Boolean(orgId));
   const columns = useCopyTargetColumns(orgId ?? "", boardId, placement === "board");
-  const fileInput = useRef<HTMLInputElement>(null);
-  const cameraInput = useRef<HTMLInputElement>(null);
   const qrFromScan = Boolean(initialQrCodeId && initialToken);
   const [stagedQr, setStagedQr] = useState<StagedQrCode | null>(
     initialQrCodeId && initialToken
@@ -213,7 +211,7 @@ export function PlanningTaskCreateForm({
     setTaskScope(activeBranchId ?? "__organization__");
     setDueAt(initialDueAt ?? "");
     setTitleError(null);
-    setFiles([]);
+    staged.reset();
     setFileError(null);
     setPlacement("list");
     setBoardId(null);
@@ -221,14 +219,17 @@ export function PlanningTaskCreateForm({
     setPlacementError(null);
   }
 
-  // Kept in memory right away: on iPhones a picked file can stop being
-  // readable by the time the task is created and the upload starts.
-  async function addFiles(list: FileList | null) {
-    if (!list?.length) return;
-    const picked = await keepFilesInMemory(list);
-    const problem = picked.map(attachmentUploadProblem).find(Boolean);
+  // Each file starts uploading the moment it is picked, so creating the task
+  // only has to record the files that are already in storage.
+  async function addFiles(input: HTMLInputElement) {
+    const picked = Array.from(input.files ?? []);
+    if (!picked.length) return;
+    // Reading the files starts before the input is cleared (iPhones can make a
+    // picked file unreadable once its input is reset).
+    const adding = staged.add(picked);
+    input.value = "";
+    const problem = await adding;
     setFileError(problem ? tFiles(`problem.${problem}`) : null);
-    setFiles((current) => [...current, ...picked.filter((file) => !attachmentUploadProblem(file))]);
   }
 
   async function handleSubmit() {
@@ -245,6 +246,23 @@ export function PlanningTaskCreateForm({
     setPlacementError(null);
     setSubmitting(true);
     onSubmittingChange?.(true);
+
+    // Photos still on their way are waited for; the task is only created once
+    // every file is in storage, so it never shows up without them.
+    let uploaded: Awaited<ReturnType<typeof staged.settled>>["payloads"] = [];
+    if (staged.items.length > 0) {
+      setWaitingForFiles(true);
+      const outcome = await staged.settled();
+      setWaitingForFiles(false);
+      if (outcome.failed > 0) {
+        setFileError(t("filesNotSent"));
+        setSubmitting(false);
+        onSubmittingChange?.(false);
+        return;
+      }
+      uploaded = outcome.payloads;
+    }
+    setFileError(null);
 
     const descriptionPlain = extractPlainText(descriptionRich as any);
     const hasDescription = descriptionPlain.trim().length > 0;
@@ -267,9 +285,16 @@ export function PlanningTaskCreateForm({
         return;
       }
 
-      toast.success(t("taskCreated"));
-
       const followUps: Promise<unknown>[] = [];
+      if (uploaded.length > 0) {
+        followUps.push(
+          registerUploadedAttachments({
+            targetType: "planning.task",
+            targetId: result.data.id,
+            files: uploaded,
+          }).catch(() => toast.error(t("attachmentsUploadFailed")))
+        );
+      }
       if (stagedQr) {
         followUps.push(
           // "New code": created and assigned now that the task exists.
@@ -287,25 +312,7 @@ export function PlanningTaskCreateForm({
         );
       }
       await Promise.all(followUps);
-
-      // Files go up in the background: the form closes as soon as the task exists.
-      if (files.length > 0 && orgId) {
-        const pending = files;
-        const taskId = result.data.id;
-        const notice = toast.info(t("uploadingFiles", { count: pending.length }), {
-          autoClose: false,
-        });
-        void Promise.allSettled(
-          pending.map((file) =>
-            uploadAttachmentDirect({ orgId, targetType: "planning.task", targetId: taskId, file })
-          )
-        ).then((results) => {
-          toast.dismiss(notice);
-          const failed = results.filter((item) => item.status === "rejected").length;
-          if (failed > 0) toast.error(t("attachmentsUploadFailed"));
-          else toast.success(t("filesUploaded", { count: pending.length }));
-        });
-      }
+      toast.success(t("taskCreated"));
 
       reset();
       onCreated(result.data);
@@ -585,20 +592,69 @@ export function PlanningTaskCreateForm({
 
       <div className="flex flex-col gap-2">
         <Label>{t("attachmentsField")}</Label>
-        {files.length > 0 ? (
+        {staged.items.length > 0 ? (
           <ul className="divide-y rounded-md border">
-            {files.map((file, index) => (
-              <li key={`${file.name}-${index}`} className="flex items-center gap-2.5 px-3 py-2">
-                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate text-sm">{file.name}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {formatFileSize(file.size)}
+            {staged.items.map((item) => (
+              <li key={item.id} className="flex items-center gap-2.5 px-3 py-2">
+                {item.previewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.previewUrl}
+                    alt=""
+                    className="h-9 w-9 shrink-0 rounded object-cover"
+                  />
+                ) : (
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-muted">
+                    {item.isImage ? (
+                      <Camera className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </span>
+                )}
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-sm">{item.name}</span>
+                  {item.status === "uploading" ? (
+                    <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+                      {t("fileUploading")}
+                      <span className="h-1 max-w-24 flex-1 overflow-hidden rounded-full bg-muted">
+                        <span
+                          className="block h-full bg-primary transition-[width]"
+                          style={{ width: `${Math.round(item.progress * 100)}%` }}
+                        />
+                      </span>
+                    </span>
+                  ) : item.status === "failed" ? (
+                    <span className="flex items-center gap-1 text-xs text-destructive">
+                      <TriangleAlert className="h-3 w-3 shrink-0" />
+                      {t("fileFailed")}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      {formatFileSize(item.payload?.size ?? item.size)}
+                    </span>
+                  )}
                 </span>
+                {item.status === "failed" ? (
+                  <button
+                    type="button"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                    aria-label={t("retryFile", { name: item.name })}
+                    onClick={() => {
+                      setFileError(null);
+                      staged.retry(item.id);
+                    }}
+                    disabled={submitting}
+                  >
+                    <RotateCw className="h-4 w-4" />
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive"
-                  aria-label={t("removeFile", { name: file.name })}
-                  onClick={() => setFiles((current) => current.filter((_, i) => i !== index))}
+                  aria-label={t("removeFile", { name: item.name })}
+                  onClick={() => staged.remove(item.id)}
                   disabled={submitting}
                 >
                   <X className="h-4 w-4" />
@@ -607,51 +663,53 @@ export function PlanningTaskCreateForm({
             ))}
           </ul>
         ) : null}
+        {/*
+          Labels wrapping the inputs instead of hidden inputs clicked from code:
+          Android browsers often ignore a click() on a display:none file input
+          (nothing opens), while tapping a label opens the camera or the picker
+          everywhere. The inputs stay in the layout, only visually hidden.
+        */}
         <div className="grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className={OUTLINE_BUTTON}
-            onClick={() => cameraInput.current?.click()}
-            disabled={submitting}
+          <label
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              OUTLINE_BUTTON,
+              "relative cursor-pointer",
+              submitting && "pointer-events-none opacity-50"
+            )}
           >
             <Camera className="h-4 w-4" />
             {t("addPhoto")}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className={OUTLINE_BUTTON}
-            onClick={() => fileInput.current?.click()}
-            disabled={submitting}
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="sr-only"
+              disabled={submitting}
+              onChange={(event) => void addFiles(event.currentTarget)}
+            />
+          </label>
+          <label
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              OUTLINE_BUTTON,
+              "relative cursor-pointer",
+              submitting && "pointer-events-none opacity-50"
+            )}
           >
             <Paperclip className="h-4 w-4" />
             {t("addFiles")}
-          </Button>
+            <input
+              type="file"
+              multiple
+              accept={ATTACHMENT_INPUT_ACCEPT}
+              className="sr-only"
+              disabled={submitting}
+              onChange={(event) => void addFiles(event.currentTarget)}
+            />
+          </label>
         </div>
         {fileError ? <p className="text-xs text-destructive">{fileError}</p> : null}
-        <input
-          ref={fileInput}
-          type="file"
-          multiple
-          accept={ALLOWED_ATTACHMENT_MIME_TYPES.join(",")}
-          className="hidden"
-          onChange={(event) => {
-            void addFiles(event.target.files);
-            event.target.value = "";
-          }}
-        />
-        <input
-          ref={cameraInput}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(event) => {
-            void addFiles(event.target.files);
-            event.target.value = "";
-          }}
-        />
       </div>
 
       {can(QR_ASSIGN) && !qrFromScan && (
@@ -671,7 +729,7 @@ export function PlanningTaskCreateForm({
   const submitLabel = (
     <>
       {submitting && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-      {t("createTask")}
+      {waitingForFiles ? t("waitingForFiles", { count: staged.uploading }) : t("createTask")}
     </>
   );
 

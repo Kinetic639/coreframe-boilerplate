@@ -26,6 +26,31 @@ export function attachmentUploadProblem(file: File): AttachmentUploadProblem | n
   return null;
 }
 
+const TYPE_BY_EXTENSION: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  jfif: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+  pdf: "application/pdf",
+  txt: "text/plain",
+  csv: "text/csv",
+};
+
+/**
+ * The file's type, guessed from its name when the browser gave none. Android
+ * pickers (Google Photos, some galleries and file managers) often hand over a
+ * photo with an empty or generic type, which would otherwise be refused.
+ */
+export function withKnownType(file: File): File {
+  if (file.type && file.type !== "application/octet-stream") return file;
+  const ext = /\.([a-zA-Z0-9]{1,12})$/.exec(file.name)?.[1]?.toLowerCase();
+  const type = ext ? TYPE_BY_EXTENSION[ext] : undefined;
+  if (!type) return file;
+  return new File([file], file.name, { type, lastModified: file.lastModified });
+}
+
 /**
  * A copy of a picked file held in memory. On iPhones a file from the photo
  * picker or the camera can stop being readable once the input is cleared or
@@ -34,10 +59,11 @@ export function attachmentUploadProblem(file: File): AttachmentUploadProblem | n
  */
 export async function keepFileInMemory(file: File): Promise<File> {
   try {
-    const bytes = await file.arrayBuffer();
-    return new File([bytes], file.name, { type: file.type, lastModified: file.lastModified });
+    const typed = withKnownType(file);
+    const bytes = await typed.arrayBuffer();
+    return new File([bytes], typed.name, { type: typed.type, lastModified: typed.lastModified });
   } catch {
-    return file;
+    return withKnownType(file);
   }
 }
 
@@ -89,25 +115,43 @@ function putObject(
   });
 }
 
+/** A file already in storage, ready to be recorded on a target. */
+export interface UploadedAttachmentPayload {
+  storagePath: string;
+  fileName: string;
+  contentType: string;
+  size: number;
+  image?: {
+    width: number;
+    height: number;
+    variants: {
+      name: "thumb" | "card";
+      path: string;
+      width: number;
+      height: number;
+      size: number;
+      contentType: "image/webp" | "image/jpeg";
+    }[];
+  };
+}
+
 /**
- * One file straight from the browser to storage, then recorded on its target.
- * Each file is its own request, so the server's request-size limit (a few MB
- * on the hosting platform) never applies, and one failed file leaves the
- * others alone.
+ * One file straight from the browser to storage, not yet recorded on anything.
+ * Lets a form send its photos while it is still being filled in, and record
+ * them on the new record the moment it exists (registerUploadedAttachments).
  */
-export async function uploadAttachmentDirect({
+export async function uploadAttachmentFile({
   orgId,
-  targetType,
-  targetId,
   file,
   onProgress,
+  onPrepared,
 }: {
   orgId: string;
-  targetType: string;
-  targetId: string;
   file: File;
   onProgress?: (fraction: number) => void;
-}): Promise<AppAttachment> {
+  /** Called once the photo is shrunk, with its small versions (for a preview). */
+  onPrepared?: (prepared: PreparedImage | null) => void;
+}): Promise<UploadedAttachmentPayload> {
   const supabase = createClient();
   const {
     data: { session },
@@ -117,6 +161,7 @@ export async function uploadAttachmentDirect({
   // Photos are shrunk to 2048 px WebP and get 160 px and 640 px versions for
   // lists and cards. Anything else (and an image the browser cannot read) is sent as picked.
   const prepared: PreparedImage | null = await prepareImage(file).catch(() => null);
+  onPrepared?.(prepared);
   const upload = prepared?.file ?? file;
 
   const storagePath = `${orgId}/${session.user.id}/${crypto.randomUUID()}${extension(upload.name)}`;
@@ -161,21 +206,55 @@ export async function uploadAttachmentDirect({
       ).filter((variant) => variant !== null)
     : [];
 
-  const result = await registerAttachmentsAction({
+  return {
+    storagePath,
+    fileName: upload.name,
+    contentType: upload.type,
+    size: upload.size,
+    ...(prepared ? { image: { width: prepared.width, height: prepared.height, variants } } : {}),
+  };
+}
+
+/** Files already in storage (uploadAttachmentFile), recorded on their target in one call. */
+export async function registerUploadedAttachments({
+  targetType,
+  targetId,
+  files,
+}: {
+  targetType: string;
+  targetId: string;
+  files: UploadedAttachmentPayload[];
+}): Promise<AppAttachment[]> {
+  if (files.length === 0) return [];
+  const result = await registerAttachmentsAction({ targetType, targetId, files });
+  if (!result.success) throw new Error((result as { success: false; error: string }).error);
+  return result.data;
+}
+
+/**
+ * One file straight from the browser to storage, then recorded on its target.
+ * Each file is its own request, so the server's request-size limit (a few MB
+ * on the hosting platform) never applies, and one failed file leaves the
+ * others alone.
+ */
+export async function uploadAttachmentDirect({
+  orgId,
+  targetType,
+  targetId,
+  file,
+  onProgress,
+}: {
+  orgId: string;
+  targetType: string;
+  targetId: string;
+  file: File;
+  onProgress?: (fraction: number) => void;
+}): Promise<AppAttachment> {
+  const payload = await uploadAttachmentFile({ orgId, file, onProgress });
+  const [attachment] = await registerUploadedAttachments({
     targetType,
     targetId,
-    files: [
-      {
-        storagePath,
-        fileName: upload.name,
-        contentType: upload.type,
-        size: upload.size,
-        ...(prepared
-          ? { image: { width: prepared.width, height: prepared.height, variants } }
-          : {}),
-      },
-    ],
+    files: [payload],
   });
-  if (!result.success) throw new Error((result as { success: false; error: string }).error);
-  return result.data[0];
+  return attachment;
 }

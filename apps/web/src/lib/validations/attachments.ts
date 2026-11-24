@@ -18,6 +18,17 @@ export const ALLOWED_ATTACHMENT_MIME_TYPES = [
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 ] as const;
 
+/**
+ * The file inputs' accept list: photos by kind (image/*) plus the other allowed
+ * files by type. Listing only exact image types makes some Android phones open
+ * a plain file browser without the gallery; image/* lets them offer the gallery
+ * and the camera. Files of a type that is not allowed are still refused on pick.
+ */
+export const ATTACHMENT_INPUT_ACCEPT = [
+  "image/*",
+  ...ALLOWED_ATTACHMENT_MIME_TYPES.filter((type) => !type.startsWith("image/")),
+].join(",");
+
 export type AttachmentMimeType = (typeof ALLOWED_ATTACHMENT_MIME_TYPES)[number];
 
 export const attachmentTargetSchema = z.object({
