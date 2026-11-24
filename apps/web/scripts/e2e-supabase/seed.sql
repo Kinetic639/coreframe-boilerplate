@@ -23,8 +23,13 @@ select (:'result'::jsonb ->> 'organization_id') as org_id \gset
 update public.users set first_name = 'Test', last_name = 'E2E' where id = :'user_id';
 
 -- A second branch, so branch switching is covered.
-insert into public.branches (organization_id, name, slug)
-values (:'org_id', 'Oddział drugi', 'oddzial-drugi');
+select gen_random_uuid() as branch_id \gset
+insert into public.branches (id, organization_id, branch_number, name, slug)
+values (
+  :'branch_id', :'org_id',
+  public.reserve_organization_entity_number(:'org_id', 'branch', :'branch_id'),
+  'Oddział drugi', 'oddzial-drugi'
+);
 
 select public.compile_user_permissions(:'user_id', :'org_id');
 

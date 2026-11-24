@@ -80,6 +80,20 @@ echo "::group::Load reference data"
 } | psql "$LOCAL_DB_URL" -v ON_ERROR_STOP=1 -q
 echo "::endgroup::"
 
+echo "::group::Apply repo migrations not yet on production"
+# Fixes that wait in the repo for production are tested here before they ship.
+# Listed by hand: repo and production migration versions do not line up, so
+# they cannot be matched automatically. Drop an entry once it is on production
+# (the files are create-or-replace, so a stale entry is harmless).
+pending=(
+  20261124130000_create_org_branch_number.sql
+)
+for name in "${pending[@]}"; do
+  echo "applying $name"
+  psql "$LOCAL_DB_URL" -v ON_ERROR_STOP=1 -q -f "$web/supabase-target/supabase/migrations/$name"
+done
+echo "::endgroup::"
+
 echo "::group::Seed the test account"
 user_id="$(
   curl -fsS "$LOCAL_API_URL/auth/v1/admin/users" \
