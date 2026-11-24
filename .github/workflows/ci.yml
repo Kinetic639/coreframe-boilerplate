@@ -8,12 +8,13 @@
 #   NEXT_PUBLIC_SITE_URL           - e.g. https://app.ambra-system.com
 #   NEXT_PUBLIC_MARKETING_SITE_URL - e.g. https://www.ambra-system.com
 #   RESEND_API_KEY                 - only needed for the `build` job (email templates)
-#   SUPABASE_SERVICE_ROLE_KEY      - `build` and `e2e`: public pages read site
-#                                    settings and VMI data with the service client
-#                                    while they prerender and render
-# Optional, unlocks the authenticated e2e specs in apps/web/e2e (they self-skip
-# without these rather than failing):
-#   E2E_TEST_EMAIL, E2E_TEST_PASSWORD
+#   SUPABASE_SERVICE_ROLE_KEY      - `build`: public pages read site settings and
+#                                    VMI data with the service client while they
+#                                    prerender
+#   SUPABASE_DB_URL                - `e2e`: production Postgres connection string
+#                                    (session pooler). Only used to dump the schema
+#                                    and reference tables into the job's own local
+#                                    Supabase; the suite never calls production.
 #
 # Until secrets are added, `quality` (lint/types/unit tests) still runs and
 # gates PRs on its own.
@@ -23,14 +24,11 @@ name: CI
 on:
   push:
     branches: [main]
-  # Work is merged into `development` (no deploy, no e2e); merging
-  # development into main releases: Vercel deploys main only (vercel.json)
-  # and the e2e suite runs on that push.
+  # Work is merged into `development` (no deploy); merging development into
+  # main releases: Vercel deploys main only (vercel.json).
   pull_request:
     # `closed` only cancels the PR's run still in progress (see concurrency):
-    # after a merge the push to main runs everything again, and the e2e suite
-    # talks to the shared Supabase project, so two suites at once slow it down
-    # for everyone using the app.
+    # after a merge the push to main runs everything again.
     types: [opened, synchronize, reopened, closed]
 
 concurrency:
@@ -91,24 +89,19 @@ jobs:
 
   e2e:
     name: E2E (apps/web)
-    # Only after a merge to main (the release): the suite runs against the
-    # production Supabase project, so running it on every PR push added tens of
-    # thousands of requests a day. PRs (to development or main) still get lint,
-    # types, unit tests and the build.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # The suite runs against a throwaway Supabase started inside this job
+    # (apps/web/scripts/e2e-supabase/start.sh), never the production project:
+    # production only answers one schema dump per run. So it runs on every PR
+    # as well as on the release push to main.
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     needs: quality
     env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
-      NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
-      NEXT_PUBLIC_MARKETING_SITE_URL: ${{ secrets.NEXT_PUBLIC_MARKETING_SITE_URL }}
-      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      # Optional -- authenticated specs in apps/web/e2e self-skip without these.
-      E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
-      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3001
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3001
+      NEXT_PUBLIC_MARKETING_SITE_URL: http://127.0.0.1:3001
+      # Read-only use: `supabase db dump` and a copy of the reference tables.
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -120,6 +113,21 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+
+      # Exports NEXT_PUBLIC_SUPABASE_URL / _ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+      # and the seeded E2E_TEST_EMAIL / E2E_TEST_PASSWORD for the steps below.
+      - name: Start local Supabase
+        working-directory: apps/web
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::Add the SUPABASE_DB_URL secret (production session pooler connection string)."
+            exit 1
+          fi
+          bash scripts/e2e-supabase/start.sh
 
       - name: Install Playwright browsers
         working-directory: apps/web

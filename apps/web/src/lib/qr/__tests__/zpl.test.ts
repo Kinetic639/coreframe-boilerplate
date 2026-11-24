@@ -115,3 +115,20 @@ describe("zplPrintCommands", () => {
     expect((zpl.match(/\^PR2,2,2\n~SD25\n\^MTD/g) ?? []).length).toBe(2);
   });
 });
+
+describe("custom ZPL sizes", () => {
+  it("sizes a 70×50 label to 560×400 dots", async () => {
+    const zpl = await generateZplLabels([makeItem()], "70x50", {
+      ...DEFAULT_LABEL_CONFIG,
+      dimension: { width: 70, height: 50 },
+    });
+    expect(zpl).toContain("^PW560");
+    expect(zpl).toContain("^LL400");
+  });
+
+  it("rejects sizes the printer cannot take", async () => {
+    await expect(generateZplLabels([makeItem()], "120x50", DEFAULT_LABEL_CONFIG)).rejects.toThrow(
+      "Unsupported ZPL label size"
+    );
+  });
+});

@@ -6,6 +6,7 @@ import { generateQrLabelsPdfWithConfig } from "@/server/qr/label-pdf";
 import type { QrLabelPdfItem } from "@/server/qr/label-pdf";
 import { generateZplLabels } from "@/lib/qr/zpl";
 import type { ZplLabelItem, ZplLabelSize } from "@/lib/qr/zpl";
+import { parseZplSize } from "@/lib/qr/label-templates";
 import { mapWithConcurrency } from "@/lib/utils/concurrency";
 
 const QR_IMAGE_CONCURRENCY = 8;
@@ -52,7 +53,8 @@ export async function renderQrLabels(
     token: item.token,
     fields: item.fields,
   }));
-  const base = zplSize === "50x30" ? { width: 50, height: 30 } : { width: 70, height: 40 };
+  const base = parseZplSize(zplSize);
+  if (!base) throw new Error(`Unsupported ZPL label size: ${zplSize}`);
   const zpl = await generateZplLabels(zplItems, zplSize, {
     ...labelConfig,
     dimension:

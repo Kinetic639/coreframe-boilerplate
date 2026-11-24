@@ -2075,7 +2075,10 @@
             "medium": "Średnia",
             "large": "Duża"
           },
-          "footerHint": "Stopka ma stałe miejsce na dole strefy tekstu: w poziomie pod kolumną tekstu, w pionie na dole etykiety."
+          "footerHint": "Stopka ma stałe miejsce na dole strefy tekstu: w poziomie pod kolumną tekstu, w pionie na dole etykiety.",
+          "zplCustom": "Własny rozmiar (szerokość w poprzek drukarki × długość)",
+          "zplCustomApply": "Ustaw",
+          "zplCustomHint": "Całe milimetry: od {min} mm, szerokość do {maxWidth} mm, długość do {maxHeight} mm. Dłuższy bok idzie w poprzek głowicy."
         },
         "qr": {
           "qrSize": "Rozmiar QR",
@@ -4876,6 +4879,11 @@
         "addPhoto": "Zrób zdjęcie",
         "addFiles": "Dodaj pliki",
         "removeFile": "Usuń {name}",
+        "retryFile": "Wyślij ponownie {name}",
+        "fileUploading": "Wysyłanie…",
+        "fileFailed": "Nie udało się wysłać",
+        "filesNotSent": "Nie wszystkie pliki zostały wysłane. Wyślij je ponownie albo usuń z listy.",
+        "waitingForFiles": "{count, plural, =0 {Tworzenie…} one {Kończę wysyłanie zdjęcia…} other {Kończę wysyłanie zdjęć (#)…}}",
         "attachmentsUploadFailed": "Zadanie utworzone, ale części plików nie udało się dodać.",
         "placement": {
           "label": "Gdzie dodać zadanie",

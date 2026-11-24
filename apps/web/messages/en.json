@@ -2120,7 +2120,10 @@
             "medium": "Medium",
             "large": "Large"
           },
-          "footerHint": "The footer has its own space at the bottom of the text area: under the text column in landscape, at the bottom of the label in portrait."
+          "footerHint": "The footer has its own space at the bottom of the text area: under the text column in landscape, at the bottom of the label in portrait.",
+          "zplCustom": "Custom size (width across the printer × length)",
+          "zplCustomApply": "Set",
+          "zplCustomHint": "Whole millimetres: at least {min} mm, width up to {maxWidth} mm, length up to {maxHeight} mm. The longer side runs across the print head."
         },
         "qr": {
           "qrSize": "QR size",
@@ -4796,6 +4799,11 @@
         "addPhoto": "Take a photo",
         "addFiles": "Add files",
         "removeFile": "Remove {name}",
+        "retryFile": "Send {name} again",
+        "fileUploading": "Uploading…",
+        "fileFailed": "Upload failed",
+        "filesNotSent": "Not every file was uploaded. Send them again or remove them from the list.",
+        "waitingForFiles": "{count, plural, =0 {Creating…} one {Finishing photo upload…} other {Finishing photo uploads (#)…}}",
         "attachmentsUploadFailed": "The task was created, but some files could not be added.",
         "placement": {
           "label": "Where to add the task",
