@@ -86,6 +86,7 @@ echo "::group::Apply repo migrations not yet on production"
 # they cannot be matched automatically. Drop an entry once it is on production
 # (the files are create-or-replace, so a stale entry is harmless).
 pending=(
+  20261125140000_organization_and_user_time_zones.sql
 )
 for name in "${pending[@]}"; do
   echo "applying $name"

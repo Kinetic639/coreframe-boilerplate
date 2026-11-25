@@ -16,6 +16,7 @@ import {
   type MovementSort,
   type MovementState,
 } from "./inventory-movements-state";
+import { formatDateTime } from "@/lib/date-time/format";
 
 /** Columns the list sorts by (each the movement's own field). */
 const SORT_FIELD: Record<string, MovementSort> = {
@@ -154,7 +155,7 @@ export function InventoryMovementsTable({
   const date = (value: string | null) =>
     value ? (
       <span className="text-xs text-muted-foreground">
-        {new Date(value).toLocaleString(labels.locale, {
+        {formatDateTime(value, labels.locale, {
           dateStyle: "short",
           timeStyle: "short",
         })}

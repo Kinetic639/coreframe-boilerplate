@@ -33,6 +33,7 @@ import { updateUserStatus } from "@/lib/api/user-detail";
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { pl } from "date-fns/locale";
+import { formatDate } from "@/lib/date-time/format";
 
 interface UserStatusManagerProps {
   user: UserDetailWithAssignments;
@@ -222,7 +223,7 @@ export function UserStatusManager({ user, onUpdate }: UserStatusManagerProps) {
                 <div className="flex items-center gap-2 rounded border bg-muted/50 p-3 text-sm">
                   <Calendar className="h-4 w-4" />
                   <div>
-                    <div>{new Date(user.created_at).toLocaleDateString("pl-PL")}</div>
+                    <div>{formatDate(user.created_at, "pl-PL")}</div>
                     <div className="text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(user.created_at), {
                         addSuffix: true,

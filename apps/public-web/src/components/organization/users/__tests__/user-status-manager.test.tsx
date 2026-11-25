@@ -111,7 +111,9 @@ describe("UserStatusManager", () => {
       expect(mockUpdateUserStatus).toHaveBeenCalledWith("user-1", "suspended");
     });
 
+    // The success message renders after the awaited update resolves; wait for
+    // it instead of reading the DOM synchronously (raced on slower CI runners).
+    expect(await screen.findByText("User status updated to Suspended")).toBeInTheDocument();
     expect(mockOnUpdate).toHaveBeenCalled();
-    expect(screen.getByText("User status updated to Suspended")).toBeInTheDocument();
   });
 });

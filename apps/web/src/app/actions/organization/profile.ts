@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { isValidTimeZone } from "@/lib/date-time/time-zone";
 import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
@@ -32,6 +33,7 @@ const updateProfileSchema = z.object({
   theme_color: z.union([z.string().regex(/^#[0-9A-Fa-f]{6}$/), z.literal(""), z.null()]).optional(),
   font_color: z.union([z.string().regex(/^#[0-9A-Fa-f]{6}$/), z.literal(""), z.null()]).optional(),
   logo_url: z.string().url().nullable().optional(),
+  timezone: z.string().refine(isValidTimeZone, "Unknown time zone").optional(),
 });
 
 export async function getOrgProfileAction() {

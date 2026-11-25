@@ -51,6 +51,7 @@ import { CommentsThread } from "@/components/features/comments";
 import { helpdeskTicketTypingTopic } from "@repo/rich-text/comments";
 import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-renderer";
 import { normalizeRichText } from "@/components/primitives/rich-text/rich-text-utils";
+import { formatDate, formatDateTime } from "@/lib/date-time/format";
 
 export function TicketDetailPanel({
   detail,
@@ -350,9 +351,7 @@ export function TicketDetailPanel({
                   {acceptedByName && (
                     <p className="truncate text-xs text-muted-foreground">{acceptedByName}</p>
                   )}
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(acceptedAt).toLocaleString()}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{formatDateTime(acceptedAt)}</p>
                 </div>
               ) : (
                 <span className="inline-block rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
@@ -415,7 +414,7 @@ export function TicketDetailPanel({
                 <p className="text-muted-foreground text-[10px] uppercase">
                   {t("tickets.columns.createdAt")}
                 </p>
-                <p className="text-xs">{new Date(detail.created_at).toLocaleString()}</p>
+                <p className="text-xs">{formatDateTime(detail.created_at)}</p>
               </div>
             </div>
 
@@ -426,7 +425,7 @@ export function TicketDetailPanel({
                   <p className="text-muted-foreground text-[10px] uppercase">
                     {t("tickets.fields.dueAt")}
                   </p>
-                  <p className="text-xs">{new Date(detail.due_at).toLocaleString()}</p>
+                  <p className="text-xs">{formatDateTime(detail.due_at)}</p>
                 </div>
               </div>
             )}
@@ -476,7 +475,7 @@ export function TicketDetailPanel({
                 {activity.slice(0, 10).map((a) => (
                   <div key={a.id} className="flex gap-2 text-xs">
                     <span className="text-muted-foreground shrink-0 pt-0.5">
-                      {new Date(a.created_at).toLocaleDateString()}
+                      {formatDate(a.created_at)}
                     </span>
                     <span className="text-muted-foreground">
                       <span className="font-medium text-foreground">

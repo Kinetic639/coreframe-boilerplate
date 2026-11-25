@@ -52,6 +52,7 @@ import { revokeQrAction } from "@/app/actions/qr/revoke";
 import { AssignQrDialog } from "./assign-qr-dialog";
 import { QrPrintLabelButton } from "@/components/features/qr";
 import { useHelpdeskRealtime } from "@/hooks/queries/help-desk/use-helpdesk-realtime";
+import { formatDate as formatDateOnly, formatDateTime } from "@/lib/date-time/format";
 
 type QrAssignmentInfo = {
   assignmentId: string;
@@ -71,7 +72,7 @@ interface TicketDetailClientProps {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString();
+  return formatDateTime(iso);
 }
 
 export function TicketDetailClient({
@@ -503,7 +504,7 @@ export function TicketDetailClient({
                 {ticket.activity.slice(0, 10).map((a) => (
                   <div key={a.id} className="flex gap-2 text-xs">
                     <span className="text-muted-foreground shrink-0 pt-0.5">
-                      {new Date(a.created_at).toLocaleDateString()}
+                      {formatDateOnly(a.created_at)}
                     </span>
                     <span className="text-muted-foreground">
                       <span className="font-medium text-foreground">

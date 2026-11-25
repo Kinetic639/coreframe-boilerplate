@@ -25,6 +25,7 @@ import {
   type TicketTypeState,
   type TypeSort,
 } from "./ticket-types-state";
+import { formatDateTime } from "@/lib/date-time/format";
 
 type TicketType = HelpdeskTicketTypeWithDetails;
 
@@ -190,7 +191,7 @@ export function TicketTypesTable({
       case "updated_at":
         return (
           <span className="text-xs text-muted-foreground">
-            {new Date(row.updated_at).toLocaleString(labels.locale, {
+            {formatDateTime(row.updated_at, labels.locale, {
               dateStyle: "short",
               timeStyle: "short",
             })}

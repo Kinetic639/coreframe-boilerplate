@@ -17,6 +17,7 @@ import {
   type LocationSort,
   type LocationState,
 } from "./locations-list-state";
+import { formatDateTime } from "@/lib/date-time/format";
 
 /** Columns the list sorts by (each the location's own field). */
 const SORT_FIELD: Record<string, LocationSort> = {
@@ -138,7 +139,7 @@ export function LocationsListTable({
       case "created_at":
         return row.created_at ? (
           <span className="text-xs">
-            {new Date(row.created_at).toLocaleString(labels.locale, {
+            {formatDateTime(row.created_at, labels.locale, {
               dateStyle: "short",
               timeStyle: "short",
             })}

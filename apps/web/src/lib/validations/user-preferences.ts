@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidTimeZone } from "@/lib/date-time/time-zone";
 
 // ─── Profile ─────────────────────────────────────────────────────────────────
 
@@ -104,7 +105,8 @@ export const VALID_DATE_FORMATS = [
 ] as const;
 
 export const updateRegionalSchema = z.object({
-  timezone: z.string().optional(),
+  // null = follow the organization's time zone
+  timezone: z.string().refine(isValidTimeZone, "Unknown time zone").nullable().optional(),
   dateFormat: z.string().optional(),
   timeFormat: z.enum(["12h", "24h"]).optional(),
   locale: z.string().optional(),

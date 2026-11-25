@@ -27,6 +27,7 @@ import { getMyPendingInvitationsAction } from "@/app/actions/organization/invite
 import { formatDistanceToNow } from "date-fns";
 import { pl, enUS } from "date-fns/locale";
 import type { InvitePreview, InviteReasonCode } from "@/app/actions/organization/invite-preview";
+import { formatDate } from "@/lib/date-time/format";
 
 interface InvitePageClientProps {
   token: string;
@@ -191,7 +192,7 @@ export function InvitePageClient({ token, preview, userEmail, locale }: InvitePa
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">{t("expiresLabel")}</span>
             <div className="text-right">
-              <div className="text-sm">{new Date(preview.expires_at).toLocaleDateString()}</div>
+              <div className="text-sm">{formatDate(preview.expires_at)}</div>
               <div className="text-xs text-muted-foreground">
                 <Calendar className="mr-1 inline h-3 w-3" />
                 {formatDistanceToNow(new Date(preview.expires_at), {
