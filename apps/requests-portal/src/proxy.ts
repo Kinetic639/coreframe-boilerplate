@@ -2,6 +2,7 @@ import createIntlMiddleware from "next-intl/middleware";
 import { NextRequest, NextResponse } from "next/server";
 import { pathnameWithoutLocale, resolveAcceptLanguageLocale } from "@repo/i18n/middleware-utils";
 import { authPathnames } from "@repo/i18n/auth-pathnames";
+import { appUrl, buildSignInUrl, resolveReturnUrl } from "@repo/app-urls";
 import { routing } from "./i18n/routing";
 import { updateSession } from "./utils/supabase/proxy";
 import { LIST_QUERY_HEADER } from "./server/requests/list-params";
@@ -10,9 +11,10 @@ type Locale = (typeof routing.locales)[number];
 
 const intlMiddleware = createIntlMiddleware(routing);
 
-const signInPaths: string[] = Object.values(authPathnames["/sign-in"]);
-const publicPaths = new Set<string>([
-  ...signInPaths,
+// The portal has no sign-in of its own any more: every Ambra app signs in on the ERP
+// (see @repo/app-urls). These old local URLs only forward to it.
+const legacyAuthPaths = new Set<string>([
+  ...Object.values(authPathnames["/sign-in"]),
   ...Object.values(authPathnames["/forgot-password"]),
 ]);
 
@@ -28,10 +30,19 @@ function requestLocale(request: NextRequest): Locale {
   );
 }
 
-function localized(path: "/" | "/sign-in", locale: Locale): string {
-  const slug = path === "/" ? "/" : authPathnames["/sign-in"][locale];
-  if (locale === routing.defaultLocale) return slug;
-  return path === "/" ? `/${locale}` : `/${locale}${slug}`;
+function localizedHome(locale: Locale): string {
+  return locale === routing.defaultLocale ? "/" : `/${locale}`;
+}
+
+/** Absolute address of this request on the portal's public origin, for the sign-in to return to. */
+function returnUrlFor(request: NextRequest, pathname: string, locale: Locale): string {
+  if (legacyAuthPaths.has(pathname)) {
+    // An old /logowanie?returnUrl=/123 link: keep its target, made absolute.
+    const target = resolveReturnUrl(request.nextUrl.searchParams.get("returnUrl"));
+    if (target) return target.startsWith("/") ? appUrl("requests", target) : target;
+    return appUrl("requests", localizedHome(locale));
+  }
+  return appUrl("requests", request.nextUrl.pathname + request.nextUrl.search);
 }
 
 /** Same response (rewrite / next signals included) minus its Set-Cookie headers. */
@@ -41,21 +52,19 @@ function withoutCookies(res: NextResponse): NextResponse {
   return new NextResponse(res.body, { status: res.status, headers });
 }
 
-// Every page except sign-in / forgot-password needs a signed-in user.
+// Every page needs a signed-in user; without one the user signs in on the ERP and comes back.
 export async function proxy(request: NextRequest) {
   const { response: sessionResponse, user } = await updateSession(request);
   const pathname = pathnameWithoutLocale(request.nextUrl.pathname, routing.locales);
   const locale = requestLocale(request);
 
   let response: NextResponse;
-  if (!user && !publicPaths.has(pathname)) {
-    const url = new URL(localized("/sign-in", locale), request.url);
-    if (pathname !== "/") {
-      url.searchParams.set("returnUrl", request.nextUrl.pathname + request.nextUrl.search);
-    }
-    response = NextResponse.redirect(url);
-  } else if (user && signInPaths.includes(pathname)) {
-    response = NextResponse.redirect(new URL(localized("/", locale), request.url));
+  if (!user) {
+    response = NextResponse.redirect(
+      buildSignInUrl(returnUrlFor(request, pathname, locale), locale)
+    );
+  } else if (legacyAuthPaths.has(pathname)) {
+    response = NextResponse.redirect(new URL(localizedHome(locale), request.url));
   } else {
     // The requests layout persists across ticket navigation and has no searchParams, so it
     // gets the list query (filters) from this header for its first server render.

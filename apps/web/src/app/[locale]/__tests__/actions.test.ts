@@ -516,6 +516,14 @@ describe("T-EMIT-TYPED-FAILURE — typed result handling", () => {
       });
     });
 
+    it("returns to another Ambra app (shared sign-in)", async () => {
+      await expect(
+        signInAction(credentials("http://127.0.0.1:3004/123?tab=thread"))
+      ).resolves.toEqual({
+        redirectTo: "http://127.0.0.1:3004/123?tab=thread",
+      });
+    });
+
     it.each(["https://example.com", "//example.com", "/\\example.com"])(
       "rejects external return destinations: %s",
       async (returnUrl) => {

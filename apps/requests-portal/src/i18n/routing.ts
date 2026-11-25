@@ -1,13 +1,10 @@
 import { defineRouting } from "next-intl/routing";
 import { baseRoutingConfig } from "@repo/i18n/config";
-import { authPathnames } from "@repo/i18n/auth-pathnames";
 
 export const routing = defineRouting({
   ...baseRoutingConfig,
   pathnames: {
     "/": "/",
-    "/sign-in": authPathnames["/sign-in"],
-    "/forgot-password": authPathnames["/forgot-password"],
     "/new": {
       en: "/new",
       pl: "/nowe",

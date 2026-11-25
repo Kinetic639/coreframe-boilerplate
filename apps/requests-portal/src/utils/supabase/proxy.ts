@@ -1,3 +1,4 @@
+import { getAuthCookieOptions } from "@repo/app-urls";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import type { User } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
@@ -16,6 +17,7 @@ export async function updateSession(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: getAuthCookieOptions(),
       cookies: {
         getAll() {
           return request.cookies.getAll();

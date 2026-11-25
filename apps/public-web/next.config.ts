@@ -29,7 +29,7 @@ const erpAuthRedirects = [
 
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@repo/ui", "@repo/i18n"],
+  transpilePackages: ["@repo/ui", "@repo/i18n", "@repo/app-urls"],
   async redirects() {
     return [
       ...erpAuthRedirects.map((redirect) => ({ ...redirect, permanent: false })),

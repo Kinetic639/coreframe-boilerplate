@@ -1,5 +1,6 @@
 "use server";
 
+import { resolveReturnUrl } from "@repo/app-urls";
 import { headers } from "next/headers";
 import {
   PROFILE_FIRST_NAME_MAX_LENGTH,
@@ -227,19 +228,11 @@ export const signInAction = async (formData: FormData) => {
     }
   }
 
-  // If there's a returnUrl, validate it is same-origin (starts with /, not //)
-  // before honoring it — prevents open-redirect attacks.
-  const trimmedReturnUrl = returnUrl?.trim() ?? "";
-  const hasUnsafeCharacters = [...trimmedReturnUrl].some(
-    (character) =>
-      character === "\\" || character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127
-  );
-  if (
-    trimmedReturnUrl.startsWith("/") &&
-    !trimmedReturnUrl.startsWith("//") &&
-    !hasUnsafeCharacters
-  ) {
-    return { redirectTo: trimmedReturnUrl };
+  // Honor returnUrl only for a path in this app or another Ambra app (the portals
+  // sign in here and come back, see @repo/app-urls) — prevents open redirects.
+  const safeReturnUrl = resolveReturnUrl(returnUrl);
+  if (safeReturnUrl) {
+    return { redirectTo: safeReturnUrl };
   }
 
   // Check for pending invites — route to resolution if found

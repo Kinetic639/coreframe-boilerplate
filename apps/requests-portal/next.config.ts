@@ -14,6 +14,7 @@ const nextConfig = {
     "@repo/contracts",
     "@repo/domain",
     "@repo/rich-text",
+    "@repo/app-urls",
   ],
   allowedDevOrigins: ["localhost:3004", "127.0.0.1:3004", "*.cloudworkstations.dev", "*.idx.dev"],
   turbopack: {

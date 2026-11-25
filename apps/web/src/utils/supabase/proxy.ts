@@ -1,3 +1,4 @@
+import { getAuthCookieOptions, resolveReturnUrl } from "@repo/app-urls";
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { pathnameWithoutLocale, resolveAcceptLanguageLocale } from "@repo/i18n/middleware-utils";
@@ -52,6 +53,7 @@ export const updateSession = async (request: NextRequest) => {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
+        cookieOptions: getAuthCookieOptions(),
         cookies: {
           getAll() {
             return request.cookies.getAll();
@@ -86,6 +88,13 @@ export const updateSession = async (request: NextRequest) => {
       const signInUrl = buildLocalizedUrl(request, "/sign-in", locale);
       signInUrl.searchParams.set("returnUrl", request.nextUrl.pathname + request.nextUrl.search);
       return NextResponse.redirect(signInUrl);
+    }
+
+    // A signed-in user sent here by another Ambra app (zapytania., vmi., the public
+    // site) already shares this session: send them straight back.
+    if (isAuthenticated && isSignInPath(normalizedPathname)) {
+      const returnUrl = resolveReturnUrl(request.nextUrl.searchParams.get("returnUrl"));
+      if (returnUrl) return NextResponse.redirect(new URL(returnUrl, request.url));
     }
 
     // Signed-in users should never land on the sign-in page or the bare "/" —

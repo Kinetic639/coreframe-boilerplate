@@ -11,7 +11,7 @@ const permanentPublicRedirects = isProduction;
 
 export const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@repo/ui", "@repo/i18n", "@repo/rich-text"],
+  transpilePackages: ["@repo/ui", "@repo/i18n", "@repo/rich-text", "@repo/app-urls"],
   allowedDevOrigins: [
     "localhost:3001",
     "127.0.0.1:3001",
