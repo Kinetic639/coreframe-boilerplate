@@ -8,6 +8,7 @@ import { createClient } from "@/utils/supabase/server";
 import { HelpdeskTicketsService } from "@/server/services/helpdesk-tickets.service";
 import { HelpdeskTicketTypesService } from "@/server/services/helpdesk-ticket-types.service";
 import { getQrAssignmentForTicketAction } from "@/app/actions/qr/assign";
+import { UUID_RE } from "@/lib/mentions";
 import { TicketDetailClient } from "./_components/ticket-detail-client";
 
 type PageProps = {
@@ -33,6 +34,17 @@ export default async function TicketDetailPage({ params }: PageProps) {
   const { ticketId } = await params;
   const supabase = await createClient();
   const orgId = context.app.activeOrgId;
+
+  // Links that name the ticket by its internal id (older mentions, search
+  // results, comment targets) open it by its number in the list's side panel.
+  if (UUID_RE.test(ticketId)) {
+    const ticketNumber = await HelpdeskTicketsService.getTicketNumber(supabase, orgId, ticketId);
+    if (!ticketNumber) notFound();
+    return redirect({
+      href: { pathname: "/dashboard/help-desk/tickets", query: { selected: ticketNumber } },
+      locale,
+    });
+  }
 
   // Fetch ticket + settings in parallel; QR assignment needs the ticket UUID
   // which comes from getDetail, so it runs after.

@@ -102,4 +102,43 @@ describe("MentionChip", () => {
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
     expect(screen.getByText("174232")).toBeInTheDocument();
   });
+
+  it("links a ticket by its number, even when the saved link used its internal id", () => {
+    const id = "1d557143-d529-4046-bb07-5adce1b68100";
+    render(
+      <MentionChip
+        mention={{
+          type: "ticket",
+          id,
+          label: "Drukarka nie działa",
+          code: "HD-000001",
+          href: `/dashboard/help-desk/tickets/${id}`,
+        }}
+        access="ok"
+      />
+    );
+    expect(screen.getByRole("link", { name: "HD-000001" })).toHaveAttribute(
+      "href",
+      "/dashboard/help-desk/tickets?selected=HD-000001"
+    );
+  });
+
+  it("links a task by its number in the task list", () => {
+    render(
+      <MentionChip
+        mention={{
+          type: "task",
+          id: "2d557143-d529-4046-bb07-5adce1b68100",
+          label: "Inwentaryzacja",
+          code: "PT-000042",
+          href: "/dashboard/planning/tasks/2d557143-d529-4046-bb07-5adce1b68100",
+        }}
+        access="ok"
+      />
+    );
+    expect(screen.getByRole("link", { name: "PT-000042" })).toHaveAttribute(
+      "href",
+      "/dashboard/planning/tasks?selected=PT-000042"
+    );
+  });
 });
