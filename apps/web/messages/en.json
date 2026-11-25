@@ -4417,6 +4417,14 @@
             "released": "Reservation released",
             "transferred": "Transferred to another order"
           }
+        },
+        "crossBranch": {
+          "title": "Repair order in another branch",
+          "description": "This repair order belongs to branch {branch}. Switch your active branch to open it?",
+          "confirm": "Switch branch",
+          "cancel": "Cancel",
+          "switching": "Switching…",
+          "error": "Could not switch branch."
         }
       }
     },

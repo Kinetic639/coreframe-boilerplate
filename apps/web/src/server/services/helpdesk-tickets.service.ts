@@ -504,6 +504,22 @@ export class HelpdeskTicketsService {
 
   // ── Detail ─────────────────────────────────────────────────────────────────
 
+  /** The number (`HD-000001`) of a ticket given by its internal id; null when not visible. */
+  static async getTicketNumber(
+    supabase: SupabaseClient,
+    orgId: string,
+    ticketId: string
+  ): Promise<string | null> {
+    const { data } = await supabase
+      .from("helpdesk_tickets")
+      .select("ticket_number")
+      .eq("id", ticketId)
+      .eq("org_id", orgId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    return (data as { ticket_number: string | null } | null)?.ticket_number ?? null;
+  }
+
   static async getDetail(
     supabase: SupabaseClient,
     orgId: string,

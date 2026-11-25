@@ -171,7 +171,7 @@ export const QR_TARGET_REGISTRY: Readonly<Record<string, QrTargetDescriptor>> = 
 
     resolverPath({ targetId }) {
       // Fallback — resolvePathAsync is always available so this is never reached.
-      return `/dashboard/help-desk/tickets?highlight=${targetId}`;
+      return `/dashboard/help-desk/tickets/${targetId}`;
     },
 
     async resolvePathAsync({ supabase, targetId }) {
@@ -230,7 +230,7 @@ export const QR_TARGET_REGISTRY: Readonly<Record<string, QrTargetDescriptor>> = 
     requiredReadPermission: PLANNING_TASKS_READ,
 
     resolverPath({ targetId }) {
-      return `/dashboard/planning/tasks?highlight=${targetId}`;
+      return `/dashboard/planning/tasks/${targetId}`;
     },
 
     async resolvePathAsync({ supabase, targetId }) {

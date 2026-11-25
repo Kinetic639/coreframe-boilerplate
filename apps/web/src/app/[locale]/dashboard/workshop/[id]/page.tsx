@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { UUID_RE } from "@/lib/mentions";
+import { CrossBranchPrompt } from "@/components/v2/branch/cross-branch-prompt";
 import { redirect, Link } from "@/i18n/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
@@ -132,7 +134,32 @@ export default async function RepairOrderDetailPage({ params, searchParams }: Pa
   ]);
 
   if (!orderResult.success || !orderResult.data) {
-    notFound();
+    // Opened from a link (notification, mention, search) while another
+    // branch is active: offer to switch instead of a 404.
+    const ref =
+      orderResult.success && branchId && UUID_RE.test(id)
+        ? await RepairOrdersService.getBranchRef(supabase, orgId, id)
+        : null;
+    const targetBranch =
+      ref && ref.branchId !== branchId
+        ? context.app.availableBranches.find((branch) => branch.id === ref.branchId)
+        : null;
+    if (!ref || !targetBranch) notFound();
+    const tb = await getTranslations("modules.workshop.repairOrders.crossBranch");
+    return (
+      <CrossBranchPrompt
+        code={ref.code}
+        targetBranchId={targetBranch.id}
+        labels={{
+          title: tb("title"),
+          description: tb("description", { branch: targetBranch.name }),
+          confirm: tb("confirm"),
+          cancel: tb("cancel"),
+          switching: tb("switching"),
+          error: tb("error"),
+        }}
+      />
+    );
   }
 
   const order = orderResult.data;

@@ -3,6 +3,7 @@ import type { MentionItem } from "@repo/rich-text/mention-utils";
 import { scoreSearchMatch } from "@/lib/global-search/match";
 import type { SearchSourceId } from "@/lib/global-search/sources";
 import type { ExactHitType, SearchExactHit } from "@/server/services/global-search.service";
+import { objectHref, objectRoute, type ObjectRoute } from "@/lib/object-links";
 
 /**
  * "@" mentions of people and objects — the pure part shared by the suggestion
@@ -73,13 +74,13 @@ export function personMention(person: MentionPerson): MentionItem {
 
 /** A search hit as a mention: the number / code is what the text shows */
 export function hitMention(hit: SearchExactHit): MentionItem {
-  const search = hit.query ? `?${new URLSearchParams(hit.query).toString()}` : "";
+  const route = objectRoute(hit.type, hit);
   return {
     type: hit.type,
     id: hit.id,
     label: hit.title ?? hit.code ?? "",
     code: hit.code,
-    href: `${hit.href}${search}`,
+    href: route ? objectHref(route) : hit.href,
   };
 }
 
@@ -94,6 +95,22 @@ export function mentionRoute(
   const [pathname, search] = href.split("?", 2);
   if (!search) return { pathname };
   return { pathname, query: Object.fromEntries(new URLSearchParams(search.split("#")[0])) };
+}
+
+/**
+ * Where a mentioned object opens. Known object types are resolved from their
+ * type, id and number now, not from the href saved with the message (older
+ * messages saved links that no longer exist, e.g. a ticket by its UUID); the
+ * saved href is only a fallback for types this app does not know.
+ */
+export function mentionObjectRoute(
+  mention: Pick<MentionItem, "type" | "id" | "code" | "href">
+): ObjectRoute | null {
+  if (MENTION_OBJECT_TYPES.has(mention.type) && UUID_RE.test(mention.id)) {
+    const route = objectRoute(mention.type, { id: mention.id, code: mention.code });
+    if (route) return route;
+  }
+  return mentionRoute(mention.href);
 }
 
 /**
