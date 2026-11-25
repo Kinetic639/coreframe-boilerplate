@@ -4616,6 +4616,14 @@
         "addComment": "Dodaj komentarz",
         "commentAdded": "Komentarz dodany.",
         "closeTicket": "Zamknij zgłoszenie",
+        "qr": {
+          "title": "Kod QR",
+          "unlabelled": "Bez etykiety",
+          "unlink": "Odłącz",
+          "assign": "Przypisz kod QR",
+          "none": "Brak przypisanego kodu QR.",
+          "unlinked": "Kod QR odłączony od zgłoszenia."
+        },
         "ticketClosed": "Zgłoszenie zamknięte.",
         "viewFull": "Zobacz zgłoszenie",
         "activityLabel": "Aktywność",

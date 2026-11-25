@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Link, useRouter } from "@/i18n/navigation";
 import { EntityPicker, type EntityPickerItem } from "@/components/features/qr";
 import { PlanningTaskCreateForm } from "@/app/[locale]/dashboard/planning/tasks/_components/planning-task-create-form";
-import { listTicketsForDataViewAction } from "@/app/actions/help-desk";
+import { helpdeskRead } from "@/lib/help-desk/read";
 import { listTasksForDataViewAction, assignQrToPlanningTaskAction } from "@/app/actions/planning";
 import { assignQrToTicketAction } from "@/app/actions/qr/assign";
 import type { PlanningPriorityBadgeConfig } from "@/components/planning/planning-task-priority-badge";
@@ -65,7 +65,8 @@ export function QuickAssignWizard({
   const [success, setSuccess] = useState<{ targetType: TargetType; number: string } | null>(null);
 
   const searchTickets = async (query: string): Promise<EntityPickerItem[]> => {
-    const result = await listTicketsForDataViewAction(
+    const result = await helpdeskRead(
+      "ticketsDataView",
       { search: query, sort: null, page: 1, pageSize: 20, filters: {} },
       orgId
     );

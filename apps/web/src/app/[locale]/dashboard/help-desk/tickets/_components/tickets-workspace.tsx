@@ -15,7 +15,7 @@ import { ticketDetailQuery, ticketListQuery, type TicketList } from "./tickets-q
 import { ticketHref, ticketParsers } from "./tickets-state";
 
 /** How long the pointer rests on a row before its card is fetched. */
-const HOVER_INTENT_MS = 150;
+const HOVER_INTENT_MS = 300;
 
 const EMPTY_LIST: TicketList = { rows: [], totalCount: 0, page: 1, pageSize: 50 };
 
@@ -35,7 +35,6 @@ export function HelpDeskTicketsWorkspace({
   labels,
   configs,
   branchNames,
-  canManage,
   currentUserId,
   ticketPathTemplate,
 }: {
@@ -48,7 +47,6 @@ export function HelpDeskTicketsWorkspace({
   labels: Record<string, string>;
   configs: TicketBadgeConfigs;
   branchNames: Record<string, string>;
-  canManage: boolean;
   currentUserId: string;
   ticketPathTemplate: string;
 }) {
@@ -183,7 +181,6 @@ export function HelpDeskTicketsWorkspace({
             orgId={orgId}
             labels={labels}
             configs={configs}
-            canManage={canManage}
             currentUserId={currentUserId}
             fullPath={ticketPath(state.selected)}
             onClose={() => preview(null)}
@@ -200,7 +197,6 @@ function TicketRecordPanel({
   orgId,
   labels,
   configs,
-  canManage,
   currentUserId,
   fullPath,
   onClose,
@@ -211,7 +207,6 @@ function TicketRecordPanel({
   orgId: string;
   labels: Record<string, string>;
   configs: TicketBadgeConfigs;
-  canManage: boolean;
   currentUserId: string;
   fullPath: string;
   onClose: () => void;
@@ -276,7 +271,6 @@ function TicketRecordPanel({
           <TicketDetailPanel
             key={query.data.id}
             detail={query.data}
-            canManage={canManage}
             currentUserId={currentUserId}
             statusConfigs={configs.status}
             priorityConfigs={configs.priority}

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import {
   Calendar,
@@ -12,6 +13,7 @@ import {
   QrCode,
   Link2Off,
   Hand,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -23,19 +25,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TICKET_STATUSES, type TicketStatus } from "@/lib/validations/helpdesk";
-import { canManageTicketBranchAction, getTicketDetailAction } from "@/app/actions/help-desk";
-import { getQrAssignmentForTicketAction } from "@/app/actions/qr/assign";
+import { refreshTicket } from "@/lib/help-desk/ticket-queries";
 import { revokeQrAction } from "@/app/actions/qr/revoke";
 import { AssignQrDialog } from "../[ticketId]/_components/assign-qr-dialog";
 import { QrPrintLabelButton } from "@/components/features/qr";
 import {
   useAcceptTicketMutation,
+  useCloseTicketMutation,
   useSetTicketStatusMutation,
   useTakeTicketMutation,
 } from "@/hooks/queries/help-desk";
 import type {
   HelpdeskTicketDetail,
-  HelpdeskTicketActivity,
+  HelpdeskTicketQr,
 } from "@/server/services/helpdesk-tickets.service";
 import {
   TicketStatusBadge,
@@ -53,100 +55,80 @@ import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-re
 import { normalizeRichText } from "@/components/primitives/rich-text/rich-text-utils";
 import { formatDate, formatDateTime } from "@/lib/date-time/format";
 
+/**
+ * A ticket's card: the side panel of the list and the ticket page show the
+ * same one. Everything it needs comes with the ticket (one request): whether
+ * the reader may handle it, its QR code, comments and activity. Saves show at
+ * once and put the card back if the server refuses them.
+ */
 export function TicketDetailPanel({
   detail,
-  canManage: canManageAnyBranch,
   currentUserId,
   statusConfigs,
   priorityConfigs,
 }: {
   detail: HelpdeskTicketDetail;
-  canManage: boolean;
   currentUserId: string;
   statusConfigs: Record<string, StatusBadgeConfig> | null;
   priorityConfigs: Record<string, PriorityBadgeConfig> | null;
 }) {
   const t = useTranslations("modules.helpDesk");
-  const [activity, setActivity] = useState<HelpdeskTicketActivity[]>(detail.activity);
-
-  // Handlers may hold helpdesk.tickets.manage for a single branch, so decide for this
-  // ticket's branch (same as the full ticket page); the list-level flag is only a first guess.
-  const [canManage, setCanManage] = useState(canManageAnyBranch);
-  useEffect(() => {
-    let current = true;
-    void canManageTicketBranchAction(detail.org_id, detail.branch_id ?? null).then((r) => {
-      if (current && r.success) setCanManage(r.data);
-    });
-    return () => {
-      current = false;
-    };
-  }, [detail.org_id, detail.branch_id]);
+  const queryClient = useQueryClient();
+  // Decided for this ticket's branch: handlers may hold
+  // helpdesk.tickets.manage for a single branch.
+  const canManage = detail.can_manage;
+  const activity = detail.activity;
 
   const setStatusMutation = useSetTicketStatusMutation(detail.ticket_number, detail.org_id);
-  const takeTicketMutation = useTakeTicketMutation(detail.ticket_number, detail.org_id);
+  const takeTicketMutation = useTakeTicketMutation(
+    detail.ticket_number,
+    detail.org_id,
+    currentUserId
+  );
+  const closeTicketMutation = useCloseTicketMutation(detail.ticket_number, detail.org_id);
+  const acceptMutation = useAcceptTicketMutation(
+    detail.ticket_number,
+    detail.org_id,
+    currentUserId
+  );
   const isMineToHandle = detail.assignees.some((a) => a.user_id === currentUserId);
+  const acceptedAt = detail.accepted_at;
+  const acceptedByName = detail.accepted_by_name;
 
-  const [acceptedAt, setAcceptedAt] = useState<string | null>(detail.accepted_at);
-  const [acceptedByName, setAcceptedByName] = useState<string | null>(detail.accepted_by_name);
-
-  // QR assignment
-  type QrInfo = {
-    assignmentId: string;
-    qrCodeId: string;
-    token: string;
-    label: string | null;
-    status: string;
-  } | null;
-  const [qrAssignment, setQrAssignment] = useState<QrInfo>(null);
-  const [qrLoading, setQrLoading] = useState(true);
+  // QR assignment: comes with the ticket; changed here by assign / unlink.
+  const [qrAssignment, setQrAssignment] = useState<HelpdeskTicketQr | null>(detail.qr_assignment);
   const [showAssignQr, setShowAssignQr] = useState(false);
   const [isRevokingQr, setIsRevokingQr] = useState(false);
-
-  useEffect(() => {
-    setQrLoading(true);
-    getQrAssignmentForTicketAction(detail.id).then((r) => {
-      if (r.success) setQrAssignment(r.data);
-      setQrLoading(false);
-    });
-  }, [detail.id]);
-
-  useEffect(() => {
-    setActivity(detail.activity);
-    setAcceptedAt(detail.accepted_at);
-    setAcceptedByName(detail.accepted_by_name);
-  }, [detail.accepted_at, detail.accepted_by_name, detail.activity]);
 
   const handleRevokeQr = async () => {
     if (!qrAssignment) return;
     setIsRevokingQr(true);
     try {
       const result = await revokeQrAction({ qrCodeId: qrAssignment.qrCodeId });
+      const { toast } = await import("react-toastify");
       if (!result.success) {
-        const { toast } = await import("react-toastify");
         toast.error((result as { success: false; error: string }).error);
         return;
       }
       setQrAssignment(null);
-      const { toast } = await import("react-toastify");
-      toast.success("QR code unlinked from ticket.");
+      toast.success(t("tickets.qr.unlinked"));
     } finally {
       setIsRevokingQr(false);
     }
   };
 
-  const acceptMutation = useAcceptTicketMutation(detail.ticket_number, detail.org_id);
-  const canComment = detail.status !== "closed" && detail.status !== "cancelled";
+  const isOpen = detail.status !== "closed" && detail.status !== "cancelled";
+  const canComment = isOpen;
+  const canClose = isOpen && !canManage && detail.created_by === currentUserId;
   const canAccept =
     detail.requires_acceptance &&
     !acceptedAt &&
     (canManage || detail.acceptors.some((a) => a.user_id === currentUserId));
 
-  const refreshActivity = useCallback(async () => {
-    const fresh = await getTicketDetailAction(detail.ticket_number, detail.org_id);
-    if (fresh.success && fresh.data) {
-      setActivity(fresh.data.activity);
-    }
-  }, [detail.org_id, detail.ticket_number]);
+  // A comment or a file adds an activity entry: fetch the card once (one request).
+  const refreshActivity = useCallback(() => {
+    void refreshTicket(queryClient, detail.org_id, detail.ticket_number, { lists: false });
+  }, [queryClient, detail.org_id, detail.ticket_number]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -213,8 +195,8 @@ export function TicketDetailPanel({
             typingTopic={canComment ? helpdeskTicketTypingTopic(detail.id) : null}
             initialData={{
               rows: detail.comments,
-              totalCount: detail.comments.length,
-              nextCursor: null,
+              totalCount: detail.comments_total,
+              nextCursor: detail.comments_next_cursor,
             }}
             labels={{
               title: t("tickets.comments"),
@@ -285,18 +267,36 @@ export function TicketDetailPanel({
             </div>
           )}
 
+          {/* The requester closes their own ticket (handlers set the status above). */}
+          {canClose && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => closeTicketMutation.mutate({ ticket_id: detail.id })}
+              disabled={closeTicketMutation.isPending}
+            >
+              {closeTicketMutation.isPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <XCircle className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {t("tickets.closeTicket")}
+            </Button>
+          )}
+
           {/* QR Code card */}
           <div className="rounded-lg border p-3 space-y-2">
             <h4 className="text-xs font-semibold flex items-center gap-1.5">
               <QrCode className="h-3.5 w-3.5 text-muted-foreground" />
-              QR Code
+              {t("tickets.qr.title")}
             </h4>
-            {qrLoading ? (
-              <div className="h-4 w-full animate-pulse rounded bg-muted" />
-            ) : qrAssignment ? (
+            {qrAssignment ? (
               <div className="space-y-2">
                 <div className="rounded-md bg-muted/50 px-2.5 py-1.5 text-xs">
-                  <p className="font-medium truncate">{qrAssignment.label ?? "Unlabelled"}</p>
+                  <p className="font-medium truncate">
+                    {qrAssignment.label ?? t("tickets.qr.unlabelled")}
+                  </p>
                   <p className="text-muted-foreground font-mono truncate">{qrAssignment.token}</p>
                 </div>
                 <QrPrintLabelButton
@@ -318,7 +318,7 @@ export function TicketDetailPanel({
                     ) : (
                       <Link2Off className="mr-1.5 h-3 w-3" />
                     )}
-                    Unlink
+                    {t("tickets.qr.unlink")}
                   </Button>
                 )}
               </div>
@@ -330,10 +330,10 @@ export function TicketDetailPanel({
                 onClick={() => setShowAssignQr(true)}
               >
                 <QrCode className="mr-1.5 h-3 w-3" />
-                Assign QR Code
+                {t("tickets.qr.assign")}
               </Button>
             ) : (
-              <p className="text-xs text-muted-foreground">No QR code assigned.</p>
+              <p className="text-xs text-muted-foreground">{t("tickets.qr.none")}</p>
             )}
           </div>
 
