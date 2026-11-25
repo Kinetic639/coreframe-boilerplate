@@ -4802,7 +4802,7 @@
         "dueDate": "Termin",
         "scope": "Zakres zadania",
         "organizationScope": "Cała organizacja",
-        "scopeHelp": "Zadania organizacji są wspólne dla wszystkich oddziałów. Zadania oddziału pozostają w wybranym oddziale.",
+        "scopeHelp": "Zadania organizacji są wspólne dla wszystkich oddziałów. Zadania oddziału są widoczne tylko wtedy, gdy ten oddział jest aktywny.",
         "due": "Termin",
         "updated": "Zaktualizowano",
         "id": "ID",

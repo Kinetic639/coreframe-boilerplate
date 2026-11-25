@@ -4722,7 +4722,7 @@
         "dueDate": "Due date",
         "scope": "Task scope",
         "organizationScope": "Entire organization",
-        "scopeHelp": "Organization tasks are shared across all branches. Branch tasks stay within the selected branch.",
+        "scopeHelp": "Organization tasks are shared across all branches. Branch tasks are visible only while that branch is active.",
         "due": "Due",
         "updated": "Updated",
         "id": "ID",

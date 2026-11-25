@@ -217,7 +217,10 @@ export function TasksWorkspace({
             label: labels.column_branch,
             options: [
               { value: ORG_WIDE, label: labels.orgWide },
-              ...branches.map((b) => ({ value: b.id, label: b.name })),
+              // Only the active branch's tasks are visible (RLS), so only it is offered.
+              ...branches
+                .filter((b) => b.id === activeBranchId)
+                .map((b) => ({ value: b.id, label: b.name })),
             ],
           },
         ]

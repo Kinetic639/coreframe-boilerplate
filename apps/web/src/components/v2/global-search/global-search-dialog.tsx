@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useTransit
 import { useLocaleSwitch } from "@/i18n/use-locale-switch";
 import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   ChevronRight,
@@ -353,6 +353,7 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
   const tRoot = useTranslations();
   const locale = useLocale();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const switchLocale = useLocaleSwitch();
   const { theme, setTheme } = useTheme();
   const setStoreTheme = useUiStoreV2((s) => s.setTheme);
@@ -607,12 +608,14 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
           close();
           router.replace(SAFE_ROUTE_AFTER_BRANCH_SWITCH);
           router.refresh();
+          // Cached lists were read under the old branch: read them again.
+          void queryClient.invalidateQueries();
         } catch {
           toast.error(t("branchSwitchFailed"));
         }
       });
     },
-    [close, router, setActiveBranch, t]
+    [close, queryClient, router, setActiveBranch, t]
   );
 
   const runEntry = useCallback(

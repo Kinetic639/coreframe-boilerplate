@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useTransition } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ChevronsUpDown, Building2, Check } from "lucide-react";
 import {
   DropdownMenu,
@@ -39,6 +40,7 @@ export function SidebarBranchSwitcher({ branches, activeBranchId }: SidebarBranc
   const { isMobile } = useSidebar();
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   // Branch list comes from server-computed props — NOT from the store.
   // activeBranchId from the store is used for display (updated optimistically on switch).
@@ -68,6 +70,9 @@ export function SidebarBranchSwitcher({ branches, activeBranchId }: SidebarBranc
         toast.success("Branch switched successfully");
         router.replace(SAFE_ROUTE_AFTER_BRANCH_SWITCH);
         router.refresh();
+        // Cached lists were read under the old branch (e.g. branch tasks,
+        // visible only in their active branch): read them again.
+        void queryClient.invalidateQueries();
       } catch (error) {
         console.error("Failed to change branch:", error);
         toast.error("Failed to switch branch");
