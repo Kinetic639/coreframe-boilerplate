@@ -1,3 +1,5 @@
+import { targetRoute } from "@/lib/object-links";
+
 /**
  * Notifications (bell): one row per recipient about one object. Rows come from
  * the notification RPCs of migration 20261011054231_notifications.sql; the
@@ -74,15 +76,17 @@ export function notificationRoute(
   notification: Pick<AppNotification, "target_type" | "target_id"> &
     Partial<Pick<AppNotification, "target_code">>
 ): NotificationRoute | null {
-  // Tickets and tasks open by their number (HD-…, task number), not by uuid
-  const code = notification.target_code ? encodeURIComponent(notification.target_code) : null;
   switch (notification.target_type) {
     case "helpdesk.ticket":
-      return code ? { pathname: `/dashboard/help-desk/tickets/${code}` } : null;
     case "planning.task":
-      return code ? { pathname: `/dashboard/planning/tasks/${code}` } : null;
     case "workshop.repair_order":
-      return { pathname: `/dashboard/workshop/${notification.target_id}` };
+      // Tickets and tasks open by their number in their list's side panel
+      // (a deleted one shows "not found" there instead of a 404 page)
+      return targetRoute(
+        notification.target_type,
+        notification.target_id,
+        notification.target_code ?? null
+      );
     case "chat.conversation":
       return { pathname: "/dashboard/messages", query: { c: notification.target_id } };
     case "platform.feedback":

@@ -4497,6 +4497,14 @@
             "released": "Zwolnienie rezerwacji",
             "transferred": "Przeniesienie na inne zlecenie"
           }
+        },
+        "crossBranch": {
+          "title": "Zlecenie w innym oddziale",
+          "description": "To zlecenie należy do oddziału {branch}. Przełączyć aktywny oddział, aby je otworzyć?",
+          "confirm": "Przełącz oddział",
+          "cancel": "Anuluj",
+          "switching": "Przełączanie…",
+          "error": "Nie udało się przełączyć oddziału."
         }
       }
     },
@@ -4802,7 +4810,7 @@
         "dueDate": "Termin",
         "scope": "Zakres zadania",
         "organizationScope": "Cała organizacja",
-        "scopeHelp": "Zadania organizacji są wspólne dla wszystkich oddziałów. Zadania oddziału pozostają w wybranym oddziale.",
+        "scopeHelp": "Zadania organizacji są wspólne dla wszystkich oddziałów. Zadania oddziału są widoczne tylko wtedy, gdy ten oddział jest aktywny.",
         "due": "Termin",
         "updated": "Zaktualizowano",
         "id": "ID",

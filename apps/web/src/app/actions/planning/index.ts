@@ -52,6 +52,18 @@ async function getAuthedContext() {
   return { supabase, context, userId: user.id, orgId: context.app.activeOrgId };
 }
 
+/**
+ * A branch task is visible only while its branch is active (RLS policy
+ * planning_tasks_active_branch), so it may be created or moved only into the
+ * active branch. Organization tasks (null) are always allowed.
+ */
+function isAllowedTaskBranch(
+  ctx: NonNullable<Awaited<ReturnType<typeof getAuthedContext>>>,
+  branchId: string | null | undefined
+): boolean {
+  return !branchId || branchId === ctx.context.app.activeBranchId;
+}
+
 // ---------------------------------------------------------------------------
 // List — lightweight auth (RLS enforces org membership + read permission)
 // ---------------------------------------------------------------------------
@@ -111,6 +123,8 @@ export async function createTaskAction(
       };
     if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_TASKS_READ))
       return { success: false, error: "Insufficient permissions" };
+    if (!isAllowedTaskBranch(ctx, parsed.data.branch_id))
+      return { success: false, error: "Branch tasks can only be created in the active branch" };
     if (
       parsed.data.assigned_to &&
       parsed.data.assigned_to !== ctx.userId &&
@@ -142,6 +156,9 @@ export async function updateTaskAction(
         success: false,
         error: (parsed.error as any).issues?.[0]?.message ?? parsed.error.message,
       };
+
+    if (!isAllowedTaskBranch(ctx, parsed.data.branch_id))
+      return { success: false, error: "Branch tasks can only be moved to the active branch" };
 
     // Fetch current task to diff for activity
     const current = await PlanningTasksService.getDetail(ctx.supabase, ctx.orgId, parsed.data.id);

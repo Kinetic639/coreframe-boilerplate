@@ -1277,6 +1277,35 @@ export class RepairOrdersService {
    * org (+ branch, when known) so a wrong-org/branch id reads as "not
    * found" rather than leaking existence.
    */
+  /**
+   * Branch and number of a repair order, in any branch the caller may read
+   * (RLS decides). For links that open an order outside the active branch.
+   */
+  static async getBranchRef(
+    supabase: SupabaseClient,
+    orgId: string,
+    id: string
+  ): Promise<{ branchId: string; code: string } | null> {
+    const { data } = await supabase
+      .from("repair_orders")
+      .select("branch_id, order_no, zl_number, order_number")
+      .eq("id", id)
+      .eq("organization_id", orgId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    const row = data as {
+      branch_id: string | null;
+      order_no: string | null;
+      zl_number: string | null;
+      order_number: string | null;
+    } | null;
+    if (!row?.branch_id) return null;
+    return {
+      branchId: row.branch_id,
+      code: row.order_no ?? row.zl_number ?? row.order_number ?? "",
+    };
+  }
+
   static async getByIdForWorkshop(
     supabase: SupabaseClient,
     orgId: string,

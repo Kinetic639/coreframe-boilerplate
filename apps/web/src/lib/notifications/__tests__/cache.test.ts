@@ -76,18 +76,21 @@ describe("notifications cache", () => {
   });
 
   it("links to the object the notification is about", () => {
-    // Tickets and tasks open by their number, never by uuid
+    // Tickets and tasks open by their number in their list's side panel
     expect(
       notificationHref({
         target_type: "helpdesk.ticket",
         target_id: "uuid-1",
         target_code: "HD-12",
       })
-    ).toBe("/dashboard/help-desk/tickets/HD-12");
+    ).toBe("/dashboard/help-desk/tickets?selected=HD-12");
     expect(
       notificationHref({ target_type: "planning.task", target_id: "uuid-2", target_code: "ZAD-7" })
-    ).toBe("/dashboard/planning/tasks/ZAD-7");
-    expect(notificationHref({ target_type: "helpdesk.ticket", target_id: "uuid-1" })).toBeNull();
+    ).toBe("/dashboard/planning/tasks?selected=ZAD-7");
+    // Without a number: the ticket page, which redirects from the uuid to the number
+    expect(notificationHref({ target_type: "helpdesk.ticket", target_id: "uuid-1" })).toBe(
+      "/dashboard/help-desk/tickets/uuid-1"
+    );
     expect(notificationHref({ target_type: "workshop.repair_order", target_id: "r1" })).toBe(
       "/dashboard/workshop/r1"
     );

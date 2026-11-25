@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DetectedSearchId } from "@/lib/global-search/id-patterns";
 import type { SearchSourceId } from "@/lib/global-search/sources";
+import { objectRoute, type ObjectRef } from "@/lib/object-links";
 
 export type { SearchSourceId };
 
@@ -144,68 +145,10 @@ interface SearchGlobalRow {
   meta: Record<string, string | number> | null;
 }
 
-/** Page of the object a comment or an attachment belongs to */
-function targetHref(meta: SearchGlobalRow["meta"]): Pick<SearchExactHit, "href" | "query"> {
-  const targetId = typeof meta?.targetId === "string" ? meta.targetId : "";
-  switch (meta?.targetType) {
-    case "helpdesk.ticket":
-      return { href: `/dashboard/help-desk/tickets/${targetId}` };
-    case "planning.task":
-      return { href: `/dashboard/planning/tasks/${targetId}` };
-    case "workshop.repair_order":
-      return { href: `/dashboard/workshop/${targetId}` };
-    default:
-      // Kanban cards (and future targets) open their module
-      return { href: "/dashboard/planning/boards" };
-  }
-}
-
-function hrefFor(row: SearchGlobalRow): Pick<SearchExactHit, "href" | "query"> {
-  const { type, id, code } = row;
-  switch (type) {
-    case "repairOrder":
-      return { href: `/dashboard/workshop/${id}` };
-    case "ticket":
-      return { href: `/dashboard/help-desk/tickets/${id}` };
-    case "task":
-      return { href: `/dashboard/planning/tasks/${id}` };
-    case "document":
-      return { href: `/dashboard/warehouse/inventory/movements/${id}` };
-    case "container":
-      return { href: `/dashboard/warehouse/containers/${id}` };
-    case "location":
-      return { href: "/dashboard/warehouse/locations", query: { selected: id, view: "tree" } };
-    case "item":
-      return { href: `/dashboard/warehouse/items/${id}` };
-    case "person":
-      return { href: `/dashboard/organization/users/members/${id}` };
-    case "party":
-      return { href: "/dashboard/crm/parties", query: { selected: id } };
-    case "contact":
-      return { href: "/dashboard/crm/contacts", query: { selected: id } };
-    case "audit":
-      return { href: `/dashboard/warehouse/audits/${id}/count` };
-    case "matcherSession":
-      // The Matcher tool lists its sessions; it has no per-session URL yet
-      return { href: "/dashboard/tools/svwms-wdd-matcher" };
-    case "qrCode":
-      // The QR page resolves the code's assignment (and its branch)
-      return { href: `/qr/${encodeURIComponent(code ?? id)}` };
-    case "board":
-      return { href: "/dashboard/planning/boards", query: { board: id } };
-    case "map":
-      return { href: `/dashboard/warehouse/map/${id}` };
-    case "ticketType":
-      return { href: `/dashboard/help-desk/ticket-types/${id}` };
-    case "invitation":
-      return {
-        href: "/dashboard/organization/users/invitations",
-        query: { search: row.title ?? "" },
-      };
-    case "comment":
-    case "attachment":
-      return targetHref(row.meta);
-  }
+/** Route of a hit, from the shared object-link resolver */
+function hrefFor(type: ExactHitType, ref: ObjectRef): Pick<SearchExactHit, "href" | "query"> {
+  const route = objectRoute(type, ref) ?? { pathname: "/dashboard" };
+  return route.query ? { href: route.pathname, query: route.query } : { href: route.pathname };
 }
 
 export interface ExactSearchScope {
@@ -261,7 +204,7 @@ async function repairOrders(db: Db, scope: ExactSearchScope, ids: DetectedSearch
             .filter(Boolean)
             .join(" · ") || null,
         status: row.status,
-        href: `/dashboard/workshop/${row.id}`,
+        ...hrefFor("repairOrder", { id: row.id }),
       });
     }
   }
@@ -284,7 +227,7 @@ async function tickets(db: Db, scope: ExactSearchScope, value: string) {
       title: row.title,
       subtitle: null,
       status: row.status,
-      href: `/dashboard/help-desk/tickets/${row.id}`,
+      ...hrefFor("ticket", { id: row.id, code: row.ticket_number }),
     })
   );
 }
@@ -305,7 +248,7 @@ async function tasks(db: Db, scope: ExactSearchScope, value: string) {
       title: row.title,
       subtitle: null,
       status: row.status,
-      href: `/dashboard/planning/tasks/${row.id}`,
+      ...hrefFor("task", { id: row.id, code: row.task_number }),
     })
   );
 }
@@ -328,7 +271,7 @@ async function documents(db: Db, scope: ExactSearchScope, value: string) {
       title: row.counterparty_name,
       subtitle: row.document_date,
       status: row.status,
-      href: `/dashboard/warehouse/inventory/movements/${row.id}`,
+      ...hrefFor("document", { id: row.id }),
     })
   );
 }
@@ -351,7 +294,7 @@ async function containers(db: Db, scope: ExactSearchScope, value: string) {
       title: null,
       subtitle: row.type,
       status: row.status,
-      href: `/dashboard/warehouse/containers/${row.id}`,
+      ...hrefFor("container", { id: row.id }),
     })
   );
 }
@@ -374,8 +317,7 @@ async function locations(db: Db, scope: ExactSearchScope, value: string) {
       title: row.name,
       subtitle: null,
       status: null,
-      href: "/dashboard/warehouse/locations",
-      query: { selected: row.id, view: "tree" },
+      ...hrefFor("location", { id: row.id }),
     })
   );
 }
@@ -405,7 +347,7 @@ async function items(db: Db, scope: ExactSearchScope, value: string) {
       title: row.name,
       subtitle: null,
       status: null,
-      href: `/dashboard/warehouse/items/${row.product_id}`,
+      ...hrefFor("item", { id: row.product_id }),
     });
   }
   return hits;
@@ -504,7 +446,7 @@ export class GlobalSearchService {
       subtitle: null,
       status: row.status,
       meta: row.meta ?? undefined,
-      ...hrefFor(row),
+      ...hrefFor(row.type, row),
     }));
   }
 

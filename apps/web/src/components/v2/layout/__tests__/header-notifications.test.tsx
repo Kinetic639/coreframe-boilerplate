@@ -26,7 +26,21 @@ vi.mock("@/i18n/navigation", () => ({
     href,
     ...props
   }: { children: React.ReactNode; href: unknown } & Record<string, unknown>) => (
-    <a href={typeof href === "string" ? href : "#"} {...props}>
+    <a
+      href={
+        typeof href === "string"
+          ? href
+          : href && typeof href === "object"
+            ? (() => {
+                const route = href as { pathname: string; query?: Record<string, string> };
+                return route.query
+                  ? `${route.pathname}?${new URLSearchParams(route.query)}`
+                  : route.pathname;
+              })()
+            : "#"
+      }
+      {...props}
+    >
       {children}
     </a>
   ),
@@ -183,7 +197,7 @@ describe("HeaderNotifications", () => {
   it("opening a notification marks it read and links to its object", async () => {
     await openDrawer();
     const link = within(screen.getAllByTestId("notification-row")[0]!).getByRole("link");
-    expect(link).toHaveAttribute("href", "/dashboard/help-desk/tickets/HD-000014");
+    expect(link).toHaveAttribute("href", "/dashboard/help-desk/tickets?selected=HD-000014");
     fireEvent.click(link);
     await waitFor(() =>
       expect(setReadMock).toHaveBeenCalledWith({ ids: [rows[0]!.id], read: true })
