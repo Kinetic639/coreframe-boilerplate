@@ -10059,7 +10059,10 @@
       "editing": "Edytujesz wiadomość",
       "cancelEdit": "Anuluj edycję",
       "save": "Zapisz",
-      "editClosed": "Wiadomość można edytować przez 15 minut od wysłania"
+      "editClosed": "Wiadomość można edytować przez 15 minut od wysłania",
+      "membersList": "Członkowie grupy",
+      "readByList": "Przeczytali",
+      "noReaders": "Nikt jeszcze nie przeczytał"
     },
     "system": {
       "created": "{actor} utworzył(a) grupę „{name}”",
@@ -10071,7 +10074,9 @@
       "invited": "{actor} zaprosił(a): {users}",
       "joined": "{actor} dołączył(a) do grupy",
       "declined": "{actor} odrzucił(a) zaproszenie",
-      "withdrawn": "{actor} wycofał(a) zaproszenie: {users}"
+      "withdrawn": "{actor} wycofał(a) zaproszenie: {users}",
+      "avatar": "{actor} zmienił(a) zdjęcie grupy",
+      "avatarRemoved": "{actor} usunął(-ęła) zdjęcie grupy"
     },
     "preview": {
       "gif": "GIF",
@@ -10133,7 +10138,16 @@
       "back": "Wróć do listy",
       "invite": "Zaproś",
       "invited": "Zaproszono — czeka na odpowiedź",
-      "withdrawInvite": "Wycofaj zaproszenie: {name}"
+      "withdrawInvite": "Wycofaj zaproszenie: {name}",
+      "groupPhoto": "Zdjęcie grupy",
+      "changePhoto": "Zmień zdjęcie grupy",
+      "addPhoto": "Dodaj zdjęcie grupy",
+      "removePhoto": "Usuń zdjęcie grupy",
+      "photoSaved": "Zdjęcie grupy zapisane",
+      "photoRemoved": "Zdjęcie grupy usunięte",
+      "photoTooLarge": "Zdjęcie jest za duże (maks. 2 MB)",
+      "photoInvalid": "Wybierz plik JPG, PNG, WebP lub GIF",
+      "creator": "Twórca"
     },
     "invitations": {
       "title": "Zaproszenia do grup",

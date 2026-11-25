@@ -11,10 +11,17 @@ import {
   useMarkConversationRead,
   useMessages,
 } from "@/hooks/queries/messages";
-import { conversationInitials, conversationTitle, directPeer } from "@/lib/messages/display";
+import {
+  canManageGroup,
+  conversationAvatarUrl,
+  conversationInitials,
+  conversationTitle,
+  directPeer,
+} from "@/lib/messages/display";
 import { useChatWindowsStore, type ChatWindowState } from "@/lib/stores/v2/chat-windows-store";
 import { ChatAvatar } from "./chat-avatar";
 import { ChatComposer, type ChatComposerHandle } from "./chat-composer";
+import { ChatPeoplePopover } from "./chat-people-popover";
 import { useChat } from "./chat-provider";
 import { ChatThread } from "./chat-thread";
 import { ChatWindowOptions } from "./chat-window-options";
@@ -78,16 +85,17 @@ export function ChatWindow({ state }: { state: ChatWindowState }) {
   const title = source ? conversationTitle(source, meId) : "";
   const peer = source ? directPeer(source, meId) : null;
   const online = !!peer && onlineIds.has(peer.user_id);
-  const status =
-    source?.kind === "group"
-      ? t("window.members", {
-          count: detail.data
-            ? detail.data.members.filter((m) => !m.left_at).length
-            : (summary?.member_count ?? 0),
-        })
-      : online
-        ? t("window.online")
-        : t("window.offline");
+  const isGroup = source?.kind === "group";
+  // Full list once the conversation is loaded; the list row carries the first 6
+  const activeMembers = detail.data
+    ? detail.data.members.filter((m) => !m.left_at)
+    : (summary?.members ?? []);
+  const memberCount = detail.data ? activeMembers.length : (summary?.member_count ?? 0);
+  const status = isGroup
+    ? t("window.members", { count: memberCount })
+    : online
+      ? t("window.online")
+      : t("window.offline");
   const unread = !!summary && summary.unread_count > 0 && !summary.muted;
 
   return (
@@ -113,30 +121,52 @@ export function ChatWindow({ state }: { state: ChatWindowState }) {
       >
         <ChatAvatar
           initials={source ? conversationInitials(source, meId) : "…"}
-          src={peer?.avatar_url}
-          group={source?.kind === "group"}
+          src={source ? conversationAvatarUrl(source, meId) : null}
+          group={isGroup}
           online={online}
           size={22}
           ringClassName="ring-background"
         />
-        <button
-          type="button"
-          onClick={() => toggleCollapsed(conversationId)}
-          className="flex min-w-0 flex-1 flex-col text-left"
-          aria-expanded={!collapsed}
-        >
-          <span className="truncate text-xs font-semibold">{title}</span>
-          <span className="flex items-center gap-1 truncate text-[10px] text-muted-foreground">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <button
+            type="button"
+            onClick={() => toggleCollapsed(conversationId)}
+            className="truncate text-left text-xs font-semibold"
+            aria-expanded={!collapsed}
+          >
+            {title}
+          </button>
+          <span className="flex min-w-0 items-center gap-1 text-[10px] text-muted-foreground">
             {summary?.muted ? (
               <BellOff className="size-2.5 shrink-0" aria-label={t("page.muted")} />
             ) : null}
-            {status}
+            {isGroup ? (
+              <ChatPeoplePopover
+                people={activeMembers}
+                title={t("window.membersList")}
+                showStatus
+                side="top"
+              >
+                <span className="truncate">{status}</span>
+              </ChatPeoplePopover>
+            ) : (
+              <button
+                type="button"
+                onClick={() => toggleCollapsed(conversationId)}
+                className="truncate text-left"
+                tabIndex={-1}
+              >
+                {status}
+              </button>
+            )}
           </span>
-        </button>
+        </div>
         <ChatWindowOptions
           conversationId={conversationId}
-          isGroup={source?.kind === "group"}
-          groupName={source?.kind === "group" ? title : ""}
+          isGroup={isGroup}
+          canManage={!!detail.data && canManageGroup(detail.data, meId)}
+          hasPhoto={!!source?.avatar_url}
+          groupName={isGroup ? title : ""}
           muted={!!summary?.muted}
           onClose={() => closeWindow(conversationId)}
         />

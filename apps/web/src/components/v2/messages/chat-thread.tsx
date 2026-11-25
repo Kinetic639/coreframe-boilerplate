@@ -31,6 +31,7 @@ import {
 } from "@/lib/messages/format";
 import { CHAT_EDIT_WINDOW_MS, type ChatConversationDetail } from "@/lib/messages/types";
 import { useChat } from "./chat-provider";
+import { ChatPeoplePopover } from "./chat-people-popover";
 import { systemEventText } from "./chat-text";
 import {
   ChatAttachments,
@@ -134,8 +135,8 @@ export function ChatThread({
       .reverse()
       .find((m) => m.author_id === meId && m.kind === "text" && !m.pending);
     if (!own) return null;
-    const readers = others.filter((m) => m.last_read_at >= own.created_at).length;
-    return readers > 0 ? { messageId: own.id, readers } : null;
+    const readers = others.filter((m) => m.last_read_at >= own.created_at);
+    return readers.length > 0 ? { messageId: own.id, readers } : null;
   }, [messages, meId, others]);
 
   // Keep the view pinned to the bottom; keep the position when older pages load
@@ -425,12 +426,24 @@ export function ChatThread({
                         {t("window.sending")}
                       </span>
                     ) : readInfo?.messageId === message.id ? (
-                      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                        <CheckCheck className="size-3 text-primary" />
-                        {conversation?.kind === "group"
-                          ? t("window.readBy", { count: readInfo.readers })
-                          : t("window.read")}
-                      </span>
+                      conversation?.kind === "group" ? (
+                        <ChatPeoplePopover
+                          people={readInfo.readers}
+                          title={t("window.readByList")}
+                          emptyText={t("window.noReaders")}
+                          side="top"
+                          align="end"
+                          className="text-[10px] text-muted-foreground"
+                        >
+                          <CheckCheck className="size-3 text-primary" />
+                          {t("window.readBy", { count: readInfo.readers.length })}
+                        </ChatPeoplePopover>
+                      ) : (
+                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <CheckCheck className="size-3 text-primary" />
+                          {t("window.read")}
+                        </span>
+                      )
                     ) : null}
                   </div>
                 )}

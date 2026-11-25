@@ -29,7 +29,9 @@ export type ChatSystemAction =
   | "invited"
   | "joined"
   | "declined"
-  | "withdrawn";
+  | "withdrawn"
+  /** The group photo was set or (removed: true) taken off */
+  | "avatar";
 
 export interface ChatSystemEvent {
   action: ChatSystemAction;
@@ -38,6 +40,8 @@ export interface ChatSystemEvent {
   user_ids?: string[];
   /** Names of the invited people, in the order of user_ids (they are not members yet) */
   names?: string[];
+  /** "avatar": the photo was removed */
+  removed?: boolean;
 }
 
 /** An invitation to a group waiting for the user's answer */
@@ -89,6 +93,8 @@ export interface ChatConversationSummary {
   unread_count: number;
   muted: boolean;
   member_count: number;
+  /** Signed URL of the group photo (groups only) */
+  avatar_url?: string | null;
   /** First members (up to 6), the caller included */
   members: ChatMemberProfile[];
   last_message: ChatLastMessage | null;
@@ -102,6 +108,8 @@ export interface ChatConversationDetail {
   name: string | null;
   created_by: string | null;
   created_at: string;
+  /** Signed URL of the group photo (groups only) */
+  avatar_url?: string | null;
   members: ChatMemberProfile[];
 }
 
@@ -170,6 +178,8 @@ export type ChatErrorCode = "forbidden" | "invalid" | "tooLong" | "notFound" | "
 
 export const CHAT_MESSAGE_MAX_LENGTH = 8000;
 export const CHAT_GROUP_NAME_MAX_LENGTH = 80;
+/** Largest group photo accepted (the bucket's limit; the crop dialog sends ~100 KB) */
+export const CHAT_GROUP_AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 export const CHAT_MESSAGES_PAGE_SIZE = 40;
 /** The author may edit a message this long after sending (enforced by chat_edit_message) */
 export const CHAT_EDIT_WINDOW_MS = 15 * 60_000;

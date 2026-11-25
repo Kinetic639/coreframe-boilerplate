@@ -18,12 +18,12 @@ export function ChatAvatar({
   src?: string | null;
   group?: boolean;
   online?: boolean;
-  size?: 20 | 22 | 26 | 28 | 32;
+  size?: 20 | 22 | 26 | 28 | 32 | 48;
   /** Colour of the gap around the online dot (match the background) */
   ringClassName?: string;
   className?: string;
 }) {
-  const text = size <= 22 ? "text-[9px]" : "text-[10px]";
+  const text = size <= 22 ? "text-[9px]" : size >= 48 ? "text-sm" : "text-[10px]";
   return (
     <span
       className={cn("relative inline-flex shrink-0", className)}

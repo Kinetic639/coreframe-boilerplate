@@ -2,7 +2,12 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import { conversationInitials, conversationTitle, directPeer } from "@/lib/messages/display";
+import {
+  conversationAvatarUrl,
+  conversationInitials,
+  conversationTitle,
+  directPeer,
+} from "@/lib/messages/display";
 import { formatChatListTime } from "@/lib/messages/format";
 import type { ChatConversationSummary } from "@/lib/messages/types";
 import { ChatAvatar, ChatCountBadge } from "./chat-avatar";
@@ -39,7 +44,7 @@ export function ConversationRow({
     >
       <ChatAvatar
         initials={conversationInitials(conversation, meId)}
-        src={peer?.avatar_url}
+        src={conversationAvatarUrl(conversation, meId)}
         group={conversation.kind === "group"}
         online={!!peer && onlineIds.has(peer.user_id)}
         ringClassName={ringClassName}
