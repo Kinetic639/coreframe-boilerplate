@@ -21,6 +21,7 @@ import { routing } from "@/i18n/routing";
 import { useUpdateRegionalSettingsMutation } from "@/hooks/queries/user-preferences";
 import { VALID_TIMEZONES, VALID_DATE_FORMATS } from "@/lib/validations/user-preferences";
 import type { UserPreferences } from "@/lib/types/user-preferences";
+import { DEFAULT_TIME_ZONE } from "@/lib/date-time/time-zone";
 
 interface RegionalSectionProps {
   preferences: UserPreferences | null;
@@ -59,7 +60,7 @@ export function RegionalSection({ preferences }: RegionalSectionProps) {
   const switchLocale = useLocaleSwitch();
   const updateRegional = useUpdateRegionalSettingsMutation();
 
-  const [timezone, setTimezone] = useState(preferences?.timezone ?? "UTC");
+  const [timezone, setTimezone] = useState(preferences?.timezone ?? DEFAULT_TIME_ZONE);
   const [dateFormat, setDateFormat] = useState(preferences?.dateFormat ?? "YYYY-MM-DD");
   const [timeFormat, setTimeFormat] = useState(preferences?.timeFormat ?? "24h");
 

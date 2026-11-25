@@ -50,6 +50,7 @@ import {
   PLANNING_TASKS_READ,
 } from "@/lib/constants/permissions";
 import { getAuthUser } from "@/server/auth/get-auth-user";
+import { resolveTimeZone } from "@/lib/date-time/time-zone";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
@@ -125,7 +126,7 @@ export async function getPlanningCalendarDataAction(
         ctx.supabase,
         ctx.userId
       );
-      const timeZone = preferences.timezone || "UTC";
+      const timeZone = resolveTimeZone(preferences.timezone);
       const boundedInput = {
         rangeStart: parsed.data.rangeStart,
         rangeEnd: parsed.data.rangeEnd,
@@ -188,7 +189,7 @@ export async function updateCalendarItemDueDateAction(
         ctx.supabase,
         ctx.userId
       );
-      const timeZone = preferences.timezone || "UTC";
+      const timeZone = resolveTimeZone(preferences.timezone);
       const dueAt = dueDate ? dateOnlyToZonedIso(dueDate, timeZone) : null;
 
       switch (sourceType) {

@@ -5,6 +5,8 @@
  * Used throughout the application for user preference management.
  */
 
+import { DEFAULT_TIME_ZONE } from "@/lib/date-time/time-zone";
+
 /**
  * Core UI settings that are persisted to database for cross-device sync
  */
@@ -292,7 +294,7 @@ export function rowToPreferences(row: UserPreferencesRow): UserPreferences {
     userId: row.user_id,
     displayName: row.display_name,
     phone: row.phone,
-    timezone: row.timezone ?? "UTC",
+    timezone: row.timezone ?? DEFAULT_TIME_ZONE,
     dateFormat: row.date_format ?? "YYYY-MM-DD",
     timeFormat: row.time_format ?? "24h",
     locale: row.locale ?? "pl",

@@ -23,6 +23,7 @@ import { InventoryReceivingService } from "@/server/services/inventory-receiving
 import type { PaginatedResult } from "@/lib/data-view/types";
 import { attentionFilters, getHomeActions, readWidget } from "./model";
 import type { HomePlanningSummary } from "./model";
+import { resolveTimeZone } from "@/lib/date-time/time-zone";
 
 type AttentionData = PaginatedResult<HelpdeskTicketListRow> & {
   priorityConfigs: Record<string, HelpdeskBadgeConfig> | null;
@@ -134,7 +135,7 @@ export async function loadPlanningSummary(orgId: string, branchId: string) {
     }
     const supabase = await createClient();
     const preferences = await UserPreferencesService.getOrCreatePreferences(supabase, userId);
-    const timeZone = preferences.timezone || "UTC";
+    const timeZone = resolveTimeZone(preferences.timezone);
     const today = isoToDateOnlyInTimeZone(new Date().toISOString(), timeZone);
     const baseParams = {
       page: 1,
