@@ -57,6 +57,7 @@ import type {
   OrgRole,
   OrgBranch,
 } from "@/server/services/organization.service";
+import { formatDate } from "@/lib/date-time/format";
 
 interface MemberDetailClientProps {
   member: OrgMember;
@@ -313,9 +314,9 @@ export function MemberDetailClient({
               <span className="text-sm text-muted-foreground">Joined</span>
               <span className="text-sm font-medium">
                 {member.joined_at
-                  ? new Date(member.joined_at).toLocaleDateString()
+                  ? formatDate(member.joined_at)
                   : member.created_at
-                    ? new Date(member.created_at).toLocaleDateString()
+                    ? formatDate(member.created_at)
                     : "—"}
               </span>
             </div>

@@ -12,7 +12,6 @@ import {
 } from "@/server/services/helpdesk-ticket-types.service";
 import { PlanningTasksService } from "@/server/services/planning-tasks.service";
 import { KanbanBoardsService } from "@/server/services/kanban-boards.service";
-import { UserPreferencesService } from "@/server/services/user-preferences.service";
 import { getPlanningCalendarDataAction } from "@/app/actions/planning/calendar";
 import { isoToDateOnlyInTimeZone } from "@/lib/planning/calendar-dates";
 import { checkPermission } from "@/lib/utils/permissions";
@@ -23,6 +22,7 @@ import { InventoryReceivingService } from "@/server/services/inventory-receiving
 import type { PaginatedResult } from "@/lib/data-view/types";
 import { attentionFilters, getHomeActions, readWidget } from "./model";
 import type { HomePlanningSummary } from "./model";
+import { getOrganizationTimeZone } from "@/server/time-zone";
 
 type AttentionData = PaginatedResult<HelpdeskTicketListRow> & {
   priorityConfigs: Record<string, HelpdeskBadgeConfig> | null;
@@ -133,8 +133,8 @@ export async function loadPlanningSummary(orgId: string, branchId: string) {
       return { success: false as const, error: "Unavailable" };
     }
     const supabase = await createClient();
-    const preferences = await UserPreferencesService.getOrCreatePreferences(supabase, userId);
-    const timeZone = preferences.timezone || "UTC";
+    // "Today" for due dates is a business date, in the organization's zone.
+    const timeZone = await getOrganizationTimeZone(orgId);
     const today = isoToDateOnlyInTimeZone(new Date().toISOString(), timeZone);
     const baseParams = {
       page: 1,

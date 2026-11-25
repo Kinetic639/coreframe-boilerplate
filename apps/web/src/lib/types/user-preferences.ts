@@ -157,8 +157,8 @@ export interface UserProfile {
   displayName?: string | null;
   /** Phone number */
   phone?: string | null;
-  /** Timezone */
-  timezone: string;
+  /** Own time zone; null = same as the organization */
+  timezone: string | null;
   /** Date format */
   dateFormat: string;
   /** Time format */
@@ -179,8 +179,8 @@ export interface UserPreferences {
   displayName?: string | null;
   /** Phone number */
   phone?: string | null;
-  /** Timezone */
-  timezone: string;
+  /** Own time zone; null = same as the organization */
+  timezone: string | null;
   /** Date format */
   dateFormat: string;
   /** Time format */
@@ -217,7 +217,8 @@ export interface UpdateProfileInput {
  * Regional settings update input
  */
 export interface UpdateRegionalInput {
-  timezone?: string;
+  /** null = follow the organization's zone */
+  timezone?: string | null;
   dateFormat?: string;
   timeFormat?: string;
   locale?: string;
@@ -268,7 +269,7 @@ export interface UserPreferencesRow {
   user_id: string;
   display_name: string | null;
   phone: string | null;
-  timezone: string;
+  timezone: string | null;
   date_format: string;
   time_format: string;
   locale: string;
@@ -292,7 +293,7 @@ export function rowToPreferences(row: UserPreferencesRow): UserPreferences {
     userId: row.user_id,
     displayName: row.display_name,
     phone: row.phone,
-    timezone: row.timezone ?? "UTC",
+    timezone: row.timezone ?? null,
     dateFormat: row.date_format ?? "YYYY-MM-DD",
     timeFormat: row.time_format ?? "24h",
     locale: row.locale ?? "pl",

@@ -24,6 +24,7 @@ import type { HelpdeskTicketListRow } from "@/server/services/helpdesk-tickets.s
 import { cn } from "@/lib/utils";
 import type { TicketList } from "./tickets-query";
 import { ticketHref, TICKET_PAGE_SIZES, type TicketSort, type TicketState } from "./tickets-state";
+import { formatDateTime } from "@/lib/date-time/format";
 
 /** Columns the list sorts by (each the ticket's own field). */
 const SORT_FIELD: Record<string, TicketSort> = {
@@ -171,7 +172,7 @@ export function HelpDeskTicketsTable({
   const date = (value: string | null) =>
     value ? (
       <span className="text-xs text-muted-foreground">
-        {new Date(value).toLocaleString(labels.locale, {
+        {formatDateTime(value, labels.locale, {
           dateStyle: "short",
           timeStyle: "short",
         })}

@@ -2,18 +2,20 @@
  * Compact chat times: "10:24" today, "pt." within the week, "03.10" earlier,
  * "03.10.2025" in another year.
  */
+import { formatDate, formatTime } from "@/lib/date-time/format";
+
 export function formatChatListTime(iso: string, locale: string, now: Date = new Date()): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   if (date.getTime() >= startOfToday) {
-    return date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+    return formatTime(date, locale, { hour: "2-digit", minute: "2-digit" });
   }
   const sixDaysAgo = startOfToday - 6 * 24 * 60 * 60 * 1000;
   if (date.getTime() >= sixDaysAgo) {
-    return date.toLocaleDateString(locale, { weekday: "short" });
+    return formatDate(date, locale, { weekday: "short" });
   }
-  return date.toLocaleDateString(locale, {
+  return formatDate(date, locale, {
     day: "2-digit",
     month: "2-digit",
     ...(date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
@@ -23,7 +25,7 @@ export function formatChatListTime(iso: string, locale: string, now: Date = new 
 export function formatChatTime(iso: string, locale: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  return formatTime(date, locale, { hour: "2-digit", minute: "2-digit" });
 }
 
 /** Day key for separators ("2026-10-09" in local time) */
@@ -44,7 +46,7 @@ export function chatDayLabel(
   const dayMs = 24 * 60 * 60 * 1000;
   if (date.getTime() >= startOfToday) return labels.today;
   if (date.getTime() >= startOfToday - dayMs) return labels.yesterday;
-  return date.toLocaleDateString(locale, {
+  return formatDate(date, locale, {
     weekday: "long",
     day: "numeric",
     month: "long",

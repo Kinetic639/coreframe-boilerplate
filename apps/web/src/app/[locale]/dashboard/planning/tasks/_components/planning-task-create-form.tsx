@@ -160,11 +160,15 @@ export function PlanningTaskCreateForm({
   const { can } = usePermissions();
   const orgId = useAppStoreV2((state) => state.activeOrgId);
   const initialAssignee = defaultAssignToMe ? currentUserId : UNASSIGNED;
+  // A branch task is visible only in the active branch, so it can be created
+  // only there: the scope is the organization or the active branch.
+  const scopeBranches = branches.filter((branch) => branch.id === activeBranchId);
+  const defaultScope = scopeBranches[0]?.id ?? "__organization__";
   const [title, setTitle] = useState("");
   const [descriptionRich, setDescriptionRich] = useState<RichTextValue>(createEmptyRichText);
   const [priority, setPriority] = useState<TaskPriority>("normal");
   const [assignedTo, setAssignedTo] = useState<string>(initialAssignee);
-  const [taskScope, setTaskScope] = useState<string>(activeBranchId ?? "__organization__");
+  const [taskScope, setTaskScope] = useState<string>(defaultScope);
   const [dueAt, setDueAt] = useState<string>(initialDueAt ?? "");
   const [titleError, setTitleError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -208,7 +212,7 @@ export function PlanningTaskCreateForm({
     setDescriptionRich(createEmptyRichText);
     setPriority("normal");
     setAssignedTo(initialAssignee);
-    setTaskScope(activeBranchId ?? "__organization__");
+    setTaskScope(defaultScope);
     setDueAt(initialDueAt ?? "");
     setTitleError(null);
     staged.reset();
@@ -580,7 +584,7 @@ export function PlanningTaskCreateForm({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__organization__">{t("organizationScope")}</SelectItem>
-            {branches.map((branch) => (
+            {scopeBranches.map((branch) => (
               <SelectItem key={branch.id} value={branch.id}>
                 {branch.name}
               </SelectItem>

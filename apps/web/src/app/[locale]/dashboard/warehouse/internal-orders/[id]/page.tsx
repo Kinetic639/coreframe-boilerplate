@@ -13,6 +13,7 @@ import {
   InternalOrdersService,
 } from "@/server/services/internal-orders.service";
 import { InternalOrderActions } from "../_components/internal-order-actions";
+import { formatDateTime } from "@/lib/date-time/format";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -117,7 +118,7 @@ export default async function InternalOrderPage({ params }: PageProps) {
         </div>
         <div>
           <dt className="text-muted-foreground text-xs">{t("columns.created")}</dt>
-          <dd>{new Date(order.createdAt).toLocaleString(locale)}</dd>
+          <dd>{formatDateTime(order.createdAt, locale)}</dd>
         </div>
       </dl>
 
@@ -156,7 +157,7 @@ export default async function InternalOrderPage({ params }: PageProps) {
                   {r.number ?? "—"}
                 </Link>
                 <span className="text-muted-foreground text-xs">
-                  {r.postedAt ? new Date(r.postedAt).toLocaleString(locale) : "—"}
+                  {r.postedAt ? formatDateTime(r.postedAt, locale) : "—"}
                 </span>
                 <span className="tabular-nums">{r.quantity}</span>
               </li>

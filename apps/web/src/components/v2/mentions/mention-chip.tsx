@@ -6,7 +6,8 @@ import type { MentionItem } from "@repo/rich-text/mention-utils";
 import { Link } from "@/i18n/navigation";
 import { toUnsafeI18nHref } from "@/lib/i18n/unsafe-href";
 import { cn } from "@/lib/utils";
-import { MENTION_PERSON, UUID_RE, mentionRoute } from "@/lib/mentions";
+import { MENTION_PERSON, UUID_RE, mentionObjectRoute } from "@/lib/mentions";
+import { objectRoute } from "@/lib/object-links";
 import { usePermissions } from "@/hooks/v2/use-permissions";
 import { CRM_CONTACTS_READ, MEMBERS_READ } from "@/lib/constants/permissions";
 import type { MentionAccess } from "@/hooks/queries/mentions";
@@ -48,7 +49,7 @@ export function MentionChip({
       : can(CRM_CONTACTS_READ)
         ? { pathname: "/dashboard/crm/contacts", query: { selected: `member:${mention.id}` } }
         : can(MEMBERS_READ)
-          ? { pathname: `/dashboard/organization/users/members/${mention.id}` }
+          ? objectRoute(MENTION_PERSON, { id: mention.id })
           : null;
     if (!personRoute) {
       return (
@@ -93,7 +94,7 @@ export function MentionChip({
       </span>
     </>
   );
-  const route = access === "ok" ? mentionRoute(mention.href) : null;
+  const route = access === "ok" ? mentionObjectRoute(mention) : null;
   const title = mention.code && mention.label !== mention.code ? mention.label : undefined;
 
   if (!route) {

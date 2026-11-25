@@ -17,6 +17,7 @@ import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { OrganizationPublicProfileService } from "@/server/services/organization-public-profile.service";
 import type { PublicMemberProfile } from "@/server/services/organization-public-profile.service";
+import { formatDate } from "@/lib/date-time/format";
 
 type PageProps = {
   params: Promise<{ memberId: string }>;
@@ -77,7 +78,7 @@ export default async function PublicMemberProfilePage({ params }: PageProps) {
       ? {
           icon: CalendarDays,
           label: t("memberProfile.memberSince"),
-          value: new Date(member.joined_at).toLocaleDateString(locale, { dateStyle: "long" }),
+          value: formatDate(member.joined_at, locale, { dateStyle: "long" }),
         }
       : null,
   ].filter(Boolean) as Array<{

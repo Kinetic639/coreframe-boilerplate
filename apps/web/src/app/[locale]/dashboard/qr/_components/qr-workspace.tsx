@@ -65,6 +65,7 @@ import {
   type QrDisplayStatus,
   type QrState,
 } from "./qr-state";
+import { formatDate, formatDateTime } from "@/lib/date-time/format";
 
 const STATUS_VARIANT: Record<QrDisplayStatus, "default" | "secondary" | "destructive"> = {
   assigned: "default",
@@ -224,8 +225,7 @@ export function QrWorkspace({
     return [...map.values()].sort((a, b) => b.created_at.localeCompare(a.created_at));
   }, [all]);
   const batchName = (batch: NonNullable<QrCodeWithStatus["batch"]>) =>
-    batch.name ??
-    t("registry.batchUnnamed", { date: new Date(batch.created_at).toLocaleDateString(locale) });
+    batch.name ?? t("registry.batchUnnamed", { date: formatDate(batch.created_at, locale) });
   const targetLabel = (type: string) => {
     const key = `targets.${type.replace(/\./g, "_")}`;
     return t.has(key) ? t(key) : type;
@@ -273,9 +273,7 @@ export function QrWorkspace({
   const rowHref = (row: QrCodeWithStatus) =>
     href({ selected: state.selected === row.id ? null : row.id });
   const date = (value: string) => (
-    <span className="text-xs text-muted-foreground">
-      {new Date(value).toLocaleDateString(locale)}
-    </span>
+    <span className="text-xs text-muted-foreground">{formatDate(value, locale)}</span>
   );
   const assignmentLink = (row: QrCodeWithStatus) =>
     row.assignment ? (
@@ -568,7 +566,7 @@ export function QrWorkspace({
                       </div>
                       <div>
                         <dt className="text-xs text-muted-foreground">{t("detail.created")}</dt>
-                        <dd>{new Date(selected.created_at).toLocaleString(locale)}</dd>
+                        <dd>{formatDateTime(selected.created_at, locale)}</dd>
                       </div>
                       <div>
                         <dt className="text-xs text-muted-foreground">{t("detail.assignment")}</dt>
@@ -578,7 +576,7 @@ export function QrWorkspace({
                         <dt className="text-xs text-muted-foreground">{t("registry.lastScan")}</dt>
                         <dd>
                           {selected.last_scanned_at
-                            ? new Date(selected.last_scanned_at).toLocaleString(locale)
+                            ? formatDateTime(selected.last_scanned_at, locale)
                             : t("registry.neverScanned")}
                         </dd>
                       </div>

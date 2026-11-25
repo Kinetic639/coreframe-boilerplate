@@ -21,6 +21,7 @@ import {
   type ProductSort,
   type ProductState,
 } from "./inventory-products-state";
+import { formatDateTime } from "@/lib/date-time/format";
 
 /** Columns the list sorts by (the stock sums only for the grouped list). */
 const SORTABLE = new Set<string>(["product_type", "status", "updated_at"]);
@@ -210,7 +211,7 @@ export function InventoryProductsTable({
       case "updated_at":
         return (
           <span className="text-xs text-muted-foreground">
-            {new Date(row.updated_at).toLocaleString(labels.locale)}
+            {formatDateTime(row.updated_at, labels.locale)}
           </span>
         );
       case "reserved_total_quantity":
@@ -239,7 +240,7 @@ export function InventoryProductsTable({
       case "status":
         return labels[row.status] ?? row.status;
       case "updated_at":
-        return new Date(row.updated_at).toLocaleString(labels.locale);
+        return formatDateTime(row.updated_at, labels.locale);
       case "sku":
       case "on_hand_quantity":
       case "available_quantity":

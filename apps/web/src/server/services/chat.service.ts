@@ -4,6 +4,7 @@ import { compactRichInput } from "@repo/rich-text/rich-text-utils";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ServiceResult } from "./organization.service";
 import { OrgMemberPublicProfileService } from "./org-member-public-profile.service";
+import { getSignedChatAvatarUrls } from "@/server/storage/chat-avatar-signed-url";
 import {
   CHAT_MESSAGES_PAGE_SIZE,
   type ChatConversationDetail,
@@ -90,6 +91,40 @@ async function withAvatars<T>(
   return value;
 }
 
+/**
+ * Fills `avatar_url` of group conversations (group photo). The path is read
+ * through RLS (members only) and signed on the server. Before the group photo
+ * migration (20261125160000_chat_group_avatars.sql) the column does not exist:
+ * groups keep their initials.
+ */
+async function withGroupAvatars<T extends { id: string; kind: string; avatar_url?: string | null }>(
+  supabase: SupabaseClient,
+  conversations: T[]
+): Promise<T[]> {
+  const groups = conversations.filter((conversation) => conversation.kind === "group");
+  for (const conversation of conversations) conversation.avatar_url ??= null;
+  if (groups.length === 0) return conversations;
+  const { data, error } = await supabase
+    .from("chat_conversations")
+    .select("id, avatar_path")
+    .in(
+      "id",
+      groups.map((group) => group.id)
+    );
+  if (error) {
+    if (error.code !== UNDEFINED_COLUMN) console.error("[ChatService.groupAvatars]", error);
+    return conversations;
+  }
+  const rows = (data ?? []) as { id: string; avatar_path: string | null }[];
+  const urls = await getSignedChatAvatarUrls(
+    rows.flatMap((row) =>
+      row.avatar_path ? [{ conversationId: row.id, avatarPath: row.avatar_path }] : []
+    )
+  );
+  for (const group of groups) group.avatar_url = urls.get(group.id) ?? null;
+  return conversations;
+}
+
 export class ChatService {
   static async listConversations(
     supabase: SupabaseClient,
@@ -108,7 +143,7 @@ export class ChatService {
       (data ?? []) as ChatConversationSummary[],
       (conversations) => conversations.flatMap((conversation) => conversation.members)
     );
-    return { success: true, data: list };
+    return { success: true, data: await withGroupAvatars(supabase, list) };
   }
 
   static async getConversation(
@@ -121,6 +156,7 @@ export class ChatService {
     if (error) return fail(error, "getConversation");
     if (!data) return { success: false, error: "notFound" };
     const detail = data as ChatConversationDetail;
+    await withGroupAvatars(supabase, [detail]);
     return {
       success: true,
       data: await withAvatars(supabase, detail.organization_id, detail, (d) => d.members),
@@ -351,6 +387,20 @@ export class ChatService {
     });
     if (error) return fail(error, "rename");
     return { success: true, data: null };
+  }
+
+  /** Sets (path) or removes (null) the group photo; returns the previous path */
+  static async setAvatar(
+    supabase: SupabaseClient,
+    conversationId: string,
+    path: string | null
+  ): Promise<ServiceResult<string | null>> {
+    const { data, error } = await supabase.rpc("chat_set_avatar", {
+      p_conversation_id: conversationId,
+      p_path: path,
+    });
+    if (error) return fail(error, "setAvatar");
+    return { success: true, data: (data as string | null) ?? null };
   }
 
   static async setMuted(

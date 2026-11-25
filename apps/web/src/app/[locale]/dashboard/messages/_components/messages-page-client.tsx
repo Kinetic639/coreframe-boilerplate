@@ -9,10 +9,18 @@ import { cn } from "@/lib/utils";
 import { normalizeSearchText } from "@/lib/global-search/match";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import { useConversation, useConversations } from "@/hooks/queries/messages";
-import { conversationInitials, conversationTitle, directPeer } from "@/lib/messages/display";
+import {
+  canManageGroup,
+  conversationAvatarUrl,
+  conversationInitials,
+  conversationTitle,
+  directPeer,
+} from "@/lib/messages/display";
 import { ChatAvatar } from "@/components/v2/messages/chat-avatar";
 import { ChatComposer, type ChatComposerHandle } from "@/components/v2/messages/chat-composer";
 import { ChatInvitations } from "@/components/v2/messages/chat-invitations";
+import { ChatPeoplePopover } from "@/components/v2/messages/chat-people-popover";
+import { useGroupAvatarEditor } from "@/components/v2/messages/group-avatar-editor";
 import { useOptionalChat } from "@/components/v2/messages/chat-provider";
 import { ChatThread } from "@/components/v2/messages/chat-thread";
 import { chatTypingTopic, useReadWhileVisible } from "@/components/v2/messages/chat-window";
@@ -199,16 +207,30 @@ function ConversationPane({
 
   const peer = source ? directPeer(source, chat.meId) : null;
   const online = !!peer && chat.onlineIds.has(peer.user_id);
-  const status =
-    source?.kind === "group"
-      ? t("window.members", {
-          count: detail.data
-            ? detail.data.members.filter((m) => !m.left_at).length
-            : (summary?.member_count ?? 0),
-        })
-      : online
-        ? t("window.online")
-        : t("window.offline");
+  const isGroup = source?.kind === "group";
+  const activeMembers = detail.data
+    ? detail.data.members.filter((m) => !m.left_at)
+    : (summary?.members ?? []);
+  const memberCount = detail.data ? activeMembers.length : (summary?.member_count ?? 0);
+  const status = isGroup
+    ? t("window.members", { count: memberCount })
+    : online
+      ? t("window.online")
+      : t("window.offline");
+  // The owner or creator changes the group photo from the header avatar too
+  // (the details panel is not shown on small screens)
+  const canManage = !!detail.data && canManageGroup(detail.data, chat.meId);
+  const avatarEditor = useGroupAvatarEditor(conversationId);
+  const avatar = (
+    <ChatAvatar
+      initials={source ? conversationInitials(source, chat.meId) : "…"}
+      src={source ? conversationAvatarUrl(source, chat.meId) : null}
+      group={isGroup}
+      online={online}
+      size={26}
+      ringClassName="ring-background"
+    />
+  );
 
   return (
     <>
@@ -222,19 +244,38 @@ function ConversationPane({
           >
             <ChevronLeft className="size-4" />
           </button>
-          <ChatAvatar
-            initials={source ? conversationInitials(source, chat.meId) : "…"}
-            src={peer?.avatar_url}
-            group={source?.kind === "group"}
-            online={online}
-            size={26}
-            ringClassName="ring-background"
-          />
+          {canManage ? (
+            <button
+              type="button"
+              onClick={avatarEditor.pick}
+              disabled={avatarEditor.pending}
+              aria-label={source?.avatar_url ? t("page.changePhoto") : t("page.addPhoto")}
+              title={source?.avatar_url ? t("page.changePhoto") : t("page.addPhoto")}
+              className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+            >
+              {avatar}
+            </button>
+          ) : (
+            avatar
+          )}
+          {canManage ? avatarEditor.elements : null}
           <div className="min-w-0 flex-1">
             <div className="truncate text-[13px] font-semibold">
               {source ? conversationTitle(source, chat.meId) : ""}
             </div>
-            <div className="truncate text-[11px] text-muted-foreground">{status}</div>
+            <div className="flex min-w-0 text-[11px] text-muted-foreground">
+              {isGroup ? (
+                <ChatPeoplePopover
+                  people={activeMembers}
+                  title={t("window.membersList")}
+                  showStatus
+                >
+                  <span className="truncate">{status}</span>
+                </ChatPeoplePopover>
+              ) : (
+                <span className="truncate">{status}</span>
+              )}
+            </div>
           </div>
           <button
             type="button"

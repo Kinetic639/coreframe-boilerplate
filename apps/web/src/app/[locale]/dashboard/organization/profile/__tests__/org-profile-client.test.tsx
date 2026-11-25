@@ -93,6 +93,7 @@ describe("OrgProfileClient", () => {
         slug: "acmewarehouse",
         bio: "Updated bio",
         website: "https://acme.test",
+        timezone: "Europe/Warsaw",
       },
       expect.objectContaining({ onSuccess: expect.any(Function) })
     );

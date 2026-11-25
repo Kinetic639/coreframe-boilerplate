@@ -1,4 +1,5 @@
 import type { AppNotification, NotificationsPage } from "./types";
+import { formatDate, formatTime } from "@/lib/date-time/format";
 
 /** Infinite query shape of a notifications list: page 0 is the newest */
 export interface NotificationsInfiniteData {
@@ -80,10 +81,10 @@ export function formatNotificationTime(
     return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(0, "minute");
   if (minutes < 60) return relative.format(-minutes, "minute");
   const group = notificationDayGroup(iso, now);
-  const clock = date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  const clock = formatTime(date, locale, { hour: "2-digit", minute: "2-digit" });
   if (group === "today") return relative.format(-Math.round(minutes / 60), "hour");
   if (group === "yesterday") {
     return `${new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(-1, "day")}, ${clock}`;
   }
-  return `${date.toLocaleDateString(locale, { day: "2-digit", month: "2-digit" })}, ${clock}`;
+  return `${formatDate(date, locale, { day: "2-digit", month: "2-digit" })}, ${clock}`;
 }

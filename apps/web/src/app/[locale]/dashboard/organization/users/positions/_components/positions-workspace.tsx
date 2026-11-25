@@ -33,6 +33,7 @@ import {
   POSITION_PAGE_SIZES,
   type PositionState,
 } from "./positions-state";
+import { formatDate, formatDateTime } from "@/lib/date-time/format";
 
 type DialogMode = "create" | "edit" | null;
 
@@ -144,9 +145,7 @@ export function PositionsWorkspace({
     href({ selected: state.selected === row.id ? null : row.id });
   const date = (value: string | null) =>
     value ? (
-      <span className="text-xs text-muted-foreground">
-        {new Date(value).toLocaleDateString(labels.locale)}
-      </span>
+      <span className="text-xs text-muted-foreground">{formatDate(value, labels.locale)}</span>
     ) : (
       "—"
     );
@@ -263,7 +262,7 @@ export function PositionsWorkspace({
                   </div>
                   <div>
                     <dt className="text-xs text-muted-foreground">{labels.column_created_at}</dt>
-                    <dd>{new Date(selected.created_at).toLocaleString(labels.locale)}</dd>
+                    <dd>{formatDateTime(selected.created_at, labels.locale)}</dd>
                   </div>
                 </dl>
               ) : (

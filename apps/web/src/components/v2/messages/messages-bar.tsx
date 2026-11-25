@@ -19,7 +19,12 @@ import { normalizeSearchText } from "@/lib/global-search/match";
 import { useChatInvitations, useConversations } from "@/hooks/queries/messages";
 import { unreadConversations } from "@/lib/messages/cache";
 import { useChatSound } from "@/lib/messages/sound";
-import { conversationInitials, conversationTitle, directPeer } from "@/lib/messages/display";
+import {
+  conversationAvatarUrl,
+  conversationInitials,
+  conversationTitle,
+  directPeer,
+} from "@/lib/messages/display";
 import type { ChatConversationSummary } from "@/lib/messages/types";
 import { useChatWindowsStore } from "@/lib/stores/v2/chat-windows-store";
 import { ChatAvatar, ChatCountBadge } from "./chat-avatar";
@@ -113,7 +118,7 @@ export function MessagesBar() {
                     >
                       <ChatAvatar
                         initials={conversationInitials(conversation, meId)}
-                        src={directPeer(conversation, meId)?.avatar_url}
+                        src={conversationAvatarUrl(conversation, meId)}
                         group={conversation.kind === "group"}
                         online={isOnline(conversation)}
                       />

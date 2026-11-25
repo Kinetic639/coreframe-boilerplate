@@ -6,6 +6,7 @@ import { ChatWindowOptions } from "../chat-window-options";
 const push = vi.fn();
 const muteMock = vi.fn();
 const leaveMock = vi.fn();
+const removeAvatarMock = vi.fn();
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: { name?: string }) =>
@@ -15,9 +16,15 @@ vi.mock("@/i18n/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/app/actions/messages", () => ({
   muteConversationAction: (input: unknown) => muteMock(input),
   leaveConversationAction: (input: unknown) => leaveMock(input),
+  removeGroupAvatarAction: (input: unknown) => removeAvatarMock(input),
+  setGroupAvatarAction: vi.fn(),
 }));
+vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/hooks/queries/messages", () => ({
-  messagesKeys: { conversations: (orgId: string) => ["messages", "conversations", orgId] },
+  messagesKeys: {
+    conversations: (orgId: string) => ["messages", "conversations", orgId],
+    conversation: (id: string) => ["messages", "conversation", id],
+  },
 }));
 vi.mock("../chat-provider", () => ({ useChat: () => ({ orgId: "o1" }) }));
 
@@ -45,6 +52,7 @@ describe("ChatWindowOptions", () => {
     vi.clearAllMocks();
     muteMock.mockResolvedValue({ success: true, data: null });
     leaveMock.mockResolvedValue({ success: true, data: null });
+    removeAvatarMock.mockResolvedValue({ success: true, data: null });
   });
 
   it("1:1: open in full view, mute, close — no group options", async () => {
@@ -88,5 +96,19 @@ describe("ChatWindowOptions", () => {
     renderOptions();
     fireEvent.click(await screen.findByRole("menuitem", { name: "window.openFull" }));
     expect(push).toHaveBeenCalledWith({ pathname: "/dashboard/messages", query: { c: "c1" } });
+  });
+
+  it("group photo: hidden from members who do not manage the group", async () => {
+    renderOptions({ isGroup: true, groupName: "Magazyn" });
+    await screen.findByRole("menuitem", { name: "window.manageGroup" });
+    expect(screen.queryByRole("menuitem", { name: "page.addPhoto" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "page.removePhoto" })).not.toBeInTheDocument();
+  });
+
+  it("group photo: the owner can add one, or change and remove it", async () => {
+    renderOptions({ isGroup: true, groupName: "Magazyn", canManage: true, hasPhoto: true });
+    expect(await screen.findByRole("menuitem", { name: "page.changePhoto" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitem", { name: "page.removePhoto" }));
+    await waitFor(() => expect(removeAvatarMock).toHaveBeenCalledWith({ conversationId: "c1" }));
   });
 });

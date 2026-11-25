@@ -102,10 +102,12 @@ vi.mock("@/server/services/entitlements-service", () => ({
   },
 }));
 
-vi.mock("@/server/services/user-preferences.service", () => ({
-  UserPreferencesService: {
-    getOrCreatePreferences: mockGetOrCreatePreferences,
+vi.mock("@/server/time-zone", () => ({
+  getTimeZoneSettings: async () => {
+    const prefs = await mockGetOrCreatePreferences();
+    return { organization: "Europe/Warsaw", user: prefs.timezone, effective: prefs.timezone };
   },
+  getOrganizationTimeZone: async () => (await mockGetOrCreatePreferences()).timezone,
 }));
 
 vi.mock("next/cache", () => ({

@@ -92,6 +92,7 @@ vi.mock("@/components/ui/select", () => ({
   ),
   SelectGroup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   SelectLabel: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SelectSeparator: () => <hr />,
 }));
 
 // Mock RadioGroup with data-testid so we can assert on values

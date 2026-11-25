@@ -2,6 +2,7 @@
 
 import { Clock } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import { formatTime as formatTimeInZone } from "@/lib/date-time/format";
 
 interface AuditTrailEvent {
   time: string;
@@ -17,7 +18,7 @@ interface ReportAuditTrailProps {
 }
 
 function formatTime(iso: string, locale: string) {
-  return new Date(iso).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  return formatTimeInZone(iso, locale, { hour: "2-digit", minute: "2-digit" });
 }
 
 /**

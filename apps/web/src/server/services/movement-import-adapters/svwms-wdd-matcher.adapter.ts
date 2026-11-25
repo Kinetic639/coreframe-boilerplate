@@ -6,6 +6,7 @@ import type {
   CanonicalMovementImportLine,
   MovementImportSourceAdapter,
 } from "./types";
+import { formatDateTime } from "@/lib/date-time/format";
 
 function serviceError(result: ServiceResult<unknown>) {
   return (result as { success: false; error: string }).error;
@@ -177,7 +178,7 @@ export const svwmsWddMatcherMovementImportAdapter: MovementImportSourceAdapter =
           required: true,
           options: sessions.data.map((session) => ({
             value: session.id,
-            label: session.name || new Date(session.created_at).toLocaleString("pl-PL"),
+            label: session.name || formatDateTime(session.created_at, "pl-PL"),
             description: session.created_at,
             imported_document: importedByReference.get(compactSessionReference(session)) ?? null,
           })),

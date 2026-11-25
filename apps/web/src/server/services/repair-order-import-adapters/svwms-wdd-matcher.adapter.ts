@@ -5,6 +5,7 @@ import {
   type WddMatcherLine,
 } from "../wdd-matcher.service";
 import type { CanonicalRepairOrderImportOrder, RepairOrderImportSourceAdapter } from "./types";
+import { formatDateTime } from "@/lib/date-time/format";
 
 /** ZW/806/26/3252 → 3252 (the jednostka); null when the number has no such part. */
 function unitCodeFromZw(zw: string | null): string | null {
@@ -52,7 +53,7 @@ export const svwmsWddMatcherRepairOrderImportAdapter: RepairOrderImportSourceAda
           required: true,
           options: sessions.data.map((session) => ({
             value: session.id,
-            label: session.name || new Date(session.created_at).toLocaleString("pl-PL"),
+            label: session.name || formatDateTime(session.created_at, "pl-PL"),
             description: session.created_at,
           })),
         },

@@ -395,6 +395,9 @@
     "regional": "Ustawienia regionalne",
     "regionalDescription": "Skonfiguruj strefę czasową, format daty i czasu",
     "timezone": "Strefa czasowa",
+    "timezoneSameAsOrganization": "Jak organizacja ({zone})",
+    "timezoneHint": "Domyślnie godziny są pokazywane w strefie czasowej organizacji. Wybierz inną, jeśli pracujesz w innej strefie.",
+    "organizationTimezoneHint": "Domyślna strefa czasowa dla wszystkich w organizacji. Terminy i „dzisiaj” w planowaniu są liczone w tej strefie. Użytkownik może ustawić własną w preferencjach konta.",
     "dateFormat": "Format daty",
     "timeFormat": "Format czasu",
     "timeFormat24h": "24-godzinny",
@@ -4494,6 +4497,14 @@
             "released": "Zwolnienie rezerwacji",
             "transferred": "Przeniesienie na inne zlecenie"
           }
+        },
+        "crossBranch": {
+          "title": "Zlecenie w innym oddziale",
+          "description": "To zlecenie należy do oddziału {branch}. Przełączyć aktywny oddział, aby je otworzyć?",
+          "confirm": "Przełącz oddział",
+          "cancel": "Anuluj",
+          "switching": "Przełączanie…",
+          "error": "Nie udało się przełączyć oddziału."
         }
       }
     },
@@ -4799,7 +4810,7 @@
         "dueDate": "Termin",
         "scope": "Zakres zadania",
         "organizationScope": "Cała organizacja",
-        "scopeHelp": "Zadania organizacji są wspólne dla wszystkich oddziałów. Zadania oddziału pozostają w wybranym oddziale.",
+        "scopeHelp": "Zadania organizacji są wspólne dla wszystkich oddziałów. Zadania oddziału są widoczne tylko wtedy, gdy ten oddział jest aktywny.",
         "due": "Termin",
         "updated": "Zaktualizowano",
         "id": "ID",
@@ -10056,7 +10067,10 @@
       "editing": "Edytujesz wiadomość",
       "cancelEdit": "Anuluj edycję",
       "save": "Zapisz",
-      "editClosed": "Wiadomość można edytować przez 15 minut od wysłania"
+      "editClosed": "Wiadomość można edytować przez 15 minut od wysłania",
+      "membersList": "Członkowie grupy",
+      "readByList": "Przeczytali",
+      "noReaders": "Nikt jeszcze nie przeczytał"
     },
     "system": {
       "created": "{actor} utworzył(a) grupę „{name}”",
@@ -10068,7 +10082,9 @@
       "invited": "{actor} zaprosił(a): {users}",
       "joined": "{actor} dołączył(a) do grupy",
       "declined": "{actor} odrzucił(a) zaproszenie",
-      "withdrawn": "{actor} wycofał(a) zaproszenie: {users}"
+      "withdrawn": "{actor} wycofał(a) zaproszenie: {users}",
+      "avatar": "{actor} zmienił(a) zdjęcie grupy",
+      "avatarRemoved": "{actor} usunął(-ęła) zdjęcie grupy"
     },
     "preview": {
       "gif": "GIF",
@@ -10130,7 +10146,16 @@
       "back": "Wróć do listy",
       "invite": "Zaproś",
       "invited": "Zaproszono — czeka na odpowiedź",
-      "withdrawInvite": "Wycofaj zaproszenie: {name}"
+      "withdrawInvite": "Wycofaj zaproszenie: {name}",
+      "groupPhoto": "Zdjęcie grupy",
+      "changePhoto": "Zmień zdjęcie grupy",
+      "addPhoto": "Dodaj zdjęcie grupy",
+      "removePhoto": "Usuń zdjęcie grupy",
+      "photoSaved": "Zdjęcie grupy zapisane",
+      "photoRemoved": "Zdjęcie grupy usunięte",
+      "photoTooLarge": "Zdjęcie jest za duże (maks. 2 MB)",
+      "photoInvalid": "Wybierz plik JPG, PNG, WebP lub GIF",
+      "creator": "Twórca"
     },
     "invitations": {
       "title": "Zaproszenia do grup",

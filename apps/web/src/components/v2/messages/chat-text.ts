@@ -51,6 +51,8 @@ export function systemEventText(
       return t("system.joined", { actor: actorId === meId ? actor : event.name || actor });
     case "declined":
       return t("system.declined", { actor: actorId === meId ? actor : event.name || actor });
+    case "avatar":
+      return event.removed ? t("system.avatarRemoved", { actor }) : t("system.avatar", { actor });
     default:
       return t("preview.system");
   }
