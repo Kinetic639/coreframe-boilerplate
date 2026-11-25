@@ -94,7 +94,7 @@ async function withAvatars<T>(
 /**
  * Fills `avatar_url` of group conversations (group photo). The path is read
  * through RLS (members only) and signed on the server. Before the group photo
- * migration (20261125150000_chat_group_avatars.sql) the column does not exist:
+ * migration (20261125160000_chat_group_avatars.sql) the column does not exist:
  * groups keep their initials.
  */
 async function withGroupAvatars<T extends { id: string; kind: string; avatar_url?: string | null }>(
