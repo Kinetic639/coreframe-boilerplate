@@ -29,6 +29,7 @@ import {
   useCommentsProvider,
 } from "./comments-provider";
 import { appRead } from "@/lib/read";
+import { formatDateTime } from "@/lib/date-time/format";
 
 interface CommentsThreadProps extends Partial<CommentsProviderValue> {
   initialData?: PaginatedComments;
@@ -56,7 +57,7 @@ interface CommentsThreadProps extends Partial<CommentsProviderValue> {
 }
 
 function formatCommentDate(iso: string): string {
-  return new Date(iso).toLocaleString();
+  return formatDateTime(iso);
 }
 
 function resolveConfig(

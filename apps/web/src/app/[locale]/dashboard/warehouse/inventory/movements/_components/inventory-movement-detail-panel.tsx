@@ -18,6 +18,7 @@ import {
 } from "@/app/actions/warehouse/inventory";
 import { MovementReverseDialog } from "./movement-reverse-dialog";
 import { notifyMovementsChanged } from "./inventory-movements-query";
+import { formatDateTime } from "@/lib/date-time/format";
 
 // Inter-branch transfers have their own accept/decline flow; a storno
 // cannot itself be reversed.
@@ -310,7 +311,7 @@ export function InventoryMovementDetailPanel({
             {detail.posted_at && (
               <>
                 <span className="text-muted-foreground">{td("postedAt")}</span>
-                <span className="font-mono">{new Date(detail.posted_at).toLocaleString()}</span>
+                <span className="font-mono">{formatDateTime(detail.posted_at)}</span>
               </>
             )}
             {detail.external_reference && (
@@ -561,9 +562,7 @@ export function InventoryMovementDetailPanel({
                     </span>
                   )}
                 </div>
-                <span className="text-muted-foreground">
-                  {new Date(entry.created_at).toLocaleString()}
-                </span>
+                <span className="text-muted-foreground">{formatDateTime(entry.created_at)}</span>
               </div>
             ))}
           </div>

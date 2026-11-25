@@ -38,6 +38,7 @@ import {
   COLOR_THEME_CHANGE_EVENT,
 } from "@/lib/constants/color-themes";
 import { saveUiSettingsToCloud, loadUiSettingsFromCloud } from "@/lib/api/sync-ui-settings";
+import { formatDateTime } from "@/lib/date-time/format";
 
 export function AppearanceSection() {
   const t = useTranslations("PreferencesPage");
@@ -167,7 +168,7 @@ export function AppearanceSection() {
   const formatTimestamp = (timestamp: string | null) => {
     if (!timestamp) return t("never");
     try {
-      return new Date(timestamp).toLocaleString();
+      return formatDateTime(timestamp);
     } catch {
       return t("never");
     }

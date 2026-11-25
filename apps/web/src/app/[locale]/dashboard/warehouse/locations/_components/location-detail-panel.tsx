@@ -49,6 +49,7 @@ import type { InventoryVariantOption } from "@/lib/warehouse/inventory-types";
 import { LOCATION_CATEGORIES } from "../_ambra/constants/locationCategories";
 import { IconRenderer } from "../_ambra/components/locations/location-icons";
 import { BehaviorIndicator, DetailItem } from "../_ambra/components/locations/location-page-atoms";
+import { formatDateTime } from "@/lib/date-time/format";
 
 // ---------------------------------------------------------------------------
 // Sub-components (private to this file, copied from LocationsPage)
@@ -369,7 +370,7 @@ function MovementHistoryList({
                 {movement.destinationLocationName ?? t("history.external")}
               </p>
               <p className="mt-0.5 text-muted-foreground">
-                {new Date(movement.postedAt ?? movement.createdAt).toLocaleString()}
+                {formatDateTime(movement.postedAt ?? movement.createdAt)}
                 {movement.actorName ? ` · ${movement.actorName}` : ""}
               </p>
             </div>

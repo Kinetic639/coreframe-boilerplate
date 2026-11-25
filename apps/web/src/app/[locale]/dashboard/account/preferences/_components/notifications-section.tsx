@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Bell } from "lucide-react";
 import { useUpdateNotificationSettingsMutation } from "@/hooks/queries/user-preferences";
 import type { UserPreferences } from "@/lib/types/user-preferences";
+import { DEFAULT_TIME_ZONE } from "@/lib/date-time/time-zone";
 
 interface NotificationsSectionProps {
   preferences: UserPreferences | null;
@@ -65,7 +66,7 @@ export function NotificationsSection({ preferences }: NotificationsSectionProps)
             enabled: true,
             start,
             end,
-            timezone: preferences?.timezone ?? "UTC",
+            timezone: preferences?.timezone ?? DEFAULT_TIME_ZONE,
           },
         });
       }, 500);
@@ -104,7 +105,7 @@ export function NotificationsSection({ preferences }: NotificationsSectionProps)
         enabled: checked,
         start: quietStart,
         end: quietEnd,
-        timezone: preferences?.timezone ?? "UTC",
+        timezone: preferences?.timezone ?? DEFAULT_TIME_ZONE,
       },
     });
   };

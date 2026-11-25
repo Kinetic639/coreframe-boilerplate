@@ -16,6 +16,7 @@ import {
   type RepairOrderSort,
   type RepairOrderState,
 } from "./repair-orders-state";
+import { formatDateTime } from "@/lib/date-time/format";
 
 type Row = RepairOrderHeader;
 
@@ -140,7 +141,7 @@ export function RepairOrdersTable({
   const date = (value: string | null) =>
     value ? (
       <span className="text-xs text-muted-foreground">
-        {new Date(value).toLocaleString(labels.locale, {
+        {formatDateTime(value, labels.locale, {
           dateStyle: "short",
           timeStyle: "short",
         })}

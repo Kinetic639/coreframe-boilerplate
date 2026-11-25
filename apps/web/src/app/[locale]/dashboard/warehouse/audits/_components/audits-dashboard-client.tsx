@@ -21,6 +21,7 @@ import {
   type CountSessionListResult,
 } from "@/hooks/queries/warehouse/audits";
 import { AuditStatusBadge } from "./audit-status-badge";
+import { formatDate } from "@/lib/date-time/format";
 
 interface AuditsDashboardClientProps {
   branchId: string | null;
@@ -163,7 +164,7 @@ export function AuditsDashboardClient({
                       </p>
                       <p className="text-[11px] text-muted-foreground">
                         {t("createdOn", {
-                          date: new Date(session.created_at).toLocaleDateString(),
+                          date: formatDate(session.created_at),
                         })}
                       </p>
                     </div>

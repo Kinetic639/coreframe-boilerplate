@@ -63,6 +63,7 @@ import {
   MEMBER_STATUSES,
   type MemberState,
 } from "./members-state";
+import { formatDate } from "@/lib/date-time/format";
 
 interface MembersWorkspaceProps {
   initialMembers: OrgMember[];
@@ -480,7 +481,7 @@ export function MembersWorkspace({
     }
     return row.joined_at ? (
       <span className="text-xs text-muted-foreground">
-        {new Date(row.joined_at).toLocaleDateString(labels.locale)}
+        {formatDate(row.joined_at, labels.locale)}
       </span>
     ) : (
       dash
@@ -589,9 +590,7 @@ export function MembersWorkspace({
                     <div>
                       <dt className="mb-0.5 text-xs text-muted-foreground">{t("detail.joined")}</dt>
                       <dd>
-                        {selected.joined_at
-                          ? new Date(selected.joined_at).toLocaleDateString(labels.locale)
-                          : "—"}
+                        {selected.joined_at ? formatDate(selected.joined_at, labels.locale) : "—"}
                       </dd>
                     </div>
                     <div>

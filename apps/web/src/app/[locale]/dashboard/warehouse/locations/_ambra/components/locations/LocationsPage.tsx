@@ -95,6 +95,7 @@ import {
   MappingBadge,
   RibbonAction,
 } from "./location-page-atoms";
+import { formatDateTime } from "@/lib/date-time/format";
 
 const LocationModal = dynamic(() => import("./LocationModal"), { ssr: false });
 const InteractiveLocationMapPreview = dynamic<InteractiveLocationMapPreviewProps>(
@@ -440,7 +441,7 @@ function MovementHistoryList({ movements, t }: { movements: LocationMovementLine
                 {movement.destinationLocationName ?? t("history.external")}
               </p>
               <p className="mt-0.5 text-muted-foreground">
-                {new Date(movement.postedAt ?? movement.createdAt).toLocaleString()}
+                {formatDateTime(movement.postedAt ?? movement.createdAt)}
                 {movement.actorName ? ` · ${movement.actorName}` : ""}
               </p>
             </div>

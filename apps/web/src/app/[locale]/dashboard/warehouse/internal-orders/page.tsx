@@ -14,6 +14,7 @@ import {
   InternalOrdersService,
   type InternalOrderListFilter,
 } from "@/server/services/internal-orders.service";
+import { formatDateTime } from "@/lib/date-time/format";
 
 type PageProps = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
 
@@ -186,7 +187,7 @@ export default async function InternalOrdersPage({ searchParams }: PageProps) {
                       )}
                     </td>
                     <td className="text-muted-foreground py-2 pr-3 text-xs">
-                      {new Date(o.createdAt).toLocaleString(locale)}
+                      {formatDateTime(o.createdAt, locale)}
                     </td>
                     <td className="py-2 pr-3 text-right tabular-nums">{o.lines.length}</td>
                     <td className="py-2 pr-3 text-right tabular-nums">{reserved}</td>

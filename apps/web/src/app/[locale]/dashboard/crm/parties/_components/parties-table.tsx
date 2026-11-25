@@ -12,6 +12,7 @@ import type { CrmPartyListRow } from "@/server/services/crm-parties.service";
 import { cn } from "@/lib/utils";
 import type { PartyList } from "./parties-query";
 import { partyHref, PARTY_PAGE_SIZES, type PartySort, type PartyState } from "./parties-state";
+import { formatDateTime } from "@/lib/date-time/format";
 
 type Row = CrmPartyListRow;
 
@@ -143,7 +144,7 @@ export function PartiesTable({
   const date = (value: string | null) =>
     value ? (
       <span className="text-xs text-muted-foreground">
-        {new Date(value).toLocaleString(labels.locale, { dateStyle: "short", timeStyle: "short" })}
+        {formatDateTime(value, labels.locale, { dateStyle: "short", timeStyle: "short" })}
       </span>
     ) : (
       "—"

@@ -38,6 +38,7 @@ import {
   BRANCH_PAGE_SIZES,
   type BranchState,
 } from "./branches-state";
+import { formatDate, formatDateTime } from "@/lib/date-time/format";
 
 /** Columns the list sorts by. */
 const SORT_FIELD: Record<string, BranchState["sort"]> = {
@@ -218,7 +219,7 @@ export function BranchesWorkspace({
       case "created_at":
         return row.created_at ? (
           <span className="text-xs text-muted-foreground">
-            {new Date(row.created_at).toLocaleDateString(labels.locale)}
+            {formatDate(row.created_at, labels.locale)}
           </span>
         ) : (
           "—"
@@ -365,7 +366,7 @@ export function BranchesWorkspace({
                       <dt className="text-xs text-muted-foreground">{labels.column_created_at}</dt>
                       <dd>
                         {selected.created_at
-                          ? new Date(selected.created_at).toLocaleString(labels.locale)
+                          ? formatDateTime(selected.created_at, labels.locale)
                           : "—"}
                       </dd>
                     </div>

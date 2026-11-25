@@ -6,6 +6,7 @@ import { EventCategoryIcon, EventIntentIcon } from "@/components/audit/event-ico
 import { INTENT_LABEL_MAP } from "@/lib/audit/event-visual-model";
 import type { ProjectedEvent } from "@/server/audit/types";
 import type { ProjectionScope } from "@/server/audit/types";
+import { formatDate, formatTime } from "@/lib/date-time/format";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -110,12 +111,12 @@ function EventRow({ event, scope }: { event: ProjectedEvent; scope: ProjectionSc
   const t = useTranslations("activityFeed");
 
   const date = new Date(event.created_at);
-  const dateStr = date.toLocaleDateString(undefined, {
+  const dateStr = formatDate(date, undefined, {
     year: "numeric",
     month: "short",
     day: "numeric",
   });
-  const timeStr = date.toLocaleTimeString(undefined, {
+  const timeStr = formatTime(date, undefined, {
     hour: "2-digit",
     minute: "2-digit",
   });
