@@ -21,6 +21,7 @@ import type { PlanningTaskListRow } from "@/server/services/planning-tasks.servi
 import { cn } from "@/lib/utils";
 import type { TaskList } from "./tasks-query";
 import { taskHref, TASK_PAGE_SIZES, type TaskSort, type TaskState } from "./tasks-state";
+import { formatDate, formatDateTime } from "@/lib/date-time/format";
 
 type Row = PlanningTaskListRow;
 
@@ -134,7 +135,8 @@ export function TasksTable({
   const date = (value: string | null, withTime = true) =>
     value ? (
       <span className="text-xs text-muted-foreground">
-        {new Date(value).toLocaleString(
+        {formatDateTime(
+          value,
           labels.locale,
           withTime ? { dateStyle: "short", timeStyle: "short" } : { dateStyle: "short" }
         )}
@@ -216,7 +218,7 @@ export function TasksTable({
             )}
             title={isOverdue(row) ? labels.overdue : undefined}
           >
-            {new Date(row.due_at).toLocaleDateString(labels.locale)}
+            {formatDate(row.due_at, labels.locale)}
           </span>
         ) : (
           "—"

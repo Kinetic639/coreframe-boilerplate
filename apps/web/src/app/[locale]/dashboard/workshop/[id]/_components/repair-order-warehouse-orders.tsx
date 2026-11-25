@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { InternalOrderLinesTable } from "@/components/warehouse/internal-order-lines";
 import type { InternalOrderView } from "@/server/services/internal-orders.service";
 import type { StockDocument } from "./repair-order-stock-history";
+import { formatDateTime } from "@/lib/date-time/format";
 
 /**
  * "Magazyn i zamówienia" of a repair order, laid out like AutoStacja's
@@ -67,7 +68,7 @@ export function RepairOrderWarehouseOrders({
   const [orderId, setOrderId] = useState<string | null>(orders[0]?.id ?? null);
   const doc = documents.find((d) => d.key === docKey) ?? null;
   const order = orders.find((o) => o.id === orderId) ?? null;
-  const date = (value: string | null) => (value ? new Date(value).toLocaleString(locale) : "—");
+  const date = (value: string | null) => (value ? formatDateTime(value, locale) : "—");
 
   return (
     <div className="grid gap-6">

@@ -4,6 +4,7 @@ import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-conte
 import { checkPermission } from "@/lib/utils/permissions";
 import { ACCOUNT_PREFERENCES_READ } from "@/lib/constants/permissions";
 import { PreferencesClient } from "./_components/preferences-client";
+import { getOrganizationTimeZone } from "@/server/time-zone";
 
 export default async function PreferencesPage() {
   const locale = await getLocale();
@@ -15,12 +16,14 @@ export default async function PreferencesPage() {
   }
 
   const t = await getTranslations("PreferencesPage");
+  const organizationTimeZone = await getOrganizationTimeZone(context.app.activeOrgId);
 
   return (
     <PreferencesClient
       translations={{
         description: t("description"),
       }}
+      organizationTimeZone={organizationTimeZone}
     />
   );
 }

@@ -36,7 +36,6 @@ import type {
   DashboardSettings,
   SyncUiSettingsInput,
 } from "@/lib/types/user-preferences";
-import { DEFAULT_TIME_ZONE } from "@/lib/date-time/time-zone";
 
 export class UserPreferencesService {
   /**
@@ -92,7 +91,8 @@ export class UserPreferencesService {
       .from("user_preferences")
       .insert({
         user_id: userId,
-        timezone: DEFAULT_TIME_ZONE,
+        // null: follow the organization's time zone
+        timezone: null,
         date_format: "YYYY-MM-DD",
         time_format: "24h",
         locale: "pl",
@@ -536,7 +536,7 @@ export class UserPreferencesService {
       userId: row.user_id,
       displayName: row.display_name,
       phone: row.phone,
-      timezone: row.timezone ?? DEFAULT_TIME_ZONE,
+      timezone: row.timezone ?? null,
       dateFormat: row.date_format ?? "YYYY-MM-DD",
       timeFormat: row.time_format ?? "24h",
       locale: row.locale ?? "pl",

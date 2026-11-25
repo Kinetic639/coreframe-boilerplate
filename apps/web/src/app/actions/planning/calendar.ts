@@ -9,7 +9,6 @@ import { PlanningTasksService } from "@/server/services/planning-tasks.service";
 import { HelpdeskTicketsService } from "@/server/services/helpdesk-tickets.service";
 import { KanbanBoardsService } from "@/server/services/kanban-boards.service";
 import { EntitlementsService } from "@/server/services/entitlements-service";
-import { UserPreferencesService } from "@/server/services/user-preferences.service";
 import { AppCalendarService } from "@/server/services/app-calendar.service";
 import { dateOnlyToZonedIso } from "@/lib/planning/calendar-dates";
 import {
@@ -50,7 +49,7 @@ import {
   PLANNING_TASKS_READ,
 } from "@/lib/constants/permissions";
 import { getAuthUser } from "@/server/auth/get-auth-user";
-import { resolveTimeZone } from "@/lib/date-time/time-zone";
+import { getOrganizationTimeZone, getTimeZoneSettings } from "@/server/time-zone";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
@@ -122,11 +121,8 @@ export async function getPlanningCalendarDataAction(
 
       const parsed = getPlanningCalendarDataSchema.safeParse(input);
       if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
-      const preferences = await UserPreferencesService.getOrCreatePreferences(
-        ctx.supabase,
-        ctx.userId
-      );
-      const timeZone = resolveTimeZone(preferences.timezone);
+      // The calendar shows days in the zone the user sees times in.
+      const timeZone = (await getTimeZoneSettings()).effective;
       const boundedInput = {
         rangeStart: parsed.data.rangeStart,
         rangeEnd: parsed.data.rangeEnd,
@@ -185,11 +181,8 @@ export async function updateCalendarItemDueDateAction(
       if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
 
       const { sourceType, sourceId, boardId, dueDate } = parsed.data;
-      const preferences = await UserPreferencesService.getOrCreatePreferences(
-        ctx.supabase,
-        ctx.userId
-      );
-      const timeZone = resolveTimeZone(preferences.timezone);
+      // A due date is a business date: end of that day in the organization's zone.
+      const timeZone = await getOrganizationTimeZone(ctx.orgId);
       const dueAt = dueDate ? dateOnlyToZonedIso(dueDate, timeZone) : null;
 
       switch (sourceType) {

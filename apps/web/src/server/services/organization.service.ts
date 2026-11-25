@@ -53,6 +53,8 @@ export interface OrgProfileData {
   logo_url: string | null;
   theme_color: string | null;
   font_color: string | null;
+  /** IANA zone for the whole organization (default Europe/Warsaw). */
+  timezone: string | null;
   created_at: string | null;
 }
 
@@ -65,6 +67,7 @@ export interface UpdateOrgProfileInput {
   logo_url?: string | null;
   theme_color?: string | null;
   font_color?: string | null;
+  timezone?: string;
 }
 
 export class OrgProfileService {
@@ -75,7 +78,7 @@ export class OrgProfileService {
     const { data, error } = await supabase
       .from("organization_profiles")
       .select(
-        "organization_id, name, name_2, slug, bio, website, logo_url, theme_color, font_color, created_at"
+        "organization_id, name, name_2, slug, bio, website, logo_url, theme_color, font_color, timezone, created_at"
       )
       .eq("organization_id", orgId)
       .maybeSingle();
@@ -105,7 +108,7 @@ export class OrgProfileService {
       .update(input)
       .eq("organization_id", orgId)
       .select(
-        "organization_id, name, name_2, slug, bio, website, logo_url, theme_color, font_color, created_at"
+        "organization_id, name, name_2, slug, bio, website, logo_url, theme_color, font_color, timezone, created_at"
       )
       .maybeSingle();
 

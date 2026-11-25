@@ -3,6 +3,7 @@ import { CheckSquare, MessageSquare, MessagesSquare, Ticket, type LucideIcon } f
 import { Link } from "@/i18n/navigation";
 import { toUnsafeI18nHref } from "@/lib/i18n/unsafe-href";
 import { relationRoute, type RelationItem, type RelationSource } from "@/lib/relations/types";
+import { formatDateTime } from "@/lib/date-time/format";
 
 const GROUPS: { source: RelationSource; icon: LucideIcon }[] = [
   { source: "ticket", icon: Ticket },
@@ -26,7 +27,7 @@ export async function RepairOrderRelations({
   const t = await getTranslations("modules.workshop.repairOrders.relations");
   const locale = await getLocale();
   const when = (iso: string) =>
-    new Date(iso).toLocaleString(locale, { dateStyle: "short", timeStyle: "short" });
+    formatDateTime(iso, locale, { dateStyle: "short", timeStyle: "short" });
 
   if (loadError) {
     return <p className="text-destructive text-sm">{t("loadError")}</p>;

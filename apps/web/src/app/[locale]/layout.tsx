@@ -9,6 +9,7 @@ import { notFound } from "next/navigation";
 import { ToastContainerThemed } from "@/components/toast-container-themed";
 import { ToastListener } from "@/components/toast-listener";
 import type { Metadata } from "next";
+import { DisplayTimeZoneSync } from "@/lib/date-time/display-time-zone-sync";
 
 type Props = {
   children: ReactNode;
@@ -49,6 +50,7 @@ export default async function RootLayout({ children, params }: Props) {
       <body className="bg-background font-sans text-foreground">
         <NuqsAdapter>
           <NextIntlClientProvider messages={messages}>
+            <DisplayTimeZoneSync />
             <ThemeProvider
               attribute="class"
               defaultTheme="system"

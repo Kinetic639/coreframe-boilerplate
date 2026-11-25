@@ -40,6 +40,7 @@ import {
   isRepairOrderTab,
   type RepairOrderTab,
 } from "./_components/repair-order-tab-ids";
+import { formatDateTime } from "@/lib/date-time/format";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -284,8 +285,8 @@ export default async function RepairOrderDetailPage({ params, searchParams }: Pa
                 canManageOwn={canManageOwn}
                 canManageAll={canManageAll}
                 ownAdvisorContactId={ownAdvisorContactId}
-                createdAtLabel={new Date(order.createdAt).toLocaleString(locale)}
-                updatedAtLabel={new Date(order.updatedAt).toLocaleString(locale)}
+                createdAtLabel={formatDateTime(order.createdAt, locale)}
+                updatedAtLabel={formatDateTime(order.updatedAt, locale)}
               />
             ),
           },

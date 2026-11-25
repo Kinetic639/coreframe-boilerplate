@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { CreditCard, Package, AlertCircle } from "lucide-react";
 import type { BillingOverview } from "@/server/services/organization.service";
+import { formatDate } from "@/lib/date-time/format";
 
 interface BillingClientProps {
   initialBilling: BillingOverview | null;
@@ -55,7 +56,7 @@ export function BillingClient({ initialBilling }: BillingClientProps) {
           </div>
           {billing.updated_at && (
             <p className="mt-2 text-xs text-muted-foreground">
-              Last updated: {new Date(billing.updated_at).toLocaleDateString()}
+              Last updated: {formatDate(billing.updated_at)}
             </p>
           )}
         </CardContent>

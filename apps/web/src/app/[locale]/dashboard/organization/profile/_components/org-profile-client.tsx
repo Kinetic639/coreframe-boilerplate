@@ -9,6 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Building2, Upload, Trash2 } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
+import { TimeZoneSelect } from "@/components/time-zone/time-zone-select";
+import { DEFAULT_TIME_ZONE } from "@/lib/date-time/time-zone";
 import {
   useOrgProfileQuery,
   useUpdateOrgProfileMutation,
@@ -39,10 +42,12 @@ export function OrgProfileClient({ canEdit, initialProfile }: OrgProfileClientPr
   const [slug, setSlug] = useState(initialProfile?.slug ?? "");
   const [bio, setBio] = useState(initialProfile?.bio ?? "");
   const [website, setWebsite] = useState(initialProfile?.website ?? "");
+  const [timezone, setTimezone] = useState(initialProfile?.timezone ?? DEFAULT_TIME_ZONE);
+  const tPrefs = useTranslations("PreferencesPage");
 
   const handleSave = () => {
     updateProfileMutation.mutate(
-      { name, name_2: name2, slug, bio, website },
+      { name, name_2: name2, slug, bio, website, timezone },
       { onSuccess: () => router.refresh() }
     );
   };
@@ -184,6 +189,18 @@ export function OrgProfileClient({ canEdit, initialProfile }: OrgProfileClientPr
               placeholder="https://example.com"
               disabled={!canEdit || isPending}
             />
+          </div>
+
+          {/* Time zone */}
+          <div className="space-y-2">
+            <Label htmlFor="timezone">{tPrefs("timezone")}</Label>
+            <TimeZoneSelect
+              id="timezone"
+              value={timezone}
+              onValueChange={setTimezone}
+              disabled={!canEdit || isPending}
+            />
+            <p className="text-xs text-muted-foreground">{tPrefs("organizationTimezoneHint")}</p>
           </div>
         </CardContent>
         {canEdit && (

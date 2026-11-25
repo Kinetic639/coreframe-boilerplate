@@ -27,3 +27,17 @@ export function isValidTimeZone(value: string | null | undefined): value is stri
 export function resolveTimeZone(preference: string | null | undefined): string {
   return isValidTimeZone(preference) ? preference : DEFAULT_TIME_ZONE;
 }
+
+/**
+ * The zone a person sees times in: their own choice when they made one,
+ * otherwise their organization's zone, otherwise the app default.
+ *
+ * A user preference of null means "same as my organization".
+ */
+export function effectiveTimeZone(
+  userPreference: string | null | undefined,
+  organizationTimeZone: string | null | undefined
+): string {
+  if (isValidTimeZone(userPreference)) return userPreference;
+  return resolveTimeZone(organizationTimeZone);
+}

@@ -19,6 +19,7 @@ import { updateUserProfile } from "@/lib/api/user-detail";
 import type { UserDetailWithAssignments } from "@/lib/api/user-detail";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { useState } from "react";
+import { formatDateTime } from "@/lib/date-time/format";
 
 interface UserProfileFormProps {
   user: UserDetailWithAssignments;
@@ -205,7 +206,7 @@ export function UserProfileForm({ user, onUpdate }: UserProfileFormProps) {
             <div>
               <Label className="text-xs font-medium text-muted-foreground">Created At</Label>
               <div className="rounded border bg-muted/50 p-2 text-xs">
-                {new Date(user.created_at).toLocaleString("pl-PL")}
+                {formatDateTime(user.created_at, "pl-PL")}
               </div>
             </div>
           </div>

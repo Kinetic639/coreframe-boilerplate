@@ -41,6 +41,7 @@ import {
   INVITATION_STATUSES,
   type InvitationState,
 } from "./invitations-state";
+import { formatDate } from "@/lib/date-time/format";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   pending: "outline",
@@ -258,9 +259,7 @@ export function InvitationsWorkspace({
     href({ selected: state.selected === row.id ? null : row.id });
   const day = (value: string | null) =>
     value ? (
-      <span className="text-xs text-muted-foreground">
-        {new Date(value).toLocaleDateString(labels.locale)}
-      </span>
+      <span className="text-xs text-muted-foreground">{formatDate(value, labels.locale)}</span>
     ) : (
       "—"
     );
@@ -290,13 +289,13 @@ export function InvitationsWorkspace({
           <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {t("detail.expires")}
           </p>
-          <span>{inv.expires_at ? new Date(inv.expires_at).toLocaleDateString() : "—"}</span>
+          <span>{inv.expires_at ? formatDate(inv.expires_at) : "—"}</span>
         </div>
         <div>
           <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {t("detail.created")}
           </p>
-          <span>{inv.created_at ? new Date(inv.created_at).toLocaleDateString() : "—"}</span>
+          <span>{inv.created_at ? formatDate(inv.created_at) : "—"}</span>
         </div>
         <div className="col-span-2">
           <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">

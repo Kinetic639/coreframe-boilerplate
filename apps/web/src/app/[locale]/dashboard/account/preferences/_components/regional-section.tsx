@@ -7,24 +7,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { FOLLOW_ORGANIZATION, TimeZoneSelect } from "@/components/time-zone/time-zone-select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Globe, Clock } from "lucide-react";
 import { routing } from "@/i18n/routing";
 import { useUpdateRegionalSettingsMutation } from "@/hooks/queries/user-preferences";
-import { VALID_TIMEZONES, VALID_DATE_FORMATS } from "@/lib/validations/user-preferences";
+import { VALID_DATE_FORMATS } from "@/lib/validations/user-preferences";
 import type { UserPreferences } from "@/lib/types/user-preferences";
 import { DEFAULT_TIME_ZONE } from "@/lib/date-time/time-zone";
 
 interface RegionalSectionProps {
   preferences: UserPreferences | null;
+  /** The organization's zone, shown on the "same as organization" option. */
+  organizationTimeZone?: string;
 }
 
 const LOCALE_LABELS: Record<string, string> = {
@@ -42,32 +43,24 @@ const LOCALE_LABELS: Record<string, string> = {
   ru: "Русский",
 };
 
-const TIMEZONE_GROUPS: Record<string, readonly string[]> = {
-  Europe: VALID_TIMEZONES.filter((tz) => tz.startsWith("Europe/")),
-  Americas: VALID_TIMEZONES.filter((tz) => tz.startsWith("America/")),
-  Asia: VALID_TIMEZONES.filter((tz) => tz.startsWith("Asia/")),
-  Oceania: [
-    ...VALID_TIMEZONES.filter((tz) => tz.startsWith("Australia/")),
-    ...VALID_TIMEZONES.filter((tz) => tz.startsWith("Pacific/")),
-  ],
-  Africa: VALID_TIMEZONES.filter((tz) => tz.startsWith("Africa/")),
-  Other: ["UTC"],
-};
-
-export function RegionalSection({ preferences }: RegionalSectionProps) {
+export function RegionalSection({
+  preferences,
+  organizationTimeZone = DEFAULT_TIME_ZONE,
+}: RegionalSectionProps) {
   const t = useTranslations("PreferencesPage");
   const locale = useLocale();
   const switchLocale = useLocaleSwitch();
   const updateRegional = useUpdateRegionalSettingsMutation();
 
-  const [timezone, setTimezone] = useState(preferences?.timezone ?? DEFAULT_TIME_ZONE);
+  // No zone of their own (null) means the user follows the organization.
+  const [timezone, setTimezone] = useState(preferences?.timezone ?? FOLLOW_ORGANIZATION);
   const [dateFormat, setDateFormat] = useState(preferences?.dateFormat ?? "YYYY-MM-DD");
   const [timeFormat, setTimeFormat] = useState(preferences?.timeFormat ?? "24h");
 
   // Sync local state when preferences change externally (e.g., cross-device sync)
   useEffect(() => {
-    if (preferences?.timezone) setTimezone(preferences.timezone);
-  }, [preferences?.timezone]);
+    if (preferences) setTimezone(preferences.timezone ?? FOLLOW_ORGANIZATION);
+  }, [preferences]);
 
   useEffect(() => {
     if (preferences?.dateFormat) setDateFormat(preferences.dateFormat);
@@ -109,7 +102,7 @@ export function RegionalSection({ preferences }: RegionalSectionProps) {
 
   const handleTimezoneChange = (value: string) => {
     setTimezone(value);
-    updateRegional.mutate({ timezone: value });
+    updateRegional.mutate({ timezone: value === FOLLOW_ORGANIZATION ? null : value });
   };
 
   const handleDateFormatChange = (value: string) => {
@@ -162,23 +155,14 @@ export function RegionalSection({ preferences }: RegionalSectionProps) {
           {/* Timezone */}
           <div className="space-y-2">
             <Label>{t("timezone")}</Label>
-            <Select value={timezone} onValueChange={handleTimezoneChange}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(TIMEZONE_GROUPS).map(([group, zones]) => (
-                  <SelectGroup key={group}>
-                    <SelectLabel>{group}</SelectLabel>
-                    {zones.map((tz) => (
-                      <SelectItem key={tz} value={tz}>
-                        {tz.replace(/_/g, " ")}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                ))}
-              </SelectContent>
-            </Select>
+            <TimeZoneSelect
+              value={timezone}
+              onValueChange={handleTimezoneChange}
+              followOrganizationLabel={t("timezoneSameAsOrganization", {
+                zone: organizationTimeZone.replace(/_/g, " "),
+              })}
+            />
+            <p className="text-xs text-muted-foreground">{t("timezoneHint")}</p>
           </div>
 
           <Separator />

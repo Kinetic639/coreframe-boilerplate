@@ -15,6 +15,7 @@ import type {
   EnrichedReorderReportRow,
   FinalReportSessionInfo,
 } from "./types";
+import { formatDateTime } from "@/lib/date-time/format";
 
 interface FinalReportScreenProps {
   session: FinalReportSessionInfo;
@@ -135,7 +136,7 @@ export function FinalReportScreen({
             <div className="flex justify-between pt-2">
               <span>{t("postedAtLabel")}</span>
               <span className="font-mono font-semibold text-foreground">
-                {session.approved_at ? new Date(session.approved_at).toLocaleString(locale) : "—"}
+                {session.approved_at ? formatDateTime(session.approved_at, locale) : "—"}
               </span>
             </div>
           </div>

@@ -3,6 +3,7 @@ import { Link } from "@/i18n/navigation";
 import { Badge } from "@/components/ui/badge";
 import type { RepairOrderLineWarehouseView } from "@/server/services/repair-orders.service";
 import type { ReservationEventView } from "@/server/services/inventory-reservations.service";
+import { formatDateTime } from "@/lib/date-time/format";
 
 /**
  * "Magazyn" and "Historia" of a repair order (stage E7): every warehouse
@@ -213,7 +214,7 @@ export async function RepairOrderStockHistory({
                     data-testid="stock-history-row"
                   >
                     <td className="py-2 pl-3 pr-3 text-xs text-muted-foreground">
-                      {new Date(e.createdAt).toLocaleString(locale)}
+                      {formatDateTime(e.createdAt, locale)}
                     </td>
                     <td className="py-2 pr-3">
                       <Badge variant="outline">{t(`kinds.${e.eventType}`)}</Badge>

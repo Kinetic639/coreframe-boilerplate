@@ -9,9 +9,11 @@ interface PreferencesClientProps {
   translations: {
     description: string;
   };
+  /** The organization's zone, for the "same as organization" option. */
+  organizationTimeZone?: string;
 }
 
-export function PreferencesClient({ translations }: PreferencesClientProps) {
+export function PreferencesClient({ translations, organizationTimeZone }: PreferencesClientProps) {
   const { data: preferences, isLoading } = usePreferencesQuery();
 
   if (isLoading) {
@@ -23,7 +25,10 @@ export function PreferencesClient({ translations }: PreferencesClientProps) {
       <p className="text-sm text-muted-foreground">{translations.description}</p>
       <div className="grid gap-6 max-w-2xl">
         <AppearanceSection />
-        <RegionalSection preferences={preferences ?? null} />
+        <RegionalSection
+          preferences={preferences ?? null}
+          organizationTimeZone={organizationTimeZone}
+        />
       </div>
     </div>
   );

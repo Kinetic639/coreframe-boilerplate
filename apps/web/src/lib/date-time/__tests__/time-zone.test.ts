@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TIME_ZONE, isValidTimeZone, resolveTimeZone } from "../time-zone";
+import {
+  DEFAULT_TIME_ZONE,
+  effectiveTimeZone,
+  isValidTimeZone,
+  resolveTimeZone,
+} from "../time-zone";
 
 describe("time-zone", () => {
   it("defaults to Europe/Warsaw", () => {
@@ -26,5 +31,12 @@ describe("time-zone", () => {
       timeZone: DEFAULT_TIME_ZONE,
     }).format(new Date("2026-11-25T13:25:00Z"));
     expect(formatted).toBe("14:25");
+  });
+
+  it("prefers the user's zone, then the organization's, then the default", () => {
+    expect(effectiveTimeZone("Asia/Tokyo", "Europe/London")).toBe("Asia/Tokyo");
+    expect(effectiveTimeZone(null, "Europe/London")).toBe("Europe/London");
+    expect(effectiveTimeZone(null, null)).toBe(DEFAULT_TIME_ZONE);
+    expect(effectiveTimeZone("bogus", "also-bogus")).toBe(DEFAULT_TIME_ZONE);
   });
 });
