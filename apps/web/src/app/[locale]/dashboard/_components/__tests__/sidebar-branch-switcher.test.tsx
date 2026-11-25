@@ -61,6 +61,11 @@ vi.mock("@/lib/stores/v2/app-store", () => ({
   },
 }));
 
+const mockInvalidateQueries = vi.fn();
+vi.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
+}));
+
 vi.mock("@/app/actions/shared/changeBranch", () => ({
   changeBranch: (...args: unknown[]) => mockChangeBranch(...args),
 }));
@@ -110,6 +115,8 @@ describe("SidebarBranchSwitcher", () => {
       expect(mockSuccess).toHaveBeenCalledWith("Branch switched successfully");
       expect(mockReplace).toHaveBeenCalledWith("/dashboard/start");
       expect(mockRefresh).toHaveBeenCalledTimes(1);
+      // Lists cached under the old branch are read again.
+      expect(mockInvalidateQueries).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -146,6 +153,7 @@ describe("SidebarBranchSwitcher", () => {
     expect(mockReplace).not.toHaveBeenCalled();
     expect(mockRefresh).not.toHaveBeenCalled();
     expect(mockSuccess).not.toHaveBeenCalled();
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
   });
 
   it("does nothing when selecting the already-active branch", async () => {
