@@ -95,14 +95,27 @@ export function objectRoute(type: string, ref: ObjectRef): ObjectRoute | null {
       // The page of the object the comment / file belongs to
       const targetType = typeof ref.meta?.targetType === "string" ? ref.meta.targetType : "";
       const targetId = typeof ref.meta?.targetId === "string" ? ref.meta.targetId : "";
-      const target = TARGET_TYPES[targetType];
-      if (target && targetId) return objectRoute(target, { id: targetId });
+      const target = targetId ? targetRoute(targetType, targetId) : null;
+      if (target) return target;
       // Kanban cards (and future targets) open their module
       return path("/dashboard/planning/boards");
     }
     default:
       return null;
   }
+}
+
+/**
+ * Route of a comment / attachment / notification target (`helpdesk.ticket`,
+ * `planning.task`, `workshop.repair_order`), or null for other targets.
+ */
+export function targetRoute(
+  targetType: string,
+  targetId: string,
+  code?: string | null
+): ObjectRoute | null {
+  const type = TARGET_TYPES[targetType];
+  return type ? objectRoute(type, { id: targetId, code }) : null;
 }
 
 /** The route as one string (`/dashboard/help-desk/tickets?selected=HD-000001`) */

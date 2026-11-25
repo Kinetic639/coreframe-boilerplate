@@ -4494,6 +4494,14 @@
             "released": "Zwolnienie rezerwacji",
             "transferred": "Przeniesienie na inne zlecenie"
           }
+        },
+        "crossBranch": {
+          "title": "Zlecenie w innym oddziale",
+          "description": "To zlecenie należy do oddziału {branch}. Przełączyć aktywny oddział, aby je otworzyć?",
+          "confirm": "Przełącz oddział",
+          "cancel": "Anuluj",
+          "switching": "Przełączanie…",
+          "error": "Nie udało się przełączyć oddziału."
         }
       }
     },
