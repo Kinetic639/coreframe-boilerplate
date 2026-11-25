@@ -9984,7 +9984,10 @@
       "editing": "Editing a message",
       "cancelEdit": "Cancel editing",
       "save": "Save",
-      "editClosed": "A message can be edited for 15 minutes after sending"
+      "editClosed": "A message can be edited for 15 minutes after sending",
+      "membersList": "Group members",
+      "readByList": "Seen by",
+      "noReaders": "Nobody has seen it yet"
     },
     "system": {
       "created": "{actor} created the group “{name}”",
@@ -9996,7 +9999,9 @@
       "invited": "{actor} invited: {users}",
       "joined": "{actor} joined the group",
       "declined": "{actor} declined the invitation",
-      "withdrawn": "{actor} withdrew the invitation: {users}"
+      "withdrawn": "{actor} withdrew the invitation: {users}",
+      "avatar": "{actor} changed the group photo",
+      "avatarRemoved": "{actor} removed the group photo"
     },
     "preview": {
       "gif": "GIF",
@@ -10058,7 +10063,16 @@
       "back": "Back to the list",
       "invite": "Invite",
       "invited": "Invited — waiting for an answer",
-      "withdrawInvite": "Withdraw the invitation: {name}"
+      "withdrawInvite": "Withdraw the invitation: {name}",
+      "groupPhoto": "Group photo",
+      "changePhoto": "Change group photo",
+      "addPhoto": "Add group photo",
+      "removePhoto": "Remove group photo",
+      "photoSaved": "Group photo saved",
+      "photoRemoved": "Group photo removed",
+      "photoTooLarge": "The photo is too large (max 2 MB)",
+      "photoInvalid": "Choose a JPG, PNG, WebP or GIF file",
+      "creator": "Creator"
     },
     "invitations": {
       "title": "Group invitations",

@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { extractMentions } from "@repo/rich-text/mention-utils";
 import { extractPlainText, normalizeRichText } from "@repo/rich-text/rich-text-utils";
@@ -12,7 +13,10 @@ import { MESSAGES_USE } from "@/lib/constants/permissions";
 import { ChatService, type SendChatMessageInput } from "@/server/services/chat.service";
 import { OrgMembersService } from "@/server/services/organization.service";
 import { OrgMemberPublicProfileService } from "@/server/services/org-member-public-profile.service";
+import { CHAT_AVATAR_BUCKET } from "@/server/storage/chat-avatar-signed-url";
+import { createServiceClient } from "@/utils/supabase/service";
 import {
+  CHAT_GROUP_AVATAR_MAX_BYTES,
   CHAT_GROUP_NAME_MAX_LENGTH,
   CHAT_MESSAGE_MAX_LENGTH,
   type ChatConversationDetail,
@@ -300,6 +304,85 @@ export async function leaveConversationAction(rawInput: unknown): Promise<Action
 export async function renameConversationAction(rawInput: unknown): Promise<ActionResult<null>> {
   return run(renameSchema, rawInput, "rename", (ctx, input) =>
     ChatService.rename(ctx.supabase, input.conversationId, input.name)
+  );
+}
+
+type NullResult = { success: true; data: null } | { success: false; error: string };
+
+const AVATAR_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+
+/** Deletes a replaced group photo; failure only leaves an orphaned file */
+async function removeGroupAvatarFile(conversationId: string, path: string | null) {
+  if (!path || !path.startsWith(`${conversationId}/`)) return;
+  try {
+    const { error } = await createServiceClient().storage.from(CHAT_AVATAR_BUCKET).remove([path]);
+    if (error) console.error("[messages.groupAvatar] cleanup failed", error);
+  } catch (error) {
+    console.error("[messages.groupAvatar] cleanup failed", error);
+  }
+}
+
+/**
+ * Sets the group photo (owner or creator of the group). The file goes to the
+ * private "chat-avatars" bucket with the user's own session, so the storage
+ * policy checks the right too; the database function checks it again, stores
+ * the path and posts "changed the group photo". FormData: conversationId, file.
+ */
+export async function setGroupAvatarAction(formData: FormData): Promise<ActionResult<null>> {
+  const file = formData.get("file");
+  const input = { conversationId: formData.get("conversationId") };
+  return run(
+    z.object({ conversationId: uuid }),
+    input,
+    "setGroupAvatar",
+    async (ctx, parsed): Promise<NullResult> => {
+      if (!(file instanceof File) || file.size === 0) return { success: false, error: "invalid" };
+      const ext = AVATAR_TYPES[file.type];
+      if (!ext) return { success: false, error: "invalid" };
+      if (file.size > CHAT_GROUP_AVATAR_MAX_BYTES) return { success: false, error: "tooLong" };
+
+      const path = `${parsed.conversationId}/${randomUUID()}.${ext}`;
+      const { error: uploadError } = await ctx.supabase.storage
+        .from(CHAT_AVATAR_BUCKET)
+        .upload(path, await file.arrayBuffer(), {
+          contentType: file.type,
+          cacheControl: "3600",
+          upsert: false,
+        });
+      if (uploadError) {
+        // The storage policy refused (not the owner) or the bucket is missing
+        console.error("[messages.setGroupAvatar] upload failed", uploadError);
+        return { success: false, error: "forbidden" };
+      }
+
+      const result = await ChatService.setAvatar(ctx.supabase, parsed.conversationId, path);
+      if (!result.success) {
+        await removeGroupAvatarFile(parsed.conversationId, path);
+        return { success: false, error: (result as { error: string }).error };
+      }
+      await removeGroupAvatarFile(parsed.conversationId, result.data);
+      return { success: true, data: null };
+    }
+  );
+}
+
+/** Removes the group photo (owner or creator); the group shows its initials again */
+export async function removeGroupAvatarAction(rawInput: unknown): Promise<ActionResult<null>> {
+  return run(
+    z.object({ conversationId: uuid }),
+    rawInput,
+    "removeGroupAvatar",
+    async (ctx, input): Promise<NullResult> => {
+      const result = await ChatService.setAvatar(ctx.supabase, input.conversationId, null);
+      if (!result.success) return { success: false, error: (result as { error: string }).error };
+      await removeGroupAvatarFile(input.conversationId, result.data);
+      return { success: true, data: null };
+    }
   );
 }
 

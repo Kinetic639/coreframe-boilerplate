@@ -45,3 +45,14 @@ describe("systemEventText: invitations", () => {
     );
   });
 });
+
+describe("systemEventText: group photo", () => {
+  it("says who changed or removed the photo", () => {
+    expect(systemEventText({ action: "avatar" }, "u1", members, "me", t)).toBe(
+      "system.avatar|Marta Nowak"
+    );
+    expect(systemEventText({ action: "avatar", removed: true }, "me", members, "me", t)).toBe(
+      "system.avatarRemoved|window.you"
+    );
+  });
+});

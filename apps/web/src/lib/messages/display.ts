@@ -47,3 +47,25 @@ export function conversationInitials(
   const peer = directPeer(conversation, meId);
   return peer ? memberInitials(peer) : "?";
 }
+
+/** Photo of the conversation's avatar: the group photo, or the other person's for a 1:1 */
+export function conversationAvatarUrl(
+  conversation: Pick<
+    ChatConversationSummary | ChatConversationDetail,
+    "kind" | "members" | "avatar_url"
+  >,
+  meId: string
+): string | null {
+  if (conversation.kind === "group") return conversation.avatar_url ?? null;
+  return directPeer(conversation, meId)?.avatar_url ?? null;
+}
+
+/**
+ * The group's owner or its creator (still a member) may change the group photo
+ * — the same rule as chat_can_manage_group in the database.
+ */
+export function canManageGroup(conversation: ChatConversationDetail, meId: string): boolean {
+  if (conversation.kind !== "group") return false;
+  const me = conversation.members.find((m) => m.user_id === meId && !m.left_at);
+  return !!me && (me.role === "owner" || conversation.created_by === meId);
+}

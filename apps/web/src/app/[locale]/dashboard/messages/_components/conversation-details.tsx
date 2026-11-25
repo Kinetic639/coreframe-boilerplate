@@ -3,7 +3,17 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { BellOff, FileText, LogOut, Pencil, UserMinus, X, UserPlus } from "lucide-react";
+import {
+  BellOff,
+  FileText,
+  ImageMinus,
+  ImagePlus,
+  LogOut,
+  Pencil,
+  UserMinus,
+  X,
+  UserPlus,
+} from "lucide-react";
 import { toast } from "react-toastify";
 import {
   AlertDialog,
@@ -27,7 +37,12 @@ import {
 } from "@/app/actions/messages";
 import { useAttachmentsQuery } from "@/hooks/queries/attachments";
 import { messagesKeys, useChatPeople, usePendingChatInvites } from "@/hooks/queries/messages";
-import { memberInitials, memberName } from "@/lib/messages/display";
+import {
+  canManageGroup,
+  conversationInitials,
+  memberInitials,
+  memberName,
+} from "@/lib/messages/display";
 import {
   CHAT_GROUP_NAME_MAX_LENGTH,
   type ChatConversationDetail,
@@ -36,6 +51,7 @@ import {
 import { ChatAvatar } from "@/components/v2/messages/chat-avatar";
 import { useChat } from "@/components/v2/messages/chat-provider";
 import { CHAT_MUTED_UNTIL } from "@/components/v2/messages/chat-window-options";
+import { useGroupAvatarEditor } from "@/components/v2/messages/group-avatar-editor";
 
 /** Right panel of the Messages page: members, files and the group's settings */
 export function ConversationDetails({
@@ -57,6 +73,8 @@ export function ConversationDetails({
   const isGroup = conversation.kind === "group";
   const active = conversation.members.filter((m) => !m.left_at);
   const isOwner = active.some((m) => m.user_id === meId && m.role === "owner");
+  const canManage = canManageGroup(conversation, meId);
+  const avatarEditor = useGroupAvatarEditor(conversation.id);
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: messagesKeys.conversation(conversation.id) });
@@ -78,6 +96,44 @@ export function ConversationDetails({
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col gap-4 overflow-y-auto border-l p-3 xl:flex">
+      {isGroup ? (
+        <section className="flex flex-col items-center gap-2 pt-1 text-center">
+          <ChatAvatar
+            initials={conversationInitials(conversation, meId)}
+            src={conversation.avatar_url}
+            group
+            size={48}
+          />
+          <span className="max-w-full truncate text-sm font-semibold">{conversation.name}</span>
+          {canManage ? (
+            <div className="flex flex-wrap justify-center gap-1">
+              <button
+                type="button"
+                onClick={avatarEditor.pick}
+                disabled={avatarEditor.pending}
+                className="flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium hover:bg-muted disabled:opacity-50"
+              >
+                <ImagePlus className="size-3.5" />
+                {conversation.avatar_url ? t("page.changePhoto") : t("page.addPhoto")}
+              </button>
+              {conversation.avatar_url ? (
+                <button
+                  type="button"
+                  onClick={avatarEditor.remove}
+                  disabled={avatarEditor.pending}
+                  aria-label={t("page.removePhoto")}
+                  title={t("page.removePhoto")}
+                  className="flex size-[26px] items-center justify-center rounded-md border text-muted-foreground hover:bg-muted hover:text-destructive disabled:opacity-50"
+                >
+                  <ImageMinus className="size-3.5" />
+                </button>
+              ) : null}
+              {avatarEditor.elements}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       {isGroup ? (
         <section>
           <SectionTitle>{t("page.details")}</SectionTitle>
@@ -186,6 +242,10 @@ export function ConversationDetails({
                 </span>
                 {member.role === "owner" && isGroup ? (
                   <span className="block text-[11px] text-muted-foreground">{t("page.owner")}</span>
+                ) : member.user_id === conversation.created_by && isGroup ? (
+                  <span className="block text-[11px] text-muted-foreground">
+                    {t("page.creator")}
+                  </span>
                 ) : null}
               </span>
               {isGroup && isOwner && member.user_id !== meId ? (

@@ -3,7 +3,17 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bell, BellOff, ExternalLink, LogOut, MoreHorizontal, Users, X } from "lucide-react";
+import {
+  Bell,
+  BellOff,
+  ExternalLink,
+  ImageMinus,
+  ImagePlus,
+  LogOut,
+  MoreHorizontal,
+  Users,
+  X,
+} from "lucide-react";
 import { toast } from "react-toastify";
 import {
   AlertDialog,
@@ -27,6 +37,7 @@ import { leaveConversationAction, muteConversationAction } from "@/app/actions/m
 import { messagesKeys } from "@/hooks/queries/messages";
 import type { ChatErrorCode } from "@/lib/messages/types";
 import { useChat } from "./chat-provider";
+import { useGroupAvatarEditor } from "./group-avatar-editor";
 
 /** Muting has no end date in the UI; far enough to mean "until unmuted" */
 export const CHAT_MUTED_UNTIL = "2100-01-01T00:00:00.000Z";
@@ -39,12 +50,17 @@ export const CHAT_MUTED_UNTIL = "2100-01-01T00:00:00.000Z";
 export function ChatWindowOptions({
   conversationId,
   isGroup,
+  canManage = false,
+  hasPhoto = false,
   groupName,
   muted,
   onClose,
 }: {
   conversationId: string;
   isGroup: boolean;
+  /** Owner or creator of the group: may change the group photo */
+  canManage?: boolean;
+  hasPhoto?: boolean;
   groupName: string;
   muted: boolean;
   onClose: () => void;
@@ -54,6 +70,7 @@ export function ChatWindowOptions({
   const router = useRouter();
   const queryClient = useQueryClient();
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const avatar = useGroupAvatarEditor(conversationId);
 
   const openFull = () =>
     router.push({ pathname: "/dashboard/messages", query: { c: conversationId } });
@@ -104,6 +121,26 @@ export function ChatWindowOptions({
               {t("window.manageGroup")}
             </DropdownMenuItem>
           ) : null}
+          {isGroup && canManage ? (
+            <DropdownMenuItem
+              className={itemClass}
+              disabled={avatar.pending}
+              onSelect={avatar.pick}
+            >
+              <ImagePlus className={iconClass} />
+              {hasPhoto ? t("page.changePhoto") : t("page.addPhoto")}
+            </DropdownMenuItem>
+          ) : null}
+          {isGroup && canManage && hasPhoto ? (
+            <DropdownMenuItem
+              className={itemClass}
+              disabled={avatar.pending}
+              onSelect={avatar.remove}
+            >
+              <ImageMinus className={iconClass} />
+              {t("page.removePhoto")}
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem className={itemClass} onSelect={() => void toggleMute()}>
             {muted ? <Bell className={iconClass} /> : <BellOff className={iconClass} />}
             {muted ? t("page.unmute") : t("page.mute")}
@@ -124,6 +161,8 @@ export function ChatWindowOptions({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {isGroup && canManage ? avatar.elements : null}
 
       <AlertDialog open={confirmLeave} onOpenChange={setConfirmLeave}>
         <AlertDialogContent>
