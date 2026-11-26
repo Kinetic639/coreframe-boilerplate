@@ -2,10 +2,10 @@ import path from "path";
 import { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
+// The public website (apps/public-web), resolved like @repo/app-urls' getAppUrl("site").
 const publicSiteUrl =
-  process.env.NEXT_PUBLIC_MARKETING_SITE_URL ??
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  "https://www.ambra-system.com";
+  process.env.NEXT_PUBLIC_AMBRA_SITE_URL ??
+  (process.env.NODE_ENV === "production" ? "https://ambra-system.com" : "http://127.0.0.1:3002");
 const isProduction = process.env.NODE_ENV === "production";
 const permanentPublicRedirects = isProduction;
 

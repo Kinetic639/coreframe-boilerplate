@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/i18n/navigation", () => ({
   Link: ({
@@ -23,12 +23,17 @@ import { PublicHeaderClient } from "../PublicHeaderClient";
 // key itself rather than real copy, so assertions here target keys under the
 // "PublicHeader" namespace (see messages/{en,pl}.json), not literal text.
 describe("PublicHeaderClient", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("renders the logo, desktop navigation, and pricing link", async () => {
+    vi.stubEnv("NODE_ENV", "production");
     render(<PublicHeaderClient />);
 
     expect(screen.getByRole("link", { name: /ambra system/i })).toHaveAttribute(
       "href",
-      "https://www.ambra-system.com"
+      "https://ambra-system.com"
     );
     expect(
       await screen.findByRole("button", { name: /dropdowns\.features\.label/i })

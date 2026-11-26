@@ -38,9 +38,17 @@ describe("URL configuration helpers", () => {
 
   it("separates app and marketing URLs", () => {
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "http://127.0.0.1:3001/");
-    vi.stubEnv("NEXT_PUBLIC_MARKETING_SITE_URL", "https://www.ambra-system.com/");
+    vi.stubEnv("NEXT_PUBLIC_AMBRA_SITE_URL", "https://ambra-system.com/");
 
     expect(getConfiguredAppUrl()).toBe("http://127.0.0.1:3001");
-    expect(getMarketingSiteUrl()).toBe("https://www.ambra-system.com");
+    expect(getMarketingSiteUrl()).toBe("https://ambra-system.com");
+  });
+
+  it("uses the Ambra addresses in production, whatever NEXT_PUBLIC_SITE_URL says", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://app.ambra-system.com");
+
+    expect(getMarketingSiteUrl()).toBe("https://ambra-system.com");
+    expect(getConfiguredAppUrl()).toBe("https://app.ambra-system.com");
   });
 });

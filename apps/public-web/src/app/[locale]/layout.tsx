@@ -23,7 +23,7 @@ export async function generateMetadata(props: Omit<Props, "children">): Promise<
   const { locale } = await props.params;
 
   const t = await getTranslations({ locale, namespace: "LocaleLayout" });
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.ambra-system.com";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://ambra-system.com";
   const canonicalLocalePrefix = locale === routing.defaultLocale ? "" : `/${locale}`;
 
   return {

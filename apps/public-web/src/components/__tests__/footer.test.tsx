@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 
 vi.mock("next-intl", () => ({
+  useLocale: () => "pl",
   useTranslations: () => (key: string) => key,
 }));
 
@@ -32,5 +33,20 @@ describe("footer", () => {
     expect(screen.getByRole("link", { name: "legal.privacyPolicy" })).toBeInTheDocument();
     expect(screen.getByTestId("theme-switcher")).toBeInTheDocument();
     expect(screen.getByTestId("locale-switcher")).toBeInTheDocument();
+  });
+
+  it("links the ERP sign-in to the one shared sign-in page", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    render(<Footer />);
+
+    expect(screen.getByRole("link", { name: "columns.product.ambraErp" })).toHaveAttribute(
+      "href",
+      "https://app.ambra-system.com/logowanie"
+    );
+    expect(screen.getByRole("link", { name: "columns.product.ambraErpSignUp" })).toHaveAttribute(
+      "href",
+      "https://app.ambra-system.com/rejestracja"
+    );
+    vi.unstubAllEnvs();
   });
 });

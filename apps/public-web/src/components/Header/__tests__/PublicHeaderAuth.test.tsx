@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { refreshMock, signOutMock, successMock, errorMock } = vi.hoisted(() => ({
+const { localeMock, refreshMock, signOutMock, successMock, errorMock } = vi.hoisted(() => ({
+  localeMock: vi.fn(() => "pl"),
   refreshMock: vi.fn(),
   signOutMock: vi.fn(),
   successMock: vi.fn(),
@@ -40,6 +41,7 @@ vi.mock("@/utils/supabase/client", () => ({
 }));
 
 vi.mock("next-intl", () => ({
+  useLocale: () => localeMock(),
   useTranslations: (namespace?: string) => (key: string) =>
     namespace === "auth.success" ? `success:${key}` : `logout:${key}`,
 }));
@@ -54,25 +56,36 @@ vi.mock("react-toastify", () => ({
 import { PublicHeaderAuth } from "../PublicHeaderAuth";
 
 describe("PublicHeaderAuth", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   beforeEach(() => {
+    vi.stubEnv("NODE_ENV", "production");
+    localeMock.mockReturnValue("pl");
     refreshMock.mockReset();
     signOutMock.mockReset();
     successMock.mockReset();
     errorMock.mockReset();
   });
 
-  it("renders the sign-in menu when there is no authenticated user", () => {
+  it("links guests to the one shared sign-in page", () => {
     render(<PublicHeaderAuth userContext={null} />);
 
-    // One sign-in button opens a menu with both portals.
-    fireEvent.click(screen.getByRole("button", { name: /signIn/ }));
-    expect(screen.getByRole("menuitem", { name: "Ambra ERP" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /signIn/ })).toHaveAttribute(
       "href",
-      "https://app.ambra-system.com/sign-in"
+      "https://app.ambra-system.com/logowanie"
     );
-    expect(screen.getByRole("menuitem", { name: "VMI portal" })).toHaveAttribute(
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("uses the English sign-in page on the English site", () => {
+    localeMock.mockReturnValue("en");
+    render(<PublicHeaderAuth userContext={null} />);
+
+    expect(screen.getByRole("link", { name: /signIn/ })).toHaveAttribute(
       "href",
-      "https://vmi.ambra-system.com/sign-in"
+      "https://app.ambra-system.com/en/sign-in"
     );
   });
 

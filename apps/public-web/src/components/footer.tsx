@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { appUrl, buildSignInUrl, buildSignUpUrl } from "@repo/app-urls";
 import { PublicFooter } from "@repo/ui/public-footer";
 import { Link } from "@/i18n/navigation";
 import LocaleSwitcher from "./LocaleSwitcher";
@@ -31,6 +32,7 @@ function LinkAdapter({ href, className, children }: LinkAdapterProps) {
 
 const Footer = () => {
   const t = useTranslations("PublicFooter");
+  const locale = useLocale() === "en" ? "en" : "pl";
 
   const footerColumns = [
     {
@@ -38,8 +40,8 @@ const Footer = () => {
       links: [
         { href: "/features", label: t("columns.product.features") },
         { href: "/pricing", label: t("columns.product.pricing") },
-        { href: "https://app.ambra-system.com/sign-in", label: t("columns.product.ambraErp") },
-        { href: "https://app.ambra-system.com/sign-up", label: t("columns.product.ambraErpSignUp") },
+        { href: buildSignInUrl(null, locale), label: t("columns.product.ambraErp") },
+        { href: buildSignUpUrl(locale), label: t("columns.product.ambraErpSignUp") },
       ],
     },
     {
@@ -49,8 +51,8 @@ const Footer = () => {
         { href: "/vmi/vendors", label: t("columns.vmiMarketplace.vendors") },
         { href: "/vmi/products", label: t("columns.vmiMarketplace.products") },
         { href: "/vmi/vendors?view=map", label: t("columns.vmiMarketplace.vendorMap") },
-        { href: "https://vmi.ambra-system.com/sign-in", label: t("columns.vmiMarketplace.vmiSignIn") },
-        { href: "https://vmi.ambra-system.com/portal", label: t("columns.vmiMarketplace.vmiPortal") },
+        { href: appUrl("vmi", "/sign-in"), label: t("columns.vmiMarketplace.vmiSignIn") },
+        { href: appUrl("vmi", "/portal"), label: t("columns.vmiMarketplace.vmiPortal") },
       ],
     },
   ];

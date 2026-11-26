@@ -16,7 +16,7 @@ describe("next.config public redirects", () => {
 
   it("uses temporary public-site redirects in development", async () => {
     vi.stubEnv("NODE_ENV", "development");
-    vi.stubEnv("NEXT_PUBLIC_MARKETING_SITE_URL", "https://marketing.example.com");
+    vi.stubEnv("NEXT_PUBLIC_AMBRA_SITE_URL", "https://marketing.example.com");
 
     const { nextConfig } = await loadConfig();
     const redirects = await nextConfig.redirects();
@@ -44,7 +44,7 @@ describe("next.config public redirects", () => {
 
   it("keeps production public-site redirects permanent", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_MARKETING_SITE_URL", "https://marketing.example.com");
+    vi.stubEnv("NEXT_PUBLIC_AMBRA_SITE_URL", "https://marketing.example.com");
 
     const { nextConfig } = await loadConfig();
     const redirects = await nextConfig.redirects();

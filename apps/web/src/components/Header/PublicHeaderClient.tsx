@@ -9,6 +9,7 @@ import {
 } from "@repo/ui/ambra-public-header";
 import { Link } from "@/i18n/navigation";
 import { getMarketingSiteUrl } from "@/lib/urls";
+import { appUrl } from "@repo/app-urls";
 import { Boxes, Handshake, MapPinned, PackageSearch, Radar, Store } from "lucide-react";
 
 interface LinkAdapterProps {
@@ -91,13 +92,13 @@ function useHeaderConfig(showPricing: boolean): AmbraPublicHeaderConfig {
                 icon: Handshake,
                 title: t("dropdowns.vmi.items.vmiSignIn.title"),
                 description: t("dropdowns.vmi.items.vmiSignIn.description"),
-                href: "https://vmi.ambra-system.com/sign-in",
+                href: appUrl("vmi", "/sign-in"),
               },
               {
                 icon: Boxes,
                 title: t("dropdowns.vmi.items.vmiPortal.title"),
                 description: t("dropdowns.vmi.items.vmiPortal.description"),
-                href: "https://vmi.ambra-system.com/portal",
+                href: appUrl("vmi", "/portal"),
               },
             ],
           },

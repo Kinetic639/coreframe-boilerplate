@@ -137,15 +137,22 @@ export function isCrossAppReturnUrl(returnUrl: string, currentOrigin: string): b
   return url !== null && url.origin !== withoutTrailingSlash(currentOrigin);
 }
 
+function localizedAuthPath(page: "/sign-in" | "/sign-up", locale: "pl" | "en"): string {
+  return locale === "en" ? `/en${authPathnames[page].en}` : authPathnames[page].pl;
+}
+
 /**
  * The shared sign-in page (in the ERP), sending the user back to `returnUrl`
  * afterwards. `returnUrl` should be absolute when called from another app.
  */
 export function buildSignInUrl(returnUrl?: string | null, locale: "pl" | "en" = "pl"): string {
-  const path =
-    locale === "en" ? `/en${authPathnames["/sign-in"].en}` : authPathnames["/sign-in"].pl;
-  const url = new URL(appUrl("erp", path));
+  const url = new URL(appUrl("erp", localizedAuthPath("/sign-in", locale)));
   const safe = resolveReturnUrl(returnUrl);
   if (safe) url.searchParams.set("returnUrl", safe);
   return url.toString();
+}
+
+/** The sign-up page (in the ERP). */
+export function buildSignUpUrl(locale: "pl" | "en" = "pl"): string {
+  return appUrl("erp", localizedAuthPath("/sign-up", locale));
 }
