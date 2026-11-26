@@ -58,17 +58,18 @@ authTest.describe("Signed-in session", () => {
 test.describe("Sign-in navigation", () => {
   test.skip(!E2E_TEST_EMAIL || !E2E_TEST_PASSWORD, "Test account is not configured");
 
+  // Without a return address the test account (several apps on the enterprise
+  // plan) lands on the app chooser; with one, it goes straight there.
   for (const scenario of [
-    { entry: "/logowanie", destination: "/dashboard/start" },
-    { entry: "/en/sign-in", destination: "/en/dashboard/start" },
+    { entry: "/logowanie", destination: "/aplikacje", chooser: "Wybierz aplikację, żeby zacząć" },
+    { entry: "/en/sign-in", destination: "/en/apps", chooser: "Choose an app to get started" },
     {
       entry: "/en/sign-in?returnUrl=%2Fdashboard%2Fstart%3Ffrom%3Dlogin",
       destination: "/en/dashboard/start?from=login",
+      chooser: null,
     },
   ]) {
-    test(`opens a fresh dashboard document after login from ${scenario.entry}`, async ({
-      page,
-    }) => {
+    test(`opens a fresh document after login from ${scenario.entry}`, async ({ page }) => {
       test.setTimeout(60_000);
       await page.goto(scenario.entry);
       await page.locator('input[type="email"]').fill(E2E_TEST_EMAIL!);
@@ -84,8 +85,14 @@ test.describe("Sign-in navigation", () => {
       await navigation;
 
       await expect(page).toHaveURL(new RegExp(`${scenario.destination.replace(/[?]/g, "\\?")}$`));
-      await expect(page.getByTestId("home-dashboard")).toBeVisible({ timeout: 30_000 });
-      await expect(page.getByTestId("home-dashboard")).toHaveAttribute("aria-busy", "false");
+      if (scenario.chooser) {
+        await expect(page.getByRole("heading", { name: scenario.chooser })).toBeVisible({
+          timeout: 30_000,
+        });
+      } else {
+        await expect(page.getByTestId("home-dashboard")).toBeVisible({ timeout: 30_000 });
+        await expect(page.getByTestId("home-dashboard")).toHaveAttribute("aria-busy", "false");
+      }
       await expect(page.locator('input[type="password"]')).toHaveCount(0);
     });
   }
