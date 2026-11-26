@@ -1,4 +1,4 @@
-import { ExternalLink, Eye } from "lucide-react";
+import { ExternalLink, Eye, MessageSquare, Paperclip } from "lucide-react";
 import type { ReactNode } from "react";
 import { ListPane } from "@/components/data-table/list-pane";
 import {
@@ -272,8 +272,28 @@ export function HelpDeskTicketsTable({
       <span className="block truncate text-[13px] font-medium" title={row.title}>
         {row.title}
       </span>
-      <span className="block truncate font-mono text-[11px] leading-4 font-normal text-muted-foreground">
-        {row.ticket_number}
+      <span className="flex items-center gap-2 text-[11px] leading-4 font-normal text-muted-foreground">
+        <span className="truncate font-mono">{row.ticket_number}</span>
+        {row.comment_count ? (
+          <span
+            className="inline-flex shrink-0 items-center gap-0.5 tabular-nums"
+            title={labels.comments}
+          >
+            <MessageSquare className="size-3" aria-hidden />
+            <span className="sr-only">{labels.comments}:</span>
+            {row.comment_count}
+          </span>
+        ) : null}
+        {row.attachment_count ? (
+          <span
+            className="inline-flex shrink-0 items-center gap-0.5 tabular-nums"
+            title={labels.attachments}
+          >
+            <Paperclip className="size-3" aria-hidden />
+            <span className="sr-only">{labels.attachments}:</span>
+            {row.attachment_count}
+          </span>
+        ) : null}
       </span>
     </span>
   );

@@ -217,28 +217,30 @@ function TicketRecordPanel({
       aria-labelledby="helpdesk-ticket-panel-title"
       className="dt-list-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-3xl flex-col overflow-hidden border-l bg-background shadow-2xl xl:static xl:z-auto xl:min-w-0 xl:flex-1 xl:max-w-none xl:shadow-none"
     >
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label={labels.close}
-        >
-          <X className="size-4" />
-          <span className="hidden sm:inline">{labels.title}</span>
-        </button>
-        <span className="text-muted-foreground/50">/</span>
-        <span id="helpdesk-ticket-panel-title" className="truncate font-mono text-sm">
-          {ticketNumber}
-        </span>
-        <Link
-          href={fullPath}
-          className="ml-auto inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-3 text-xs font-medium hover:bg-muted"
-        >
-          <ExternalLink className="size-3.5" />
-          {labels.viewFull}
-        </Link>
-      </header>
+      {!query.data ? (
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label={labels.close}
+          >
+            <X className="size-4" />
+            <span className="hidden sm:inline">{labels.title}</span>
+          </button>
+          <span className="text-muted-foreground/50">/</span>
+          <span id="helpdesk-ticket-panel-title" className="truncate font-mono text-sm">
+            {ticketNumber}
+          </span>
+          <Link
+            href={fullPath}
+            className="ml-auto inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-3 text-xs font-medium hover:bg-muted"
+          >
+            <ExternalLink className="size-3.5" />
+            {labels.viewFull}
+          </Link>
+        </header>
+      ) : null}
       {query.isPending ? (
         <div className="space-y-4 p-5" aria-busy="true" aria-label={labels.loading}>
           {row ? (
@@ -267,15 +269,14 @@ function TicketRecordPanel({
         </div>
       ) : null}
       {query.data ? (
-        <div className="min-h-0 flex-1 overflow-y-auto p-5">
-          <TicketDetailPanel
-            key={query.data.id}
-            detail={query.data}
-            currentUserId={currentUserId}
-            statusConfigs={configs.status}
-            priorityConfigs={configs.priority}
-          />
-        </div>
+        <TicketDetailPanel
+          key={query.data.id}
+          detail={query.data}
+          currentUserId={currentUserId}
+          statusConfigs={configs.status}
+          priorityConfigs={configs.priority}
+          navigation={{ onClose, openFull: true }}
+        />
       ) : null}
     </aside>
   );

@@ -248,6 +248,14 @@
         "tooLarge": "Plik jest za duży (limit 25 MB).",
         "typeNotAllowed": "Tego typu pliku nie można dodać.",
         "empty": "Plik jest pusty."
+      },
+      "staged": {
+        "addPhoto": "Zrób zdjęcie",
+        "addFiles": "Dodaj pliki",
+        "uploading": "Wysyłanie…",
+        "failed": "Nie wysłano",
+        "retry": "Wyślij ponownie: {name}",
+        "remove": "Usuń: {name}"
       }
     },
     "richText": {
@@ -4636,7 +4644,8 @@
           "status_changed": "zmienił(a) status",
           "assignee_added": "dodał(a) osobę odpowiedzialną",
           "assignee_removed": "usunął(a) osobę odpowiedzialną",
-          "ticket_taken": "przejął(-ęła) zgłoszenie"
+          "ticket_taken": "przejął(-ęła) zgłoszenie",
+          "ticket_updated": "zmienił(a) zgłoszenie"
         },
         "acceptance": {
           "label": "Akceptacja",
@@ -4665,7 +4674,62 @@
           "waitingRequester": "Czeka na doradcę",
           "waitingVendor": "Czeka na VGP / dostawcę",
           "all": "Wszystkie"
-        }
+        },
+        "card": {
+          "close": "Zamknij",
+          "saving": "Zapisywanie…",
+          "saved": "Zapisano",
+          "tabsLabel": "Sekcje zgłoszenia",
+          "tabTicket": "Zgłoszenie",
+          "tabDetails": "Szczegóły",
+          "tabComments": "Komentarze",
+          "tabActivity": "Aktywność",
+          "reportedLine": "Zgłosił(a) {name} · {date}",
+          "unknown": "Nieznana osoba",
+          "noResponders": "Nikt",
+          "noType": "Bez typu",
+          "clearType": "Usuń typ",
+          "noDescription": "Brak opisu.",
+          "addDescription": "Dodaj opis",
+          "edit": "Edytuj",
+          "save": "Zapisz",
+          "unsaved": "Niezapisane zmiany",
+          "people": "Osoby",
+          "dates": "Daty",
+          "closedAt": "Zamknięte",
+          "noActivity": "Brak aktywności.",
+          "system": "System",
+          "changed": {
+            "title": "tytuł",
+            "priority": "priorytet",
+            "ticket_type_id": "typ",
+            "description": "opis"
+          },
+          "acceptShort": "Zaakceptuj"
+        },
+        "edit": {
+          "failed": "Nie udało się zapisać zmiany w zgłoszeniu."
+        },
+        "list": {
+          "ticket": "Zgłoszenie",
+          "number": "Numer",
+          "assignment": "Przypisanie",
+          "unassigned": "Nieprzypisane",
+          "preview": "Podgląd",
+          "close": "Zamknij szczegóły",
+          "search": "Szukaj tytułu lub numeru…",
+          "empty": "Brak zgłoszeń pasujących do wyszukiwania i filtrów.",
+          "loadError": "Nie udało się wczytać danych.",
+          "notFound": "Zgłoszenie nie istnieje lub nie jest dostępne.",
+          "retry": "Spróbuj ponownie",
+          "loading": "Wczytywanie…",
+          "countSuffix": "zgłoszeń",
+          "within_7d": "Ostatnie 7 dni",
+          "within_30d": "Ostatnie 30 dni",
+          "within_90d": "Ostatnie 90 dni"
+        },
+        "filesNotSent": "Nie wszystkie pliki zostały wysłane. Wyślij je ponownie albo usuń z listy.",
+        "waitingForFiles": "{count, plural, =0 {Wysyłanie…} one {Kończę wysyłanie pliku…} other {Kończę wysyłanie plików (#)…}}"
       },
       "features": {
         "tickets": "Zarządzanie zgłoszeniami",

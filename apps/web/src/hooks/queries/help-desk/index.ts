@@ -9,6 +9,7 @@ import {
   setTicketStatusAction,
   takeTicketAction,
   acceptTicketAction,
+  updateTicketAction,
 } from "@/app/actions/help-desk";
 import type {
   AcceptTicketInput,
@@ -16,6 +17,7 @@ import type {
   CloseTicketInput,
   SetTicketStatusInput,
   TakeTicketInput,
+  UpdateTicketFieldsInput,
 } from "@/lib/validations/helpdesk";
 import type {
   HelpdeskTicketDetail,
@@ -160,7 +162,8 @@ type TicketSaveOptions<I extends { ticket_id?: string }> = {
   save: (input: I) => Promise<Result<HelpdeskTicketListRow | null | Record<string, unknown>>>;
   /** The change as it will look once saved, shown before the server answers. */
   preview?: (input: I) => TicketPatch | null;
-  success: string;
+  /** Toast after the save; none where the card shows the save state itself. */
+  success?: string;
   failure: string;
 };
 
@@ -195,7 +198,7 @@ function useTicketSave<I extends { ticket_id?: string }>({
       markOwnTicketSave(input.ticket_id ?? "");
       if (isTicketRow(data)) writeSavedTicket(queryClient, orgId, data);
       void refreshTicket(queryClient, orgId, ticketNumber);
-      toast.success(success);
+      if (success) toast.success(success);
     },
     onError: (err: Error, _input, context) => {
       if (context?.snapshot) restoreTickets(queryClient, context.snapshot);
@@ -268,5 +271,19 @@ export function useAcceptTicketMutation(ticketNumber: string, orgId: string, use
     }),
     success: t("tickets.acceptance.acceptSuccess"),
     failure: t("errors.acceptFailed"),
+  });
+}
+
+/** A card edit; `display` carries what the screen shows for it (a type's name and colour). */
+export type TicketEditInput = UpdateTicketFieldsInput & { display?: TicketPatch };
+
+export function useUpdateTicketMutation(ticketNumber: string, orgId: string) {
+  const t = useTranslations("modules.helpDesk");
+  return useTicketSave<TicketEditInput>({
+    ticketNumber,
+    orgId,
+    save: ({ display: _display, ...input }) => updateTicketAction(input),
+    preview: ({ ticket_id: _id, display, ...fields }) => ({ ...fields, ...display }),
+    failure: t("tickets.edit.failed"),
   });
 }

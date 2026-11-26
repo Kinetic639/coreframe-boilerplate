@@ -133,6 +133,18 @@ export type CreateTicketInput = z.infer<typeof createTicketSchema>;
 export type CloseTicketInput = z.infer<typeof closeTicketSchema>;
 export type SetTicketStatusInput = z.infer<typeof setTicketStatusSchema>;
 export type TakeTicketInput = z.infer<typeof takeTicketSchema>;
+
+/** Edit from the ticket's card: only the fields being changed. */
+export const updateTicketFieldsSchema = z.object({
+  ticket_id: z.string().uuid(),
+  title: z.string().trim().min(1).max(255).optional(),
+  description_plain: z.string().max(10000).nullable().optional(),
+  description_rich: z.unknown().optional(),
+  priority: z.enum(TICKET_PRIORITIES).optional(),
+  ticket_type_id: z.string().uuid().nullable().optional(),
+});
+
+export type UpdateTicketFieldsInput = z.infer<typeof updateTicketFieldsSchema>;
 export type TicketListFilters = z.infer<typeof ticketListFiltersSchema>;
 
 // ---------------------------------------------------------------------------
