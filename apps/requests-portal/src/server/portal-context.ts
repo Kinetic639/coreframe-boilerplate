@@ -63,22 +63,31 @@ export const loadPortalContext = cache(async (): Promise<PortalContextResult> =>
   if (!user) return { status: "signed-out" };
   const email = user.email ?? "";
 
-  const [{ data: uep }, { data: prefs }, { data: profile }] = await Promise.all([
-    supabase
-      .from("user_effective_permissions")
-      .select("organization_id, branch_id, permission_slug_exact")
-      .eq("user_id", user.id),
-    supabase
-      .from("user_preferences")
-      .select("organization_id")
-      .eq("user_id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("users")
-      .select("first_name, last_name, avatar_url")
-      .eq("id", user.id)
-      .maybeSingle(),
-  ]);
+  // One round: organizations and branches come for every organization the user can see
+  // (RLS) and are narrowed below, instead of waiting for the organization first.
+  const [{ data: uep }, { data: prefs }, { data: profile }, { data: orgs }, { data: allBranches }] =
+    await Promise.all([
+      supabase
+        .from("user_effective_permissions")
+        .select("organization_id, branch_id, permission_slug_exact")
+        .eq("user_id", user.id),
+      supabase
+        .from("user_preferences")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("users")
+        .select("first_name, last_name, avatar_url")
+        .eq("id", user.id)
+        .maybeSingle(),
+      supabase.from("organizations").select("id, name"),
+      supabase
+        .from("branches")
+        .select("id, name, organization_id")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true }),
+    ]);
 
   const rows = uep ?? [];
   const canRead = (r: (typeof rows)[number]) => r.permission_slug_exact === HELPDESK_TICKETS_READ;
@@ -104,17 +113,10 @@ export const loadPortalContext = cache(async (): Promise<PortalContextResult> =>
   const has = (slug: string, branchId: string) =>
     orgPerms.has(slug) || (branchPerms.get(branchId)?.has(slug) ?? false);
 
-  const [{ data: org }, { data: allBranches }] = await Promise.all([
-    supabase.from("organizations").select("id, name").eq("id", orgId).maybeSingle(),
-    supabase
-      .from("branches")
-      .select("id, name")
-      .eq("organization_id", orgId)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: true }),
-  ]);
-
-  const branches = (allBranches ?? []).filter((b) => has(HELPDESK_TICKETS_READ, b.id));
+  const org = (orgs ?? []).find((o) => o.id === orgId);
+  const branches = (allBranches ?? [])
+    .filter((b) => b.organization_id === orgId && has(HELPDESK_TICKETS_READ, b.id))
+    .map((b) => ({ id: b.id, name: b.name }));
   if (!org || branches.length === 0) return { status: "no-access", email };
 
   const picked = (await cookies()).get(ACTIVE_BRANCH_COOKIE)?.value ?? null;

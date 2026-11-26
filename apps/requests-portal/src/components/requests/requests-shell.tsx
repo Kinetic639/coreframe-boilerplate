@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Inbox, Loader2, Plus, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -8,10 +9,15 @@ import { parseAsInteger, parseAsString, parseAsStringLiteral, useQueryStates } f
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import { listKey, parseListParams, toQuery } from "@/server/requests/list-params";
-import { REQUEST_FILTERS, type RequestListItem, type TicketTypeRef } from "@/server/requests/types";
-import { LIST_CHANGED_EVENT } from "./live-events";
+import { REQUEST_FILTERS, type TicketTypeRef } from "@/server/requests/types";
+import {
+  detailQuery,
+  listQuery,
+  requestKeys,
+  useRequestsScope,
+  type ListData,
+} from "@/lib/requests-query";
 import { RequestCard } from "./request-card";
-import { threadApi } from "./thread-api";
 
 const PAGE_SIZE = 25;
 
@@ -25,21 +31,22 @@ const listParsers = {
   p: parseAsInteger.withDefault(1),
 };
 
-export type ListData = { items: RequestListItem[]; total: number };
-
 /**
  * Persistent list + detail split. Lives in the (requests) layout, so opening another ticket
- * only re-renders the detail segment; filters live in the URL (nuqs, shallow) and refetch
- * just the list through a server action. The first render uses server data from the layout.
+ * only re-renders the detail segment; filters live in the URL (nuqs, shallow) and each
+ * list page is a cache entry fetched over GET. The first render uses the layout's data.
  */
 export function RequestsShell({
   initial,
   initialKey,
+  renderedAt,
   types,
   children,
 }: {
   initial: ListData;
   initialKey: string;
+  /** When the server loaded `initial`, so the cache knows how fresh it is. */
+  renderedAt: number;
   types: TicketTypeRef[];
   children: React.ReactNode;
 }) {
@@ -62,43 +69,27 @@ export function RequestsShell({
   const query = useMemo(() => toQuery(input), [input]);
   const key = listKey(query);
 
-  const [data, setData] = useState<ListData>(initial);
-  const [loadedKey, setLoadedKey] = useState(initialKey);
-  const [pending, startTransition] = useTransition();
-  const requestSeq = useRef(0);
+  const scope = useRequestsScope();
+  const qc = useQueryClient();
+  const {
+    data = initial,
+    isFetching,
+    isPlaceholderData,
+  } = useQuery({
+    ...listQuery(scope, key, query),
+    initialData: key === initialKey ? initial : undefined,
+    initialDataUpdatedAt: renderedAt,
+    placeholderData: keepPreviousData,
+  });
+  const pending = isPlaceholderData && isFetching;
 
-  // Server re-render (router.refresh / revalidatePath): adopt fresh data for the same query.
+  // A server re-render (branch switch, a new request) brings fresh data for its query.
   useEffect(() => {
-    if (initialKey === key) {
-      setData(initial);
-      setLoadedKey(initialKey);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initial, initialKey]);
+    qc.setQueryData(requestKeys.list(scope, initialKey), initial, { updatedAt: renderedAt });
+  }, [qc, scope, initialKey, initial, renderedAt]);
 
-  // Filters changed in the URL: fetch only the list.
-  useEffect(() => {
-    if (key === loadedKey) return;
-    const seq = ++requestSeq.current;
-    startTransition(async () => {
-      const next = await threadApi.list(query);
-      if (seq !== requestSeq.current || !next) return;
-      setData(next);
-      setLoadedKey(key);
-    });
-  }, [key, loadedKey, query]);
-
-  // Realtime: something in the list changed -- refetch the current page in the background.
-  useEffect(() => {
-    const onChange = async () => {
-      const seq = ++requestSeq.current;
-      const next = await threadApi.list(query);
-      if (seq !== requestSeq.current || !next) return;
-      setData(next);
-    };
-    window.addEventListener(LIST_CHANGED_EVENT, onChange);
-    return () => window.removeEventListener(LIST_CHANGED_EVENT, onChange);
-  }, [query]);
+  /** Opening a card starts loading it on hover, so the click shows it at once. */
+  const prefetch = (id: string) => void qc.prefetchQuery(detailQuery(scope, id));
 
   const [searchText, setSearchText] = useState(qs.q ?? "");
   useEffect(() => {
@@ -214,7 +205,12 @@ export function RequestsShell({
             <ul className="flex flex-col gap-2 px-3 py-2.5">
               {data.items.map((item) => (
                 <li key={item.id}>
-                  <RequestCard item={item} selected={item.id === ticketId} query={query} />
+                  <RequestCard
+                    item={item}
+                    selected={item.id === ticketId}
+                    query={query}
+                    onPrefetch={prefetch}
+                  />
                 </li>
               ))}
             </ul>

@@ -1,38 +1,41 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ShieldCheck } from "lucide-react";
-import { getLocale, getTranslations } from "next-intl/server";
+import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { formatWhen, inkFor } from "@/lib/format";
+import { detailQuery, useRequestsScope } from "@/lib/requests-query";
 import { cn } from "@/lib/utils";
 import { requestState } from "@/server/requests/types";
-import type {
-  PersonRef,
-  RequestAttachment,
-  RequestComment,
-  RequestDetail,
-  RequestEvent,
-} from "@/server/requests/types";
+import type { PersonRef } from "@/server/requests/types";
+import type { RequestView } from "@/server/requests/view.service";
 import { Avatar } from "./avatar";
 import { CloseActions } from "./close-actions";
 import { Thread, type ThreadEvent } from "./thread";
 import { STATE_STYLE, StateDot } from "./status";
 
-export async function RequestDetailView({
-  request: r,
-  comments,
-  attachments,
-  events,
+/**
+ * A request card. The first render uses the view the page loaded on the server; after that
+ * it reads the cache, so saves, realtime changes and reopening it show without a reload.
+ */
+export function RequestDetailView({
+  initial,
   branchName,
   viewer,
 }: {
-  request: RequestDetail;
-  comments: RequestComment[];
-  attachments: RequestAttachment[];
-  events: RequestEvent[];
+  initial: RequestView;
   branchName: string | null;
   viewer: PersonRef;
 }) {
-  const t = await getTranslations("requests");
-  const locale = await getLocale();
+  const scope = useRequestsScope();
+  const { data } = useQuery({
+    ...detailQuery(scope, initial.request.id),
+    initialData: initial,
+  });
+  const { request: r, events, comments, attachments } = data ?? initial;
+  const t = useTranslations("requests");
+  const locale = useLocale();
   const when = (iso: string) =>
     formatWhen(iso, locale, { today: t("today"), yesterday: t("yesterday") });
   const state = STATE_STYLE[r.state];

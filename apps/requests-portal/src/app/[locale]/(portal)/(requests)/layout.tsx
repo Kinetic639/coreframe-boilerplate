@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { RealtimeRefresh } from "@/components/requests/realtime-refresh";
+import { RequestsScope } from "@/components/requests/requests-scope";
 import { RequestsShell } from "@/components/requests/requests-shell";
 import { requirePortalContext } from "@/server/portal-context";
 import {
@@ -26,12 +27,18 @@ export default async function RequestsLayout({ children }: { children: React.Rea
   ]);
   if (!list.ok) throw new Error(list.error);
 
+  const scope = `${ctx.org.id}:${ctx.activeBranchId ?? "all"}`;
   return (
-    <>
-      <RequestsShell initial={list.data} initialKey={listKey(toQuery(input))} types={types}>
+    <RequestsScope scope={scope}>
+      <RequestsShell
+        initial={list.data}
+        initialKey={listKey(toQuery(input))}
+        renderedAt={Date.now()}
+        types={types}
+      >
         {children}
       </RequestsShell>
       <RealtimeRefresh orgId={ctx.org.id} />
-    </>
+    </RequestsScope>
   );
 }

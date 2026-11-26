@@ -14,8 +14,11 @@ export function RequestCard({
   item,
   selected = false,
   query,
+  onPrefetch,
 }: {
   item: RequestListItem;
+  /** Starts loading the card (hover, focus, touch). */
+  onPrefetch?: (id: string) => void;
   selected?: boolean;
   /** List query to keep when opening the request (desktop split view). */
   query?: Record<string, string>;
@@ -31,6 +34,8 @@ export function RequestCard({
     <Link
       href={{ pathname: "/[ticketId]", params: { ticketId: item.id }, query }}
       aria-current={selected ? "page" : undefined}
+      onPointerEnter={() => onPrefetch?.(item.id)}
+      onFocus={() => onPrefetch?.(item.id)}
       className={cn(
         "group flex flex-col gap-2.5 rounded-xl bg-white px-3.5 py-3 text-stone-900 ring-1 transition-shadow",
         selected

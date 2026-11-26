@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { getLocale } from "next-intl/server";
-import { z } from "zod";
 import { redirect } from "@/i18n/navigation";
 import {
   createRequestSchema,
@@ -12,12 +11,7 @@ import {
 } from "@/lib/validation/requests";
 import { requirePortalContext } from "@/server/portal-context";
 import { uploadAttachment } from "@/server/requests/attachments.service";
-import {
-  closeOwnRequest,
-  createRequest,
-  lookupOrder,
-  type OrderLookup,
-} from "@/server/requests/requests.service";
+import { createRequest, lookupOrder, type OrderLookup } from "@/server/requests/requests.service";
 import { createClient } from "@/utils/supabase/server";
 
 export type ActionState = { error?: string; fieldErrors?: Record<string, string> } | null;
@@ -75,17 +69,4 @@ export async function lookupOrderAction(nr: string, mag: string): Promise<OrderL
   if (!n.success || !m.success) return null;
   const ctx = await requirePortalContext();
   return lookupOrder(await createClient(), ctx, n.data, m.data);
-}
-
-export async function closeRequestAction(
-  ticketId: string,
-  outcome: "closed" | "cancelled"
-): Promise<ActionState> {
-  const id = z.string().uuid().safeParse(ticketId);
-  if (!id.success || (outcome !== "closed" && outcome !== "cancelled")) return { error: "invalid" };
-  const ctx = await requirePortalContext();
-  const res = await closeOwnRequest(await createClient(), ctx, id.data, outcome);
-  if (!res.ok) return { error: res.error };
-  revalidatePath("/", "layout");
-  return null;
 }
