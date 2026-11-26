@@ -7,17 +7,15 @@ import { HELPDESK_TICKETS_READ } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
 import { HelpdeskTicketsService } from "@/server/services/helpdesk-tickets.service";
 import { HelpdeskTicketTypesService } from "@/server/services/helpdesk-ticket-types.service";
-import { getQrAssignmentForTicketAction } from "@/app/actions/qr/assign";
 import { UUID_RE } from "@/lib/mentions";
-import { TicketDetailClient } from "./_components/ticket-detail-client";
+import { TicketPageClient } from "./_components/ticket-page-client";
 
 type PageProps = {
   params: Promise<{ ticketId: string }>;
 };
 
 export default async function TicketDetailPage({ params }: PageProps) {
-  const locale = await getLocale();
-  const context = await loadDashboardContextV2();
+  const [locale, context] = await Promise.all([getLocale(), loadDashboardContextV2()]);
 
   if (!context?.app.activeOrgId) return redirect({ href: "/sign-in", locale });
 
@@ -46,8 +44,8 @@ export default async function TicketDetailPage({ params }: PageProps) {
     });
   }
 
-  // Fetch ticket + settings in parallel; QR assignment needs the ticket UUID
-  // which comes from getDetail, so it runs after.
+  // The ticket (with its QR code and whether the reader may handle it) and
+  // the badge settings, in one wave.
   const [result, settingsResult] = await Promise.all([
     HelpdeskTicketsService.getDetail(supabase, orgId, ticketId),
     HelpdeskTicketTypesService.getSettings(supabase, orgId),
@@ -57,29 +55,14 @@ export default async function TicketDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  // Now we have the UUID — look up the QR assignment with the correct target_id
-  const qrAssignmentResult = await getQrAssignmentForTicketAction(result.data.id);
-
-  const currentUserId = context.user.user?.id ?? "";
-  // Handlers may hold helpdesk.tickets.manage for a single branch (role "Obsługa zapytań"),
-  // so decide for this ticket's branch rather than for the active branch snapshot.
-  const canManage = await HelpdeskTicketsService.canManageBranch(
-    supabase,
-    orgId,
-    currentUserId,
-    result.data.branch_id ?? null
-  );
   const settings = settingsResult.success ? settingsResult.data : null;
-  const qrAssignment = qrAssignmentResult.success ? qrAssignmentResult.data : null;
 
   return (
-    <TicketDetailClient
+    <TicketPageClient
       ticket={result.data}
-      canManage={canManage}
-      currentUserId={currentUserId}
+      currentUserId={context.user.user?.id ?? ""}
       statusConfigs={settings?.status_configs ?? null}
       priorityConfigs={settings?.priority_configs ?? null}
-      initialQrAssignment={qrAssignment}
     />
   );
 }

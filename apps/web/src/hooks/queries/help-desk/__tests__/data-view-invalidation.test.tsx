@@ -20,7 +20,10 @@ vi.mock("@/app/actions/help-desk", () => ({
   getTicketTypeDefaultRespondersAction: vi.fn(),
   listOrgMembersForTicketAssignmentAction: vi.fn(),
   listTicketTypesAction: vi.fn(),
+  setTicketStatusAction: vi.fn(),
+  takeTicketAction: vi.fn(),
 }));
+vi.mock("@/lib/help-desk/read", () => ({ helpdeskRead: vi.fn() }));
 
 vi.mock("react-toastify", () => ({
   toast: { success: vi.fn(), error: vi.fn() },

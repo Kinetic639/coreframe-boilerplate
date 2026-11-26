@@ -1,3 +1,4 @@
+import { getAuthCookieOptions } from "@repo/app-urls";
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { pathnameWithoutLocale, resolveAcceptLanguageLocale } from "@repo/i18n/middleware-utils";
@@ -18,6 +19,7 @@ export const updateSession = async (request: NextRequest) => {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
+        cookieOptions: getAuthCookieOptions(),
         cookies: {
           getAll() {
             return request.cookies.getAll();
@@ -71,9 +73,10 @@ export const updateSession = async (request: NextRequest) => {
       return NextResponse.redirect(signInUrl);
     }
 
-    if (normalizedPathname === "/" && !user.error) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
-    }
+    // A signed-in visitor still sees the public home page (the header offers
+    // "go to the app"). Sending them on to /dashboard here bounced every
+    // "home" link from the ERP straight back to the ERP once the session
+    // became shared across subdomains.
 
     return response;
   } catch (_error) {

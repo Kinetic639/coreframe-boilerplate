@@ -248,6 +248,14 @@
         "tooLarge": "The file is too large (25 MB limit).",
         "typeNotAllowed": "This type of file cannot be attached.",
         "empty": "The file is empty."
+      },
+      "staged": {
+        "addPhoto": "Take a photo",
+        "addFiles": "Add files",
+        "uploading": "Uploading…",
+        "failed": "Not sent",
+        "retry": "Send again: {name}",
+        "remove": "Remove: {name}"
       }
     },
     "richText": {
@@ -274,6 +282,13 @@
         "undo": "Undo",
         "redo": "Redo"
       }
+    },
+    "memberSelector": {
+      "selected": "{count, plural, one {# person selected} other {# people selected}}",
+      "search": "Search people…",
+      "empty": "No people found",
+      "remove": "Remove {name}",
+      "placeholder": "Choose people…"
     }
   },
   "admin": {
@@ -2283,7 +2298,9 @@
         "print": "Print label",
         "printTitle": "Label — {name}",
         "staged": "A new QR code will be created on save",
-        "addNew": "Add a QR code"
+        "addNew": "Add a QR code",
+        "unlabelled": "Unlabelled",
+        "remove": "Remove QR code"
       },
       "templates": {
         "layoutLabel": "Label layout",
@@ -4536,6 +4553,14 @@
         "addComment": "Add Comment",
         "commentAdded": "Comment added.",
         "closeTicket": "Close Ticket",
+        "qr": {
+          "title": "QR code",
+          "unlabelled": "Unlabelled",
+          "unlink": "Unlink",
+          "assign": "Assign QR code",
+          "none": "No QR code assigned.",
+          "unlinked": "QR code unlinked from ticket."
+        },
         "ticketClosed": "Ticket closed.",
         "viewFull": "View Ticket",
         "activityLabel": "Activity",
@@ -4548,7 +4573,8 @@
           "status_changed": "changed the status",
           "assignee_added": "added a responder",
           "assignee_removed": "removed a responder",
-          "ticket_taken": "took the ticket"
+          "ticket_taken": "took the ticket",
+          "ticket_updated": "edited the ticket"
         },
         "acceptance": {
           "label": "Acceptance",
@@ -4577,6 +4603,64 @@
           "waitingRequester": "Waiting for requester",
           "waitingVendor": "Waiting for VGP / supplier",
           "all": "All"
+        },
+        "card": {
+          "close": "Close",
+          "saving": "Saving…",
+          "saved": "Saved",
+          "tabsLabel": "Ticket sections",
+          "tabTicket": "Ticket",
+          "tabDetails": "Details",
+          "tabComments": "Comments",
+          "tabActivity": "Activity",
+          "reportedLine": "Reported by {name} · {date}",
+          "unknown": "Unknown person",
+          "noResponders": "Nobody",
+          "noType": "No type",
+          "clearType": "Remove type",
+          "noDescription": "No description.",
+          "addDescription": "Add a description",
+          "edit": "Edit",
+          "save": "Save",
+          "unsaved": "Unsaved changes",
+          "people": "People",
+          "dates": "Dates",
+          "closedAt": "Closed",
+          "noActivity": "No activity yet.",
+          "system": "System",
+          "changed": {
+            "title": "title",
+            "priority": "priority",
+            "ticket_type_id": "type",
+            "description": "description"
+          },
+          "acceptShort": "Accept"
+        },
+        "edit": {
+          "failed": "Could not save the change to the ticket."
+        },
+        "list": {
+          "ticket": "Ticket",
+          "number": "Number",
+          "assignment": "Assignment",
+          "unassigned": "Unassigned",
+          "preview": "Preview",
+          "close": "Close details",
+          "search": "Search title or number…",
+          "empty": "No tickets match the search and filters.",
+          "loadError": "Could not load data.",
+          "notFound": "Ticket not found or unavailable.",
+          "retry": "Try again",
+          "loading": "Loading…",
+          "countSuffix": "tickets",
+          "within_7d": "Last 7 days",
+          "within_30d": "Last 30 days",
+          "within_90d": "Last 90 days"
+        },
+        "filesNotSent": "Not every file was sent. Send them again or remove them from the list.",
+        "waitingForFiles": "{count, plural, =0 {Sending…} one {Finishing the file upload…} other {Finishing file uploads (#)…}}",
+        "form": {
+          "noType": "No type"
         }
       },
       "features": {
@@ -6096,6 +6180,7 @@
         "preferences": "Preferences",
         "signOut": "Sign Out",
         "home": "Home",
+        "website": "Ambra website",
         "account": "Account",
         "dashboard": "Dashboard",
         "adminPanel": "Admin Panel",
@@ -10422,5 +10507,24 @@
       "selectRow": "Select: {label}",
       "fileName": "list"
     }
+  },
+  "appVersion": {
+    "label": "Version {version}",
+    "whatsNew": "What's new",
+    "whatsNewTitle": "What's new in Ambra",
+    "whatsNewDescription": "Changes from recent releases. You are on version {version}.",
+    "current": "Your version",
+    "kinds": {
+      "major": "Changes that need attention",
+      "minor": "New features",
+      "patch": "Fixes",
+      "other": "Other changes"
+    },
+    "empty": "No changes described yet.",
+    "updateAvailable": "A new version of Ambra is available. Reload the page to use it.",
+    "updateAvailableVersion": "A new version of Ambra ({version}) is available. Reload the page to use it.",
+    "reload": "Reload",
+    "updated": "Ambra was updated to version {version}.",
+    "seeChanges": "See what's new"
   }
 }

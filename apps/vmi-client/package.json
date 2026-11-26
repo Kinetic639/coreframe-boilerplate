@@ -20,6 +20,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@repo/app-urls": "workspace:*",
+    "@repo/app-version": "workspace:*",
     "@repo/auth": "workspace:*",
     "@repo/contracts": "workspace:*",
     "@repo/i18n": "workspace:*",

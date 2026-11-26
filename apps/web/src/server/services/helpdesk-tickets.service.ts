@@ -15,6 +15,7 @@ import type {
 } from "@/lib/validations/helpdesk";
 import type { DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
 import { CommentsService, type AppComment } from "./comments.service";
+import { getAuthUser } from "@/server/auth/get-auth-user";
 import { getSignedAvatarUrls } from "@/server/storage/avatar-signed-url";
 
 // ---------------------------------------------------------------------------
@@ -65,6 +66,20 @@ export interface HelpdeskTicketListRow {
   closed_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Who took the ticket ("Biorę"); absent on rows read before the list RPC. */
+  assigned_to?: string | null;
+  /** Comments and files on the ticket; absent on rows read before the list RPC. */
+  comment_count?: number | null;
+  attachment_count?: number | null;
+}
+
+/** The QR code linked to a ticket. */
+export interface HelpdeskTicketQr {
+  assignmentId: string;
+  qrCodeId: string;
+  token: string;
+  label: string | null;
+  status: string;
 }
 
 export interface HelpdeskTicketDetail extends HelpdeskTicketListRow {
@@ -75,8 +90,14 @@ export interface HelpdeskTicketDetail extends HelpdeskTicketListRow {
   resolved_at: string | null;
   due_at: string | null;
   comments: AppComment[];
+  /** All comments on the ticket and the cursor of the page after `comments`. */
+  comments_total: number;
+  comments_next_cursor: string | null;
   activity: HelpdeskTicketActivity[];
   acceptors: HelpdeskAcceptorInfo[];
+  /** Whether the reader may handle tickets of this ticket's branch. */
+  can_manage: boolean;
+  qr_assignment: HelpdeskTicketQr | null;
 }
 
 export interface HelpdeskTicketComment {
@@ -248,6 +269,183 @@ function ilikeOrValue(raw: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// One-request reads and saves (migration 20261126090000_helpdesk_ticket_rpc)
+// ---------------------------------------------------------------------------
+
+/**
+ * helpdesk_ticket_list(), helpdesk_ticket_view() and the handler saves do in
+ * one request what took 2 to 9. They run as the caller (SECURITY INVOKER),
+ * so RLS decides what they return exactly as for the separate requests.
+ * Until the migration is applied a function is missing: that is remembered
+ * for the process and the separate requests are used, as they are after any
+ * other error of a read.
+ */
+const helpdeskRpcMissing: Record<HelpdeskRpcName, boolean> = {
+  helpdesk_ticket_list: false,
+  helpdesk_ticket_view: false,
+  helpdesk_set_ticket_status: false,
+  helpdesk_take_ticket: false,
+  helpdesk_close_ticket: false,
+  helpdesk_update_ticket: false,
+};
+
+export type HelpdeskRpcName =
+  | "helpdesk_ticket_list"
+  | "helpdesk_ticket_view"
+  | "helpdesk_set_ticket_status"
+  | "helpdesk_take_ticket"
+  | "helpdesk_close_ticket"
+  | "helpdesk_update_ticket";
+
+type RpcOutcome = { data: any } | { error: string } | undefined;
+
+/** The RPC's result, its error, or undefined when the function is not there. */
+async function helpdeskRpc(
+  supabase: SupabaseClient,
+  name: HelpdeskRpcName,
+  args: Record<string, unknown>
+): Promise<RpcOutcome> {
+  if (helpdeskRpcMissing[name]) return undefined;
+  try {
+    const { data, error } = await supabase.rpc(name, args);
+    if (error) {
+      // PGRST202: not in the schema cache; 42883: no such function.
+      if (error.code === "PGRST202" || error.code === "42883") {
+        helpdeskRpcMissing[name] = true;
+        return undefined;
+      }
+      return { error: error.message };
+    }
+    return { data };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Unexpected error" };
+  }
+}
+
+/** For tests: forget that an RPC was missing. */
+export function resetHelpdeskRpcState(): void {
+  for (const key of Object.keys(helpdeskRpcMissing) as HelpdeskRpcName[]) {
+    helpdeskRpcMissing[key] = false;
+  }
+}
+
+type RpcUser = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  avatar_path: string | null;
+} | null;
+
+type RpcAssignee = { user_id: string; role: AssigneeRole; status: AssigneeStatus; user: RpcUser };
+
+/** Users with a private avatar in rows from the RPCs, to sign in one call. */
+function rpcAvatarEntries(users: RpcUser[]): Array<{ userId: string; avatarPath: string }> {
+  const seen = new Set<string>();
+  const entries: Array<{ userId: string; avatarPath: string }> = [];
+  for (const u of users) {
+    if (!u?.avatar_path?.startsWith(`${u.id}/`) || seen.has(u.id)) continue;
+    seen.add(u.id);
+    entries.push({ userId: u.id, avatarPath: u.avatar_path });
+  }
+  return entries;
+}
+
+function rpcRowUsers(raw: any): RpcUser[] {
+  return [
+    raw?.creator ?? null,
+    raw?.acceptor ?? null,
+    ...((raw?.assignees ?? []) as RpcAssignee[]).map((a) => a.user),
+  ];
+}
+
+function rpcAvatar(u: RpcUser, signed: Map<string, string>): string | null {
+  return u ? resolveAvatarUrl(u.id, u.avatar_url, u.avatar_path, signed) : null;
+}
+
+/** A helpdesk_ticket_row_json() result as a list row. */
+export function ticketRowFromRpc(raw: any, signed: Map<string, string>): HelpdeskTicketListRow {
+  const type = raw.ticket_type as { name: string; color: string; icon: string } | null;
+  const creator = raw.creator as RpcUser;
+  const acceptor = raw.acceptor as RpcUser;
+  return {
+    id: raw.id,
+    org_id: raw.org_id,
+    ticket_number: raw.ticket_number,
+    title: raw.title,
+    status: raw.status as TicketStatus,
+    priority: raw.priority as TicketPriority,
+    ticket_type_id: raw.ticket_type_id ?? null,
+    ticket_type_name: type?.name ?? null,
+    ticket_type_color: type?.color ?? null,
+    ticket_type_icon: type?.icon ?? null,
+    created_by: raw.created_by,
+    creator_name: creator
+      ? displayName(creator.first_name, creator.last_name, creator.email)
+      : null,
+    creator_email: creator?.email ?? null,
+    creator_avatar_url: rpcAvatar(creator, signed),
+    creator_profile_href: raw.created_by ? memberProfileHref(raw.created_by) : null,
+    assignees: ((raw.assignees ?? []) as RpcAssignee[]).map((a) => ({
+      user_id: a.user_id,
+      role: a.role,
+      status: a.status,
+      name: a.user ? displayName(a.user.first_name, a.user.last_name, a.user.email) : null,
+      email: a.user?.email ?? null,
+      avatar_url: rpcAvatar(a.user, signed),
+      profile_href: memberProfileHref(a.user_id),
+    })),
+    requires_acceptance: raw.requires_acceptance ?? false,
+    accepted_by: raw.accepted_by ?? null,
+    accepted_at: raw.accepted_at ?? null,
+    accepted_by_name: acceptor
+      ? displayName(acceptor.first_name, acceptor.last_name, acceptor.email)
+      : null,
+    accepted_by_avatar_url: rpcAvatar(acceptor, signed),
+    branch_id: raw.branch_id ?? null,
+    closed_at: raw.closed_at ?? null,
+    created_at: raw.created_at,
+    updated_at: raw.updated_at,
+    assigned_to: raw.assigned_to ?? null,
+    comment_count: typeof raw.comment_count === "number" ? raw.comment_count : null,
+    attachment_count: typeof raw.attachment_count === "number" ? raw.attachment_count : null,
+  };
+}
+
+/** A ticket row from a save RPC, avatars signed. */
+async function savedTicketRow(raw: any): Promise<HelpdeskTicketListRow | null> {
+  if (!raw?.id) return null;
+  const signed = await batchSignAvatarUrls(rpcAvatarEntries(rpcRowUsers(raw)));
+  return ticketRowFromRpc(raw, signed);
+}
+
+function asArray(value: unknown): string[] | null {
+  if (value === null || value === undefined || value === "") return null;
+  const list = (Array.isArray(value) ? value : [value]).map(String).filter(Boolean);
+  return list.length ? list : null;
+}
+
+/** The QR code row as qr_assignments selects it with its code. */
+function qrFromRow(row: any): HelpdeskTicketQr | null {
+  if (!row) return null;
+  const code = (Array.isArray(row.qr_codes) ? row.qr_codes[0] : row.qr_codes) as {
+    token: string;
+    label: string | null;
+    status: string;
+  } | null;
+  return {
+    assignmentId: row.id as string,
+    qrCodeId: row.qr_code_id as string,
+    token: code?.token ?? "",
+    label: code?.label ?? null,
+    status: code?.status ?? "active",
+  };
+}
+
+const COMMENTS_PAGE = 50;
+
+// ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
 
@@ -261,6 +459,38 @@ export class HelpdeskTicketsService {
   ): Promise<ServiceResult<PaginatedResult<HelpdeskTicketListRow>>> {
     const { search, sort, page, pageSize, filters } = params;
     const offset = (page - 1) * pageSize;
+
+    // One request when the database has helpdesk_ticket_list().
+    const rpc = await helpdeskRpc(supabase, "helpdesk_ticket_list", {
+      p_org_id: orgId,
+      p_search: search || null,
+      p_status: asArray(filters.status),
+      p_priority: asArray(filters.priority),
+      p_type_ids: asArray(filters.ticketTypeId),
+      p_branch_ids: asArray(filters.branchId),
+      p_created_by: asArray(filters.createdBy),
+      p_assigned_to: asArray(filters.assignedTo),
+      p_unassigned: filters.unassigned === true,
+      p_created_from: (filters.createdAtFrom as string | null | undefined) ?? null,
+      p_created_to: (filters.createdAtTo as string | null | undefined) ?? null,
+      p_sort: sort?.field ?? "created_at",
+      p_desc: sort?.direction !== "asc",
+      p_limit: pageSize,
+      p_offset: offset,
+    });
+    if (rpc && "data" in rpc && rpc.data) {
+      const rawRows = (rpc.data.rows ?? []) as any[];
+      const signed = await batchSignAvatarUrls(rpcAvatarEntries(rawRows.flatMap(rpcRowUsers)));
+      return {
+        success: true,
+        data: {
+          rows: rawRows.map((raw) => ticketRowFromRpc(raw, signed)),
+          totalCount: Number(rpc.data.total ?? 0),
+          page,
+          pageSize,
+        },
+      };
+    }
 
     // Resolve assignedTo filter: get ticket IDs where any of the selected users are assignees
     let assignedToTicketIds: string[] | null = null;
@@ -525,6 +755,87 @@ export class HelpdeskTicketsService {
     orgId: string,
     ticketNumber: string
   ): Promise<ServiceResult<HelpdeskTicketDetail | null>> {
+    // One request when the database has helpdesk_ticket_view().
+    const rpc = await helpdeskRpc(supabase, "helpdesk_ticket_view", {
+      p_org_id: orgId,
+      p_ticket_number: ticketNumber,
+      p_comment_limit: COMMENTS_PAGE,
+    });
+    if (rpc && "data" in rpc) {
+      if (!rpc.data) return { success: true, data: null };
+      return HelpdeskTicketsService.detailFromView(supabase, orgId, rpc.data);
+    }
+    return HelpdeskTicketsService.getDetailSeparately(supabase, orgId, ticketNumber);
+  }
+
+  /** A helpdesk_ticket_view() result as getDetail returns it. */
+  private static async detailFromView(
+    supabase: SupabaseClient,
+    orgId: string,
+    view: any
+  ): Promise<ServiceResult<HelpdeskTicketDetail>> {
+    const raw = view.ticket;
+    const acceptorRows = (view.acceptors ?? []) as Array<{ user_id: string; user: RpcUser }>;
+    const users = [...rpcRowUsers(raw), ...acceptorRows.map((a) => a.user)];
+    // Avatars and comment authors are independent: one wave.
+    const [signed, comments] = await Promise.all([
+      batchSignAvatarUrls(rpcAvatarEntries(users)),
+      CommentsService.pageFromRows(
+        supabase,
+        orgId,
+        (view.comments ?? []) as unknown[],
+        COMMENTS_PAGE,
+        Number(raw.comment_count ?? 0)
+      ),
+    ]);
+    if (!comments.success) return comments as { success: false; error: string };
+
+    const row = ticketRowFromRpc(raw, signed);
+    const activity: HelpdeskTicketActivity[] = ((view.activity ?? []) as any[]).map((a) => ({
+      id: a.id,
+      ticket_id: a.ticket_id,
+      org_id: a.org_id,
+      actor_id: a.actor_id ?? null,
+      actor_name: a.actor
+        ? displayName(a.actor.first_name, a.actor.last_name, a.actor.email)
+        : null,
+      event_type: a.event_type,
+      payload: a.payload ?? null,
+      created_at: a.created_at,
+    }));
+    return {
+      success: true,
+      data: {
+        ...row,
+        description: raw.description ?? null,
+        description_plain: raw.description_plain ?? null,
+        description_rich: raw.description_rich ?? null,
+        closed_by: raw.closed_by ?? null,
+        resolved_at: raw.resolved_at ?? null,
+        due_at: raw.due_at ?? null,
+        comments: comments.data.rows,
+        comments_total: comments.data.totalCount,
+        comments_next_cursor: comments.data.nextCursor,
+        activity,
+        acceptors: acceptorRows.map(({ user_id, user }) => ({
+          user_id,
+          name: user ? displayName(user.first_name, user.last_name, user.email) : null,
+          email: user?.email ?? null,
+          avatar_url: rpcAvatar(user, signed),
+          profile_href: memberProfileHref(user_id),
+        })),
+        can_manage: view.can_manage === true,
+        qr_assignment: qrFromRow(view.qr),
+      },
+    };
+  }
+
+  /** getDetail without helpdesk_ticket_view(): the separate requests. */
+  private static async getDetailSeparately(
+    supabase: SupabaseClient,
+    orgId: string,
+    ticketNumber: string
+  ): Promise<ServiceResult<HelpdeskTicketDetail | null>> {
     // Ticket + type + creator — look up by human-readable ticket_number
     const { data: ticketRaw, error } = await supabase
       .from("helpdesk_tickets")
@@ -532,7 +843,8 @@ export class HelpdeskTicketsService {
         [
           "*,",
           "ticket_type:helpdesk_ticket_types!ticket_type_id(id,name,color,icon),",
-          "creator:users!created_by(id,first_name,last_name,email,avatar_url,avatar_path)",
+          "creator:users!created_by(id,first_name,last_name,email,avatar_url,avatar_path),",
+          "acceptor:users!accepted_by(id,first_name,last_name,email,avatar_url,avatar_path)",
         ].join("")
       )
       .eq("ticket_number", ticketNumber)
@@ -548,34 +860,56 @@ export class HelpdeskTicketsService {
     const ticketId = ticket.id as string;
 
     // Assignees, comments, activity, acceptors — all independent, fetch in parallel
-    const [{ data: assigneeRows }, commentsResult, { data: activityRows }, { data: acceptorRows }] =
-      await Promise.all([
-        supabase
-          .from("helpdesk_ticket_assignees")
-          .select(
-            "user_id, role, status, user:users!user_id(id,first_name,last_name,email,avatar_url,avatar_path)"
+    const {
+      data: { user: authUser },
+    } = await getAuthUser();
+    const [
+      { data: assigneeRows },
+      commentsResult,
+      { data: activityRows },
+      { data: acceptorRows },
+      { data: qrRow },
+      canManage,
+    ] = await Promise.all([
+      supabase
+        .from("helpdesk_ticket_assignees")
+        .select(
+          "user_id, role, status, user:users!user_id(id,first_name,last_name,email,avatar_url,avatar_path)"
+        )
+        .eq("ticket_id", ticketId)
+        .is("deleted_at", null),
+      CommentsService.listForTarget(supabase, orgId, {
+        targetType: "helpdesk.ticket",
+        targetId: ticketId,
+        pageSize: COMMENTS_PAGE,
+      }),
+      supabase
+        .from("helpdesk_ticket_activity")
+        .select("*, actor:users!actor_id(id,first_name,last_name,email)")
+        .eq("ticket_id", ticketId)
+        .eq("org_id", orgId)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabase
+        .from("helpdesk_ticket_acceptors")
+        .select("user_id, user:users!user_id(id,first_name,last_name,email,avatar_url,avatar_path)")
+        .eq("ticket_id", ticketId),
+      supabase
+        .from("qr_assignments")
+        .select("id, qr_code_id, qr_codes!qr_assignments_qr_code_id_fkey(token, label, status)")
+        .eq("target_type", "helpdesk.ticket")
+        .eq("target_id", ticketId)
+        .is("revoked_at", null)
+        .maybeSingle(),
+      authUser
+        ? HelpdeskTicketsService.canManageBranch(
+            supabase,
+            orgId,
+            authUser.id,
+            (ticket.branch_id as string | null) ?? null
           )
-          .eq("ticket_id", ticketId)
-          .is("deleted_at", null),
-        CommentsService.listForTarget(supabase, orgId, {
-          targetType: "helpdesk.ticket",
-          targetId: ticketId,
-          pageSize: 50,
-        }),
-        supabase
-          .from("helpdesk_ticket_activity")
-          .select("*, actor:users!actor_id(id,first_name,last_name,email)")
-          .eq("ticket_id", ticketId)
-          .eq("org_id", orgId)
-          .order("created_at", { ascending: false })
-          .limit(50),
-        supabase
-          .from("helpdesk_ticket_acceptors")
-          .select(
-            "user_id, user:users!user_id(id,first_name,last_name,email,avatar_url,avatar_path)"
-          )
-          .eq("ticket_id", ticketId),
-      ]);
+        : Promise.resolve(false),
+    ]);
 
     if (!commentsResult.success) return commentsResult as { success: false; error: string };
 
@@ -639,6 +973,10 @@ export class HelpdeskTicketsService {
     const detailAvatarEntries: Array<{ userId: string; avatarPath: string }> = [];
     if (creator?.avatar_path?.startsWith(`${creator.id}/`)) {
       detailAvatarEntries.push({ userId: creator.id, avatarPath: creator.avatar_path });
+    }
+    const acceptorUser = ticket.acceptor as RpcUser;
+    if (acceptorUser?.avatar_path?.startsWith(`${acceptorUser.id}/`)) {
+      detailAvatarEntries.push({ userId: acceptorUser.id, avatarPath: acceptorUser.avatar_path });
     }
     assignees.forEach((a) => {
       const ap = (a as RawAssignee)._avatar_path;
@@ -708,12 +1046,15 @@ export class HelpdeskTicketsService {
       requires_acceptance: (ticket.requires_acceptance as boolean) ?? false,
       accepted_by: (ticket.accepted_by as string | null) ?? null,
       accepted_at: (ticket.accepted_at as string | null) ?? null,
-      accepted_by_name: null,
-      accepted_by_avatar_url: null,
+      accepted_by_name: acceptorUser
+        ? displayName(acceptorUser.first_name, acceptorUser.last_name, acceptorUser.email)
+        : null,
+      accepted_by_avatar_url: rpcAvatar(acceptorUser, detailSignedUrls),
       branch_id: (ticket.branch_id as string | null) ?? null,
       closed_at: (ticket.closed_at as string | null) ?? null,
       created_at: ticket.created_at as string,
       updated_at: ticket.updated_at as string,
+      assigned_to: (ticket.assigned_to as string | null) ?? null,
       description: (ticket.description as string | null) ?? null,
       description_plain: (ticket.description_plain as string | null) ?? null,
       description_rich: ticket.description_rich ?? null,
@@ -721,8 +1062,12 @@ export class HelpdeskTicketsService {
       resolved_at: (ticket.resolved_at as string | null) ?? null,
       due_at: (ticket.due_at as string | null) ?? null,
       comments: commentsResult.data.rows,
+      comments_total: commentsResult.data.totalCount,
+      comments_next_cursor: commentsResult.data.nextCursor,
       activity,
       acceptors,
+      can_manage: canManage,
+      qr_assignment: qrFromRow(qrRow),
     };
 
     return { success: true, data: detail };
@@ -867,6 +1212,66 @@ export class HelpdeskTicketsService {
         updated_at: data.updated_at as string,
       },
     };
+  }
+
+  // ── Handler saves in one request ──────────────────────────────────────────
+
+  /**
+   * A handler save (status, take, close) in one request that also writes the
+   * activity entry, returning the ticket as a list row for the client's cache.
+   * Undefined when the function is not in the database yet: the caller runs
+   * the separate steps below.
+   */
+  static async saveViaRpc(
+    supabase: SupabaseClient,
+    name: Exclude<HelpdeskRpcName, "helpdesk_ticket_list" | "helpdesk_ticket_view">,
+    args: Record<string, unknown>
+  ): Promise<ServiceResult<HelpdeskTicketListRow | null> | undefined> {
+    const rpc = await helpdeskRpc(supabase, name, args);
+    if (!rpc) return undefined;
+    if ("error" in rpc) return { success: false, error: rpc.error };
+    return { success: true, data: await savedTicketRow(rpc.data) };
+  }
+
+  /** The fields of a card edit that are set, in the shape helpdesk_update_ticket takes. */
+  static ticketFieldChanges(fields: {
+    title?: string;
+    description_plain?: string | null;
+    description_rich?: unknown;
+    priority?: string;
+    ticket_type_id?: string | null;
+  }): Record<string, unknown> {
+    const changes: Record<string, unknown> = {};
+    if (fields.title !== undefined) changes.title = fields.title.trim();
+    if (fields.priority !== undefined) changes.priority = fields.priority;
+    if (fields.ticket_type_id !== undefined) changes.ticket_type_id = fields.ticket_type_id;
+    if (fields.description_plain !== undefined || fields.description_rich !== undefined) {
+      changes.description_plain = fields.description_plain ?? null;
+      changes.description_rich = compactRichInput(
+        (fields.description_rich as object | null | undefined) ?? null
+      );
+    }
+    return changes;
+  }
+
+  /** A card edit without helpdesk_update_ticket (RLS decides who may update). */
+  static async updateFields(
+    supabase: SupabaseClient,
+    orgId: string,
+    ticketId: string,
+    changes: Record<string, unknown>
+  ): Promise<ServiceResult<void>> {
+    const { data, error } = await supabase
+      .from("helpdesk_tickets")
+      .update({ ...changes, updated_at: new Date().toISOString() })
+      .eq("id", ticketId)
+      .eq("org_id", orgId)
+      .is("deleted_at", null)
+      .not("status", "in", "(closed,cancelled)")
+      .select("id");
+    if (error) return { success: false, error: error.message };
+    if (!data?.length) return { success: false, error: "Insufficient permissions" };
+    return { success: true, data: undefined };
   }
 
   // ── Handling (Ambra Zapytania, step 5b) ─────────────────────────────────────

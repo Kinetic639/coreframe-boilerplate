@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockRefresh, mockSignOut, mockSuccess, mockError } = vi.hoisted(() => ({
+const { localeMock, mockRefresh, mockSignOut, mockSuccess, mockError } = vi.hoisted(() => ({
+  localeMock: vi.fn(() => "pl"),
   mockRefresh: vi.fn(),
   mockSignOut: vi.fn(),
   mockSuccess: vi.fn(),
@@ -59,6 +60,7 @@ vi.mock("@/utils/supabase/client", () => ({
 }));
 
 vi.mock("next-intl", () => ({
+  useLocale: () => localeMock(),
   useTranslations: (ns?: string) => (key: string) => {
     if (ns === "auth.logout") {
       return { button: "Log out", loggingOut: "Logging out" }[key] ?? key;
@@ -77,22 +79,33 @@ vi.mock("react-toastify", () => ({
 import { PublicHeaderAuth } from "../PublicHeaderAuth";
 
 describe("PublicHeaderAuth", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   beforeEach(() => {
+    vi.stubEnv("NODE_ENV", "production");
+    localeMock.mockReturnValue("pl");
     vi.clearAllMocks();
   });
 
-  it("renders the sign-in menu for guests", () => {
+  it("links guests to the one shared sign-in page", () => {
     render(<PublicHeaderAuth userContext={null} />);
 
-    // One sign-in button opens a menu with both portals.
-    fireEvent.click(screen.getByRole("button", { name: /signIn/ }));
-    expect(screen.getByRole("menuitem", { name: "Ambra ERP" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /signIn/ })).toHaveAttribute(
       "href",
-      "https://app.ambra-system.com/sign-in"
+      "https://app.ambra-system.com/logowanie"
     );
-    expect(screen.getByRole("menuitem", { name: "VMI portal" })).toHaveAttribute(
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("uses the English sign-in page on the English site", () => {
+    localeMock.mockReturnValue("en");
+    render(<PublicHeaderAuth userContext={null} />);
+
+    expect(screen.getByRole("link", { name: /signIn/ })).toHaveAttribute(
       "href",
-      "https://vmi.ambra-system.com/sign-in"
+      "https://app.ambra-system.com/en/sign-in"
     );
   });
 

@@ -15,7 +15,7 @@ import { ticketDetailQuery, ticketListQuery, type TicketList } from "./tickets-q
 import { ticketHref, ticketParsers } from "./tickets-state";
 
 /** How long the pointer rests on a row before its card is fetched. */
-const HOVER_INTENT_MS = 150;
+const HOVER_INTENT_MS = 300;
 
 const EMPTY_LIST: TicketList = { rows: [], totalCount: 0, page: 1, pageSize: 50 };
 
@@ -35,7 +35,6 @@ export function HelpDeskTicketsWorkspace({
   labels,
   configs,
   branchNames,
-  canManage,
   currentUserId,
   ticketPathTemplate,
 }: {
@@ -48,7 +47,6 @@ export function HelpDeskTicketsWorkspace({
   labels: Record<string, string>;
   configs: TicketBadgeConfigs;
   branchNames: Record<string, string>;
-  canManage: boolean;
   currentUserId: string;
   ticketPathTemplate: string;
 }) {
@@ -183,7 +181,6 @@ export function HelpDeskTicketsWorkspace({
             orgId={orgId}
             labels={labels}
             configs={configs}
-            canManage={canManage}
             currentUserId={currentUserId}
             fullPath={ticketPath(state.selected)}
             onClose={() => preview(null)}
@@ -200,7 +197,6 @@ function TicketRecordPanel({
   orgId,
   labels,
   configs,
-  canManage,
   currentUserId,
   fullPath,
   onClose,
@@ -211,7 +207,6 @@ function TicketRecordPanel({
   orgId: string;
   labels: Record<string, string>;
   configs: TicketBadgeConfigs;
-  canManage: boolean;
   currentUserId: string;
   fullPath: string;
   onClose: () => void;
@@ -222,28 +217,30 @@ function TicketRecordPanel({
       aria-labelledby="helpdesk-ticket-panel-title"
       className="dt-list-panel fixed inset-y-0 right-0 z-[var(--z-modal)] flex w-full max-w-3xl flex-col overflow-hidden border-l bg-background shadow-2xl xl:static xl:z-auto xl:min-w-0 xl:flex-1 xl:max-w-none xl:shadow-none"
     >
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label={labels.close}
-        >
-          <X className="size-4" />
-          <span className="hidden sm:inline">{labels.title}</span>
-        </button>
-        <span className="text-muted-foreground/50">/</span>
-        <span id="helpdesk-ticket-panel-title" className="truncate font-mono text-sm">
-          {ticketNumber}
-        </span>
-        <Link
-          href={fullPath}
-          className="ml-auto inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-3 text-xs font-medium hover:bg-muted"
-        >
-          <ExternalLink className="size-3.5" />
-          {labels.viewFull}
-        </Link>
-      </header>
+      {!query.data ? (
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label={labels.close}
+          >
+            <X className="size-4" />
+            <span className="hidden sm:inline">{labels.title}</span>
+          </button>
+          <span className="text-muted-foreground/50">/</span>
+          <span id="helpdesk-ticket-panel-title" className="truncate font-mono text-sm">
+            {ticketNumber}
+          </span>
+          <Link
+            href={fullPath}
+            className="ml-auto inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-3 text-xs font-medium hover:bg-muted"
+          >
+            <ExternalLink className="size-3.5" />
+            {labels.viewFull}
+          </Link>
+        </header>
+      ) : null}
       {query.isPending ? (
         <div className="space-y-4 p-5" aria-busy="true" aria-label={labels.loading}>
           {row ? (
@@ -272,16 +269,14 @@ function TicketRecordPanel({
         </div>
       ) : null}
       {query.data ? (
-        <div className="min-h-0 flex-1 overflow-y-auto p-5">
-          <TicketDetailPanel
-            key={query.data.id}
-            detail={query.data}
-            canManage={canManage}
-            currentUserId={currentUserId}
-            statusConfigs={configs.status}
-            priorityConfigs={configs.priority}
-          />
-        </div>
+        <TicketDetailPanel
+          key={query.data.id}
+          detail={query.data}
+          currentUserId={currentUserId}
+          statusConfigs={configs.status}
+          priorityConfigs={configs.priority}
+          navigation={{ onClose, openFull: true }}
+        />
       ) : null}
     </aside>
   );

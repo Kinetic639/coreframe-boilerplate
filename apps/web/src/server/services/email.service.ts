@@ -3,6 +3,7 @@ import { render } from "@react-email/render";
 import { PasswordResetEmail } from "@/components/emails/password-reset";
 import { WelcomeEmail as WelcomeEmailTemplate } from "@/components/emails/welcome";
 import { InvitationEmail as InvitationEmailTemplate } from "@/components/emails/invitation";
+import { buildSignInUrl, getAppUrl } from "@repo/app-urls";
 
 const invitationStrings = {
   pl: {
@@ -204,7 +205,7 @@ The Ambra Team
     email: string,
     firstName: string
   ): Promise<EmailServiceResult> {
-    const loginLink = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/sign-in`;
+    const loginLink = buildSignInUrl();
     const html = await render(WelcomeEmailTemplate({ firstName, loginLink }));
 
     const text = `
@@ -256,7 +257,7 @@ The Ambra Team
     invitationLink: string,
     locale: "pl" | "en" = "pl"
   ): Promise<EmailServiceResult> {
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://ambra-system.com";
+    const siteUrl = getAppUrl("site");
 
     const strings = invitationStrings[locale];
     const body = strings.body(inviterName, organizationName);
@@ -319,7 +320,7 @@ The Ambra Team
               Your account has been created successfully, and you can now access all the features of our platform.
             </p>
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/sign-in" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+              <a href="${buildSignInUrl()}" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                 Get Started
               </a>
             </div>
@@ -341,7 +342,7 @@ Welcome to Ambra! We're excited to have you on board.
 
 Your account has been created successfully, and you can now access all the features of our platform.
 
-Get started: ${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/sign-in
+Get started: ${buildSignInUrl()}
 
 If you have any questions, feel free to reach out to our support team.
 

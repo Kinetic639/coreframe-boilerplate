@@ -3,8 +3,7 @@ import { cookies } from "next/headers";
 import { dehydrate, HydrationBoundary, QueryClient } from "@tanstack/react-query";
 import { redirect as redirectUrl } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { Plus } from "lucide-react";
-import { getPathname, Link, redirect } from "@/i18n/navigation";
+import { getPathname, redirect } from "@/i18n/navigation";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
@@ -18,11 +17,11 @@ import { HelpdeskTicketTypesService } from "@/server/services/helpdesk-ticket-ty
 import { OrgMembersService } from "@/server/services/organization.service";
 import { TICKET_PRIORITIES, TICKET_STATUSES } from "@/lib/validations/helpdesk";
 import { parseLayout, parseWidths } from "@/components/data-table/columns";
-import { Button } from "@/components/ui/button";
 import { TicketFilters, TicketQueues, TicketsTotal } from "./_components/tickets-controls";
 import { ticketKeys } from "./_components/tickets-query";
 import { ticketColumnSet } from "./_components/tickets-table";
 import { HelpDeskTicketsWorkspace } from "./_components/tickets-workspace";
+import { NewTicketDialog } from "./_components/new-ticket-dialog";
 import {
   loadTicketState,
   migrateTicketSearchParams,
@@ -71,12 +70,16 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
 
   const orgId = context.app.activeOrgId;
   const supabase = await createClient();
-  const [ticketsResult, typesResult, membersResult, settingsResult] = await Promise.all([
-    HelpdeskTicketsService.listForDataView(supabase, orgId, ticketListParams(state)),
-    HelpdeskTicketTypesService.list(supabase, orgId, false),
-    OrgMembersService.listMembers(supabase, orgId),
-    HelpdeskTicketTypesService.getSettings(supabase, orgId),
-  ]);
+  // A link with an open ticket (?selected=HD-…) brings its card in the same
+  // wave, so the panel renders complete in the first HTML.
+  const [ticketsResult, typesResult, membersResult, settingsResult, selectedResult] =
+    await Promise.all([
+      HelpdeskTicketsService.listForDataView(supabase, orgId, ticketListParams(state)),
+      HelpdeskTicketTypesService.list(supabase, orgId, false),
+      OrgMembersService.listMembers(supabase, orgId),
+      HelpdeskTicketTypesService.getSettings(supabase, orgId),
+      state.selected ? HelpdeskTicketsService.getDetail(supabase, orgId, state.selected) : null,
+    ]);
 
   const data = ticketsResult.success
     ? ticketsResult.data
@@ -92,19 +95,21 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
   if (ticketsResult.success) {
     queryClient.setQueryData(ticketKeys.list(orgId, state), ticketsResult.data);
   }
+  if (state.selected && selectedResult?.success && selectedResult.data) {
+    queryClient.setQueryData(ticketKeys.detail(orgId, state.selected), selectedResult.data);
+  }
 
   const canCreate = checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_CREATE);
   const canManage = checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_MANAGE);
   const settings = settingsResult.success ? settingsResult.data : null;
   const statusConfigs = settings?.status_configs ?? null;
   const priorityConfigs = settings?.priority_configs ?? null;
-  const pl = locale === "pl";
 
   const labels: Record<string, string> = {
     locale,
     title: t("pages.tickets.title"),
-    ticket: pl ? "Zgłoszenie" : "Ticket",
-    number: pl ? "Numer" : "Number",
+    ticket: t("tickets.list.ticket"),
+    number: t("tickets.list.number"),
     type: t("tickets.columns.type"),
     status: t("tickets.columns.status"),
     priority: t("tickets.columns.priority"),
@@ -116,8 +121,8 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
     updatedAt: t("tickets.columns.updatedAt"),
     accepted: t("tickets.acceptance.accepted"),
     acceptancePending: t("tickets.acceptance.pending"),
-    assignment: pl ? "Przypisanie" : "Assignment",
-    unassigned: pl ? "Nieprzypisane" : "Unassigned",
+    assignment: t("tickets.list.assignment"),
+    unassigned: t("tickets.list.unassigned"),
     queues: t("tickets.queues.label"),
     queue_unassigned: t("tickets.queues.unassigned"),
     queue_mine: t("tickets.queues.mine"),
@@ -125,22 +130,20 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
     queue_waitingVendor: t("tickets.queues.waitingVendor"),
     queue_all: t("tickets.queues.all"),
     viewFull: t("tickets.viewFull"),
-    preview: pl ? "Podgląd" : "Preview",
-    close: pl ? "Zamknij szczegóły" : "Close details",
-    search: pl ? "Szukaj tytułu lub numeru…" : "Search title or number…",
-    empty: pl
-      ? "Brak zgłoszeń pasujących do wyszukiwania i filtrów."
-      : "No tickets match the search and filters.",
-    loadError: pl ? "Nie udało się wczytać danych." : "Could not load data.",
-    notFound: pl
-      ? "Zgłoszenie nie istnieje lub nie jest dostępne."
-      : "Ticket not found or unavailable.",
-    retry: pl ? "Spróbuj ponownie" : "Try again",
-    loading: pl ? "Wczytywanie…" : "Loading…",
-    countSuffix: pl ? "zgłoszeń" : "tickets",
-    within_7d: pl ? "Ostatnie 7 dni" : "Last 7 days",
-    within_30d: pl ? "Ostatnie 30 dni" : "Last 30 days",
-    within_90d: pl ? "Ostatnie 90 dni" : "Last 90 days",
+    comments: t("tickets.comments"),
+    attachments: t("tickets.fields.attachments"),
+    preview: t("tickets.list.preview"),
+    close: t("tickets.list.close"),
+    search: t("tickets.list.search"),
+    empty: t("tickets.list.empty"),
+    loadError: t("tickets.list.loadError"),
+    notFound: t("tickets.list.notFound"),
+    retry: t("tickets.list.retry"),
+    loading: t("tickets.list.loading"),
+    countSuffix: t("tickets.list.countSuffix"),
+    within_7d: t("tickets.list.within_7d"),
+    within_30d: t("tickets.list.within_30d"),
+    within_90d: t("tickets.list.within_90d"),
   };
   for (const status of TICKET_STATUSES) {
     labels[`status_${status}`] =
@@ -189,12 +192,22 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
         {count}
       </div>
       {canCreate ? (
-        <Button asChild size="sm">
-          <Link href="/dashboard/help-desk/tickets/new">
-            <Plus className="mr-1.5 size-3.5" />
-            {t("tickets.createTicket")}
-          </Link>
-        </Button>
+        <NewTicketDialog
+          orgId={orgId}
+          ticketTypes={typesResult.success ? typesResult.data : []}
+          members={
+            membersResult.success
+              ? membersResult.data.map((m) => ({
+                  user_id: m.user_id,
+                  name: [m.user_first_name, m.user_last_name].filter(Boolean).join(" ") || null,
+                  email: m.user_email,
+                  avatar_url: m.user_avatar_url ?? null,
+                }))
+              : []
+          }
+          activeBranchId={branchId}
+          priorityConfigs={priorityConfigs}
+        />
       ) : null}
     </header>
   );
@@ -222,7 +235,6 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
           labels={labels}
           configs={{ status: statusConfigs, priority: priorityConfigs }}
           branchNames={branchNames}
-          canManage={canManage}
           currentUserId={userId}
           ticketPathTemplate={ticketPathTemplate}
         />

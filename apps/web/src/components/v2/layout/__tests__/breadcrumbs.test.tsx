@@ -30,7 +30,7 @@ describe("Breadcrumbs", () => {
 
     render(<Breadcrumbs />);
 
-    expect(screen.getByRole("link", { name: "" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "" })).toHaveAttribute("href", "/dashboard/start");
     expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/dashboard");
     expect(screen.getByRole("link", { name: "Warehouse" })).toHaveAttribute(
       "href",

@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/sidebar";
 import { motion, AnimatePresence } from "framer-motion";
 import { NavUser } from "@/components/nav-user";
+import { AppVersionHost, SidebarVersion } from "@/components/app-version";
 import { SidebarBranchSwitcher } from "./sidebar-branch-switcher";
 import { SidebarOrgHeader } from "./sidebar-org-header";
 import type { BranchDataV2 } from "@/lib/stores/v2/app-store";
@@ -974,6 +975,7 @@ function AppSidebar({
       </SidebarContent>
       <SidebarFooter className="bg-muted border-t">
         <NavUser user={userData} isAdmin={isAdmin} />
+        <SidebarVersion />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
@@ -1044,6 +1046,8 @@ export function DashboardShell({
           </SidebarInset>
         </MessagesRoot>
       </SearchSourcesProvider>
+      {/* Version: "What's new" window and the reload prompt after a deployment */}
+      <AppVersionHost />
     </SidebarProvider>
   );
 }

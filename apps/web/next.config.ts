@@ -1,17 +1,36 @@
 import path from "path";
 import { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { readFileSync } from "node:fs";
 
+// The Ambra system version (packages/app-version, docs/versioning.md) and the commit of this
+// build, shown in the app and sent with reports. Both are fixed when the app is built.
+const appVersion = (
+  JSON.parse(
+    readFileSync(path.join(__dirname, "../../packages/app-version/package.json"), "utf8")
+  ) as { version: string }
+).version;
+
+// The public website (apps/public-web), resolved like @repo/app-urls' getAppUrl("site").
 const publicSiteUrl =
-  process.env.NEXT_PUBLIC_MARKETING_SITE_URL ??
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  "https://www.ambra-system.com";
+  process.env.NEXT_PUBLIC_AMBRA_SITE_URL ??
+  (process.env.NODE_ENV === "production" ? "https://ambra-system.com" : "http://127.0.0.1:3002");
 const isProduction = process.env.NODE_ENV === "production";
 const permanentPublicRedirects = isProduction;
 
 export const nextConfig = {
+  env: {
+    NEXT_PUBLIC_APP_VERSION: appVersion,
+    NEXT_PUBLIC_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA ?? "",
+  },
   reactStrictMode: true,
-  transpilePackages: ["@repo/ui", "@repo/i18n", "@repo/rich-text"],
+  transpilePackages: [
+    "@repo/ui",
+    "@repo/i18n",
+    "@repo/rich-text",
+    "@repo/app-urls",
+    "@repo/app-version",
+  ],
   allowedDevOrigins: [
     "localhost:3001",
     "127.0.0.1:3001",

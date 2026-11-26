@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
+import { appUrl } from "@repo/app-urls";
 import {
   AmbraPublicHeader,
   buildAmbraPublicHeaderConfig,
@@ -86,13 +87,13 @@ function useHeaderConfig(showPricing: boolean): AmbraPublicHeaderConfig {
                 icon: Handshake,
                 title: t("dropdowns.vmi.items.vmiSignIn.title"),
                 description: t("dropdowns.vmi.items.vmiSignIn.description"),
-                href: "https://vmi.ambra-system.com/sign-in",
+                href: appUrl("vmi", "/sign-in"),
               },
               {
                 icon: Boxes,
                 title: t("dropdowns.vmi.items.vmiPortal.title"),
                 description: t("dropdowns.vmi.items.vmiPortal.description"),
-                href: "https://vmi.ambra-system.com/portal",
+                href: appUrl("vmi", "/portal"),
               },
             ],
           },

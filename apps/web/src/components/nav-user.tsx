@@ -5,10 +5,11 @@ import {
   BadgeCheck,
   Bug,
   ChevronsUpDown,
+  Globe,
   Home,
-  LayoutDashboard,
   LogOut,
   Shield,
+  Sparkles,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -31,7 +32,8 @@ import { useTranslations } from "next-intl";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import { signOutAction } from "@/app/[locale]/actions";
 import { useReportFeedbackStore } from "@/lib/platform-feedback/report-store";
-import { getMarketingSiteUrl } from "@/lib/urls";
+import { useWhatsNewStore } from "@/components/app-version/whats-new-store";
+import { appUrl } from "@repo/app-urls";
 
 export function NavUser({
   user,
@@ -67,11 +69,13 @@ export function NavUser({
     router.push("/admin");
   };
 
-  const handleGoToDashboard = () => {
+  const handleGoToStart = () => {
     router.push("/dashboard/start");
   };
 
   const openReportFeedback = useReportFeedbackStore((state) => state.setOpen);
+  const openWhatsNew = useWhatsNewStore((state) => state.setOpen);
+  const tVersion = useTranslations("appVersion");
 
   const handleGoToDiagnostics = () => {
     router.push("/dashboard/diagnostics");
@@ -117,28 +121,21 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem asChild>
-                <a href={getMarketingSiteUrl()} className="flex items-center gap-2 cursor-default">
-                  <Home className="size-4" />
-                  {t("home")}
-                </a>
+              {/* "Start" stays in the app; the public website is a separate, labelled link. */}
+              <DropdownMenuItem onClick={handleGoToStart}>
+                <Home />
+                {t("home")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleGoToAccount}>
                 <BadgeCheck />
                 {t("account")}
               </DropdownMenuItem>
-              {isAdmin &&
-                (isInAdminPanel ? (
-                  <DropdownMenuItem onClick={handleGoToDashboard}>
-                    <LayoutDashboard />
-                    {t("dashboard")}
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem onClick={handleGoToAdmin}>
-                    <Shield />
-                    {t("adminPanel")}
-                  </DropdownMenuItem>
-                ))}
+              {isAdmin && !isInAdminPanel && (
+                <DropdownMenuItem onClick={handleGoToAdmin}>
+                  <Shield />
+                  {t("adminPanel")}
+                </DropdownMenuItem>
+              )}
               {isAdmin && !isOnDiagnostics && (
                 <DropdownMenuItem onClick={handleGoToDiagnostics}>
                   <ActivitySquare />
@@ -146,6 +143,13 @@ export function NavUser({
                 </DropdownMenuItem>
               )}
             </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <a href={appUrl("site")} className="flex items-center gap-2 cursor-default">
+                <Globe className="size-4" />
+                {t("website")}
+              </a>
+            </DropdownMenuItem>
             {/* The dialog lives in the dashboard header, not in the admin panel */}
             {!isInAdminPanel && (
               <>
@@ -159,6 +163,10 @@ export function NavUser({
                 </DropdownMenuItem>
               </>
             )}
+            <DropdownMenuItem onClick={() => openWhatsNew(true)} data-testid="user-menu-whats-new">
+              <Sparkles />
+              {tVersion("whatsNew")}
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <form action={signOutAction} className="w-full">

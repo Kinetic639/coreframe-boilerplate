@@ -1,3 +1,4 @@
+import { getAuthCookieOptions } from "@repo/app-urls";
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@repo/supabase/database";
@@ -11,5 +12,5 @@ export const createClient = () =>
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!.trim(),
     // Heartbeats from a Web Worker: browsers throttle timers in background tabs, the socket
     // then misses heartbeats, gets closed and live updates stop until it reconnects.
-    { realtime: { worker: true } }
+    { realtime: { worker: true }, cookieOptions: getAuthCookieOptions() }
   ) as unknown as SupabaseClient<Database>;

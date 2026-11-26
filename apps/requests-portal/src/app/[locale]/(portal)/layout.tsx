@@ -3,7 +3,9 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { signOutAction } from "@/app/actions/auth";
 import { BranchSwitcher } from "@/components/portal/branch-switcher";
 import { UserMenu } from "@/components/portal/user-menu";
-import { Link, redirect } from "@/i18n/navigation";
+import { redirect } from "next/navigation";
+import { appUrl, buildSignInUrl } from "@repo/app-urls";
+import { Link } from "@/i18n/navigation";
 import { loadPortalContext } from "@/server/portal-context";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
@@ -13,7 +15,12 @@ export default async function PortalLayout({ children }: { children: React.React
     getLocale(),
   ]);
 
-  if (result.status === "signed-out") return redirect({ href: "/sign-in", locale });
+  if (result.status === "signed-out") {
+    const signInLocale = locale === "en" ? "en" : "pl";
+    return redirect(
+      buildSignInUrl(appUrl("requests", signInLocale === "en" ? "/en" : "/"), signInLocale)
+    );
+  }
 
   if (result.status === "no-access") {
     return (

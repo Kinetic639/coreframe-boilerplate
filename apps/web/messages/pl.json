@@ -248,6 +248,14 @@
         "tooLarge": "Plik jest za duży (limit 25 MB).",
         "typeNotAllowed": "Tego typu pliku nie można dodać.",
         "empty": "Plik jest pusty."
+      },
+      "staged": {
+        "addPhoto": "Zrób zdjęcie",
+        "addFiles": "Dodaj pliki",
+        "uploading": "Wysyłanie…",
+        "failed": "Nie wysłano",
+        "retry": "Wyślij ponownie: {name}",
+        "remove": "Usuń: {name}"
       }
     },
     "richText": {
@@ -274,6 +282,13 @@
         "undo": "Cofnij",
         "redo": "Ponów"
       }
+    },
+    "memberSelector": {
+      "selected": "{count, plural, one {# osoba wybrana} few {# osoby wybrane} many {# osób wybranych} other {# osoby wybranej}}",
+      "search": "Szukaj osób…",
+      "empty": "Nie znaleziono osób",
+      "remove": "Usuń {name}",
+      "placeholder": "Wybierz osoby…"
     }
   },
   "admin": {
@@ -2238,7 +2253,9 @@
         "print": "Wydrukuj etykietę",
         "printTitle": "Etykieta — {name}",
         "staged": "Nowy kod QR zostanie utworzony przy zapisie",
-        "addNew": "Dodaj kod QR"
+        "addNew": "Dodaj kod QR",
+        "unlabelled": "Bez nazwy",
+        "remove": "Usuń kod QR"
       },
       "templates": {
         "layoutLabel": "Układ etykiety",
@@ -4616,6 +4633,14 @@
         "addComment": "Dodaj komentarz",
         "commentAdded": "Komentarz dodany.",
         "closeTicket": "Zamknij zgłoszenie",
+        "qr": {
+          "title": "Kod QR",
+          "unlabelled": "Bez etykiety",
+          "unlink": "Odłącz",
+          "assign": "Przypisz kod QR",
+          "none": "Brak przypisanego kodu QR.",
+          "unlinked": "Kod QR odłączony od zgłoszenia."
+        },
         "ticketClosed": "Zgłoszenie zamknięte.",
         "viewFull": "Zobacz zgłoszenie",
         "activityLabel": "Aktywność",
@@ -4628,7 +4653,8 @@
           "status_changed": "zmienił(a) status",
           "assignee_added": "dodał(a) osobę odpowiedzialną",
           "assignee_removed": "usunął(a) osobę odpowiedzialną",
-          "ticket_taken": "przejął(-ęła) zgłoszenie"
+          "ticket_taken": "przejął(-ęła) zgłoszenie",
+          "ticket_updated": "zmienił(a) zgłoszenie"
         },
         "acceptance": {
           "label": "Akceptacja",
@@ -4657,6 +4683,64 @@
           "waitingRequester": "Czeka na doradcę",
           "waitingVendor": "Czeka na VGP / dostawcę",
           "all": "Wszystkie"
+        },
+        "card": {
+          "close": "Zamknij",
+          "saving": "Zapisywanie…",
+          "saved": "Zapisano",
+          "tabsLabel": "Sekcje zgłoszenia",
+          "tabTicket": "Zgłoszenie",
+          "tabDetails": "Szczegóły",
+          "tabComments": "Komentarze",
+          "tabActivity": "Aktywność",
+          "reportedLine": "Zgłosił(a) {name} · {date}",
+          "unknown": "Nieznana osoba",
+          "noResponders": "Nikt",
+          "noType": "Bez typu",
+          "clearType": "Usuń typ",
+          "noDescription": "Brak opisu.",
+          "addDescription": "Dodaj opis",
+          "edit": "Edytuj",
+          "save": "Zapisz",
+          "unsaved": "Niezapisane zmiany",
+          "people": "Osoby",
+          "dates": "Daty",
+          "closedAt": "Zamknięte",
+          "noActivity": "Brak aktywności.",
+          "system": "System",
+          "changed": {
+            "title": "tytuł",
+            "priority": "priorytet",
+            "ticket_type_id": "typ",
+            "description": "opis"
+          },
+          "acceptShort": "Zaakceptuj"
+        },
+        "edit": {
+          "failed": "Nie udało się zapisać zmiany w zgłoszeniu."
+        },
+        "list": {
+          "ticket": "Zgłoszenie",
+          "number": "Numer",
+          "assignment": "Przypisanie",
+          "unassigned": "Nieprzypisane",
+          "preview": "Podgląd",
+          "close": "Zamknij szczegóły",
+          "search": "Szukaj tytułu lub numeru…",
+          "empty": "Brak zgłoszeń pasujących do wyszukiwania i filtrów.",
+          "loadError": "Nie udało się wczytać danych.",
+          "notFound": "Zgłoszenie nie istnieje lub nie jest dostępne.",
+          "retry": "Spróbuj ponownie",
+          "loading": "Wczytywanie…",
+          "countSuffix": "zgłoszeń",
+          "within_7d": "Ostatnie 7 dni",
+          "within_30d": "Ostatnie 30 dni",
+          "within_90d": "Ostatnie 90 dni"
+        },
+        "filesNotSent": "Nie wszystkie pliki zostały wysłane. Wyślij je ponownie albo usuń z listy.",
+        "waitingForFiles": "{count, plural, =0 {Wysyłanie…} one {Kończę wysyłanie pliku…} other {Kończę wysyłanie plików (#)…}}",
+        "form": {
+          "noType": "Bez typu"
         }
       },
       "features": {
@@ -6175,7 +6259,8 @@
         "profile": "Profil",
         "preferences": "Preferencje",
         "signOut": "Wyloguj się",
-        "home": "Strona główna",
+        "home": "Start",
+        "website": "Strona Ambra",
         "account": "Konto",
         "dashboard": "Panel",
         "adminPanel": "Panel administracyjny",
@@ -10505,5 +10590,24 @@
       "selectRow": "Zaznacz: {label}",
       "fileName": "lista"
     }
+  },
+  "appVersion": {
+    "label": "Wersja {version}",
+    "whatsNew": "Co nowego",
+    "whatsNewTitle": "Co nowego w Ambra",
+    "whatsNewDescription": "Zmiany z ostatnich wydań. Używasz wersji {version}.",
+    "current": "Twoja wersja",
+    "kinds": {
+      "major": "Zmiany wymagające uwagi",
+      "minor": "Nowe funkcje",
+      "patch": "Poprawki",
+      "other": "Inne zmiany"
+    },
+    "empty": "Nie ma jeszcze opisanych zmian.",
+    "updateAvailable": "Jest nowa wersja Ambra. Odśwież stronę, żeby z niej korzystać.",
+    "updateAvailableVersion": "Jest nowa wersja Ambra ({version}). Odśwież stronę, żeby z niej korzystać.",
+    "reload": "Odśwież",
+    "updated": "Ambra ma nową wersję: {version}.",
+    "seeChanges": "Zobacz, co nowego"
   }
 }

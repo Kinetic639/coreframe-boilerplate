@@ -38,7 +38,7 @@ function fakeSupabase(rows: ClaimedNotification[]) {
 
 describe("buildNotificationEmail", () => {
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://app.example.test/");
+    vi.stubEnv("NEXT_PUBLIC_AMBRA_ERP_URL", "https://app.example.test/");
   });
 
   it("one notification: its sentence is the subject, the object links into the app", async () => {
@@ -86,7 +86,7 @@ describe("buildNotificationEmail", () => {
 
 describe("runNotificationEmails", () => {
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://app.example.test");
+    vi.stubEnv("NEXT_PUBLIC_AMBRA_ERP_URL", "https://app.example.test");
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
@@ -165,7 +165,7 @@ const chat = (overrides: Partial<ClaimedChat> = {}): ClaimedChat => ({
 
 describe("chat e-mails", () => {
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://app.example.test");
+    vi.stubEnv("NEXT_PUBLIC_AMBRA_ERP_URL", "https://app.example.test");
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 

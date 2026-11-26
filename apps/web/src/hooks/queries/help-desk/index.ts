@@ -1,19 +1,15 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import {
-  listTicketTypesAction,
-  getTicketTypeDefaultRespondersAction,
-  getTicketTypeDefaultAcceptorsAction,
-  listOrgMembersForTicketAssignmentAction,
   createTicketAction,
-  getTicketDetailAction,
   closeTicketAction,
   setTicketStatusAction,
   takeTicketAction,
   acceptTicketAction,
+  updateTicketAction,
 } from "@/app/actions/help-desk";
 import type {
   AcceptTicketInput,
@@ -21,13 +17,25 @@ import type {
   CloseTicketInput,
   SetTicketStatusInput,
   TakeTicketInput,
+  UpdateTicketFieldsInput,
 } from "@/lib/validations/helpdesk";
-import type { HelpdeskTicketDetail } from "@/server/services/helpdesk-tickets.service";
-import { dataViewKeys, invalidateDataViewEntity } from "@/lib/data-view/query-keys";
-import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+import type {
+  HelpdeskTicketDetail,
+  HelpdeskTicketListRow,
+} from "@/server/services/helpdesk-tickets.service";
+import { helpdeskRead } from "@/lib/help-desk/read";
+import {
+  patchTicket,
+  refreshTicket,
+  restoreTickets,
+  ticketDetailQuery,
+  ticketKeys,
+  type TicketPatch,
+} from "@/lib/help-desk/ticket-queries";
+import { markOwnTicketSave } from "./own-saves";
 
 // ---------------------------------------------------------------------------
-// Query key factory
+// Query key factory (ticket keys live in lib/help-desk/ticket-queries.ts)
 // ---------------------------------------------------------------------------
 
 export const helpdeskKeys = {
@@ -35,31 +43,34 @@ export const helpdeskKeys = {
   ticketTypes: () => [...helpdeskKeys.all, "ticket-types"] as const,
   ticketTypeDefaultResponders: (typeId: string) =>
     [...helpdeskKeys.ticketTypes(), typeId, "default-responders"] as const,
-  tickets: () => [...helpdeskKeys.all, "tickets"] as const,
-  ticketsDataView: (orgId: string) =>
-    dataViewKeys.lists("helpdesk-tickets", dataViewScope.organization(orgId)),
-  ticket: (id: string) => [...helpdeskKeys.tickets(), id] as const,
-  ticketDetail: (orgId: string, id: string) =>
-    dataViewKeys.detail("helpdesk-tickets", dataViewScope.organization(orgId), id),
+  ticketTypeDefaultAcceptors: (typeId: string) =>
+    [...helpdeskKeys.ticketTypes(), typeId, "default-acceptors"] as const,
+  ticketsDataView: (orgId: string) => ticketKeys.lists(orgId),
+  ticketDetail: (orgId: string, ticketNumber: string) => ticketKeys.detail(orgId, ticketNumber),
   orgMembers: () => [...helpdeskKeys.all, "org-members"] as const,
 };
 
+type Result<T> = { success: true; data: T } | { success: false; error: string };
+
+function unwrap<T>(result: Result<T>): T {
+  if (!result.success) throw new Error((result as { success: false; error: string }).error);
+  return result.data;
+}
+
 // ---------------------------------------------------------------------------
-// Ticket Types
+// Ticket types and people (reads over GET: they never wait behind a save)
 // ---------------------------------------------------------------------------
 
 export function useHelpdeskTicketTypesQuery(
-  initialData?: Awaited<ReturnType<typeof listTicketTypesAction>> extends { data: infer D }
+  initialData?: Awaited<
+    ReturnType<typeof import("@/app/actions/help-desk").listTicketTypesAction>
+  > extends { data: infer D }
     ? D
     : never
 ) {
   return useQuery({
     queryKey: helpdeskKeys.ticketTypes(),
-    queryFn: async () => {
-      const result = await listTicketTypesAction(false);
-      if (!result.success) throw new Error((result as { success: false; error: string }).error);
-      return result.data;
-    },
+    queryFn: async () => unwrap(await helpdeskRead("ticketTypes", false)),
     initialData,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -68,89 +79,72 @@ export function useHelpdeskTicketTypesQuery(
 
 export function useTicketTypeDefaultRespondersQuery(ticketTypeId: string | null | undefined) {
   return useQuery({
-    queryKey: ticketTypeId
-      ? helpdeskKeys.ticketTypeDefaultResponders(ticketTypeId)
-      : helpdeskKeys.ticketTypes(),
-    queryFn: async () => {
-      if (!ticketTypeId) return [];
-      const result = await getTicketTypeDefaultRespondersAction(ticketTypeId);
-      if (!result.success) throw new Error((result as { success: false; error: string }).error);
-      return result.data;
-    },
+    queryKey: helpdeskKeys.ticketTypeDefaultResponders(ticketTypeId ?? "none"),
+    queryFn: async () =>
+      ticketTypeId ? unwrap(await helpdeskRead("ticketTypeDefaultResponders", ticketTypeId)) : [],
     enabled: !!ticketTypeId,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 }
 
 export function useTicketTypeDefaultAcceptorsQuery(ticketTypeId: string | null | undefined) {
   return useQuery({
-    queryKey: ticketTypeId
-      ? [...helpdeskKeys.ticketTypeDefaultResponders(ticketTypeId), "acceptors"]
-      : helpdeskKeys.ticketTypes(),
-    queryFn: async () => {
-      if (!ticketTypeId) return [];
-      const result = await getTicketTypeDefaultAcceptorsAction(ticketTypeId);
-      if (!result.success) throw new Error((result as { success: false; error: string }).error);
-      return result.data;
-    },
+    queryKey: helpdeskKeys.ticketTypeDefaultAcceptors(ticketTypeId ?? "none"),
+    queryFn: async () =>
+      ticketTypeId ? unwrap(await helpdeskRead("ticketTypeDefaultAcceptors", ticketTypeId)) : [],
     enabled: !!ticketTypeId,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 }
 
-// ---------------------------------------------------------------------------
-// Org Members (for assignment selector)
-// ---------------------------------------------------------------------------
-
 export function useOrgMembersForAssignmentQuery() {
   return useQuery({
     queryKey: helpdeskKeys.orgMembers(),
-    queryFn: async () => {
-      const result = await listOrgMembersForTicketAssignmentAction();
-      if (!result.success) throw new Error((result as { success: false; error: string }).error);
-      return result.data;
-    },
+    queryFn: async () => unwrap(await helpdeskRead("membersForAssignment")),
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 }
 
 // ---------------------------------------------------------------------------
-// Ticket Detail
+// Ticket card
 // ---------------------------------------------------------------------------
 
+/** A ticket's card; the server's copy seeds it, so it renders without a request. */
 export function useTicketDetailQuery(
   ticketNumber: string,
   orgId: string,
   initialData?: HelpdeskTicketDetail
 ) {
   return useQuery({
-    queryKey: helpdeskKeys.ticketDetail(orgId, ticketNumber),
-    queryFn: async () => {
-      const result = await getTicketDetailAction(ticketNumber, orgId);
-      if (!result.success) throw new Error((result as { success: false; error: string }).error);
-      return result.data;
-    },
+    ...ticketDetailQuery(orgId, ticketNumber),
     initialData,
-    staleTime: 30_000,
+    // The server copy is fresh: no request right after the page renders.
+    initialDataUpdatedAt: initialData ? Date.now() : undefined,
     refetchOnWindowFocus: true,
   });
 }
 
 // ---------------------------------------------------------------------------
-// Create Ticket
+// Create
 // ---------------------------------------------------------------------------
 
-export function useCreateTicketMutation() {
+export function useCreateTicketMutation(orgId?: string) {
+  const queryClient = useQueryClient();
   const t = useTranslations("modules.helpDesk");
 
   return useMutation({
-    mutationFn: async (input: CreateTicketInput) => {
-      const result = await createTicketAction(input);
-      if (!result.success) throw new Error((result as { success: false; error: string }).error);
-      return result.data;
+    mutationFn: async (input: CreateTicketInput) => unwrap(await createTicketAction(input)),
+    onSuccess: () => {
+      // A new ticket can land on any page: mark them stale, fetch when shown.
+      if (orgId) {
+        void queryClient.invalidateQueries({
+          queryKey: ticketKeys.lists(orgId),
+          refetchType: "none",
+        });
+      }
     },
     onError: (err: Error) => {
       toast.error(err.message || t("errors.createFailed"));
@@ -159,113 +153,137 @@ export function useCreateTicketMutation() {
 }
 
 // ---------------------------------------------------------------------------
-// Close Ticket
+// Handler saves: shown at once, put back if the server says no
 // ---------------------------------------------------------------------------
+
+type TicketSaveOptions<I extends { ticket_id?: string }> = {
+  ticketNumber: string;
+  orgId: string;
+  save: (input: I) => Promise<Result<HelpdeskTicketListRow | null | Record<string, unknown>>>;
+  /** The change as it will look once saved, shown before the server answers. */
+  preview?: (input: I) => TicketPatch | null;
+  /** Toast after the save; none where the card shows the save state itself. */
+  success?: string;
+  failure: string;
+};
+
+/**
+ * The ticket changes on screen right away; the save returns the ticket as a
+ * list row, which goes straight into the cached list pages and the card.
+ * Then the card (its activity) and the list (a row may leave a filtered
+ * view) are fetched once. Realtime echoes of this save are ignored.
+ */
+function useTicketSave<I extends { ticket_id?: string }>({
+  ticketNumber,
+  orgId,
+  save,
+  preview,
+  success,
+  failure,
+}: TicketSaveOptions<I>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: I) => {
+      markOwnTicketSave(input.ticket_id ?? "");
+      return unwrap(await save(input));
+    },
+    onMutate: async (input: I) => {
+      const patch = preview?.(input);
+      if (!patch) return { snapshot: [] as ReturnType<typeof patchTicket> };
+      // A fetch already on its way would bring the old values back.
+      await queryClient.cancelQueries({ queryKey: ticketKeys.all(orgId) });
+      return { snapshot: patchTicket(queryClient, orgId, input.ticket_id ?? "", patch) };
+    },
+    onSuccess: (data, input) => {
+      markOwnTicketSave(input.ticket_id ?? "");
+      if (isTicketRow(data)) writeSavedTicket(queryClient, orgId, data);
+      void refreshTicket(queryClient, orgId, ticketNumber);
+      if (success) toast.success(success);
+    },
+    onError: (err: Error, _input, context) => {
+      if (context?.snapshot) restoreTickets(queryClient, context.snapshot);
+      toast.error(err.message || failure);
+    },
+  });
+}
+
+function isTicketRow(value: unknown): value is HelpdeskTicketListRow {
+  return Boolean(
+    value && typeof value === "object" && "ticket_number" in value && "status" in value
+  );
+}
+
+/** A saved ticket's row into every cached page and its card. */
+export function writeSavedTicket(
+  queryClient: QueryClient,
+  orgId: string,
+  row: HelpdeskTicketListRow
+) {
+  const { id: _id, org_id: _org, ...fields } = row;
+  patchTicket(queryClient, orgId, row.id, fields);
+}
 
 export function useCloseTicketMutation(ticketNumber: string, orgId: string) {
-  const queryClient = useQueryClient();
   const t = useTranslations("modules.helpDesk");
-
-  return useMutation({
-    mutationFn: async (input: CloseTicketInput) => {
-      const result = await closeTicketAction(input);
-      if (!result.success) throw new Error((result as { success: false; error: string }).error);
-      return result.data;
-    },
-    onSuccess: () => {
-      void invalidateDataViewEntity(
-        queryClient,
-        "helpdesk-tickets",
-        dataViewScope.organization(orgId),
-        ticketNumber
-      );
-      toast.success(t("tickets.ticketClosed"));
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || t("errors.closeFailed"));
-    },
+  return useTicketSave<CloseTicketInput>({
+    ticketNumber,
+    orgId,
+    save: closeTicketAction,
+    preview: () => ({ status: "closed", closed_at: new Date().toISOString() }),
+    success: t("tickets.ticketClosed"),
+    failure: t("errors.closeFailed"),
   });
 }
-
-// ---------------------------------------------------------------------------
-// Handling: status and "take" (step 5b)
-// ---------------------------------------------------------------------------
 
 export function useSetTicketStatusMutation(ticketNumber: string, orgId: string) {
-  const queryClient = useQueryClient();
   const t = useTranslations("modules.helpDesk");
-
-  return useMutation({
-    mutationFn: async (input: SetTicketStatusInput) => {
-      const result = await setTicketStatusAction(input);
-      if (!result.success) throw new Error((result as { success: false; error: string }).error);
-      return result.data;
-    },
-    onSuccess: () => {
-      void invalidateDataViewEntity(
-        queryClient,
-        "helpdesk-tickets",
-        dataViewScope.organization(orgId),
-        ticketNumber
-      );
-      toast.success(t("tickets.handling.statusChanged"));
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || t("tickets.handling.failed"));
-    },
+  return useTicketSave<SetTicketStatusInput>({
+    ticketNumber,
+    orgId,
+    save: setTicketStatusAction,
+    preview: (input) => ({ status: input.status }),
+    success: t("tickets.handling.statusChanged"),
+    failure: t("tickets.handling.failed"),
   });
 }
 
-export function useTakeTicketMutation(ticketNumber: string, orgId: string) {
-  const queryClient = useQueryClient();
+export function useTakeTicketMutation(ticketNumber: string, orgId: string, userId?: string) {
   const t = useTranslations("modules.helpDesk");
-
-  return useMutation({
-    mutationFn: async (input: TakeTicketInput) => {
-      const result = await takeTicketAction(input);
-      if (!result.success) throw new Error((result as { success: false; error: string }).error);
-      return result.data;
-    },
-    onSuccess: () => {
-      void invalidateDataViewEntity(
-        queryClient,
-        "helpdesk-tickets",
-        dataViewScope.organization(orgId),
-        ticketNumber
-      );
-      toast.success(t("tickets.handling.taken"));
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || t("tickets.handling.failed"));
-    },
+  return useTicketSave<TakeTicketInput>({
+    ticketNumber,
+    orgId,
+    save: takeTicketAction,
+    preview: () => ({ status: "in_progress", ...(userId ? { assigned_to: userId } : {}) }),
+    success: t("tickets.handling.taken"),
+    failure: t("tickets.handling.failed"),
   });
 }
 
-// ---------------------------------------------------------------------------
-// Accept Ticket
-// ---------------------------------------------------------------------------
-
-export function useAcceptTicketMutation(ticketNumber: string, orgId: string) {
-  const queryClient = useQueryClient();
+export function useAcceptTicketMutation(ticketNumber: string, orgId: string, userId?: string) {
   const t = useTranslations("modules.helpDesk");
+  return useTicketSave<AcceptTicketInput>({
+    ticketNumber,
+    orgId,
+    save: acceptTicketAction,
+    preview: () => ({
+      accepted_at: new Date().toISOString(),
+      ...(userId ? { accepted_by: userId } : {}),
+    }),
+    success: t("tickets.acceptance.acceptSuccess"),
+    failure: t("errors.acceptFailed"),
+  });
+}
 
-  return useMutation({
-    mutationFn: async (input: AcceptTicketInput) => {
-      const result = await acceptTicketAction(input);
-      if (!result.success) throw new Error((result as { success: false; error: string }).error);
-      return result.data;
-    },
-    onSuccess: () => {
-      void invalidateDataViewEntity(
-        queryClient,
-        "helpdesk-tickets",
-        dataViewScope.organization(orgId),
-        ticketNumber
-      );
-      toast.success(t("tickets.acceptance.acceptSuccess"));
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || t("errors.acceptFailed"));
-    },
+/** A card edit; `display` carries what the screen shows for it (a type's name and colour). */
+export type TicketEditInput = UpdateTicketFieldsInput & { display?: TicketPatch };
+
+export function useUpdateTicketMutation(ticketNumber: string, orgId: string) {
+  const t = useTranslations("modules.helpDesk");
+  return useTicketSave<TicketEditInput>({
+    ticketNumber,
+    orgId,
+    save: ({ display: _display, ...input }) => updateTicketAction(input),
+    preview: ({ ticket_id: _id, display, ...fields }) => ({ ...fields, ...display }),
+    failure: t("tickets.edit.failed"),
   });
 }

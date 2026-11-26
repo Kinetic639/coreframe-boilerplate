@@ -16,7 +16,7 @@ const PUBLIC_ROUTES = [
 ] as const;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const appUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.ambra-system.com";
+  const appUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://ambra-system.com";
   const now = new Date();
 
   const staticEntries: MetadataRoute.Sitemap = PUBLIC_ROUTES.map((route) => {

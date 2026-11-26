@@ -8,6 +8,7 @@ import {
 import { describeNotification } from "@/components/v2/notifications/notification-text";
 import { notificationHref, type AppNotification } from "@/lib/notifications/types";
 import type { EmailServiceResult, SendEmailOptions } from "@/server/services/email.service";
+import { getAppUrl } from "@repo/app-urls";
 
 /**
  * E-mail for notifications that are still unread ten minutes after they were
@@ -44,8 +45,9 @@ async function loadMessages(locale: Locale) {
   return (await import(`../../../messages/${locale}.json`)).default as Record<string, unknown>;
 }
 
+/** The ERP's own origin: digest links open dashboard pages, which live in the app. */
 function siteUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? "https://ambra-system.com").replace(/\/+$/, "");
+  return getAppUrl("erp");
 }
 
 /** Absolute link to a dashboard path; Polish is the unprefixed default locale */
