@@ -6,7 +6,7 @@ which return addresses a sign-in may send a user back to. Pure functions over en
 ## Model
 
 - One registrable domain, one subdomain per app: `ambra-system.com` (public site),
-  `app.` (ERP, also the only sign-in page), `zapytania.`, `vmi.`.
+  `app.` (ERP, also the only sign-in page), `zgloszenia.`, `vmi.`.
 - One Supabase session for all of them: the auth cookie is named `AUTH_COOKIE_NAME` and,
   in production, set on `NEXT_PUBLIC_AUTH_COOKIE_DOMAIN` (`.ambra-system.com`), so every
   subdomain reads the same session.

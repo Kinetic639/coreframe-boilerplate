@@ -17,6 +17,45 @@ function colorsFor(id: string) {
   return PALETTE[h % PALETTE.length]!;
 }
 
+/** Overlapping avatars (responders); the rest as "+n". */
+export function AvatarStack({
+  people,
+  size = 24,
+  max = 3,
+  className,
+}: {
+  people: PersonRef[];
+  size?: number;
+  max?: number;
+  className?: string;
+}) {
+  if (people.length === 0) return null;
+  const rest = people.length - max;
+  return (
+    <span
+      className={cn("flex items-center", className)}
+      title={people.map((p) => p.name).join(", ")}
+    >
+      {people.slice(0, max).map((p, i) => (
+        <Avatar
+          key={p.id}
+          person={p}
+          size={size}
+          className={cn("ring-2 ring-card", i > 0 && "-ml-1")}
+        />
+      ))}
+      {rest > 0 && (
+        <span
+          className="-ml-1.5 inline-flex shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground ring-2 ring-card"
+          style={{ width: size, height: size }}
+        >
+          +{rest}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export function Avatar({
   person,
   size = 24,

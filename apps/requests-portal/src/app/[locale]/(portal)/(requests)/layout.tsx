@@ -35,6 +35,7 @@ export default async function RequestsLayout({ children }: { children: React.Rea
         initialKey={listKey(toQuery(input))}
         renderedAt={Date.now()}
         types={types}
+        canCreate={ctx.branches.some((b) => ctx.can.create(b.id))}
       >
         {children}
       </RequestsShell>

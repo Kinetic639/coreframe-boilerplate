@@ -8,14 +8,15 @@ import {
   type RequestDetail,
   type RequestEvent,
   type RequestFilter,
+  type PageSize,
   type RequestListItem,
+  type RequestListPage,
   type ServiceResult,
   type TicketStatus,
   type TicketTypeRef,
 } from "./types";
 
 export const TICKET_TARGET = "helpdesk.ticket";
-export const PAGE_SIZE = 25;
 
 type UserRow = {
   id: string;
@@ -36,6 +37,8 @@ export function toPerson(u: UserRow): PersonRef | null {
     avatarUrl: u.avatar_url,
   };
 }
+
+export const people = (rows: UserRow[]) => rows.map(toPerson).filter((p): p is PersonRef => !!p);
 
 const USER_COLS = "id, first_name, last_name, email, avatar_url";
 
@@ -71,6 +74,8 @@ export type RpcRequestRow = {
   ticket_type: TicketTypeRef | null;
   creator: UserRow;
   order_ref: Omit<ReferenceRow, "ticket_id"> | null;
+  /** Since 20261129090000; the card view has them too. */
+  responders?: UserRow[];
   comment_count: number;
 };
 
@@ -84,6 +89,7 @@ export function rpcRowToListItem(r: RpcRequestRow, ctx: PortalContext): RequestL
     branchId: r.branch_id,
     requester: toPerson(r.creator),
     order: r.order_ref ? toOrder({ ...r.order_ref, ticket_id: r.id }) : null,
+    responders: people(r.responders ?? []),
     commentCount: Number(r.comment_count ?? 0),
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -149,6 +155,43 @@ async function loadCommentCounts(supabase: PortalSupabase, orgId: string, ticket
   return counts;
 }
 
+/** Responders per ticket (helpdesk_ticket_assignees), in assignment order. */
+async function loadResponders(supabase: PortalSupabase, ticketIds: string[]) {
+  const map = new Map<string, PersonRef[]>();
+  if (ticketIds.length === 0) return map;
+  const { data } = await supabase
+    .from("helpdesk_ticket_assignees")
+    .select(`ticket_id, user:users!user_id(${USER_COLS})`)
+    .in("ticket_id", ticketIds)
+    .eq("role", "responder")
+    .is("deleted_at", null)
+    .order("assigned_at", { ascending: true });
+  for (const row of (data ?? []) as unknown as Array<{ ticket_id: string; user: UserRow }>) {
+    const person = toPerson(row.user);
+    if (person) map.set(row.ticket_id, [...(map.get(row.ticket_id) ?? []), person]);
+  }
+  return map;
+}
+
+/** Open requests waiting for the user's answer in the list's scope (the filter badge). */
+async function countYourTurn(
+  supabase: PortalSupabase,
+  ctx: PortalContext,
+  input: ListRequestsInput
+): Promise<number> {
+  let q = supabase
+    .from("helpdesk_tickets")
+    .select("id", { count: "exact", head: true })
+    .eq("org_id", ctx.org.id)
+    .in("branch_id", ctx.scopeBranchIds)
+    .is("deleted_at", null)
+    .eq("status", "waiting_response");
+  if (input.scope === "mine")
+    q = q.or(`created_by.eq.${ctx.user.id},requested_by.eq.${ctx.user.id}`);
+  const { count } = await q;
+  return count ?? 0;
+}
+
 /** Ticket ids whose order reference matches a ZL search ("51481", "3252", "ZL/51481/..."). */
 async function ticketIdsByOrder(supabase: PortalSupabase, term: string): Promise<string[]> {
   const digits = term.replace(/[^\d/]/g, "");
@@ -189,32 +232,51 @@ export type ListRequestsInput = {
   search?: string | null;
   sort: "activity" | "newest";
   page: number;
+  size: PageSize;
 };
 
 export async function listRequests(
   supabase: PortalSupabase,
   ctx: PortalContext,
   input: ListRequestsInput
-): Promise<ServiceResult<{ items: RequestListItem[]; total: number }>> {
-  const { data, error } = await portalRpc<{ total: number; rows: RpcRequestRow[] }>(
-    supabase,
-    "portal_request_list",
-    {
-      p_org_id: ctx.org.id,
-      p_branch_ids: ctx.scopeBranchIds,
-      p_mine: input.scope === "mine",
-      p_filter: input.filter,
-      p_type_id: input.typeId ?? null,
-      p_search: input.search?.trim() || null,
-      p_sort: input.sort,
-      p_limit: PAGE_SIZE,
-      p_offset: Math.max(0, input.page - 1) * PAGE_SIZE,
-    }
-  );
+): Promise<ServiceResult<RequestListPage>> {
+  const { data, error } = await portalRpc<{
+    total: number;
+    your_turn?: number;
+    rows: RpcRequestRow[];
+  }>(supabase, "portal_request_list", {
+    p_org_id: ctx.org.id,
+    p_branch_ids: ctx.scopeBranchIds,
+    p_mine: input.scope === "mine",
+    p_filter: input.filter,
+    p_type_id: input.typeId ?? null,
+    p_search: input.search?.trim() || null,
+    p_sort: input.sort,
+    p_limit: input.size,
+    p_offset: Math.max(0, input.page - 1) * input.size,
+  });
   if (!error && data) {
+    const items = data.rows.map((r) => rpcRowToListItem(r, ctx));
+    // Before 20261129090000 the rows have no responders and there is no count.
+    const old = data.your_turn === undefined;
+    const [responders, yourTurn] = old
+      ? await Promise.all([
+          loadResponders(
+            supabase,
+            items.map((i) => i.id)
+          ),
+          countYourTurn(supabase, ctx, input),
+        ])
+      : [null, Number(data.your_turn)];
     return {
       ok: true,
-      data: { total: Number(data.total), items: data.rows.map((r) => rpcRowToListItem(r, ctx)) },
+      data: {
+        total: Number(data.total),
+        yourTurn,
+        items: responders
+          ? items.map((i) => ({ ...i, responders: responders.get(i.id) ?? [] }))
+          : items,
+      },
     };
   }
   return listRequestsLegacy(supabase, ctx, input);
@@ -225,7 +287,7 @@ async function listRequestsLegacy(
   supabase: PortalSupabase,
   ctx: PortalContext,
   input: ListRequestsInput
-): Promise<ServiceResult<{ items: RequestListItem[]; total: number }>> {
+): Promise<ServiceResult<RequestListPage>> {
   let q = supabase
     .from("helpdesk_tickets")
     .select(LIST_COLS, { count: "exact" })
@@ -253,10 +315,10 @@ async function listRequestsLegacy(
     q = q.or(ors.join(","));
   }
 
-  const from = Math.max(0, input.page - 1) * PAGE_SIZE;
+  const from = Math.max(0, input.page - 1) * input.size;
   const { data, error, count } = await q
     .order(input.sort === "newest" ? "created_at" : "updated_at", { ascending: false })
-    .range(from, from + PAGE_SIZE - 1);
+    .range(from, from + input.size - 1);
   if (error) return { ok: false, error: error.message };
 
   const rows = (data ?? []) as unknown as Array<{
@@ -274,15 +336,18 @@ async function listRequestsLegacy(
     creator: UserRow;
   }>;
   const ids = rows.map((r) => r.id);
-  const [orders, counts] = await Promise.all([
+  const [orders, counts, responders, yourTurn] = await Promise.all([
     loadOrders(supabase, ids),
     loadCommentCounts(supabase, ctx.org.id, ids),
+    loadResponders(supabase, ids),
+    countYourTurn(supabase, ctx, input),
   ]);
 
   return {
     ok: true,
     data: {
       total: count ?? rows.length,
+      yourTurn,
       items: rows.map((r) => ({
         id: r.id,
         number: r.ticket_number,
@@ -292,6 +357,7 @@ async function listRequestsLegacy(
         branchId: r.branch_id,
         requester: toPerson(r.creator),
         order: orders.get(r.id) ?? null,
+        responders: responders.get(r.id) ?? [],
         commentCount: counts.get(r.id) ?? 0,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
@@ -558,6 +624,8 @@ export type CreateRequestInput = {
   typeId: string;
   title: string;
   description: string | null;
+  /** Tiptap document from the form's editor; built from `description` when absent. */
+  descriptionRich?: unknown | null;
   orderNumber: string | null;
   warehouse: string | null;
 };
@@ -577,7 +645,7 @@ export async function createRequest(
       p_type_id: input.typeId,
       p_title: input.title,
       p_description_plain: description,
-      p_description_rich: plainToRichDoc(description),
+      p_description_rich: input.descriptionRich ?? plainToRichDoc(description),
       p_order_number: input.orderNumber && input.warehouse ? input.orderNumber : null,
       p_warehouse: input.orderNumber && input.warehouse ? input.warehouse : null,
     }
@@ -618,7 +686,8 @@ async function createRequestLegacy(
     p_org_id: ctx.org.id,
     p_title: input.title,
     p_description_plain: input.description ?? "",
-    p_description_rich: plainToRichDoc(input.description ?? ""),
+    p_description_rich: (input.descriptionRich ??
+      plainToRichDoc(input.description ?? "")) as ReturnType<typeof plainToRichDoc>,
     p_status: "open",
     p_priority: typeRow?.default_priority ?? "medium",
     p_ticket_type_id: type.id,

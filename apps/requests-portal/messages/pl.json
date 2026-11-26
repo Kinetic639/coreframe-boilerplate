@@ -1,8 +1,8 @@
 {
   "app": {
-    "name": "Ambra Zapytania",
-    "tagline": "Zapytania do działu części — zlecenia, magazyn, sprawy organizacyjne",
-    "scaffold": "Lista zapytań pojawi się w kolejnym kroku.",
+    "name": "Ambra Zgłoszenia",
+    "tagline": "Zgłoszenia do działu części — zlecenia, magazyn, sprawy organizacyjne",
+    "scaffold": "Lista zgłoszeń pojawi się w kolejnym kroku.",
     "signedInAs": "Zalogowano jako {email}"
   },
   "auth": {
@@ -36,14 +36,22 @@
     }
   },
   "portal": {
-    "title": "Zapytania",
+    "title": "Zgłoszenia",
     "account": "Konto: {name}",
     "branch": {
       "all": "Wszystkie oddziały"
     },
     "noAccess": {
-      "title": "Brak dostępu do zapytań",
-      "body": "Konto {email} nie ma uprawnień do Ambra Zapytania. Poproś kierownika o rolę „Doradca (portal)” w swoim oddziale."
+      "title": "Brak dostępu do zgłoszeń",
+      "body": "Konto {email} nie ma uprawnień do Ambra Zgłoszenia. Poproś kierownika o rolę „Doradca (portal)” w swoim oddziale."
+    },
+    "theme": {
+      "mode": "Motyw",
+      "light": "Jasny",
+      "dark": "Ciemny",
+      "system": "Systemowy",
+      "colors": "Kolory",
+      "saveFailed": "Nie udało się zapisać motywu na koncie."
     }
   },
   "requests": {
@@ -66,10 +74,11 @@
       "cancelled": "Wycofane"
     },
     "search": "Szukaj",
-    "searchPlaceholder": "Szukaj: tytuł, numer, nr zlecenia",
+    "searchPlaceholder": "Szukaj po tytule, HD lub ZL…",
     "scope": {
       "mine": "Moje",
-      "branch": "Cały oddział"
+      "branch": "Cały oddział",
+      "label": "Czyje zgłoszenia"
     },
     "type": "Typ",
     "allTypes": "Wszystkie typy",
@@ -78,25 +87,27 @@
       "yourTurn": "Twoja kolej",
       "approval": "Do akceptacji",
       "answered": "Odpowiedziano",
-      "closed": "Zamknięte"
+      "closed": "Zamknięte",
+      "label": "Status"
     },
     "empty": {
-      "title": "Brak zapytań",
-      "body": "Nie ma tu jeszcze zapytań. Załóż nowe przyciskiem „Nowe zapytanie”.",
-      "search": "Nic nie pasuje do wyszukiwania."
+      "title": "Brak zgłoszeń",
+      "body": "Nie ma tu jeszcze zgłoszeń. Załóż nowe przyciskiem „Nowe zgłoszenie”.",
+      "filteredTitle": "Nic nie pasuje",
+      "search": "Żadne zgłoszenie nie pasuje do filtrów i wyszukiwania.",
+      "clear": "Wyczyść filtry"
     },
-    "pageOf": "Strona {page} z {pages} · {total} zapytań",
     "prev": "Poprzednia strona",
     "next": "Następna strona",
     "new": {
-      "heading": "Nowe zapytanie",
+      "heading": "Nowe zgłoszenie",
       "cancel": "Anuluj",
-      "noCreate": "Nie masz uprawnień do zakładania zapytań w swoich oddziałach.",
+      "noCreate": "Nie masz uprawnień do zakładania zgłoszeń w swoich oddziałach.",
       "branch": "Oddział",
-      "type": "Typ zapytania",
+      "type": "Typ zgłoszenia",
       "typesAvailable": "{count, plural, one {# dostępny} few {# dostępne} many {# dostępnych} other {# dostępnych}}",
-      "noTypes": "Brak skonfigurowanych typów zapytań w tym oddziale.",
-      "acceptance": "akceptacja",
+      "noTypes": "Brak skonfigurowanych typów zgłoszeń w tym oddziale.",
+      "acceptance": "wymaga akceptacji",
       "solvedBy": "Rozwiążą:",
       "toQueue": "Trafi do kolejki działu części w oddziale.",
       "order": "Zlecenie",
@@ -108,35 +119,40 @@
       "found": "Znalezione w Ambrze",
       "notFound": "Nie znaleziono w Ambrze — zapiszemy nr i magazyn.",
       "title": "Tytuł",
-      "titlePlaceholder": "np. Kiedy zderzak do zlecenia?",
+      "titlePlaceholder": "np. Kiedy zderzak przedni do Passata?",
       "description": "Opis",
       "descriptionPlaceholder": "Co jest potrzebne i na kiedy?",
       "photo": "Zrób zdjęcie",
-      "file": "Dodaj plik",
+      "file": "Dodaj pliki",
       "removeFile": "Usuń {name}",
       "sending": "Wysyłanie…",
-      "submit": "Wyślij zapytanie",
+      "submit": "Wyślij zgłoszenie",
       "errors": {
-        "typeId": "Wybierz typ zapytania.",
+        "typeId": "Wybierz typ zgłoszenia.",
         "title": "Tytuł musi mieć od 3 do 200 znaków.",
         "orderNumber": "Podaj nr zlecenia (same cyfry).",
         "warehouse": "Podaj 4-cyfrowy magazyn.",
         "branchId": "Wybierz oddział.",
-        "forbidden": "Brak uprawnień do zakładania zapytań w tym oddziale.",
-        "unknown_type": "Ten typ zapytania nie jest już dostępny.",
-        "generic": "Nie udało się wysłać zapytania. Spróbuj ponownie."
-      }
+        "forbidden": "Brak uprawnień do zakładania zgłoszeń w tym oddziale.",
+        "unknown_type": "Ten typ zgłoszenia nie jest już dostępny.",
+        "generic": "Nie udało się wysłać zgłoszenia. Spróbuj ponownie.",
+        "loadFailed": "Nie udało się wczytać formularza. Zamknij okno i spróbuj ponownie."
+      },
+      "subtitle": "Formularz nowego zgłoszenia do działu części",
+      "acceptedBy": "Akceptuje: {names}",
+      "branchWarehouses": "Magazyny oddziału:",
+      "attachments": "Załączniki"
     },
-    "pickOne": "Wybierz zapytanie z listy",
-    "back": "Zapytania",
+    "back": "Wróć",
     "someone": "Ktoś",
     "you": "Ty",
     "partsDept": "dział części",
     "events": {
-      "accepted": "{who} zaakceptował(a) zapytanie",
-      "closed": "{who} zamknął(-ęła) zapytanie",
-      "cancelled": "{who} wycofał(a) zapytanie",
-      "taken": "{who} przejął(-ęła) zapytanie",
+      "created": "{who} utworzył(a) zgłoszenie",
+      "accepted": "{who} zaakceptował(a) zgłoszenie",
+      "closed": "{who} zamknął(-ęła) zgłoszenie",
+      "cancelled": "{who} wycofał(a) zgłoszenie",
+      "taken": "{who} przejął(-ęła) zgłoszenie",
       "status": "{who} zmienił(a) status: {status}"
     },
     "detail": {
@@ -144,14 +160,29 @@
       "requester": "Zgłasza",
       "order": "Zlecenie",
       "orderParts": "nr {nr} · mag {mag}",
-      "responders": "Rozwiązują",
-      "queue": "kolejka działu części",
+      "responders": "Rozwiązuje",
+      "queue": "Kolejka działu części",
       "acceptance": "Akceptacja",
       "accepted": "zaakceptowane {date}",
       "awaiting": "czeka na: {names}",
-      "noMessages": "Brak wiadomości.",
+      "noMessages": "Brak komentarzy. Napisz, jeśli chcesz coś dodać.",
       "attachments": "Załączniki",
-      "closedNote": "Zapytanie jest zamknięte."
+      "closedNote": "Zgłoszenie jest zamknięte.",
+      "status": "Status",
+      "yours": "Twoje zgłoszenie",
+      "description": "Opis",
+      "noDescription": "Bez opisu.",
+      "people": "Osoby",
+      "info": "Informacje",
+      "number": "Numer",
+      "branch": "Oddział",
+      "created": "Utworzono",
+      "updated": "Ostatnia zmiana",
+      "closed": "Zamknięto",
+      "orderNotFound": "nie znaleziono w Ambrze",
+      "awaitingShort": "czeka na akceptację",
+      "yourTurnTitle": "Czeka na Twoją odpowiedź.",
+      "yourTurnBody": "Dział części potrzebuje od Ciebie informacji. Odpowiedz w komentarzu poniżej."
     },
     "composer": {
       "removeFile": "Usuń {name}",
@@ -161,9 +192,9 @@
       "send": "Wyślij",
       "errors": {
         "empty": "Wpisz odpowiedź albo dodaj plik.",
-        "closed": "Zapytanie jest zamknięte.",
+        "closed": "Zgłoszenie jest zamknięte.",
         "attachment": "Nie udało się dodać pliku (dozwolone: zdjęcia i PDF do 10 MB).",
-        "not_found": "Nie znaleziono zapytania.",
+        "not_found": "Nie znaleziono zgłoszenia.",
         "generic": "Nie udało się wysłać. Spróbuj ponownie."
       },
       "sending": "wysyłanie…",
@@ -172,12 +203,20 @@
     },
     "close": {
       "close": "Sprawa załatwiona",
+      "closeShort": "Załatwione",
       "cancel": "Wycofaj",
-      "confirmClose": "Zamknąć zapytanie jako załatwione?",
-      "confirmCancel": "Wycofać zapytanie?",
-      "failed": "Nie udało się zmienić statusu."
+      "confirmClose": "Zamknąć zgłoszenie jako załatwione?",
+      "confirmCloseBody": "Dział części zobaczy, że sprawa jest załatwiona. Jeśli coś jeszcze wyjdzie, załóż nowe zgłoszenie.",
+      "confirmCancel": "Wycofać zgłoszenie?",
+      "confirmCancelBody": "Dział części przestanie się nim zajmować. Tego nie da się cofnąć.",
+      "closeConfirm": "Zamknij zgłoszenie",
+      "cancelConfirm": "Wycofaj zgłoszenie",
+      "keep": "Nie teraz",
+      "closedToast": "Zgłoszenie zamknięte.",
+      "cancelledToast": "Zgłoszenie wycofane.",
+      "failed": "Nie udało się zmienić statusu. Spróbuj ponownie."
     },
-    "newLabel": "Nowe zapytanie",
+    "newLabel": "Nowe zgłoszenie",
     "thread": {
       "edit": "Edytuj",
       "edited": "edytowano",
@@ -191,6 +230,40 @@
       "notSent": "Nie wysłano",
       "retry": "Ponów",
       "discard": "Odrzuć"
+    },
+    "heading": "Zgłoszenia",
+    "listLabel": "Lista zgłoszeń",
+    "pagination": "Strony listy",
+    "rows": "Wierszy:",
+    "range": "{from}–{to} z {total}",
+    "queueShort": "Kolejka działu",
+    "table": {
+      "request": "Zgłoszenie",
+      "status": "Status",
+      "type": "Typ",
+      "order": "Zlecenie",
+      "responders": "Rozwiązują",
+      "comments": "Komentarze",
+      "updated": "Ostatnia zmiana"
+    },
+    "backToList": "Wróć do zgłoszeń",
+    "closePanel": "Zamknij",
+    "openPage": "Otwórz na całej stronie",
+    "tabs": {
+      "request": "Zgłoszenie",
+      "comments": "Komentarze",
+      "details": "Szczegóły",
+      "activity": "Aktywność"
+    },
+    "editor": {
+      "bold": "Pogrubienie",
+      "italic": "Kursywa",
+      "underline": "Podkreślenie",
+      "strikethrough": "Przekreślenie",
+      "bulletList": "Lista",
+      "orderedList": "Lista numerowana",
+      "link": "Link",
+      "linkPrompt": "Adres linku"
     }
   },
   "components": {

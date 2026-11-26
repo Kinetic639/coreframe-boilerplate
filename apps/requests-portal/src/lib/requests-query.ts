@@ -3,14 +3,14 @@
 import { createContext, useContext } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import type { RequestView } from "@/server/requests/view.service";
-import type { RequestListItem } from "@/server/requests/types";
+import type { RequestListItem, RequestListPage } from "@/server/requests/types";
 
 // The portal's cache, in one place for the list, the request card and the realtime
 // listener: one entry per list page the address asks for and one per request card,
 // per organization and branch scope (the header switcher). Reads are plain GETs
 // (src/app/api/requests), so they never wait behind a save.
 
-export type ListData = { items: RequestListItem[]; total: number };
+export type ListData = RequestListPage;
 
 /** A list page stays fresh this long: going back and forth costs nothing. */
 const LIST_STALE_TIME = 30 * 1000;
