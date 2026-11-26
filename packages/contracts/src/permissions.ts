@@ -76,7 +76,7 @@ export const MODULE_WAREHOUSE_ACCESS = "module.warehouse.access" as const;
 // App Access Permissions (org-scoped — which Ambra apps a user may open, see
 // get_my_ambra_apps). app.erp.access is granted to org_owner and org_member, so every
 // member keeps the ERP; a portal-only account is one whose roles lack it.
-// Seeded in migration 20261129090000_ambra_apps_access.
+// Seeded in migration 20261130090000_ambra_apps_access.
 export const APP_ERP_ACCESS = "app.erp.access" as const;
 
 // Warehouse Permissions (org+branch-scoped — warehouse module, phase 1)
