@@ -17,6 +17,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { NavUser } from "@/components/nav-user";
+import { AppVersionHost, SidebarVersion } from "@/components/app-version";
 import { Separator } from "@/components/ui/separator";
 import { Link, usePathname } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
@@ -120,6 +121,7 @@ function AdminSidebar({ model, user, ...props }: AdminSidebarProps) {
       </SidebarContent>
       <SidebarFooter className="bg-muted border-t">
         <NavUser user={user} isAdmin={true} />
+        <SidebarVersion />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
@@ -158,6 +160,7 @@ export function AdminShell({ children, sidebarModel, user }: AdminShellProps) {
         <AdminHeader />
         <main className="flex-1 overflow-auto p-4 pb-12">{children}</main>
       </SidebarInset>
+      <AppVersionHost />
     </SidebarProvider>
   );
 }

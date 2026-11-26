@@ -19,6 +19,7 @@ import {
   type UploadedFeedbackFile,
 } from "@/lib/platform-feedback/types";
 import { getAuthUser } from "@/server/auth/get-auth-user";
+import { BUILD_VERSION_LABEL } from "@/lib/app-version";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
@@ -50,7 +51,7 @@ export async function createFeedbackAction(
       branchId: dashboard?.app.activeBranchId ?? null,
       context: {
         ...parsed.data.context,
-        appVersion: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
+        appVersion: BUILD_VERSION_LABEL,
         environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? null,
       },
     });

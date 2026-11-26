@@ -1,0 +1,26 @@
+{
+  "name": "@repo/app-version",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The one version of the Ambra system (ERP, website, requests portal, VMI), its changelog and the release script.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./changelog-parser": "./scripts/changelog-parser.mjs"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run",
+    "test:run": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "eslint": "^9.39.2",
+    "typescript": "^5.9.2",
+    "vitest": "^4.0.18"
+  }
+}
