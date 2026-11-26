@@ -9,6 +9,7 @@ import {
   Home,
   LogOut,
   Shield,
+  Sparkles,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -31,6 +32,7 @@ import { useTranslations } from "next-intl";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import { signOutAction } from "@/app/[locale]/actions";
 import { useReportFeedbackStore } from "@/lib/platform-feedback/report-store";
+import { useWhatsNewStore } from "@/components/app-version/whats-new-store";
 import { appUrl } from "@repo/app-urls";
 
 export function NavUser({
@@ -72,6 +74,8 @@ export function NavUser({
   };
 
   const openReportFeedback = useReportFeedbackStore((state) => state.setOpen);
+  const openWhatsNew = useWhatsNewStore((state) => state.setOpen);
+  const tVersion = useTranslations("appVersion");
 
   const handleGoToDiagnostics = () => {
     router.push("/dashboard/diagnostics");
@@ -159,6 +163,10 @@ export function NavUser({
                 </DropdownMenuItem>
               </>
             )}
+            <DropdownMenuItem onClick={() => openWhatsNew(true)} data-testid="user-menu-whats-new">
+              <Sparkles />
+              {tVersion("whatsNew")}
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <form action={signOutAction} className="w-full">

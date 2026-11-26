@@ -28,7 +28,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*", "$TURBO_ROOT$/packages/app-version/package.json"],
       "env": [
         "RESEND_API_KEY",
         "SUPABASE_ACCESS_TOKEN",
