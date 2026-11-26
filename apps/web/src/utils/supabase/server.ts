@@ -1,3 +1,4 @@
+import { getAuthCookieOptions } from "@repo/app-urls";
 import { createServerClient } from "@supabase/ssr";
 import { cookies, headers } from "next/headers";
 import { buildClientInfo, CLIENT_INFO_PREFIX, fetchWithClientInfo } from "./request-source";
@@ -23,6 +24,7 @@ export const createClient = async () => {
         // Set in fetch: @supabase/ssr overwrites X-Client-Info in global.headers.
         fetch: fetchWithClientInfo(clientInfo),
       },
+      cookieOptions: getAuthCookieOptions(),
       cookies: {
         getAll() {
           return cookieStore.getAll();
