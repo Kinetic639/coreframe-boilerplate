@@ -1,5 +1,11 @@
 # @repo/app-version
 
+## 1.3.1 (2026-11-26)
+
+### Poprawki
+
+- Ekran wyboru aplikacji po zalogowaniu ma teraz jasny i ciemny motyw (w jasnym motywie panel powitalny jest jasny). W przełączniku aplikacji w nagłówku doszła pozycja „Wybór aplikacji po zalogowaniu”, która otwiera ekran wyboru także wtedy, gdy włączone jest otwieranie ostatniej aplikacji, więc można to ustawienie wyłączyć.
+
 ## 1.3.0 (2026-11-26)
 
 ### Nowe funkcje
