@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { FileText, Paperclip, Pencil, RotateCw, Undo2, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -18,7 +18,8 @@ import {
   type RichTextValue,
 } from "@repo/rich-text";
 import { createClient } from "@/utils/supabase/client";
-import { THREAD_CHANGED_EVENT } from "./live-events";
+import { useQueryClient } from "@tanstack/react-query";
+import { replyFinished, replyStarted, requestKeys, useRequestsScope } from "@/lib/requests-query";
 import { threadApi } from "./thread-api";
 import { formatBytes, formatWhen } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -92,13 +93,12 @@ export function Thread({
   const when = (iso: string) =>
     formatWhen(iso, locale, { today: t("today"), yesterday: t("yesterday") });
 
-  const [comments, setComments] = useState(initialComments);
-  const [attachments, setAttachments] = useState(initialAttachments);
+  const comments = initialComments;
+  const attachments = initialAttachments;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingReply[]>([]);
-  const [, startTransition] = useTransition();
-  // Replies in flight; realtime reloads wait for them so a reply is never shown twice.
-  const inFlight = useRef(0);
+  const qc = useQueryClient();
+  const scope = useRequestsScope();
 
   const [supabase] = useState(createClient);
   const typingMe = useMemo(() => ({ id: viewer.id, name: viewer.name }), [viewer.id, viewer.name]);
@@ -108,45 +108,25 @@ export function Thread({
     me: typingMe,
   });
 
-  // A server re-render (status change etc.) brings fresh data for the same ticket.
-  useEffect(() => setComments(initialComments), [initialComments]);
-  useEffect(() => setAttachments(initialAttachments), [initialAttachments]);
-
-  const reload = useCallback(() => {
-    startTransition(async () => {
-      const fresh = await threadApi.load(ticketId);
-      if (!fresh) return;
-      setComments(fresh.comments);
-      setAttachments(fresh.attachments);
-    });
-  }, [ticketId]);
-
-  useEffect(() => {
-    const onChange = (e: Event) => {
-      if (inFlight.current > 0) return;
-      if ((e as CustomEvent<{ ticketId?: string }>).detail?.ticketId === ticketId) reload();
-    };
-    window.addEventListener(THREAD_CHANGED_EVENT, onChange);
-    return () => window.removeEventListener(THREAD_CHANGED_EVENT, onChange);
-  }, [ticketId, reload]);
+  // Comments and files come from the request's cache entry; a refetch updates them.
+  const reload = useCallback(
+    () => qc.refetchQueries({ queryKey: requestKeys.detail(scope, ticketId), exact: true }),
+    [qc, scope, ticketId]
+  );
 
   const deliver = useCallback(
     async (p: PendingReply) => {
-      inFlight.current++;
+      replyStarted(ticketId);
       const res = await threadApi.post(ticketId, toFormData(p));
       // The text may be saved even when a file failed, so reload in both cases.
-      const fresh =
-        res.ok || res.error.startsWith("attachment") ? await threadApi.load(ticketId) : null;
-      inFlight.current--;
-      if (fresh) {
-        setComments(fresh.comments);
-        setAttachments(fresh.attachments);
-      }
+      const textSaved = res.ok || res.error.startsWith("attachment");
+      if (textSaved) await reload();
+      replyFinished(ticketId);
+      if (textSaved) void qc.invalidateQueries({ queryKey: requestKeys.lists(scope) });
       if (res.ok) {
         setPending((list) => list.filter((x) => x.key !== p.key));
         revokePreviews(p);
       } else {
-        const textSaved = !!fresh;
         setPending((list) =>
           list.map((x) =>
             x.key === p.key
@@ -156,7 +136,7 @@ export function Thread({
         );
       }
     },
-    [ticketId]
+    [ticketId, reload, qc, scope]
   );
 
   const send = (rich: RichTextValue | null, files: File[]) => {

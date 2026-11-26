@@ -5,7 +5,7 @@ import { Link } from "@/i18n/navigation";
 import { requirePortalContext } from "@/server/portal-context";
 import {
   listBranchWarehouses,
-  listTicketTypes,
+  listTicketTypesByBranch,
   type PortalTicketType,
 } from "@/server/requests/requests.service";
 import { createClient } from "@/utils/supabase/server";
@@ -26,18 +26,12 @@ export default async function NewRequestPage({ params }: { params: Promise<{ loc
   ]);
 
   const branches = ctx.branches.filter((b) => ctx.can.create(b.id));
-  const typesByBranch: Record<string, PortalTicketType[]> = {};
-  await Promise.all(
-    branches.map(async (b) => {
-      const res = await listTicketTypes(supabase, ctx, b.id);
-      typesByBranch[b.id] = res.ok ? res.data : [];
-    })
-  );
-  const warehousesByBranch = await listBranchWarehouses(
-    supabase,
-    ctx,
-    branches.map((b) => b.id)
-  );
+  const branchIds = branches.map((b) => b.id);
+  const [types, warehousesByBranch] = await Promise.all([
+    listTicketTypesByBranch(supabase, ctx, branchIds),
+    listBranchWarehouses(supabase, ctx, branchIds),
+  ]);
+  const typesByBranch: Record<string, PortalTicketType[]> = types.ok ? types.data : {};
   const defaultBranchId =
     (ctx.activeBranchId &&
       branches.some((b) => b.id === ctx.activeBranchId) &&

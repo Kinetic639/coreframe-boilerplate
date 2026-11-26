@@ -1,46 +1,54 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { isReplying, requestKeys, useRequestsScope } from "@/lib/requests-query";
 import { createClient } from "@/utils/supabase/client";
-import { LIST_CHANGED_EVENT, THREAD_CHANGED_EVENT } from "./live-events";
 
 /**
  * Live updates through Supabase Realtime (RLS applies, so only readable rows arrive).
- * Nothing here re-renders the whole page for changes elsewhere:
- * - comments / attachments: the open thread reloads itself;
- * - tickets / activity: the list refetches itself; only a change to the open ticket
- *   (status, taken) re-renders the server tree, for its header.
- * Coming back to the tab refetches the list and the open thread the same way.
+ * A change marks the cached list pages and that request's card stale: what is on screen
+ * refetches once (debounced), the rest when it is shown next. Nothing re-renders the page.
+ * A reconnect after a dropped connection refetches what is on screen.
  */
 export function RealtimeRefresh({ orgId }: { orgId: string }) {
-  const router = useRouter();
-  const { ticketId } = useParams<{ ticketId?: string }>();
-  const openTicket = useRef(ticketId);
-  openTicket.current = ticketId;
+  const qc = useQueryClient();
+  const scope = useRequestsScope();
 
   useEffect(() => {
     const supabase = createClient();
     let listTimer: ReturnType<typeof setTimeout> | undefined;
-    let detailTimer: ReturnType<typeof setTimeout> | undefined;
+    const detailTimers = new Map<string, ReturnType<typeof setTimeout>>();
     const listChanged = () => {
       clearTimeout(listTimer);
-      listTimer = setTimeout(() => window.dispatchEvent(new Event(LIST_CHANGED_EVENT)), 300);
+      listTimer = setTimeout(
+        () => void qc.invalidateQueries({ queryKey: requestKeys.lists(scope) }),
+        300
+      );
     };
-    const threadChanged = (id: string) =>
-      window.dispatchEvent(new CustomEvent(THREAD_CHANGED_EVENT, { detail: { ticketId: id } }));
+    const detailChanged = (id: string) => {
+      clearTimeout(detailTimers.get(id));
+      detailTimers.set(
+        id,
+        setTimeout(() => {
+          detailTimers.delete(id);
+          // A reply of ours still sending reloads the card itself when it is saved.
+          if (isReplying(id)) return;
+          void qc.invalidateQueries({ queryKey: requestKeys.detail(scope, id), exact: true });
+        }, 300)
+      );
+    };
     const ticketChanged = (id: string | undefined) => {
       listChanged();
-      if (!id || id !== openTicket.current) return;
-      clearTimeout(detailTimer);
-      detailTimer = setTimeout(() => router.refresh(), 300);
+      if (id) detailChanged(id);
     };
     const commentChanged = (payload: { new: unknown; old: unknown }) => {
       const row = (payload.new ?? payload.old) as { target_type?: string; target_id?: string };
       if (row?.target_type !== "helpdesk.ticket" || !row.target_id) return;
-      threadChanged(row.target_id);
-      listChanged(); // comment count / unread dot
+      detailChanged(row.target_id);
+      listChanged(); // comment count
     };
+    const catchUp = () => void qc.invalidateQueries({ queryKey: requestKeys.all(scope) });
     const filter = `org_id=eq.${orgId}`;
 
     // Unique topic: supabase-js reuses a channel with the same topic, so a remount could
@@ -81,22 +89,13 @@ export function RealtimeRefresh({ orgId }: { orgId: string }) {
       });
     });
 
-    const catchUp = () => {
-      listChanged();
-      if (openTicket.current) threadChanged(openTicket.current);
-    };
-    const onVisible = () => {
-      if (document.visibilityState === "visible") catchUp();
-    };
-    document.addEventListener("visibilitychange", onVisible);
     return () => {
       active = false;
       clearTimeout(listTimer);
-      clearTimeout(detailTimer);
-      document.removeEventListener("visibilitychange", onVisible);
+      for (const timer of detailTimers.values()) clearTimeout(timer);
       void supabase.removeChannel(channel);
     };
-  }, [orgId, router]);
+  }, [orgId, qc, scope]);
 
   return null;
 }

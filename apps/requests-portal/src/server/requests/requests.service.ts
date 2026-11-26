@@ -38,6 +38,58 @@ export function toPerson(u: UserRow): PersonRef | null {
 }
 
 const USER_COLS = "id, first_name, last_name, email, avatar_url";
+
+/**
+ * Portal RPCs (migration 20261128090000_requests_portal_rpc). Not in the generated types
+ * yet, hence the loose signature. Every caller falls back to the separate queries when a
+ * function is missing or fails, so the portal works before the migration is applied.
+ */
+export async function portalRpc<T>(
+  supabase: PortalSupabase,
+  fn: string,
+  args: Record<string, unknown>
+): Promise<{ data: T | null; error: { message: string; code?: string } | null }> {
+  const rpc = supabase.rpc as unknown as (
+    fn: string,
+    args: Record<string, unknown>
+  ) => Promise<{ data: T | null; error: { message: string; code?: string } | null }>;
+  return rpc.call(supabase, fn, args);
+}
+
+/** A request as portal_request_json returns it. */
+export type RpcRequestRow = {
+  id: string;
+  ticket_number: string;
+  title: string;
+  status: TicketStatus;
+  requires_acceptance: boolean | null;
+  accepted_at: string | null;
+  branch_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  ticket_type: TicketTypeRef | null;
+  creator: UserRow;
+  order_ref: Omit<ReferenceRow, "ticket_id"> | null;
+  comment_count: number;
+};
+
+export function rpcRowToListItem(r: RpcRequestRow, ctx: PortalContext): RequestListItem {
+  return {
+    id: r.id,
+    number: r.ticket_number,
+    title: r.title,
+    state: requestState(r),
+    type: r.ticket_type,
+    branchId: r.branch_id,
+    requester: toPerson(r.creator),
+    order: r.order_ref ? toOrder({ ...r.order_ref, ticket_id: r.id }) : null,
+    commentCount: Number(r.comment_count ?? 0),
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    isMine: r.created_by === ctx.user.id,
+  };
+}
 const LIST_COLS = [
   "id, ticket_number, title, status, requires_acceptance, accepted_at, branch_id,",
   "created_by, created_at, updated_at,",
@@ -140,6 +192,36 @@ export type ListRequestsInput = {
 };
 
 export async function listRequests(
+  supabase: PortalSupabase,
+  ctx: PortalContext,
+  input: ListRequestsInput
+): Promise<ServiceResult<{ items: RequestListItem[]; total: number }>> {
+  const { data, error } = await portalRpc<{ total: number; rows: RpcRequestRow[] }>(
+    supabase,
+    "portal_request_list",
+    {
+      p_org_id: ctx.org.id,
+      p_branch_ids: ctx.scopeBranchIds,
+      p_mine: input.scope === "mine",
+      p_filter: input.filter,
+      p_type_id: input.typeId ?? null,
+      p_search: input.search?.trim() || null,
+      p_sort: input.sort,
+      p_limit: PAGE_SIZE,
+      p_offset: Math.max(0, input.page - 1) * PAGE_SIZE,
+    }
+  );
+  if (!error && data) {
+    return {
+      ok: true,
+      data: { total: Number(data.total), items: data.rows.map((r) => rpcRowToListItem(r, ctx)) },
+    };
+  }
+  return listRequestsLegacy(supabase, ctx, input);
+}
+
+/** The list in separate queries, used while portal_request_list is missing. */
+async function listRequestsLegacy(
   supabase: PortalSupabase,
   ctx: PortalContext,
   input: ListRequestsInput
@@ -351,6 +433,16 @@ export async function listTicketTypes(
   ctx: PortalContext,
   branchId: string
 ): Promise<ServiceResult<PortalTicketType[]>> {
+  const res = await listTicketTypesByBranch(supabase, ctx, [branchId]);
+  return res.ok ? { ok: true, data: res.data[branchId] ?? [] } : res;
+}
+
+/** The same per branch for several branches, in one query. */
+export async function listTicketTypesByBranch(
+  supabase: PortalSupabase,
+  ctx: PortalContext,
+  branchIds: string[]
+): Promise<ServiceResult<Record<string, PortalTicketType[]>>> {
   const { data, error } = await supabase
     .from("helpdesk_ticket_types")
     .select(
@@ -379,23 +471,31 @@ export async function listTicketTypes(
     responders: Array<{ deleted_at: string | null; user: UserRow }>;
     acceptors: Array<{ user: UserRow }>;
   }>;
+  const types = rows.map((t) => ({
+    scope: t.scope,
+    branchId: t.branch_id,
+    type: {
+      id: t.id,
+      name: t.name,
+      color: t.color,
+      icon: t.icon,
+      description: t.description,
+      requiresAcceptance: t.requires_acceptance,
+      responders: t.responders
+        .filter((r) => !r.deleted_at)
+        .map((r) => toPerson(r.user))
+        .filter((p): p is PersonRef => !!p),
+      acceptors: t.acceptors.map((a) => toPerson(a.user)).filter((p): p is PersonRef => !!p),
+    } satisfies PortalTicketType,
+  }));
   return {
     ok: true,
-    data: rows
-      .filter((t) => t.scope !== "branch" || t.branch_id === branchId)
-      .map((t) => ({
-        id: t.id,
-        name: t.name,
-        color: t.color,
-        icon: t.icon,
-        description: t.description,
-        requiresAcceptance: t.requires_acceptance,
-        responders: t.responders
-          .filter((r) => !r.deleted_at)
-          .map((r) => toPerson(r.user))
-          .filter((p): p is PersonRef => !!p),
-        acceptors: t.acceptors.map((a) => toPerson(a.user)).filter((p): p is PersonRef => !!p),
-      })),
+    data: Object.fromEntries(
+      branchIds.map((branchId) => [
+        branchId,
+        types.filter((t) => t.scope !== "branch" || t.branchId === branchId).map((t) => t.type),
+      ])
+    ),
   };
 }
 
@@ -467,6 +567,41 @@ export async function createRequest(
   ctx: PortalContext,
   input: CreateRequestInput
 ): Promise<ServiceResult<{ id: string; number: string }>> {
+  const description = input.description ?? "";
+  const { data, error } = await portalRpc<{ id: string; ticket_number: string }>(
+    supabase,
+    "portal_create_request",
+    {
+      p_org_id: ctx.org.id,
+      p_branch_id: input.branchId,
+      p_type_id: input.typeId,
+      p_title: input.title,
+      p_description_plain: description,
+      p_description_rich: plainToRichDoc(description),
+      p_order_number: input.orderNumber && input.warehouse ? input.orderNumber : null,
+      p_warehouse: input.orderNumber && input.warehouse ? input.warehouse : null,
+    }
+  );
+  if (data) return { ok: true, data: { id: data.id, number: data.ticket_number } };
+  if (error && !isMissingFunction(error)) {
+    return {
+      ok: false,
+      error: error.message.includes("unknown_type") ? "unknown_type" : error.message,
+    };
+  }
+  return createRequestLegacy(supabase, ctx, input);
+}
+
+/** PostgREST reports a function the database does not have yet as PGRST202 (or 42883). */
+export function isMissingFunction(error: { code?: string; message: string }) {
+  return error.code === "PGRST202" || error.code === "42883";
+}
+
+async function createRequestLegacy(
+  supabase: PortalSupabase,
+  ctx: PortalContext,
+  input: CreateRequestInput
+): Promise<ServiceResult<{ id: string; number: string }>> {
   const types = await listTicketTypes(supabase, ctx, input.branchId);
   if (!types.ok) return types;
   const type = types.data.find((t) => t.id === input.typeId);
@@ -523,7 +658,20 @@ export async function closeOwnRequest(
   ctx: PortalContext,
   ticketId: string,
   outcome: "closed" | "cancelled"
-): Promise<ServiceResult<null>> {
+): Promise<ServiceResult<RequestListItem>> {
+  const { data: row, error: rpcError } = await portalRpc<RpcRequestRow>(
+    supabase,
+    "portal_close_request",
+    { p_ticket_id: ticketId, p_outcome: outcome }
+  );
+  if (row) return { ok: true, data: rpcRowToListItem(row, ctx) };
+  if (rpcError && !isMissingFunction(rpcError)) {
+    return {
+      ok: false,
+      error: rpcError.message.includes("not_found") ? "not_found" : rpcError.message,
+    };
+  }
+
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("helpdesk_tickets")
@@ -544,7 +692,9 @@ export async function closeOwnRequest(
     event_type: "ticket_closed",
     payload: { resolution_note: null, status: outcome, source: "requests-portal" },
   });
-  return { ok: true, data: null };
+  const fresh = await getRequest(supabase, ctx, ticketId);
+  if (!fresh.ok || !fresh.data) return { ok: false, error: "not_found" };
+  return { ok: true, data: fresh.data.request };
 }
 
 export type PortalWarehouse = { code: string; name: string | null };
