@@ -73,6 +73,12 @@ export const MODULE_ORGANIZATION_MANAGEMENT_ACCESS =
 // Seeded in migration 20260401120000_warehouse_locations.
 export const MODULE_WAREHOUSE_ACCESS = "module.warehouse.access" as const;
 
+// App Access Permissions (org-scoped — which Ambra apps a user may open, see
+// get_my_ambra_apps). app.erp.access is granted to org_owner and org_member, so every
+// member keeps the ERP; a portal-only account is one whose roles lack it.
+// Seeded in migration 20261130090000_ambra_apps_access.
+export const APP_ERP_ACCESS = "app.erp.access" as const;
+
 // Warehouse Permissions (org+branch-scoped — warehouse module, phase 1)
 // warehouse.*               — org_owner wildcard; compiler expands to all concrete warehouse.* slugs
 // warehouse.read            — broad read gate checked in layout and actions
@@ -366,6 +372,7 @@ export type PermissionSlug =
   | typeof MODULE_ACCESS_WILDCARD
   | typeof MODULE_ORGANIZATION_MANAGEMENT_ACCESS
   | typeof MODULE_WAREHOUSE_ACCESS
+  | typeof APP_ERP_ACCESS
   | typeof WAREHOUSE_WILDCARD
   | typeof WAREHOUSE_READ
   | typeof WAREHOUSE_LOCATIONS_READ
@@ -509,6 +516,7 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   MODULE_ACCESS_WILDCARD,
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
   MODULE_WAREHOUSE_ACCESS,
+  APP_ERP_ACCESS,
   WAREHOUSE_WILDCARD,
   WAREHOUSE_READ,
   WAREHOUSE_LOCATIONS_READ,

@@ -43,7 +43,8 @@
     },
     "noAccess": {
       "title": "Brak dostępu do zgłoszeń",
-      "body": "Konto {email} nie ma uprawnień do Ambra Zgłoszenia. Poproś kierownika o rolę „Doradca (portal)” w swoim oddziale."
+      "body": "Konto {email} nie ma uprawnień do Ambra Zgłoszenia. Poproś kierownika o rolę „Doradca (portal)” w swoim oddziale.",
+      "otherApps": "Inne aplikacje Ambra"
     },
     "theme": {
       "mode": "Motyw",
@@ -281,6 +282,24 @@
       "addFailed": "Nie udało się dodać komentarza",
       "typing": "{name} pisze…",
       "typingMany": "{count, plural, few {# osoby piszą…} other {# osób pisze…}}"
+    }
+  },
+  "ambraApps": {
+    "names": {
+      "erp": "Ambra ERP",
+      "requests": "Zgłoszenia",
+      "vmi": "VMI"
+    },
+    "descriptions": {
+      "erp": "Magazyn, CRM, planowanie, warsztat",
+      "requests": "Portal zgłoszeń dla doradców",
+      "vmi": "Portal dostawców"
+    },
+    "switcher": {
+      "trigger": "Aplikacje Ambra",
+      "title": "Aplikacje Ambra",
+      "current": "Tutaj jesteś",
+      "website": "Strona Ambra"
     }
   }
 }

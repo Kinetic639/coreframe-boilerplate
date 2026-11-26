@@ -14,6 +14,8 @@ import { HeaderNotifications } from "./header-notifications";
 import { HeaderContacts } from "./header-contacts";
 import { HeaderQuickAdd } from "./header-quick-add";
 import { ReportFeedbackHost } from "@/components/platform-feedback/report-feedback-dialog";
+import type { AmbraWorkApp } from "@repo/app-urls";
+import { HeaderAppSwitcher } from "./header-app-switcher";
 
 /**
  * Dashboard Header V2
@@ -31,6 +33,7 @@ import { ReportFeedbackHost } from "@/components/platform-feedback/report-feedba
  * - Left: Sidebar trigger + separator
  * - Center: Search bar
  * - Right: Contacts + Notifications (messages live in the right bar; below lg a header icon)
+ *   + the Ambra app switcher
  *
  * Note: Recent activity is accessible via the status bar at the bottom.
  * Note: User menu is available in the sidebar footer.
@@ -40,11 +43,14 @@ interface DashboardHeaderV2Props {
   searchEntries?: SearchEntry[];
   /** Data sources the user may search (scope chips) */
   searchSources?: SearchSourceId[];
+  /** Ambra apps this user may open; empty hides the app switcher */
+  ambraApps?: AmbraWorkApp[];
 }
 
 export function DashboardHeaderV2({
   searchEntries = [],
   searchSources = [],
+  ambraApps = [],
 }: DashboardHeaderV2Props) {
   return (
     <header className="sticky top-0 z-50 flex h-12 shrink-0 items-center gap-2 bg-muted shadow-sm transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
@@ -71,6 +77,7 @@ export function DashboardHeaderV2({
         {/* Below lg the messages bar is hidden: the icon opens the Messages page */}
         <HeaderMessagesLink />
         <HeaderNotifications />
+        {ambraApps.length > 0 ? <HeaderAppSwitcher apps={ambraApps} /> : null}
       </div>
 
       {/* Mounted once: both triggers open this palette */}

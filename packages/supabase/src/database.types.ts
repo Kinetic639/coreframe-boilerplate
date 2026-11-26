@@ -10269,6 +10269,10 @@ export type Database = {
         Args: { p_token: string };
         Returns: Json;
       };
+      get_my_ambra_apps: {
+        Args: never;
+        Returns: { app: string; organization_id: string }[];
+      };
       get_my_pending_invitations: { Args: never; Returns: Json };
       get_warehouse_location_mapping_status: {
         Args: { p_location_id: string };

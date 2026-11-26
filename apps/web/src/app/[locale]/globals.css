@@ -1630,6 +1630,98 @@
   .ambra-logo-hover:hover .ambra-logo-beacon {
     animation: ambra-logo-beacon 1.7s ease-in-out infinite;
   }
+  /* App chooser greeting panel: amber grid with streaks running along it (as in the site hero). */
+  .ambra-chooser-grid {
+    background-image:
+      linear-gradient(to right, rgb(245 158 11 / 0.3) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(245 158 11 / 0.3) 1px, transparent 1px);
+    background-size: 48px 48px;
+    background-position: -1px -1px;
+  }
+  .ambra-chooser-streak {
+    position: absolute;
+    overflow: hidden;
+    filter: drop-shadow(0 0 10px rgb(245 158 11 / 0.95));
+  }
+  .ambra-chooser-streak::before {
+    content: "";
+    position: absolute;
+    opacity: 0;
+    will-change: transform, opacity;
+    animation-duration: var(--streak-duration, 4.8s);
+    animation-delay: var(--streak-delay, 0s);
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+  .ambra-chooser-streak-x {
+    height: 2px;
+    margin-top: -1px;
+  }
+  .ambra-chooser-streak-x::before {
+    inset: 0 auto 0 0;
+    width: 45%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(245 158 11 / 0.25) 25%,
+      #fcd34d 50%,
+      rgb(180 83 9 / 0.5) 75%,
+      transparent
+    );
+    animation-name: ambra-chooser-streak-x;
+  }
+  .ambra-chooser-streak-y {
+    width: 2px;
+    margin-left: -1px;
+  }
+  .ambra-chooser-streak-y::before {
+    inset: 0 0 auto 0;
+    height: 45%;
+    background: linear-gradient(
+      180deg,
+      transparent,
+      rgb(245 158 11 / 0.25) 25%,
+      #fcd34d 50%,
+      rgb(180 83 9 / 0.5) 75%,
+      transparent
+    );
+    animation-name: ambra-chooser-streak-y;
+  }
+  @keyframes ambra-chooser-streak-x {
+    0% {
+      opacity: 0;
+      transform: translateX(-100%);
+    }
+    12%,
+    45% {
+      opacity: 1;
+    }
+    60%,
+    100% {
+      opacity: 0;
+      transform: translateX(230%);
+    }
+  }
+  @keyframes ambra-chooser-streak-y {
+    0% {
+      opacity: 0;
+      transform: translateY(-100%);
+    }
+    12%,
+    45% {
+      opacity: 1;
+    }
+    60%,
+    100% {
+      opacity: 0;
+      transform: translateY(230%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ambra-chooser-streak::before {
+      animation: none;
+    }
+  }
   .bg-gradient-amber {
     background-image: var(--gradient-amber);
   }

@@ -6,6 +6,7 @@ import {
   HELPDESK_TICKETS_READ,
   HELPDESK_TICKET_TYPES_MANAGE,
 } from "@repo/contracts/permissions";
+import { AMBRA_WORK_APPS, type AmbraWorkApp, isAmbraWorkApp } from "@repo/app-urls";
 import { parseUiTheme, type UiTheme } from "@/lib/ui-theme";
 import { createClient } from "@/utils/supabase/server";
 
@@ -33,6 +34,8 @@ export type PortalContext = {
   activeBranchId: string | null;
   /** Branch ids the current view covers (the active one, or all of `branches`). */
   scopeBranchIds: string[];
+  /** Ambra apps the user may open (header app switcher); empty if the rule could not run. */
+  apps: AmbraWorkApp[];
   /** Permission checks, org-wide grants included. */
   can: {
     create: (branchId: string) => boolean;
@@ -68,29 +71,37 @@ export const loadPortalContext = cache(async (): Promise<PortalContextResult> =>
 
   // One round: organizations and branches come for every organization the user can see
   // (RLS) and are narrowed below, instead of waiting for the organization first.
-  const [{ data: uep }, { data: prefs }, { data: profile }, { data: orgs }, { data: allBranches }] =
-    await Promise.all([
-      supabase
-        .from("user_effective_permissions")
-        .select("organization_id, branch_id, permission_slug_exact")
-        .eq("user_id", user.id),
-      supabase
-        .from("user_preferences")
-        .select("organization_id, dashboard_settings")
-        .eq("user_id", user.id)
-        .maybeSingle(),
-      supabase
-        .from("users")
-        .select("first_name, last_name, avatar_url")
-        .eq("id", user.id)
-        .maybeSingle(),
-      supabase.from("organizations").select("id, name"),
-      supabase
-        .from("branches")
-        .select("id, name, organization_id")
-        .is("deleted_at", null)
-        .order("created_at", { ascending: true }),
-    ]);
+  const [
+    { data: uep },
+    { data: prefs },
+    { data: profile },
+    { data: orgs },
+    { data: allBranches },
+    { data: appRows, error: appsError },
+  ] = await Promise.all([
+    supabase
+      .from("user_effective_permissions")
+      .select("organization_id, branch_id, permission_slug_exact")
+      .eq("user_id", user.id),
+    supabase
+      .from("user_preferences")
+      .select("organization_id, dashboard_settings")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("users")
+      .select("first_name, last_name, avatar_url")
+      .eq("id", user.id)
+      .maybeSingle(),
+    supabase.from("organizations").select("id, name"),
+    supabase
+      .from("branches")
+      .select("id, name, organization_id")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true }),
+    // One rule for every Ambra app: the plan includes it and the user holds its permission.
+    supabase.rpc("get_my_ambra_apps"),
+  ]);
 
   const rows = uep ?? [];
   const canRead = (r: (typeof rows)[number]) => r.permission_slug_exact === HELPDESK_TICKETS_READ;
@@ -101,6 +112,15 @@ export const loadPortalContext = cache(async (): Promise<PortalContextResult> =>
       : orgIds[0];
   const ui = parseUiTheme(prefs?.dashboard_settings);
   if (!orgId) return { status: "no-access", email, ui };
+
+  // The organization's plan must include the portal too. If the rule could not run
+  // (e.g. the database is behind this code), the permission check above stands alone.
+  const myApps = new Set<AmbraWorkApp>();
+  for (const row of (appRows ?? []) as { organization_id: string; app: string }[]) {
+    if (row.organization_id === orgId && isAmbraWorkApp(row.app)) myApps.add(row.app);
+  }
+  if (!appsError && !myApps.has("requests")) return { status: "no-access", email, ui };
+  const apps = appsError ? [] : AMBRA_WORK_APPS.filter((app) => myApps.has(app));
 
   const orgPerms = new Set<string>();
   const branchPerms = new Map<string, Set<string>>();
@@ -147,6 +167,7 @@ export const loadPortalContext = cache(async (): Promise<PortalContextResult> =>
       branches,
       activeBranchId,
       scopeBranchIds: activeBranchId ? [activeBranchId] : branches.map((b) => b.id),
+      apps,
       can: {
         create: (branchId) => has(HELPDESK_TICKETS_CREATE, branchId),
         manage: (branchId) => has(HELPDESK_TICKETS_MANAGE, branchId),

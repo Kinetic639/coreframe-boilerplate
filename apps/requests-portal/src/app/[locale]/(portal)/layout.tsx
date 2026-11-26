@@ -1,4 +1,4 @@
-import { LogOut, MessageSquareText, ShieldOff } from "lucide-react";
+import { LayoutGrid, LogOut, MessageSquareText, ShieldOff } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { signOutAction } from "@/app/actions/auth";
 import { AppHeader } from "@/components/portal/app-header";
@@ -6,7 +6,8 @@ import { BranchSwitcher } from "@/components/portal/branch-switcher";
 import { Toaster } from "@/components/portal/toaster";
 import { UserMenu } from "@/components/portal/user-menu";
 import { redirect } from "next/navigation";
-import { appUrl, buildSignInUrl } from "@repo/app-urls";
+import { appUrl, buildAppChooserUrl, buildSignInUrl } from "@repo/app-urls";
+import { HeaderAppSwitcher } from "@/components/portal/header-app-switcher";
 import { Link } from "@/i18n/navigation";
 import { loadPortalContext } from "@/server/portal-context";
 
@@ -35,21 +36,30 @@ export default async function PortalLayout({ children }: { children: React.React
           <p className="text-sm text-muted-foreground">
             {t("portal.noAccess.body", { email: result.email })}
           </p>
-          <form action={signOutAction}>
-            <button
-              type="submit"
-              className="mt-1 flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium hover:bg-muted"
+          <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+            <a
+              href={buildAppChooserUrl(locale === "en" ? "en" : "pl")}
+              className="flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
             >
-              <LogOut className="h-4 w-4" />
-              {t("auth.signOut")}
-            </button>
-          </form>
+              <LayoutGrid className="h-4 w-4" />
+              {t("portal.noAccess.otherApps")}
+            </a>
+            <form action={signOutAction}>
+              <button
+                type="submit"
+                className="flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium hover:bg-muted"
+              >
+                <LogOut className="h-4 w-4" />
+                {t("auth.signOut")}
+              </button>
+            </form>
+          </div>
         </div>
       </main>
     );
   }
 
-  const { user, branches, activeBranchId, ui } = result.context;
+  const { user, branches, activeBranchId, ui, apps } = result.context;
   return (
     // Desktop: an app shell of one screen height; the panes below scroll on their own.
     <div className="flex min-h-dvh flex-col bg-muted/40 lg:h-dvh">
@@ -67,6 +77,7 @@ export default async function PortalLayout({ children }: { children: React.React
         </Link>
         <span className="flex-1" />
         <BranchSwitcher branches={branches} activeBranchId={activeBranchId} />
+        {apps.length > 0 ? <HeaderAppSwitcher apps={apps} /> : null}
         <UserMenu
           displayName={user.displayName}
           email={user.email}

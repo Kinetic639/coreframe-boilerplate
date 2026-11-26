@@ -43,7 +43,8 @@
     },
     "noAccess": {
       "title": "No access to requests",
-      "body": "The account {email} has no access to Ambra Zgłoszenia. Ask your manager for the “Doradca (portal)” role in your branch."
+      "body": "The account {email} has no access to Ambra Zgłoszenia. Ask your manager for the “Doradca (portal)” role in your branch.",
+      "otherApps": "Other Ambra apps"
     },
     "theme": {
       "mode": "Theme",
@@ -281,6 +282,24 @@
       "addFailed": "Failed to add comment",
       "typing": "{name} is typing…",
       "typingMany": "{count} people are typing…"
+    }
+  },
+  "ambraApps": {
+    "names": {
+      "erp": "Ambra ERP",
+      "requests": "Requests",
+      "vmi": "VMI"
+    },
+    "descriptions": {
+      "erp": "Warehouse, CRM, planning, workshop",
+      "requests": "Request portal for advisors",
+      "vmi": "Supplier portal"
+    },
+    "switcher": {
+      "trigger": "Ambra apps",
+      "title": "Ambra apps",
+      "current": "You are here",
+      "website": "Ambra website"
     }
   }
 }

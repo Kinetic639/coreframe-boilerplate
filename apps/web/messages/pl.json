@@ -10609,5 +10609,36 @@
     "reload": "Odśwież",
     "updated": "Ambra ma nową wersję: {version}.",
     "seeChanges": "Zobacz, co nowego"
+  },
+  "ambraApps": {
+    "names": {
+      "erp": "Ambra ERP",
+      "requests": "Zgłoszenia",
+      "vmi": "VMI"
+    },
+    "descriptions": {
+      "erp": "Magazyn, CRM, planowanie, warsztat",
+      "requests": "Portal zgłoszeń dla doradców",
+      "vmi": "Portal dostawców"
+    },
+    "switcher": {
+      "trigger": "Aplikacje Ambra",
+      "title": "Aplikacje Ambra",
+      "current": "Tutaj jesteś",
+      "website": "Strona Ambra"
+    },
+    "chooser": {
+      "metaTitle": "Wybierz aplikację",
+      "heading": "Wybierz aplikację, żeby zacząć",
+      "lastUsed": "Ostatnio",
+      "lastUsedMobile": "Ostatnio używana",
+      "openLast": "Następnym razem otwieraj od razu ostatnią aplikację",
+      "goodMorning": "Dzień dobry,",
+      "goodEvening": "Dobry wieczór,",
+      "signOut": "Wyloguj",
+      "noAccessTitle": "Brak dostępu do aplikacji",
+      "noAccessBody": "Twoje konto nie ma jeszcze dostępu do żadnej aplikacji Ambra. Poproś administratora swojej firmy o nadanie uprawnień.",
+      "website": "Strona Ambra"
+    }
   }
 }
