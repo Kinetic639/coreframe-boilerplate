@@ -286,6 +286,7 @@ const helpdeskRpcMissing: Record<HelpdeskRpcName, boolean> = {
   helpdesk_set_ticket_status: false,
   helpdesk_take_ticket: false,
   helpdesk_close_ticket: false,
+  helpdesk_update_ticket: false,
 };
 
 export type HelpdeskRpcName =
@@ -293,7 +294,8 @@ export type HelpdeskRpcName =
   | "helpdesk_ticket_view"
   | "helpdesk_set_ticket_status"
   | "helpdesk_take_ticket"
-  | "helpdesk_close_ticket";
+  | "helpdesk_close_ticket"
+  | "helpdesk_update_ticket";
 
 type RpcOutcome = { data: any } | { error: string } | undefined;
 
@@ -1222,13 +1224,54 @@ export class HelpdeskTicketsService {
    */
   static async saveViaRpc(
     supabase: SupabaseClient,
-    name: "helpdesk_set_ticket_status" | "helpdesk_take_ticket" | "helpdesk_close_ticket",
+    name: Exclude<HelpdeskRpcName, "helpdesk_ticket_list" | "helpdesk_ticket_view">,
     args: Record<string, unknown>
   ): Promise<ServiceResult<HelpdeskTicketListRow | null> | undefined> {
     const rpc = await helpdeskRpc(supabase, name, args);
     if (!rpc) return undefined;
     if ("error" in rpc) return { success: false, error: rpc.error };
     return { success: true, data: await savedTicketRow(rpc.data) };
+  }
+
+  /** The fields of a card edit that are set, in the shape helpdesk_update_ticket takes. */
+  static ticketFieldChanges(fields: {
+    title?: string;
+    description_plain?: string | null;
+    description_rich?: unknown;
+    priority?: string;
+    ticket_type_id?: string | null;
+  }): Record<string, unknown> {
+    const changes: Record<string, unknown> = {};
+    if (fields.title !== undefined) changes.title = fields.title.trim();
+    if (fields.priority !== undefined) changes.priority = fields.priority;
+    if (fields.ticket_type_id !== undefined) changes.ticket_type_id = fields.ticket_type_id;
+    if (fields.description_plain !== undefined || fields.description_rich !== undefined) {
+      changes.description_plain = fields.description_plain ?? null;
+      changes.description_rich = compactRichInput(
+        (fields.description_rich as object | null | undefined) ?? null
+      );
+    }
+    return changes;
+  }
+
+  /** A card edit without helpdesk_update_ticket (RLS decides who may update). */
+  static async updateFields(
+    supabase: SupabaseClient,
+    orgId: string,
+    ticketId: string,
+    changes: Record<string, unknown>
+  ): Promise<ServiceResult<void>> {
+    const { data, error } = await supabase
+      .from("helpdesk_tickets")
+      .update({ ...changes, updated_at: new Date().toISOString() })
+      .eq("id", ticketId)
+      .eq("org_id", orgId)
+      .is("deleted_at", null)
+      .not("status", "in", "(closed,cancelled)")
+      .select("id");
+    if (error) return { success: false, error: error.message };
+    if (!data?.length) return { success: false, error: "Insufficient permissions" };
+    return { success: true, data: undefined };
   }
 
   // ── Handling (Ambra Zapytania, step 5b) ─────────────────────────────────────

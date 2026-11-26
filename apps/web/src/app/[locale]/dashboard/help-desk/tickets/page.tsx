@@ -105,13 +105,12 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
   const settings = settingsResult.success ? settingsResult.data : null;
   const statusConfigs = settings?.status_configs ?? null;
   const priorityConfigs = settings?.priority_configs ?? null;
-  const pl = locale === "pl";
 
   const labels: Record<string, string> = {
     locale,
     title: t("pages.tickets.title"),
-    ticket: pl ? "Zgłoszenie" : "Ticket",
-    number: pl ? "Numer" : "Number",
+    ticket: t("tickets.list.ticket"),
+    number: t("tickets.list.number"),
     type: t("tickets.columns.type"),
     status: t("tickets.columns.status"),
     priority: t("tickets.columns.priority"),
@@ -123,8 +122,8 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
     updatedAt: t("tickets.columns.updatedAt"),
     accepted: t("tickets.acceptance.accepted"),
     acceptancePending: t("tickets.acceptance.pending"),
-    assignment: pl ? "Przypisanie" : "Assignment",
-    unassigned: pl ? "Nieprzypisane" : "Unassigned",
+    assignment: t("tickets.list.assignment"),
+    unassigned: t("tickets.list.unassigned"),
     queues: t("tickets.queues.label"),
     queue_unassigned: t("tickets.queues.unassigned"),
     queue_mine: t("tickets.queues.mine"),
@@ -132,22 +131,20 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
     queue_waitingVendor: t("tickets.queues.waitingVendor"),
     queue_all: t("tickets.queues.all"),
     viewFull: t("tickets.viewFull"),
-    preview: pl ? "Podgląd" : "Preview",
-    close: pl ? "Zamknij szczegóły" : "Close details",
-    search: pl ? "Szukaj tytułu lub numeru…" : "Search title or number…",
-    empty: pl
-      ? "Brak zgłoszeń pasujących do wyszukiwania i filtrów."
-      : "No tickets match the search and filters.",
-    loadError: pl ? "Nie udało się wczytać danych." : "Could not load data.",
-    notFound: pl
-      ? "Zgłoszenie nie istnieje lub nie jest dostępne."
-      : "Ticket not found or unavailable.",
-    retry: pl ? "Spróbuj ponownie" : "Try again",
-    loading: pl ? "Wczytywanie…" : "Loading…",
-    countSuffix: pl ? "zgłoszeń" : "tickets",
-    within_7d: pl ? "Ostatnie 7 dni" : "Last 7 days",
-    within_30d: pl ? "Ostatnie 30 dni" : "Last 30 days",
-    within_90d: pl ? "Ostatnie 90 dni" : "Last 90 days",
+    comments: t("tickets.comments"),
+    attachments: t("tickets.fields.attachments"),
+    preview: t("tickets.list.preview"),
+    close: t("tickets.list.close"),
+    search: t("tickets.list.search"),
+    empty: t("tickets.list.empty"),
+    loadError: t("tickets.list.loadError"),
+    notFound: t("tickets.list.notFound"),
+    retry: t("tickets.list.retry"),
+    loading: t("tickets.list.loading"),
+    countSuffix: t("tickets.list.countSuffix"),
+    within_7d: t("tickets.list.within_7d"),
+    within_30d: t("tickets.list.within_30d"),
+    within_90d: t("tickets.list.within_90d"),
   };
   for (const status of TICKET_STATUSES) {
     labels[`status_${status}`] =

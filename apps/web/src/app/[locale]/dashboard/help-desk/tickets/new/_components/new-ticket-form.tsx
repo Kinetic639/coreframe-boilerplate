@@ -33,11 +33,12 @@ import {
 } from "@/hooks/queries/help-desk";
 import type { StatusBadgeConfig } from "@/components/help-desk/ticket-status-badge";
 import type { PriorityBadgeConfig } from "@/components/help-desk/ticket-priority-badge";
-import { AttachmentsStagingField } from "@/components/primitives/attachments";
+import { StagedUploadsField } from "@/components/features/attachments";
 import { QrCodeStagingField, type StagedQrCode } from "@/components/features/qr";
 import { usePermissions } from "@/hooks/v2/use-permissions";
 import { QR_ASSIGN, QR_CREATE } from "@/lib/constants/permissions";
-import { uploadAttachmentDirect } from "@/hooks/queries/attachments/direct-upload";
+import { registerUploadedAttachments } from "@/hooks/queries/attachments/direct-upload";
+import { useStagedAttachmentUploads } from "@/hooks/queries/attachments/use-staged-attachment-uploads";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { assignQrToTicketAction, createAndAssignQrToTicketAction } from "@/app/actions/qr/assign";
 
@@ -76,7 +77,10 @@ export function NewTicketForm({
   const [priority, setPriority] = useState<TicketPriority>("medium");
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [stagedFiles, setStagedFiles] = useState<File[]>([]);
+  // Files upload the moment they are picked; creating the ticket only records them.
+  const staged = useStagedAttachmentUploads(activeOrgId);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [waitingForFiles, setWaitingForFiles] = useState(false);
   const [stagedQr, setStagedQr] = useState<StagedQrCode | null>(
     initialQr
       ? { qrCodeId: initialQr.qrCodeId, token: initialQr.token, label: initialQr.label }
@@ -134,6 +138,20 @@ export function NewTicketForm({
     e.preventDefault();
     if (!validate()) return;
 
+    // Files still on their way are waited for, so the ticket never shows up without them.
+    let uploaded: Awaited<ReturnType<typeof staged.settled>>["payloads"] = [];
+    if (staged.items.length > 0) {
+      setWaitingForFiles(true);
+      const outcome = await staged.settled();
+      setWaitingForFiles(false);
+      if (outcome.failed > 0) {
+        setFileError(t("tickets.filesNotSent"));
+        return;
+      }
+      uploaded = outcome.payloads;
+    }
+    setFileError(null);
+
     const descriptionPlain = extractPlainText(descriptionRich);
     createTicketMutation.mutate(
       {
@@ -153,27 +171,14 @@ export function NewTicketForm({
           toast.success(t("tickets.created", { number: data.ticket_number }));
 
           const followUps: Promise<unknown>[] = [];
-          if (stagedFiles.length > 0) {
+          if (uploaded.length > 0) {
+            // Already in storage: one quick call records them on the ticket.
             followUps.push(
-              (async () => {
-                try {
-                  // One request per file, straight to storage (no request-size limit).
-                  for (const file of stagedFiles) {
-                    await uploadAttachmentDirect({
-                      orgId: activeOrgId ?? "",
-                      targetType: "helpdesk.ticket",
-                      targetId: data.id,
-                      file,
-                    });
-                  }
-                } catch (error) {
-                  toast.error(
-                    error instanceof Error && error.message
-                      ? error.message
-                      : t("tickets.attachmentUploadFailed")
-                  );
-                }
-              })()
+              registerUploadedAttachments({
+                targetType: "helpdesk.ticket",
+                targetId: data.id,
+                files: uploaded,
+              }).catch(() => toast.error(t("tickets.attachmentUploadFailed")))
             );
           }
           if (stagedQr) {
@@ -372,14 +377,11 @@ export function NewTicketForm({
         {/* Attachments */}
         <div className="space-y-2">
           <Label>{t("tickets.fields.attachments")}</Label>
-          <AttachmentsStagingField
-            files={stagedFiles}
-            onChange={setStagedFiles}
-            disabled={createTicketMutation.isPending}
-            labels={{
-              upload: "Add files",
-              uploading: "Adding…",
-            }}
+          <StagedUploadsField
+            staged={staged}
+            disabled={createTicketMutation.isPending || waitingForFiles}
+            error={fileError}
+            onError={setFileError}
           />
         </div>
 
@@ -398,11 +400,13 @@ export function NewTicketForm({
 
         {/* Actions */}
         <div className="flex gap-3 pt-2">
-          <Button type="submit" disabled={createTicketMutation.isPending}>
-            {createTicketMutation.isPending ? (
+          <Button type="submit" disabled={createTicketMutation.isPending || waitingForFiles}>
+            {createTicketMutation.isPending || waitingForFiles ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {t("tickets.submitting")}
+                {waitingForFiles
+                  ? t("tickets.waitingForFiles", { count: staged.uploading })
+                  : t("tickets.submitting")}
               </>
             ) : (
               <>

@@ -240,4 +240,19 @@ describe("HelpdeskTicketsService one-request paths", () => {
       })
     ).toBeUndefined();
   });
+
+  it("sends only the edited fields of a card edit; a description goes as text and document", () => {
+    expect(HelpdeskTicketsService.ticketFieldChanges({ title: "  Nowy  " })).toEqual({
+      title: "Nowy",
+    });
+    expect(HelpdeskTicketsService.ticketFieldChanges({ ticket_type_id: null })).toEqual({
+      ticket_type_id: null,
+    });
+    const description = HelpdeskTicketsService.ticketFieldChanges({
+      description_plain: "abc",
+      description_rich: { type: "doc", content: [] },
+    });
+    expect(Object.keys(description).sort()).toEqual(["description_plain", "description_rich"]);
+    expect(description.description_plain).toBe("abc");
+  });
 });

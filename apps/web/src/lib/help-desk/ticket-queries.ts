@@ -63,7 +63,11 @@ export const ticketDetailQuery = (orgId: string, ticketNumber: string) => ({
 // ---------------------------------------------------------------------------
 
 /** The fields of a ticket the list shows, as a save or realtime brings them. */
-export type TicketPatch = Partial<Omit<HelpdeskTicketListRow, "id" | "org_id">>;
+export type TicketPatch = Partial<Omit<HelpdeskTicketListRow, "id" | "org_id">> & {
+  /** Card-only fields (lists ignore them). */
+  description_plain?: string | null;
+  description_rich?: unknown;
+};
 
 /** What a patch replaced, to put back if the save fails. */
 export type TicketSnapshot = Array<[readonly unknown[], unknown]>;

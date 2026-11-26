@@ -31,6 +31,7 @@ import {
   closeTicketSchema,
   setTicketStatusSchema,
   takeTicketSchema,
+  updateTicketFieldsSchema,
   saveHelpdeskSettingsSchema,
   type AcceptTicketInput,
   type CreateTicketTypeInput,
@@ -39,6 +40,7 @@ import {
   type CloseTicketInput,
   type SetTicketStatusInput,
   type TakeTicketInput,
+  type UpdateTicketFieldsInput,
   type SaveHelpdeskSettingsInput,
 } from "@/lib/validations/helpdesk";
 import { OrgMembersService, type OrgMember } from "@/server/services/organization.service";
@@ -358,6 +360,44 @@ export async function takeTicketAction(
       ctx.orgId,
       ctx.userId,
       parsed.data.ticket_id
+    );
+    if (!result.success)
+      return { success: false, error: (result as { success: false; error: string }).error };
+    return { success: true, data: null };
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+/**
+ * Edit a ticket's title, description, priority or type from its card. The
+ * person who reported it and its handlers may edit it while it is open.
+ */
+export async function updateTicketAction(
+  input: UpdateTicketFieldsInput
+): Promise<ActionResult<HelpdeskTicketListRow | null>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    const parsed = updateTicketFieldsSchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.message };
+    const { ticket_id, ...fields } = parsed.data;
+    const changes = HelpdeskTicketsService.ticketFieldChanges(fields);
+    if (Object.keys(changes).length === 0) return { success: true, data: null };
+
+    // One request: the permission check, the save and its activity entry.
+    const saved = await HelpdeskTicketsService.saveViaRpc(ctx.supabase, "helpdesk_update_ticket", {
+      p_ticket_id: ticket_id,
+      p_fields: changes,
+    });
+    if (saved) return saved;
+
+    // Before the migration: RLS lets the creator and the branch's handlers update.
+    const result = await HelpdeskTicketsService.updateFields(
+      ctx.supabase,
+      ctx.orgId,
+      ticket_id,
+      changes
     );
     if (!result.success)
       return { success: false, error: (result as { success: false; error: string }).error };
