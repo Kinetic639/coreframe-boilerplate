@@ -10,7 +10,14 @@ describe("list params", () => {
       search: null,
       sort: "activity",
       page: 1,
+      size: 50,
     });
+  });
+
+  it("accepts only the offered page sizes", () => {
+    expect(parseListParams({ size: "20" }).size).toBe(20);
+    expect(parseListParams({ size: "37" }).size).toBe(50);
+    expect(toQuery(parseListParams({ size: "100" }))).toEqual({ size: "100" });
   });
 
   it("keeps only non-default values in the address", () => {

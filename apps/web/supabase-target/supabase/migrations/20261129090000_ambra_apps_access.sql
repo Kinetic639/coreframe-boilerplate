@@ -1,5 +1,5 @@
 -- ============================================================================
--- Which Ambra apps a user may open: ERP, Zapytania (requests portal), VMI
+-- Which Ambra apps a user may open: ERP, Zgłoszenia (requests portal), VMI
 -- ============================================================================
 -- One rule, used by the post-sign-in app chooser, the app switcher in every
 -- app's header, and each app's own entry check. An app is open to a user in an

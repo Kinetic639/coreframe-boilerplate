@@ -27,7 +27,7 @@ describe("HeaderAppSwitcher (ERP header)", () => {
     expect(erp).toHaveTextContent("Tutaj jesteś");
     expect(erp.getAttribute("href")).toMatch(/\/dashboard\/start$/);
 
-    const requests = screen.getByRole("menuitem", { name: /Zapytania/ });
+    const requests = screen.getByRole("menuitem", { name: /Zgłoszenia/ });
     expect(requests).not.toHaveAttribute("aria-current");
     expect(screen.queryByRole("menuitem", { name: /VMI/ })).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Strona Ambra" })).toBeInTheDocument();

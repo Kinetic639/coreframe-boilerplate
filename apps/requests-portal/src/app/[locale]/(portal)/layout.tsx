@@ -1,7 +1,9 @@
-import { LayoutGrid, LogOut, MessageSquareText, Plus, ShieldOff } from "lucide-react";
+import { LayoutGrid, LogOut, MessageSquareText, ShieldOff } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { signOutAction } from "@/app/actions/auth";
+import { AppHeader } from "@/components/portal/app-header";
 import { BranchSwitcher } from "@/components/portal/branch-switcher";
+import { Toaster } from "@/components/portal/toaster";
 import { UserMenu } from "@/components/portal/user-menu";
 import { redirect } from "next/navigation";
 import { appUrl, buildAppChooserUrl, buildSignInUrl } from "@repo/app-urls";
@@ -27,7 +29,7 @@ export default async function PortalLayout({ children }: { children: React.React
     return (
       <main className="flex min-h-dvh items-center justify-center bg-muted px-4">
         <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-xl border bg-card p-6 text-center shadow-sm">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-stone-100 text-stone-600">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
             <ShieldOff className="h-5 w-5" />
           </span>
           <h1 className="text-lg font-semibold">{t("portal.noAccess.title")}</h1>
@@ -37,7 +39,7 @@ export default async function PortalLayout({ children }: { children: React.React
           <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
             <a
               href={buildAppChooserUrl(locale === "en" ? "en" : "pl")}
-              className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-semibold text-stone-900 hover:opacity-90"
+              className="flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
             >
               <LayoutGrid className="h-4 w-4" />
               {t("portal.noAccess.otherApps")}
@@ -45,7 +47,7 @@ export default async function PortalLayout({ children }: { children: React.React
             <form action={signOutAction}>
               <button
                 type="submit"
-                className="flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium hover:bg-muted"
+                className="flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium hover:bg-muted"
               >
                 <LogOut className="h-4 w-4" />
                 {t("auth.signOut")}
@@ -57,27 +59,35 @@ export default async function PortalLayout({ children }: { children: React.React
     );
   }
 
-  const { user, branches, activeBranchId, apps } = result.context;
+  const { user, branches, activeBranchId, ui, apps } = result.context;
   return (
-    // Desktop: app shell of one screen height; the panes below scroll on their own.
-    <div className="flex min-h-dvh flex-col bg-stone-100 text-stone-900 lg:h-dvh">
-      <header className="sticky top-0 z-20 flex items-center gap-2.5 border-b border-stone-200 bg-white px-4 py-2.5">
-        <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-primary text-stone-900">
-          <MessageSquareText className="h-4 w-4" strokeWidth={2.2} />
-        </span>
-        <span className="flex-1 text-[17px] font-semibold tracking-tight">{t("portal.title")}</span>
+    // Desktop: an app shell of one screen height; the panes below scroll on their own.
+    <div className="flex min-h-dvh flex-col bg-muted/40 lg:h-dvh">
+      <AppHeader>
         <Link
-          href="/new"
-          className="hidden h-9 items-center gap-1.5 rounded-lg bg-primary pl-2.5 pr-3.5 text-[13px] font-semibold text-stone-900 lg:flex"
+          href="/"
+          className="flex shrink-0 items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Plus className="h-4 w-4" strokeWidth={2.4} />
-          {t("requests.newLabel")}
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <MessageSquareText className="h-4 w-4" />
+          </span>
+          <span className="truncate text-base font-semibold tracking-tight">
+            {t("portal.title")}
+          </span>
         </Link>
+        <span className="flex-1" />
         <BranchSwitcher branches={branches} activeBranchId={activeBranchId} />
         {apps.length > 0 ? <HeaderAppSwitcher apps={apps} /> : null}
-        <UserMenu displayName={user.displayName} email={user.email} initials={user.initials} />
-      </header>
-      <div className="flex flex-1 flex-col lg:min-h-0 lg:overflow-y-auto">{children}</div>
+        <UserMenu
+          displayName={user.displayName}
+          email={user.email}
+          initials={user.initials}
+          avatarUrl={user.avatarUrl}
+          theme={ui}
+        />
+      </AppHeader>
+      <div className="flex flex-1 flex-col lg:min-h-0">{children}</div>
+      <Toaster />
     </div>
   );
 }

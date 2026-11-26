@@ -42,7 +42,7 @@ describe("AppChooser", () => {
       "href",
       "https://app.example/dashboard/start"
     );
-    expect(screen.getByRole("link", { name: /Zapytania/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Zgłoszenia/ })).toHaveAttribute(
       "href",
       "https://zapytania.example/"
     );
@@ -65,7 +65,7 @@ describe("AppChooser", () => {
   it("marks the last app used", () => {
     renderChooser();
     expect(screen.getByRole("link", { name: /Ambra ERP/ })).toHaveTextContent("Ostatnio");
-    expect(screen.getByRole("link", { name: /Zapytania/ })).not.toHaveTextContent("Ostatnio");
+    expect(screen.getByRole("link", { name: /Zgłoszenia/ })).not.toHaveTextContent("Ostatnio");
   });
 
   it("saves 'open my last app' when ticked", async () => {

@@ -9891,7 +9891,7 @@
       "putaway": "Rozlokuj dostawę",
       "newItem": "Nowa część w kartotece",
       "newAudit": "Nowa inwentaryzacja",
-      "newTicket": "Nowe zapytanie",
+      "newTicket": "Nowe zgłoszenie",
       "inviteMember": "Zaproś osobę do organizacji",
       "toggleTheme": "Motyw jasny / ciemny",
       "toggleLocale": "Język (polski / angielski)",
@@ -9902,7 +9902,7 @@
     "searching": "Szukam…",
     "hitTypes": {
       "repairOrder": "Zlecenie",
-      "ticket": "Zapytanie",
+      "ticket": "Zgłoszenie",
       "task": "Zadanie",
       "document": "Dokument magazynowy",
       "container": "Kontener",
@@ -9952,7 +9952,7 @@
       "container": "Kontenery",
       "location": "Lokalizacje",
       "document": "Dokumenty magazynowe",
-      "ticket": "Zapytania",
+      "ticket": "Zgłoszenia",
       "task": "Zadania",
       "person": "Osoby",
       "party": "Kontrahenci i dostawcy",
@@ -9983,7 +9983,7 @@
       "qrTargets": {
         "warehouse_location": "lokalizacja",
         "inventory_container": "kontener",
-        "helpdesk_ticket": "zapytanie",
+        "helpdesk_ticket": "zgłoszenie",
         "planning_task": "zadanie",
         "workshop_repair_order": "zlecenie",
         "planning_kanban_card": "karta tablicy"
@@ -9996,7 +9996,7 @@
       "containers": "Kontenery",
       "locations": "Lokalizacje",
       "documents": "Dokumenty",
-      "tickets": "Zapytania",
+      "tickets": "Zgłoszenia",
       "tasks": "Zadania",
       "people": "Osoby",
       "parties": "Kontrahenci",
@@ -10613,7 +10613,7 @@
   "ambraApps": {
     "names": {
       "erp": "Ambra ERP",
-      "requests": "Zapytania",
+      "requests": "Zgłoszenia",
       "vmi": "VMI"
     },
     "descriptions": {

@@ -281,7 +281,7 @@ export async function closeTicketAction(
 }
 
 // ---------------------------------------------------------------------------
-// Handling: status and "take" (Ambra Zapytania, step 5b)
+// Handling: status and "take" (Ambra Zgłoszenia, step 5b)
 // Allowed with helpdesk.tickets.manage on the organization or on the ticket's branch;
 // RLS (has_branch_permission on the ticket's branch) enforces the same rule.
 // ---------------------------------------------------------------------------

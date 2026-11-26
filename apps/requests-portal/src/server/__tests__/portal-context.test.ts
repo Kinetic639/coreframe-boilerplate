@@ -60,7 +60,7 @@ describe("loadPortalContext: the plan must include the portal", () => {
 
   it("refuses when the organization's plan lacks the portal", async () => {
     state.apps = { data: [{ organization_id: "org-1", app: "erp" }], error: null };
-    await expect(loadPortalContext()).resolves.toEqual({
+    await expect(loadPortalContext()).resolves.toMatchObject({
       status: "no-access",
       email: "doradca@example.com",
     });

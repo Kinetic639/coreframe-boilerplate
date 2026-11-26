@@ -14,6 +14,7 @@ const ctx = {
     avatarUrl: null,
   },
   org: { id: "org1", name: "Org" },
+  ui: { mode: "system", colorTheme: "default" },
   branches: [{ id: "b1", name: "Branch" }],
   activeBranchId: null,
   scopeBranchIds: ["b1"],
@@ -65,13 +66,22 @@ const row = {
     source_id: "ro1",
     context_snapshot: { order_number: "51481", warehouse: "3112", zl_number: "ZL/51481/3112" },
   },
+  responders: [
+    {
+      id: "u2",
+      first_name: "Piotr",
+      last_name: "Wójcik",
+      email: "p@example.com",
+      avatar_url: null,
+    },
+  ],
   comment_count: 3,
 };
 
 describe("listRequests", () => {
   it("reads a page in one RPC and maps it", async () => {
     const { client: supabase, from } = client(() => ({
-      data: { total: 1, rows: [row] },
+      data: { total: 1, your_turn: 4, rows: [row] },
       error: null,
     }));
     const res = await listRequests(supabase, ctx, {
@@ -81,6 +91,7 @@ describe("listRequests", () => {
       search: "51481",
       sort: "activity",
       page: 2,
+      size: 20,
     });
     expect(from).not.toHaveBeenCalled();
     expect(supabase.rpc).toHaveBeenCalledWith(
@@ -91,13 +102,15 @@ describe("listRequests", () => {
         p_mine: true,
         p_filter: "yourTurn",
         p_search: "51481",
-        p_offset: 25,
+        p_limit: 20,
+        p_offset: 20,
       })
     );
     expect(res).toEqual({
       ok: true,
       data: {
         total: 1,
+        yourTurn: 4,
         items: [
           expect.objectContaining({
             id: "t1",
@@ -105,6 +118,9 @@ describe("listRequests", () => {
             state: "yourTurn",
             commentCount: 3,
             isMine: true,
+            responders: [
+              expect.objectContaining({ id: "u2", name: "Piotr Wójcik", initials: "PW" }),
+            ],
             order: {
               orderNumber: "51481",
               warehouse: "3112",
@@ -127,9 +143,29 @@ describe("listRequests", () => {
       filter: "open",
       sort: "newest",
       page: 1,
+      size: 50,
     });
     expect(from).toHaveBeenCalledWith("helpdesk_tickets");
-    expect(res).toEqual({ ok: true, data: { total: 0, items: [] } });
+    expect(res).toEqual({ ok: true, data: { total: 0, yourTurn: 0, items: [] } });
+  });
+
+  it("adds responders and the count itself when the database has the older function", async () => {
+    const { responders: _r, ...oldRow } = row;
+    void _r;
+    const { client: supabase, from } = client(
+      () => ({ data: { total: 1, rows: [oldRow] }, error: null }),
+      { data: [], error: null, count: 2 }
+    );
+    const res = await listRequests(supabase, ctx, {
+      scope: "mine",
+      filter: "open",
+      sort: "activity",
+      page: 1,
+      size: 50,
+    });
+    expect(from).toHaveBeenCalledWith("helpdesk_ticket_assignees");
+    expect(res.ok && res.data.yourTurn).toBe(2);
+    expect(res.ok && res.data.items[0]!.responders).toEqual([]);
   });
 });
 

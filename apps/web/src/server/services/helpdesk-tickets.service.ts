@@ -1274,7 +1274,7 @@ export class HelpdeskTicketsService {
     return { success: true, data: undefined };
   }
 
-  // ── Handling (Ambra Zapytania, step 5b) ─────────────────────────────────────
+  // ── Handling (Ambra Zgłoszenia, step 5b) ─────────────────────────────────────
 
   /**
    * Whether the user may handle tickets of a branch: helpdesk.tickets.manage granted on the

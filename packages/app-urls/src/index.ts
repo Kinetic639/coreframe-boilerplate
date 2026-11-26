@@ -17,7 +17,7 @@ export const AMBRA_APPS: readonly AmbraApp[] = ["site", "erp", "requests", "vmi"
 const PRODUCTION_URLS: Record<AmbraApp, string> = {
   site: "https://ambra-system.com",
   erp: "https://app.ambra-system.com",
-  requests: "https://zapytania.ambra-system.com",
+  requests: "https://zgloszenia.ambra-system.com",
   vmi: "https://vmi.ambra-system.com",
 };
 

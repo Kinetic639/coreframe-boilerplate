@@ -22,7 +22,7 @@ describe("getAppUrl", () => {
     vi.stubEnv("NODE_ENV", "production");
     expect(getAppUrl("site")).toBe("https://ambra-system.com");
     expect(getAppUrl("erp")).toBe("https://app.ambra-system.com");
-    expect(getAppUrl("requests")).toBe("https://zapytania.ambra-system.com");
+    expect(getAppUrl("requests")).toBe("https://zgloszenia.ambra-system.com");
     expect(getAppUrl("vmi")).toBe("https://vmi.ambra-system.com");
   });
 
@@ -74,8 +74,8 @@ describe("resolveReturnUrl", () => {
 
   it("accepts absolute URLs on Ambra apps", () => {
     vi.stubEnv("NODE_ENV", "production");
-    expect(resolveReturnUrl("https://zapytania.ambra-system.com/123?tab=a")).toBe(
-      "https://zapytania.ambra-system.com/123?tab=a"
+    expect(resolveReturnUrl("https://zgloszenia.ambra-system.com/123?tab=a")).toBe(
+      "https://zgloszenia.ambra-system.com/123?tab=a"
     );
     expect(resolveReturnUrl("https://ambra-system.com")).toBe("https://ambra-system.com/");
   });
@@ -84,8 +84,8 @@ describe("resolveReturnUrl", () => {
     "//evil.com",
     "/\\evil.com",
     "https://evil.com/",
-    "https://zapytania.ambra-system.com.evil.com/",
-    "http://zapytania.ambra-system.com/",
+    "https://zgloszenia.ambra-system.com.evil.com/",
+    "http://zgloszenia.ambra-system.com/",
     "javascript:alert(1)",
     "/o\nk",
     "",
@@ -104,7 +104,7 @@ describe("isCrossAppReturnUrl", () => {
       isCrossAppReturnUrl("https://app.ambra-system.com/x", "https://app.ambra-system.com/")
     ).toBe(false);
     expect(
-      isCrossAppReturnUrl("https://zapytania.ambra-system.com/", "https://app.ambra-system.com")
+      isCrossAppReturnUrl("https://zgloszenia.ambra-system.com/", "https://app.ambra-system.com")
     ).toBe(true);
   });
 });
@@ -112,8 +112,8 @@ describe("isCrossAppReturnUrl", () => {
 describe("buildSignInUrl", () => {
   it("points at the ERP sign-in with a return address", () => {
     vi.stubEnv("NODE_ENV", "production");
-    expect(buildSignInUrl("https://zapytania.ambra-system.com/42")).toBe(
-      "https://app.ambra-system.com/logowanie?returnUrl=https%3A%2F%2Fzapytania.ambra-system.com%2F42"
+    expect(buildSignInUrl("https://zgloszenia.ambra-system.com/42")).toBe(
+      "https://app.ambra-system.com/logowanie?returnUrl=https%3A%2F%2Fzgloszenia.ambra-system.com%2F42"
     );
     expect(buildSignInUrl(null, "en")).toBe("https://app.ambra-system.com/en/sign-in");
   });

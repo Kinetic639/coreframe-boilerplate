@@ -4,13 +4,13 @@ import { listAttachments, toAttachments, type AttachmentRow } from "./attachment
 import { listComments } from "./comments.service";
 import {
   getRequest,
+  people,
   portalRpc,
   rpcRowToListItem,
   toPerson,
   type RpcRequestRow,
 } from "./requests.service";
 import type {
-  PersonRef,
   RequestAttachment,
   RequestComment,
   RequestDetail,
@@ -54,8 +54,6 @@ type RpcView = RpcRequestRow & {
   comments: RpcComment[];
   attachments: AttachmentRow[];
 };
-
-const people = (rows: UserRow[]) => rows.map(toPerson).filter((p): p is PersonRef => !!p);
 
 export function rpcComment(c: RpcComment, ctx: PortalContext): RequestComment {
   return {
