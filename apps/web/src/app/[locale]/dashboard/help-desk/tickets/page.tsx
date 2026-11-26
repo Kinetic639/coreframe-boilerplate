@@ -3,8 +3,7 @@ import { cookies } from "next/headers";
 import { dehydrate, HydrationBoundary, QueryClient } from "@tanstack/react-query";
 import { redirect as redirectUrl } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { Plus } from "lucide-react";
-import { getPathname, Link, redirect } from "@/i18n/navigation";
+import { getPathname, redirect } from "@/i18n/navigation";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
@@ -18,11 +17,11 @@ import { HelpdeskTicketTypesService } from "@/server/services/helpdesk-ticket-ty
 import { OrgMembersService } from "@/server/services/organization.service";
 import { TICKET_PRIORITIES, TICKET_STATUSES } from "@/lib/validations/helpdesk";
 import { parseLayout, parseWidths } from "@/components/data-table/columns";
-import { Button } from "@/components/ui/button";
 import { TicketFilters, TicketQueues, TicketsTotal } from "./_components/tickets-controls";
 import { ticketKeys } from "./_components/tickets-query";
 import { ticketColumnSet } from "./_components/tickets-table";
 import { HelpDeskTicketsWorkspace } from "./_components/tickets-workspace";
+import { NewTicketDialog } from "./_components/new-ticket-dialog";
 import {
   loadTicketState,
   migrateTicketSearchParams,
@@ -193,12 +192,22 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
         {count}
       </div>
       {canCreate ? (
-        <Button asChild size="sm">
-          <Link href="/dashboard/help-desk/tickets/new">
-            <Plus className="mr-1.5 size-3.5" />
-            {t("tickets.createTicket")}
-          </Link>
-        </Button>
+        <NewTicketDialog
+          orgId={orgId}
+          ticketTypes={typesResult.success ? typesResult.data : []}
+          members={
+            membersResult.success
+              ? membersResult.data.map((m) => ({
+                  user_id: m.user_id,
+                  name: [m.user_first_name, m.user_last_name].filter(Boolean).join(" ") || null,
+                  email: m.user_email,
+                  avatar_url: m.user_avatar_url ?? null,
+                }))
+              : []
+          }
+          activeBranchId={branchId}
+          priorityConfigs={priorityConfigs}
+        />
       ) : null}
     </header>
   );

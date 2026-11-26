@@ -43,15 +43,27 @@ interface NewTicketFormProps {
   statusConfigs: Record<string, StatusBadgeConfig> | null;
   priorityConfigs: Record<string, PriorityBadgeConfig> | null;
   initialQr?: { qrCodeId: string; token: string; label: string | null } | null;
+  /**
+   * "page": the ticket's own page (after scanning a QR code, or a link).
+   * "dialog": inside the list's dialog; the dialog gives the title and closes it.
+   */
+  variant?: "page" | "dialog";
+  /** Dialog: the ticket was created (its number). The page opens the ticket itself. */
+  onCreated?: (ticketNumber: string) => void;
+  onCancel?: () => void;
+  onSubmittingChange?: (submitting: boolean) => void;
 }
 
 export function NewTicketForm({
   ticketTypes,
   members,
   activeBranchId,
-  statusConfigs,
   priorityConfigs,
   initialQr,
+  variant = "page",
+  onCreated,
+  onCancel,
+  onSubmittingChange,
 }: NewTicketFormProps) {
   const visibleTicketTypes = ticketTypes.filter(
     (tt) =>
@@ -211,6 +223,10 @@ export function NewTicketForm({
           }
           if (followUps.length > 0) await Promise.allSettled(followUps);
 
+          if (onCreated) {
+            onCreated(data.ticket_number);
+            return;
+          }
           router.push({
             pathname: "/dashboard/help-desk/tickets/[ticketId]",
             params: { ticketId: data.ticket_number },
@@ -223,6 +239,13 @@ export function NewTicketForm({
   const selectedType = ticketTypes.find((tt) => tt.id === ticketTypeId);
   const allowsManualAssignees = selectedType?.allows_manual_assignees ?? true;
   const busy = createTicketMutation.isPending || waitingForFiles;
+  const isDialog = variant === "dialog";
+  const cancel = () => (onCancel ? onCancel() : router.push("/dashboard/help-desk/tickets"));
+
+  // The dialog keeps itself open while the ticket is being sent.
+  useEffect(() => {
+    onSubmittingChange?.(busy);
+  }, [busy, onSubmittingChange]);
 
   const submitLabel = busy ? (
     <>
@@ -246,20 +269,18 @@ export function NewTicketForm({
         : "border-input bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground"
     );
 
-  return (
-    <form onSubmit={handleSubmit} noValidate className="flex w-full max-w-2xl flex-col p-4 sm:p-6">
-      <div className="flex flex-col gap-1 pb-4">
-        <Link
-          href="/dashboard/help-desk/tickets"
-          className="-ml-1 inline-flex w-fit items-center gap-1 rounded-md px-1 py-0.5 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {t("tickets.backToList")}
-        </Link>
-        <h1 className="text-xl font-semibold tracking-tight">{t("tickets.newTicket")}</h1>
-      </div>
-
-      <div className="flex flex-col gap-5 pb-24 lg:pb-4">
+  // Two columns where there is room: the ticket on the left, who handles it
+  // on the right (as on the ticket card); one column on a phone.
+  const columns = (
+    <div
+      className={cn(
+        "flex flex-col gap-5",
+        isDialog
+          ? "md:grid md:grid-cols-[minmax(0,1fr)_18rem] md:gap-6"
+          : "lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-8"
+      )}
+    >
+      <div className="flex min-w-0 flex-col gap-5">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="title">
             {t("tickets.fields.title")} <span className="text-destructive">*</span>
@@ -295,6 +316,22 @@ export function NewTicketForm({
           </div>
         </div>
 
+        <div className="flex flex-col gap-2">
+          <Label>{t("tickets.fields.attachments")}</Label>
+          <StagedUploadsField
+            staged={staged}
+            disabled={busy}
+            error={fileError}
+            onError={setFileError}
+          />
+        </div>
+      </div>
+      <div
+        className={cn(
+          "flex min-w-0 flex-col gap-5",
+          isDialog ? "md:border-l md:pl-6" : "lg:border-l lg:pl-8"
+        )}
+      >
         {visibleTicketTypes.length > 0 && (
           <div className="flex flex-col gap-2">
             <Label id="ticket-type-label">{t("tickets.fields.ticketType")}</Label>
@@ -408,16 +445,6 @@ export function NewTicketForm({
           )}
         </div>
 
-        <div className="flex flex-col gap-2">
-          <Label>{t("tickets.fields.attachments")}</Label>
-          <StagedUploadsField
-            staged={staged}
-            disabled={busy}
-            error={fileError}
-            onError={setFileError}
-          />
-        </div>
-
         {can(QR_ASSIGN) && (
           <div className="flex flex-col gap-1.5">
             <Label>{t("tickets.fields.qrCode")}</Label>
@@ -430,21 +457,54 @@ export function NewTicketForm({
           </div>
         )}
       </div>
+    </div>
+  );
 
+  const actionButtons = (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        className="h-11 shrink-0 border-input bg-transparent font-normal shadow-none sm:h-10"
+        onClick={cancel}
+        disabled={createTicketMutation.isPending}
+      >
+        {t("tickets.cancel")}
+      </Button>
+      <Button type="submit" className="h-11 flex-1 sm:h-10 sm:flex-none" disabled={busy}>
+        {submitLabel}
+      </Button>
+    </>
+  );
+
+  if (isDialog) {
+    // The fields scroll; the buttons stay at the bottom (a full screen on a phone).
+    return (
+      <form onSubmit={handleSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">{columns}</div>
+        <div className="flex shrink-0 gap-2 border-t bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:justify-end sm:px-6 sm:pb-3">
+          {actionButtons}
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} noValidate className="flex w-full max-w-5xl flex-col p-4 sm:p-6">
+      <div className="flex flex-col gap-1 pb-4">
+        <Link
+          href="/dashboard/help-desk/tickets"
+          className="-ml-1 inline-flex w-fit items-center gap-1 rounded-md px-1 py-0.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t("tickets.backToList")}
+        </Link>
+        <h1 className="text-xl font-semibold tracking-tight">{t("tickets.newTicket")}</h1>
+      </div>
+      <div className="pb-24 lg:pb-4">{columns}</div>
       {/* On phones the buttons stay at the bottom of the screen. */}
       <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:static lg:z-auto lg:justify-end lg:px-0 lg:pb-0">
-        <Button
-          type="button"
-          variant="outline"
-          className="h-11 shrink-0 border-input bg-transparent font-normal shadow-none lg:h-10"
-          onClick={() => router.push("/dashboard/help-desk/tickets")}
-          disabled={createTicketMutation.isPending}
-        >
-          {t("tickets.cancel")}
-        </Button>
-        <Button type="submit" className="h-11 flex-1 lg:h-10 lg:flex-none" disabled={busy}>
-          {submitLabel}
-        </Button>
+        {actionButtons}
       </div>
     </form>
   );
