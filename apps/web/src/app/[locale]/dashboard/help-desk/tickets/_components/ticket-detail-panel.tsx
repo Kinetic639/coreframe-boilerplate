@@ -40,7 +40,6 @@ import { UserAvatar } from "@/components/primitives/avatar/user-avatar";
 import { AttachmentsPanel } from "@/components/features/attachments";
 import { CommentsThread } from "@/components/features/comments";
 import { helpdeskTicketTypingTopic } from "@repo/rich-text/comments";
-import { formatDateTime } from "@/lib/date-time/format";
 import { cn } from "@/utils";
 import {
   DescriptionField,
@@ -52,6 +51,7 @@ import {
   StatusChip,
   TitleField,
   TypeChip,
+  useWhen,
   useWideLayout,
 } from "./ticket-card-parts";
 
@@ -90,6 +90,7 @@ export function TicketDetailPanel({
   navigation?: TicketCardNavigation;
 }) {
   const t = useTranslations("modules.helpDesk");
+  const when = useWhen();
   const queryClient = useQueryClient();
   const rootRef = useRef<HTMLDivElement>(null);
   const wide = useWideLayout(rootRef);
@@ -205,7 +206,7 @@ export function TicketDetailPanel({
             ) : (
               <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
             )}
-            {t("tickets.acceptance.acceptButton")}
+            {wide ? t("tickets.acceptance.acceptButton") : t("tickets.card.acceptShort")}
           </Button>
         ) : null}
         {canClose ? (
@@ -233,7 +234,7 @@ export function TicketDetailPanel({
         <p className="truncate text-xs text-muted-foreground">
           {t("tickets.card.reportedLine", {
             name: detail.creator_name ?? detail.creator_email ?? t("tickets.card.unknown"),
-            date: formatDateTime(detail.created_at),
+            date: when(detail.created_at),
           })}
         </p>
         <TitleField value={detail.title} editable={canEdit} onSave={(title) => edit({ title })} />
@@ -290,9 +291,7 @@ export function TicketDetailPanel({
         ) : null}
         {detail.due_at ? (
           <Property label={t("tickets.fields.dueAt")}>
-            <span className="inline-flex h-[22px] items-center text-sm">
-              {formatDateTime(detail.due_at)}
-            </span>
+            <span className="inline-flex h-[22px] items-center text-sm">{when(detail.due_at)}</span>
           </Property>
         ) : null}
       </div>
@@ -375,7 +374,7 @@ export function TicketDetailPanel({
     <div
       role="tablist"
       aria-label={t("tickets.card.tabsLabel")}
-      className="flex gap-1 rounded-lg bg-muted p-1"
+      className="flex gap-1 overflow-x-auto rounded-lg bg-muted p-1 [scrollbar-width:none]"
     >
       {tabs.map((item) => (
         <button
@@ -387,11 +386,11 @@ export function TicketDetailPanel({
           aria-controls={`ticket-panel-${item.id}`}
           onClick={() => setChosenTab(item.id)}
           className={cn(
-            "flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-sm",
+            "flex h-8 flex-1 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-sm",
             tab === item.id && "bg-background text-foreground shadow-sm"
           )}
         >
-          <span className="truncate">{item.label}</span>
+          <span>{item.label}</span>
           {item.count ? (
             <span className="rounded-full bg-muted-foreground/15 px-1.5 text-[11px] leading-4 tabular-nums">
               {item.count}
@@ -542,6 +541,7 @@ function TicketDetailsTab({
   canManage: boolean;
 }) {
   const t = useTranslations("modules.helpDesk.tickets");
+  const when = useWhen();
 
   // QR assignment: comes with the ticket; changed here by assign / unlink.
   const [qrAssignment, setQrAssignment] = useState<HelpdeskTicketQr | null>(detail.qr_assignment);
@@ -600,7 +600,7 @@ function TicketDetailsTab({
               {detail.accepted_by_name ? (
                 <p className="truncate">{detail.accepted_by_name}</p>
               ) : null}
-              <p className="text-xs text-muted-foreground">{formatDateTime(detail.accepted_at)}</p>
+              <p className="text-xs text-muted-foreground">{when(detail.accepted_at)}</p>
             </div>
           ) : null}
           {detail.acceptors.length > 0 ? (
@@ -675,13 +675,13 @@ function TicketDetailsTab({
       <section className="space-y-1">
         <SideHeading>{t("card.dates")}</SideHeading>
         <div>
-          <SideRow label={t("columns.createdAt")}>{formatDateTime(detail.created_at)}</SideRow>
-          <SideRow label={t("columns.updatedAt")}>{formatDateTime(detail.updated_at)}</SideRow>
+          <SideRow label={t("columns.createdAt")}>{when(detail.created_at)}</SideRow>
+          <SideRow label={t("columns.updatedAt")}>{when(detail.updated_at)}</SideRow>
           {detail.due_at ? (
-            <SideRow label={t("fields.dueAt")}>{formatDateTime(detail.due_at)}</SideRow>
+            <SideRow label={t("fields.dueAt")}>{when(detail.due_at)}</SideRow>
           ) : null}
           {detail.closed_at ? (
-            <SideRow label={t("card.closedAt")}>{formatDateTime(detail.closed_at)}</SideRow>
+            <SideRow label={t("card.closedAt")}>{when(detail.closed_at)}</SideRow>
           ) : null}
         </div>
       </section>
@@ -701,6 +701,7 @@ const CHANGED_FIELDS = ["title", "priority", "ticket_type_id", "description"] as
 
 function ActivityList({ activity }: { activity: HelpdeskTicketActivity[] }) {
   const t = useTranslations("modules.helpDesk.tickets");
+  const when = useWhen();
   if (activity.length === 0) {
     return <p className="text-sm text-muted-foreground">{t("card.noActivity")}</p>;
   }
@@ -728,7 +729,7 @@ function ActivityList({ activity }: { activity: HelpdeskTicketActivity[] }) {
                 {t(`activity.${entry.event_type}`, { defaultValue: entry.event_type })}
                 {detailText ? <span className="text-foreground">: {detailText}</span> : null}
               </p>
-              <p className="text-xs text-muted-foreground">{formatDateTime(entry.created_at)}</p>
+              <p className="text-xs text-muted-foreground">{when(entry.created_at)}</p>
             </div>
           </li>
         );

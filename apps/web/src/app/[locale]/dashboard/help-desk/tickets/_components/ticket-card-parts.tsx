@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { AlignLeft, Check, ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -397,4 +397,11 @@ export function DescriptionField({
       }}
     />
   );
+}
+
+/** Dates in the app's language and time zone: "24 lis 2026, 09:12". */
+export function useWhen() {
+  const format = useFormatter();
+  return (value: string | null | undefined) =>
+    value ? format.dateTime(new Date(value), { dateStyle: "medium", timeStyle: "short" }) : "—";
 }

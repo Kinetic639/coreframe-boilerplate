@@ -4704,7 +4704,8 @@
             "priority": "priorytet",
             "ticket_type_id": "typ",
             "description": "opis"
-          }
+          },
+          "acceptShort": "Zaakceptuj"
         },
         "edit": {
           "failed": "Nie udało się zapisać zmiany w zgłoszeniu."

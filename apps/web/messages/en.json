@@ -4624,7 +4624,8 @@
             "priority": "priority",
             "ticket_type_id": "type",
             "description": "description"
-          }
+          },
+          "acceptShort": "Accept"
         },
         "edit": {
           "failed": "Could not save the change to the ticket."
