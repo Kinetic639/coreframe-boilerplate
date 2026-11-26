@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.0.1",
+    "date": "2026-11-26",
+    "groups": [
+      {
+        "kind": "patch",
+        "items": [
+          "Portal zgłoszeń: lista i karta zgłoszenia wczytują się szybciej (jedno zapytanie do bazy), przejścia między nimi nie czekają na serwer, a zamknięcie zgłoszenia widać od razu."
+        ]
+      }
+    ]
+  },
+  {
     "version": "1.0.0",
     "date": "2026-11-26",
     "groups": [
