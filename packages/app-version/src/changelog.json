@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.1.0",
+    "date": "2026-11-26",
+    "groups": [
+      {
+        "kind": "minor",
+        "items": [
+          "Portal zgłoszeń ma nowy wygląd, spójny z Ambrą: tabela zgłoszeń z podglądem obok listy, wybór liczby wierszy, nowe zgłoszenie w oknie z edytorem opisu, a na telefonie karty i formularz na cały ekran. Dochodzi motyw jasny, ciemny i kolory Ambry, zapisywane na koncie. Aplikacja nazywa się teraz „Zgłoszenia” i będzie dostępna pod adresem zgloszenia.ambra-system.com."
+        ]
+      }
+    ]
+  },
+  {
     "version": "1.0.1",
     "date": "2026-11-26",
     "groups": [
