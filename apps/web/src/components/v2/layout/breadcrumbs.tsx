@@ -27,7 +27,7 @@ export function Breadcrumbs({ items, showHome = true, className }: BreadcrumbsPr
       {showHome && (
         <>
           <Link
-            href="/"
+            href="/dashboard/start"
             className="flex items-center text-muted-foreground hover:text-foreground transition-colors"
           >
             <Home className="h-4 w-4" />

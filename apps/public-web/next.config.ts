@@ -3,8 +3,9 @@ import path from "node:path";
 import createNextIntlPlugin from "next-intl/plugin";
 
 const repoRoot = path.resolve(__dirname, "../..");
-const publicSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.ambra-system.com";
-const erpAppUrl = process.env.NEXT_PUBLIC_ERP_APP_URL ?? "https://app.ambra-system.com";
+const publicSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://ambra-system.com";
+// Same address as @repo/app-urls' getAppUrl("erp").
+const erpAppUrl = process.env.NEXT_PUBLIC_AMBRA_ERP_URL ?? "https://app.ambra-system.com";
 
 const erpAuthRedirects = [
   { source: "/sign-in", destination: `${erpAppUrl}/sign-in` },

@@ -18,7 +18,7 @@ interface WelcomeEmailProps {
 
 export const WelcomeEmail = ({
   firstName = "there",
-  loginLink = "https://ambra-system.com/sign-in",
+  loginLink = "https://app.ambra-system.com/logowanie",
 }: WelcomeEmailProps) => {
   return (
     <Html>

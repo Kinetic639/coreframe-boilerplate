@@ -1,9 +1,8 @@
+import { getAppUrl } from "@repo/app-urls";
+
 type HeaderReader = {
   get(name: string): string | null;
 };
-
-const DEFAULT_LOCAL_APP_URL = "http://127.0.0.1:3001";
-const DEFAULT_MARKETING_SITE_URL = "https://www.ambra-system.com";
 
 function withoutTrailingSlash(url: string): string {
   return url.replace(/\/+$/, "");
@@ -29,16 +28,15 @@ function isLocalAppOrigin(origin: string): boolean {
   }
 }
 
+/** Origin of this app (the ERP). NEXT_PUBLIC_APP_URL wins, then `@repo/app-urls`. */
 export function getConfiguredAppUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL;
-  return withoutTrailingSlash(isAbsoluteHttpUrl(configured) ? configured : DEFAULT_LOCAL_APP_URL);
+  const configured = process.env.NEXT_PUBLIC_APP_URL;
+  return isAbsoluteHttpUrl(configured) ? withoutTrailingSlash(configured) : getAppUrl("erp");
 }
 
+/** The public Ambra website (apps/public-web), from `@repo/app-urls`. */
 export function getMarketingSiteUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_MARKETING_SITE_URL || process.env.NEXT_PUBLIC_SITE_URL;
-  return withoutTrailingSlash(
-    isAbsoluteHttpUrl(configured) ? configured : DEFAULT_MARKETING_SITE_URL
-  );
+  return getAppUrl("site");
 }
 
 export function getTrustedRequestOrigin(headersList: HeaderReader): string {

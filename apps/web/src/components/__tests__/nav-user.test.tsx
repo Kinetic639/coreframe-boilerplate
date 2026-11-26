@@ -38,6 +38,7 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) =>
     ({
       home: "Home",
+      website: "Ambra website",
       account: "Account",
       dashboard: "Dashboard",
       adminPanel: "Admin Panel",
@@ -76,18 +77,28 @@ describe("NavUser", () => {
       <NavUser user={{ name: "Alice Smith", email: "alice@example.com", avatar: "" }} isAdmin />
     );
 
-    expect(screen.getByRole("link", { name: /home/i })).toHaveAttribute(
-      "href",
-      "https://www.ambra-system.com"
-    );
+    fireEvent.click(screen.getByRole("button", { name: /home/i }));
     fireEvent.click(screen.getByRole("button", { name: /account/i }));
     fireEvent.click(screen.getByRole("button", { name: /admin panel/i }));
     fireEvent.click(screen.getByRole("button", { name: /diagnostics/i }));
 
-    expect(mockPush).toHaveBeenNthCalledWith(1, "/dashboard/account");
-    expect(mockPush).toHaveBeenNthCalledWith(2, "/admin");
-    expect(mockPush).toHaveBeenNthCalledWith(3, "/dashboard/diagnostics");
+    expect(mockPush).toHaveBeenNthCalledWith(1, "/dashboard/start");
+    expect(mockPush).toHaveBeenNthCalledWith(2, "/dashboard/account");
+    expect(mockPush).toHaveBeenNthCalledWith(3, "/admin");
+    expect(mockPush).toHaveBeenNthCalledWith(4, "/dashboard/diagnostics");
     expect(screen.getByRole("button", { name: /log out/i })).toBeInTheDocument();
+  });
+
+  it("keeps Home inside the app and labels the public website separately", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    render(<NavUser user={{ name: "Alice Smith", email: "alice@example.com", avatar: "" }} />);
+
+    expect(screen.queryByRole("link", { name: /home/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ambra website" })).toHaveAttribute(
+      "href",
+      "https://ambra-system.com/"
+    );
+    vi.unstubAllEnvs();
   });
 
   it("opens the bug / idea report from the menu", () => {

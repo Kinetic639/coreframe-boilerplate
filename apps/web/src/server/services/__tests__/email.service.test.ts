@@ -298,15 +298,15 @@ describe("EmailService", () => {
       expect(text).toContain("Jane");
     });
 
-    it("uses NEXT_PUBLIC_SITE_URL env variable in login link when set", async () => {
-      process.env.NEXT_PUBLIC_SITE_URL = "https://myapp.example.com";
+    it("links straight to the shared sign-in page in the app", async () => {
+      vi.stubEnv("NODE_ENV", "production");
       mockSend.mockResolvedValue({ data: { id: "id" }, error: null });
 
       await emailService.sendWelcomeEmailWithTemplate("u@e.com", "User");
 
       const text = mockSend.mock.calls[0][0].text as string;
-      expect(text).toContain("https://myapp.example.com");
-      delete process.env.NEXT_PUBLIC_SITE_URL;
+      expect(text).toContain("https://app.ambra-system.com/logowanie");
+      vi.unstubAllEnvs();
     });
 
     it("returns failure when send fails", async () => {

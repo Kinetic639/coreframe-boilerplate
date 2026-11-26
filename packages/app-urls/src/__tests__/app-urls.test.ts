@@ -3,6 +3,7 @@ import {
   AUTH_COOKIE_NAME,
   appUrl,
   buildSignInUrl,
+  buildSignUpUrl,
   getAppUrl,
   getAuthCookieOptions,
   isCrossAppReturnUrl,
@@ -117,5 +118,13 @@ describe("buildSignInUrl", () => {
   it("drops a return address it would not honor", () => {
     vi.stubEnv("NODE_ENV", "production");
     expect(buildSignInUrl("https://evil.com/")).toBe("https://app.ambra-system.com/logowanie");
+  });
+});
+
+describe("buildSignUpUrl", () => {
+  it("points at the ERP sign-up page", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    expect(buildSignUpUrl()).toBe("https://app.ambra-system.com/rejestracja");
+    expect(buildSignUpUrl("en")).toBe("https://app.ambra-system.com/en/sign-up");
   });
 });
