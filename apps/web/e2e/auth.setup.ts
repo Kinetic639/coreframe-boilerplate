@@ -23,7 +23,13 @@ setup("sign in the test account once", async ({ page }) => {
   await page.getByRole("textbox", { name: "Email" }).fill(E2E_TEST_EMAIL);
   await page.getByRole("textbox", { name: "Hasło" }).fill(E2E_TEST_PASSWORD);
   await page.getByRole("button", { name: "Zaloguj się" }).click();
-  await page.waitForURL(/\/dashboard\/start/);
+  // An account with several Ambra apps lands on the app chooser; the ERP specs
+  // start from the dashboard either way.
+  await page.waitForURL(/\/(aplikacje|dashboard\/start)(\?|$)/);
+  if (new URL(page.url()).pathname === "/aplikacje") {
+    await page.goto("/dashboard/start");
+    await page.waitForURL(/\/dashboard\/start/);
+  }
   await expect(page.getByTestId("home-dashboard")).toBeVisible({ timeout: 30_000 });
 
   await page.context().storageState({ path: AUTH_STATE_FILE });

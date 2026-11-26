@@ -2,7 +2,13 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect as redirectToUrl } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { appHomeUrl, decideLanding, LAST_APP_COOKIE, OPEN_LAST_APP_COOKIE } from "@repo/app-urls";
+import {
+  appHomeUrl,
+  decideLanding,
+  LAST_APP_COOKIE,
+  OPEN_LAST_APP_COOKIE,
+  SHOW_APP_CHOOSER_PARAM,
+} from "@repo/app-urls";
 import { redirect } from "@/i18n/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { getAuthUser } from "@/server/auth/get-auth-user";
@@ -20,9 +26,14 @@ export async function generateMetadata(): Promise<Metadata> {
 /**
  * After sign-in: open the user's only app, or the last one if they asked for
  * that, or let them choose among the apps their plan and permissions open
- * (`get_my_ambra_apps`).
+ * (`get_my_ambra_apps`). `?wybor=1` (from the header app switcher) shows the
+ * chooser even when "open the last app" is on, so the user can turn it off.
  */
-export default async function AppsPage() {
+export default async function AppsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+} = {}) {
   const locale = (await getLocale()) === "en" ? "en" : "pl";
 
   const {
@@ -42,7 +53,11 @@ export default async function AppsPage() {
   const cookieStore = await cookies();
   const lastAppCookie = cookieStore.get(LAST_APP_COOKIE)?.value ?? null;
   const openLast = cookieStore.get(OPEN_LAST_APP_COOKIE)?.value === "1";
-  const decision = decideLanding(myApps.apps, { lastApp: lastAppCookie, openLast });
+  const forceChooser = (await searchParams)?.[SHOW_APP_CHOOSER_PARAM] === "1";
+  const decision = decideLanding(myApps.apps, {
+    lastApp: lastAppCookie,
+    openLast: openLast && !forceChooser,
+  });
 
   if (decision.kind === "none") return <NoAppAccess email={user.email ?? ""} />;
   if (decision.kind === "open") return redirectToUrl(appHomeUrl(decision.app, locale));
