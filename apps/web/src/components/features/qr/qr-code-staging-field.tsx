@@ -60,9 +60,7 @@ export function QrCodeStagingField({
 
   const handleScanned = async (lookup: QrScanLookup): Promise<string | null> => {
     if (lookup.assignment) {
-      return (
-        labels?.scannedAlreadyAssigned ?? "This QR code is already assigned to something else."
-      );
+      return labels?.scannedAlreadyAssigned ?? t("alreadyAssigned");
     }
     onChange({ qrCodeId: lookup.id, token: lookup.token, label: lookup.label });
     setScanning(false);
@@ -79,7 +77,7 @@ export function QrCodeStagingField({
               <p className="truncate text-sm font-medium">{t("staged")}</p>
             ) : (
               <>
-                <p className="truncate text-sm font-medium">{value.label ?? "Unlabelled"}</p>
+                <p className="truncate text-sm font-medium">{value.label ?? t("unlabelled")}</p>
                 <p className="truncate font-mono text-xs text-muted-foreground">{value.token}</p>
               </>
             )}
@@ -87,7 +85,7 @@ export function QrCodeStagingField({
           <button
             type="button"
             className="shrink-0 text-muted-foreground transition hover:text-destructive"
-            aria-label={labels?.remove ?? "Remove"}
+            aria-label={labels?.remove ?? t("remove")}
             onClick={() => onChange(null)}
             disabled={disabled}
           >
@@ -125,7 +123,7 @@ export function QrCodeStagingField({
           disabled={disabled}
         >
           <Camera className="h-4 w-4" />
-          {labels?.scan ?? "Scan QR Label with Camera"}
+          {labels?.scan ?? t("scan")}
         </Button>
       )}
     </div>

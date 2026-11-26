@@ -282,6 +282,13 @@
         "undo": "Cofnij",
         "redo": "Ponów"
       }
+    },
+    "memberSelector": {
+      "selected": "{count, plural, one {# osoba wybrana} few {# osoby wybrane} many {# osób wybranych} other {# osoby wybranej}}",
+      "search": "Szukaj osób…",
+      "empty": "Nie znaleziono osób",
+      "remove": "Usuń {name}",
+      "placeholder": "Wybierz osoby…"
     }
   },
   "admin": {
@@ -2246,7 +2253,9 @@
         "print": "Wydrukuj etykietę",
         "printTitle": "Etykieta — {name}",
         "staged": "Nowy kod QR zostanie utworzony przy zapisie",
-        "addNew": "Dodaj kod QR"
+        "addNew": "Dodaj kod QR",
+        "unlabelled": "Bez nazwy",
+        "remove": "Usuń kod QR"
       },
       "templates": {
         "layoutLabel": "Układ etykiety",
@@ -4729,7 +4738,10 @@
           "within_90d": "Ostatnie 90 dni"
         },
         "filesNotSent": "Nie wszystkie pliki zostały wysłane. Wyślij je ponownie albo usuń z listy.",
-        "waitingForFiles": "{count, plural, =0 {Wysyłanie…} one {Kończę wysyłanie pliku…} other {Kończę wysyłanie plików (#)…}}"
+        "waitingForFiles": "{count, plural, =0 {Wysyłanie…} one {Kończę wysyłanie pliku…} other {Kończę wysyłanie plików (#)…}}",
+        "form": {
+          "noType": "Bez typu"
+        }
       },
       "features": {
         "tickets": "Zarządzanie zgłoszeniami",

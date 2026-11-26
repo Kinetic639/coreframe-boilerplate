@@ -282,6 +282,13 @@
         "undo": "Undo",
         "redo": "Redo"
       }
+    },
+    "memberSelector": {
+      "selected": "{count, plural, one {# person selected} other {# people selected}}",
+      "search": "Search people…",
+      "empty": "No people found",
+      "remove": "Remove {name}",
+      "placeholder": "Choose people…"
     }
   },
   "admin": {
@@ -2291,7 +2298,9 @@
         "print": "Print label",
         "printTitle": "Label — {name}",
         "staged": "A new QR code will be created on save",
-        "addNew": "Add a QR code"
+        "addNew": "Add a QR code",
+        "unlabelled": "Unlabelled",
+        "remove": "Remove QR code"
       },
       "templates": {
         "layoutLabel": "Label layout",
@@ -4649,7 +4658,10 @@
           "within_90d": "Last 90 days"
         },
         "filesNotSent": "Not every file was sent. Send them again or remove them from the list.",
-        "waitingForFiles": "{count, plural, =0 {Sending…} one {Finishing the file upload…} other {Finishing file uploads (#)…}}"
+        "waitingForFiles": "{count, plural, =0 {Sending…} one {Finishing the file upload…} other {Finishing file uploads (#)…}}",
+        "form": {
+          "noType": "No type"
+        }
       },
       "features": {
         "tickets": "Ticket Management",

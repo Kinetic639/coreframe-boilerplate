@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Check, ChevronsUpDown, X, User } from "lucide-react";
 import { cn } from "@/utils";
 import { Button } from "@/components/ui/button";
@@ -37,11 +38,12 @@ export function MemberSelector({
   members,
   selectedIds,
   onChange,
-  placeholder = "Select members…",
+  placeholder,
   disabled = false,
   maxSelections,
   className,
 }: MemberSelectorProps) {
+  const t = useTranslations("components.memberSelector");
   const [open, setOpen] = useState(false);
 
   const selectedMembers = members.filter((m) => selectedIds.includes(m.user_id));
@@ -71,22 +73,24 @@ export function MemberSelector({
             disabled={disabled}
             className="w-full justify-between font-normal"
           >
-            <span className="text-muted-foreground text-sm">
+            <span className="text-muted-foreground min-w-0 truncate text-sm">
               {selectedIds.length === 0
-                ? placeholder
-                : `${selectedIds.length} member${selectedIds.length > 1 ? "s" : ""} selected`}
+                ? (placeholder ?? t("placeholder"))
+                : t("selected", { count: selectedIds.length })}
             </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-72 p-0" align="start">
           <Command>
-            <CommandInput placeholder="Search members…" />
+            <CommandInput placeholder={t("search")} />
             <CommandList>
               <CommandEmpty>
                 <div className="flex flex-col items-center gap-1 py-4">
                   <User className="text-muted-foreground h-5 w-5" />
-                  <span className="text-muted-foreground text-sm">No members found</span>
+                  <span className="text-muted-foreground min-w-0 truncate text-sm">
+                    {t("empty")}
+                  </span>
                 </div>
               </CommandEmpty>
               <CommandGroup>
@@ -151,7 +155,7 @@ export function MemberSelector({
                 type="button"
                 onClick={(e) => remove(member.user_id, e)}
                 className="hover:bg-muted ml-1 rounded-full p-0.5"
-                aria-label={`Remove ${member.name || member.email}`}
+                aria-label={t("remove", { name: member.name || member.email || "" })}
               >
                 <X className="h-3 w-3" />
               </button>
