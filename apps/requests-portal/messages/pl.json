@@ -299,7 +299,8 @@
       "trigger": "Aplikacje Ambra",
       "title": "Aplikacje Ambra",
       "current": "Tutaj jesteś",
-      "website": "Strona Ambra"
+      "website": "Strona Ambra",
+      "chooser": "Wybór aplikacji po zalogowaniu"
     }
   }
 }

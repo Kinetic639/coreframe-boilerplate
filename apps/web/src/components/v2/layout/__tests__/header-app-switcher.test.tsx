@@ -31,5 +31,8 @@ describe("HeaderAppSwitcher (ERP header)", () => {
     expect(requests).not.toHaveAttribute("aria-current");
     expect(screen.queryByRole("menuitem", { name: /VMI/ })).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Strona Ambra" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "Wybór aplikacji po zalogowaniu" }).getAttribute("href")
+    ).toMatch(/\/aplikacje\?wybor=1$/);
   });
 });

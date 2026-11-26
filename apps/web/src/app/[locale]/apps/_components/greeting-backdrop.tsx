@@ -51,13 +51,13 @@ function WatermarkLogo({ className }: { className: string }) {
         aria-hidden="true"
         viewBox="0 0 56 56"
         fill="none"
-        className={cn(className, "opacity-[0.96]")}
+        className={cn(className, "text-stone-50 opacity-[0.96] dark:text-stone-900")}
       >
-        <path d={LOGO_PATHS.left} fill="#1c1917" />
-        <path d={LOGO_PATHS.right} fill="#1c1917" />
+        <path d={LOGO_PATHS.left} fill="currentColor" />
+        <path d={LOGO_PATHS.right} fill="currentColor" />
         <polyline
           points={LOGO_PATHS.chevron}
-          stroke="#1c1917"
+          stroke="currentColor"
           strokeWidth="2"
           strokeLinejoin="round"
           strokeLinecap="round"

@@ -200,9 +200,19 @@ export function appHomeUrl(app: AmbraWorkApp, locale: "pl" | "en" = "pl"): strin
   return appUrl(app, prefix || "/");
 }
 
-/** The app chooser shown after sign-in (in the ERP). */
-export function buildAppChooserUrl(locale: "pl" | "en" = "pl"): string {
-  return appUrl("erp", locale === "en" ? "/en/apps" : "/aplikacje");
+/** Query flag that shows the app chooser even when the user asked to open the last app. */
+export const SHOW_APP_CHOOSER_PARAM = "wybor";
+
+/**
+ * The app chooser shown after sign-in (in the ERP). With `force`, it shows even
+ * when the user ticked "open the last app", so they can untick it.
+ */
+export function buildAppChooserUrl(
+  locale: "pl" | "en" = "pl",
+  options: { force?: boolean } = {}
+): string {
+  const url = appUrl("erp", locale === "en" ? "/en/apps" : "/aplikacje");
+  return options.force ? `${url}?${SHOW_APP_CHOOSER_PARAM}=1` : url;
 }
 
 export type LandingDecision =

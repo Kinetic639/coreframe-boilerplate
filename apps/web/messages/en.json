@@ -10542,7 +10542,8 @@
       "trigger": "Ambra apps",
       "title": "Ambra apps",
       "current": "You are here",
-      "website": "Ambra website"
+      "website": "Ambra website",
+      "chooser": "App choice after sign-in"
     },
     "chooser": {
       "metaTitle": "Choose an app",

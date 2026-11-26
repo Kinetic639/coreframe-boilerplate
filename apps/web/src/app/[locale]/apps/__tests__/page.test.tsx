@@ -47,9 +47,11 @@ vi.mock("../_components/app-chooser", () => ({
     apps: { id: string; href: string }[];
     firstName: string | null;
     lastApp: string | null;
+    openLast?: boolean;
   }) => (
     <div>
       chooser:{props.apps.map((a) => a.id).join(",")}:{props.firstName}:{String(props.lastApp)}
+      {props.openLast ? " open-last" : ""}
     </div>
   ),
 }));
@@ -94,6 +96,15 @@ describe("app chooser page", () => {
     mocks.cookies.set("ambra-last-app", "erp");
     mocks.cookies.set("ambra-open-last-app", "1");
     await expect(AppsPage()).rejects.toThrow(/redirect-url:.*\/dashboard\/start$/);
+  });
+
+  it("shows the chooser with the setting ticked when asked from the switcher", async () => {
+    mocks.loadMyAmbraApps.mockResolvedValue({ ok: true, apps: ["erp", "requests"] });
+    mocks.cookies.set("ambra-last-app", "erp");
+    mocks.cookies.set("ambra-open-last-app", "1");
+    render(await AppsPage({ searchParams: Promise.resolve({ wybor: "1" }) }));
+    expect(mocks.redirectToUrl).not.toHaveBeenCalled();
+    expect(screen.getByText(/chooser:erp,requests:Anna:erp/)).toHaveTextContent("open-last");
   });
 
   it("shows no access when no app is open to the user", async () => {
