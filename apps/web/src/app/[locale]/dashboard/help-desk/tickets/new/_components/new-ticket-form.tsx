@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
-import { ArrowLeft, Send, Loader2, Check } from "lucide-react";
+import { ArrowLeft, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -223,7 +223,6 @@ export function NewTicketForm({
   const selectedType = ticketTypes.find((tt) => tt.id === ticketTypeId);
   const allowsManualAssignees = selectedType?.allows_manual_assignees ?? true;
   const busy = createTicketMutation.isPending || waitingForFiles;
-  const tf = (key: string) => t(`tickets.form.${key}`);
 
   const submitLabel = busy ? (
     <>
@@ -239,14 +238,17 @@ export function NewTicketForm({
     </>
   );
 
+  const choiceClass = (selected: boolean) =>
+    cn(
+      "inline-flex h-9 max-w-full shrink-0 items-center justify-center gap-1.5 rounded-md border px-3 text-sm transition-colors disabled:opacity-50",
+      selected
+        ? "border-primary bg-primary/10 font-medium text-foreground"
+        : "border-input bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground"
+    );
+
   return (
-    <form
-      onSubmit={handleSubmit}
-      noValidate
-      className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 pb-28 sm:p-6 lg:pb-6"
-    >
-      {/* Header */}
-      <div className="flex flex-col gap-1">
+    <form onSubmit={handleSubmit} noValidate className="flex w-full max-w-2xl flex-col p-4 sm:p-6">
+      <div className="flex flex-col gap-1 pb-4">
         <Link
           href="/dashboard/help-desk/tickets"
           className="-ml-1 inline-flex w-fit items-center gap-1 rounded-md px-1 py-0.5 text-sm text-muted-foreground hover:text-foreground"
@@ -254,223 +256,187 @@ export function NewTicketForm({
           <ArrowLeft className="h-4 w-4" />
           {t("tickets.backToList")}
         </Link>
-        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-          {t("tickets.newTicket")}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t("tickets.newTicketSubtitle")}</p>
+        <h1 className="text-xl font-semibold tracking-tight">{t("tickets.newTicket")}</h1>
       </div>
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        {/* What happened */}
-        <section className="flex min-w-0 flex-col gap-5 sm:rounded-lg sm:border sm:bg-card sm:p-5">
-          <h2 className="text-sm font-semibold">{tf("sectionWhat")}</h2>
+      <div className="flex flex-col gap-5 pb-24 lg:pb-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="title">
+            {t("tickets.fields.title")} <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="title"
+            value={title}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              if (e.target.value.trim()) clearError("title");
+            }}
+            placeholder={t("tickets.fields.titlePlaceholder")}
+            maxLength={255}
+            disabled={busy}
+            aria-invalid={Boolean(errors.title)}
+            className="h-11 text-base sm:h-10 sm:text-sm"
+          />
+          {errors.title && <p className="text-xs text-destructive">{errors.title}</p>}
+        </div>
 
-          {visibleTicketTypes.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <Label id="ticket-type-label">{t("tickets.fields.ticketType")}</Label>
-              <div
-                role="radiogroup"
-                aria-labelledby="ticket-type-label"
-                className="flex flex-wrap gap-2"
-              >
-                {[
-                  { id: "", name: tf("noType"), color: null as string | null },
-                  ...visibleTicketTypes,
-                ].map((tt) => {
-                  const selected = ticketTypeId === tt.id;
-                  return (
-                    <button
-                      key={tt.id || "none"}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      disabled={busy}
-                      onClick={() => setTicketTypeId(tt.id)}
-                      className={cn(
-                        "inline-flex h-9 max-w-full items-center gap-2 rounded-md border px-3 text-sm transition-colors disabled:opacity-50",
-                        selected
-                          ? "border-primary bg-primary/10 font-medium"
-                          : "border-input hover:bg-accent hover:text-accent-foreground"
-                      )}
-                    >
-                      {tt.color ? (
-                        <span
-                          className="h-2.5 w-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: tt.color }}
-                        />
-                      ) : null}
-                      <span className="truncate">{tt.name}</span>
-                      {selected ? <Check className="h-3.5 w-3.5 shrink-0 text-primary" /> : null}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {selectedType?.description || tf("typeHint")}
-              </p>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="title">
-              {t("tickets.fields.title")}
-              <span className="ml-1 text-destructive">*</span>
-            </Label>
-            <Input
-              id="title"
-              value={title}
-              onChange={(e) => {
-                setTitle(e.target.value);
-                if (e.target.value.trim()) clearError("title");
-              }}
-              placeholder={t("tickets.fields.titlePlaceholder")}
-              maxLength={255}
+        <div className="flex flex-col gap-1.5">
+          <Label>{t("tickets.fields.description")}</Label>
+          <div className="rounded-md border border-input">
+            <RichTextEditorField
+              value={descriptionRich}
+              onChange={setDescriptionRich}
+              mode="simple"
+              placeholder={t("tickets.fields.descriptionPlaceholder")}
               disabled={busy}
-              aria-invalid={Boolean(errors.title)}
-              className="h-11 text-base sm:h-10 sm:text-sm"
-            />
-            {errors.title && <p className="text-xs text-destructive">{errors.title}</p>}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label>{t("tickets.fields.description")}</Label>
-            <div className="rounded-md border border-input">
-              <RichTextEditorField
-                value={descriptionRich}
-                onChange={setDescriptionRich}
-                mode="simple"
-                placeholder={t("tickets.fields.descriptionPlaceholder")}
-                disabled={busy}
-                maxLength={10000}
-                mention={ENTITY_MENTIONS}
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label>{t("tickets.fields.attachments")}</Label>
-            <StagedUploadsField
-              staged={staged}
-              disabled={busy}
-              error={fileError}
-              onError={setFileError}
+              maxLength={10000}
+              mention={ENTITY_MENTIONS}
             />
           </div>
-        </section>
+        </div>
 
-        {/* Who handles it */}
-        <aside className="flex min-w-0 flex-col gap-5 border-t pt-5 sm:rounded-lg sm:border sm:bg-card sm:p-5">
-          <h2 className="text-sm font-semibold">{tf("sectionWho")}</h2>
-
+        {visibleTicketTypes.length > 0 && (
           <div className="flex flex-col gap-2">
-            <Label id="priority-label">{t("tickets.fields.priority")}</Label>
+            <Label id="ticket-type-label">{t("tickets.fields.ticketType")}</Label>
             <div
               role="radiogroup"
-              aria-labelledby="priority-label"
-              className="grid grid-cols-4 gap-1 rounded-lg bg-muted p-1"
+              aria-labelledby="ticket-type-label"
+              className="flex flex-wrap gap-2"
             >
-              {TICKET_PRIORITIES.map((p) => (
+              {[
+                { id: "", name: t("tickets.form.noType"), color: null as string | null },
+                ...visibleTicketTypes,
+              ].map((tt) => (
                 <button
-                  key={p}
+                  key={tt.id || "none"}
                   type="button"
                   role="radio"
-                  aria-checked={priority === p}
+                  aria-checked={ticketTypeId === tt.id}
                   disabled={busy}
-                  onClick={() => setPriority(p)}
-                  className={cn(
-                    "h-9 min-w-0 truncate rounded-md px-1 text-xs font-medium text-muted-foreground transition-colors sm:text-sm",
-                    priority === p && "bg-background text-foreground shadow-sm"
-                  )}
+                  onClick={() => setTicketTypeId(tt.id)}
+                  className={choiceClass(ticketTypeId === tt.id)}
                 >
-                  {priorityConfigs?.[p]?.label ?? t(`tickets.priority.${p}`)}
+                  {tt.color ? (
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: tt.color }}
+                    />
+                  ) : null}
+                  <span className="truncate">{tt.name}</span>
                 </button>
               ))}
             </div>
           </div>
+        )}
 
-          <div className="flex flex-col gap-2">
-            <Label>
-              {t("tickets.fields.responders")}
-              <span className="ml-1 text-destructive">*</span>
-            </Label>
-            <MemberSelector
-              members={members}
-              selectedIds={assigneeIds}
-              onChange={(ids) => {
-                setAssigneeIds(ids);
-                if (ids.length) clearError("assignees");
-              }}
-              placeholder={t("tickets.fields.respondersPlaceholder")}
-              disabled={busy || !allowsManualAssignees}
-            />
-            {errors.assignees && <p className="text-xs text-destructive">{errors.assignees}</p>}
-            {!allowsManualAssignees && (
-              <p className="text-xs text-muted-foreground">{t("tickets.fields.respondersFixed")}</p>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-3 rounded-md border p-3">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex flex-col gap-0.5">
-                <Label htmlFor="requiresAcceptance">{t("tickets.fields.requiresAcceptance")}</Label>
-                <p className="text-xs text-muted-foreground">
-                  {t("tickets.fields.requiresAcceptanceHint")}
-                </p>
-              </div>
-              <Switch
-                id="requiresAcceptance"
-                checked={requiresAcceptance}
-                onCheckedChange={(checked) => {
-                  setRequiresAcceptance(checked);
-                  if (!checked) {
-                    setAcceptorIds([]);
-                    clearError("acceptors");
-                  }
-                }}
-                disabled={busy}
-              />
-            </div>
-            {requiresAcceptance && (
-              <div className="flex flex-col gap-2">
-                <Label>
-                  {t("tickets.fields.acceptors")}
-                  <span className="ml-1 text-destructive">*</span>
-                </Label>
-                <MemberSelector
-                  members={members}
-                  selectedIds={acceptorIds}
-                  onChange={(ids) => {
-                    setAcceptorIds(ids);
-                    if (ids.length) clearError("acceptors");
-                  }}
-                  placeholder={t("tickets.fields.acceptorsPlaceholder")}
-                  disabled={busy}
-                />
-                {errors.acceptors && <p className="text-xs text-destructive">{errors.acceptors}</p>}
-              </div>
-            )}
-          </div>
-
-          {can(QR_ASSIGN) && (
-            <div className="flex flex-col gap-2">
-              <Label>{t("tickets.fields.qrCode")}</Label>
-              <QrCodeStagingField
-                value={stagedQr}
-                onChange={setStagedQr}
-                canGenerate={can(QR_CREATE)}
-                disabled={busy}
-              />
-            </div>
+        <div className="flex flex-col gap-2">
+          <Label>
+            {t("tickets.fields.responders")} <span className="text-destructive">*</span>
+          </Label>
+          <MemberSelector
+            members={members}
+            selectedIds={assigneeIds}
+            onChange={(ids) => {
+              setAssigneeIds(ids);
+              if (ids.length) clearError("assignees");
+            }}
+            placeholder={t("tickets.fields.respondersPlaceholder")}
+            disabled={busy || !allowsManualAssignees}
+          />
+          {errors.assignees && <p className="text-xs text-destructive">{errors.assignees}</p>}
+          {!allowsManualAssignees && (
+            <p className="text-xs text-muted-foreground">{t("tickets.fields.respondersFixed")}</p>
           )}
-        </aside>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label id="priority-label">{t("tickets.fields.priority")}</Label>
+          <div
+            role="radiogroup"
+            aria-labelledby="priority-label"
+            className="grid grid-cols-4 gap-1 rounded-lg bg-muted p-1"
+          >
+            {TICKET_PRIORITIES.map((p) => (
+              <button
+                key={p}
+                type="button"
+                role="radio"
+                aria-checked={priority === p}
+                disabled={busy}
+                onClick={() => setPriority(p)}
+                className={cn(
+                  "h-9 min-w-0 truncate rounded-md px-1 text-xs font-medium text-muted-foreground transition-colors sm:text-sm",
+                  priority === p && "bg-background text-foreground shadow-sm"
+                )}
+              >
+                {priorityConfigs?.[p]?.label ?? t(`tickets.priority.${p}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-4">
+            <Label htmlFor="requiresAcceptance">{t("tickets.fields.requiresAcceptance")}</Label>
+            <Switch
+              id="requiresAcceptance"
+              checked={requiresAcceptance}
+              onCheckedChange={(checked) => {
+                setRequiresAcceptance(checked);
+                if (!checked) {
+                  setAcceptorIds([]);
+                  clearError("acceptors");
+                }
+              }}
+              disabled={busy}
+            />
+          </div>
+          {requiresAcceptance && (
+            <>
+              <MemberSelector
+                members={members}
+                selectedIds={acceptorIds}
+                onChange={(ids) => {
+                  setAcceptorIds(ids);
+                  if (ids.length) clearError("acceptors");
+                }}
+                placeholder={t("tickets.fields.acceptorsPlaceholder")}
+                disabled={busy}
+              />
+              {errors.acceptors && <p className="text-xs text-destructive">{errors.acceptors}</p>}
+            </>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label>{t("tickets.fields.attachments")}</Label>
+          <StagedUploadsField
+            staged={staged}
+            disabled={busy}
+            error={fileError}
+            onError={setFileError}
+          />
+        </div>
+
+        {can(QR_ASSIGN) && (
+          <div className="flex flex-col gap-1.5">
+            <Label>{t("tickets.fields.qrCode")}</Label>
+            <QrCodeStagingField
+              value={stagedQr}
+              onChange={setStagedQr}
+              canGenerate={can(QR_CREATE)}
+              disabled={busy}
+            />
+          </div>
+        )}
       </div>
 
       {/* On phones the buttons stay at the bottom of the screen. */}
-      <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:static lg:z-auto lg:justify-end lg:border-0 lg:bg-transparent lg:p-0">
+      <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:static lg:z-auto lg:justify-end lg:px-0 lg:pb-0">
         <Button
           type="button"
           variant="outline"
-          className="h-11 shrink-0 lg:h-10"
+          className="h-11 shrink-0 border-input bg-transparent font-normal shadow-none lg:h-10"
           onClick={() => router.push("/dashboard/help-desk/tickets")}
           disabled={createTicketMutation.isPending}
         >

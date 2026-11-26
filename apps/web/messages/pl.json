@@ -4740,11 +4740,7 @@
         "filesNotSent": "Nie wszystkie pliki zostały wysłane. Wyślij je ponownie albo usuń z listy.",
         "waitingForFiles": "{count, plural, =0 {Wysyłanie…} one {Kończę wysyłanie pliku…} other {Kończę wysyłanie plików (#)…}}",
         "form": {
-          "sectionWhat": "Co się stało",
-          "sectionWho": "Kto się tym zajmie",
-          "noType": "Bez typu",
-          "typeHint": "Typ ustawia domyślny priorytet i osoby odpowiedzialne.",
-          "typeDefaults": "Ustawiono domyślne osoby i priorytet dla tego typu."
+          "noType": "Bez typu"
         }
       },
       "features": {

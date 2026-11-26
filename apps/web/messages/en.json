@@ -4660,11 +4660,7 @@
         "filesNotSent": "Not every file was sent. Send them again or remove them from the list.",
         "waitingForFiles": "{count, plural, =0 {Sending…} one {Finishing the file upload…} other {Finishing file uploads (#)…}}",
         "form": {
-          "sectionWhat": "What happened",
-          "sectionWho": "Who handles it",
-          "noType": "No type",
-          "typeHint": "The type sets the default priority and responders.",
-          "typeDefaults": "Default responders and priority for this type were applied."
+          "noType": "No type"
         }
       },
       "features": {
