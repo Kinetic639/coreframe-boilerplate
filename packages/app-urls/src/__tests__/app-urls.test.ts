@@ -175,8 +175,8 @@ describe("appHomeUrl and buildAppChooserUrl", () => {
     vi.stubEnv("NODE_ENV", "production");
     expect(appHomeUrl("erp")).toBe("https://app.ambra-system.com/dashboard/start");
     expect(appHomeUrl("erp", "en")).toBe("https://app.ambra-system.com/en/dashboard/start");
-    expect(appHomeUrl("requests")).toBe("https://zapytania.ambra-system.com/");
-    expect(appHomeUrl("requests", "en")).toBe("https://zapytania.ambra-system.com/en");
+    expect(appHomeUrl("requests")).toBe("https://zgloszenia.ambra-system.com/");
+    expect(appHomeUrl("requests", "en")).toBe("https://zgloszenia.ambra-system.com/en");
     expect(buildAppChooserUrl()).toBe("https://app.ambra-system.com/aplikacje");
     expect(buildAppChooserUrl("en")).toBe("https://app.ambra-system.com/en/apps");
   });
