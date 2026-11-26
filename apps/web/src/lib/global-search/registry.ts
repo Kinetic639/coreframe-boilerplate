@@ -354,7 +354,7 @@ export const SEARCH_ACTIONS: SearchEntry[] = [
     "ticket",
     { href: "/dashboard/help-desk/tickets/new" },
     { ...HELPDESK, requiresPermissions: [MODULE_HELPDESK_ACCESS, HELPDESK_TICKETS_CREATE] },
-    ["nowe zapytanie", "zgloszenie", "ticket", "hd", "new ticket", "new request"]
+    ["nowe zgloszenie", "nowe zapytanie", "ticket", "hd", "new ticket", "new request"]
   ),
   action(
     "inviteMember",

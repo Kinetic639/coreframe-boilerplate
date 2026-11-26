@@ -23,6 +23,8 @@ export const createRequestSchema = z
     typeId: z.string().uuid("typeId"),
     title: z.string().trim().min(LIMITS.titleMin, "title").max(LIMITS.titleMax, "title"),
     description: z.string().trim().max(LIMITS.bodyMax).optional(),
+    /** JSON of the editor's Tiptap document. */
+    descriptionRich: z.string().max(200_000).optional(),
     orderNumber: orderNumberSchema.optional().or(z.literal("")),
     warehouse: warehouseSchema.optional().or(z.literal("")),
   })

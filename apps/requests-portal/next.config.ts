@@ -12,9 +12,9 @@ const appVersion = (
 ).version;
 
 const repoRoot = path.resolve(__dirname, "../..");
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://zapytania.ambra-system.com";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://zgloszenia.ambra-system.com";
 
-/** Ambra Zapytania -- doradcy -> dział części. Backend: the shared Ambra Supabase project. */
+/** Ambra Zgłoszenia -- doradcy -> dział części. Backend: the shared Ambra Supabase project. */
 const nextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: appVersion,

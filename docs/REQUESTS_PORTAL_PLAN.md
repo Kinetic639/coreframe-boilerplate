@@ -1,7 +1,7 @@
 # Ambra Zapytania — plan portalu zapytań do działu części
 
 Status: **w realizacji** — faza 0 zamknięta, kroki 1–3 zamknięte, design zatwierdzony, krok 4 w toku (2026-10-06). Demo: **15.10.2026**
-Aplikacja: `apps/requests-portal` · Domena: `zapytania.ambra-system.com`
+Aplikacja: `apps/requests-portal` · Domena: `zgloszenia.ambra-system.com`
 
 ## Postęp (demo)
 
@@ -52,7 +52,7 @@ Szczegóły kroków: sekcja 8. Zmiany w bazie: sekcja 7.
 - [ ] **7. Wdrożenie:**
   - [ ] projekt Vercel
   - [ ] zmienne środowiskowe
-  - [ ] domena `zapytania.ambra-system.com` + DNS
+  - [ ] domena `zgloszenia.ambra-system.com` + DNS
   - [ ] przekierowania Supabase Auth (D5)
 - [ ] **8. Próba scenariusza demo na telefonie** (sekcja 9) i poprawki
 - [ ] **Weryfikacja:** komentarze wewnętrzne niewidoczne dla doradcy (D4); doradca nie wchodzi do Ambry
@@ -83,7 +83,7 @@ To wewnętrzny odpowiednik „Customer Care VGP”: tam dział części pisze do
 | Temat                         | Decyzja                                                                                                                                                             |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Nazwa dla użytkownika         | **Ambra Zapytania**. Podtytuł np. „Zapytania do działu części — zlecenia, magazyn, sprawy organizacyjne”.                                                           |
-| Domena                        | `zapytania.ambra-system.com`                                                                                                                                        |
+| Domena                        | `zgloszenia.ambra-system.com`                                                                                                                                       |
 | Aplikacja w monorepo          | `apps/requests-portal` (pakiet `requests-portal`), osobny projekt na Vercelu, np. `ambra-requests-portal`                                                           |
 | Na demo                       | **Osobna aplikacja**, nie widok wewnątrz `apps/web`. Jakość prezentacyjna; gotowość na pilot nie jest wymagana.                                                     |
 | Kim są użytkownicy            | Doradcy i częściowcy to współpracownicy tej samej organizacji i tych samych oddziałów. Doradcy to członkowie organizacji z rolą „Doradca”, a nie zewnętrzni goście. |
@@ -220,7 +220,7 @@ apps/requests-portal/
 **Logowanie i sesja:**
 
 - Konta Supabase Auth są wspólne z Ambrą. Sesja dotyczy tylko domeny `zapytania.…`: zalogowanie do portalu nie loguje do Ambry i odwrotnie.
-- Do zrobienia w Supabase Auth: dodać `https://zapytania.ambra-system.com/**` do dozwolonych przekierowań (reset hasła, zaproszenia).
+- Do zrobienia w Supabase Auth: dodać `https://zgloszenia.ambra-system.com/**` do dozwolonych przekierowań (reset hasła, zaproszenia).
 - Użytkownik bez uprawnienia do zapytań zobaczy „Brak dostępu”.
 
 **Lekki kontekst (`portal-context.ts`):**
@@ -277,7 +277,7 @@ apps/requests-portal/
 | 4    | Warstwa danych: lista z filtrami i stronicowaniem, szczegóły, tworzenie (RPC `helpdesk_create_ticket` i referencja ZL), komentarze, załączniki | 0,5–1 dnia                                  |
 | 5    | UI: lista, nowe zapytanie, szczegóły (skopiowane i uproszczone komponenty), mobile-first                                                       | 1 dzień                                     |
 | 6    | Dane demo: rola „Doradca” (D1), typy (D2), konto doradcy w „Grupa Cichy-Zasada – CNP”, kilka przykładowych zapytań po polsku                   | 2–3 h                                       |
-| 7    | Vercel: drugi projekt (root `apps/requests-portal`), zmienne środowiskowe, domena `zapytania.ambra-system.com`, przekierowania Auth (D5)       | 1–2 h (część po stronie właściciela domeny) |
+| 7    | Vercel: drugi projekt (root `apps/requests-portal`), zmienne środowiskowe, domena `zgloszenia.ambra-system.com`, przekierowania Auth (D5)      | 1–2 h (część po stronie właściciela domeny) |
 | 8    | Przejście scenariusza demo na telefonie i poprawki                                                                                             | 0,5 dnia                                    |
 
 | 5a | Baza: D3, D4 (RLS per oddział dla ticketów, komentarzy i załączników), D6, reguła zamykania przez autora; testy pgTAP; sprawdzenie, że moduł Help Desk w Ambrze nadal działa | 0,5–1 dnia |
@@ -287,7 +287,7 @@ apps/requests-portal/
 
 ## 9. Scenariusz demo
 
-1. Doradca na telefonie otwiera `zapytania.ambra-system.com` i loguje się.
+1. Doradca na telefonie otwiera `zgloszenia.ambra-system.com` i loguje się.
 2. Zakłada zapytanie „Kiedy zderzak do ZL/51481/26/3252/BL?” (typ: Części — termin, ZL z podpowiedzi, zdjęcie).
 3. Częściowiec w Ambrze widzi je w widoku „Nieprzypisane w moim oddziale”, przypięte do zlecenia, i klika **„Biorę”**.
 4. Pisze **notatkę wewnętrzną** dla kolegów („zamówione, VGP potwierdza jutro”), ustawia status **„Czeka na VGP / dostawcę”** i **odpowiada doradcy**.

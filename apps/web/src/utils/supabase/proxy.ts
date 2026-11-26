@@ -90,7 +90,7 @@ export const updateSession = async (request: NextRequest) => {
       return NextResponse.redirect(signInUrl);
     }
 
-    // A signed-in user sent here by another Ambra app (zapytania., vmi., the public
+    // A signed-in user sent here by another Ambra app (zgloszenia., vmi., the public
     // site) already shares this session: send them straight back.
     if (isAuthenticated && isSignInPath(normalizedPathname)) {
       const returnUrl = resolveReturnUrl(request.nextUrl.searchParams.get("returnUrl"));

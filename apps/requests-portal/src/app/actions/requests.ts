@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { extractPlainText, isRichTextEmpty, normalizeRichText } from "@repo/rich-text";
 import { getLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
 import {
@@ -39,12 +40,23 @@ export async function createRequestAction(
     return { error: "forbidden" };
   }
 
+  // The editor's document wins over the plain text when it parses and is not empty.
+  let rich: ReturnType<typeof normalizeRichText> = null;
+  try {
+    rich = v.descriptionRich ? normalizeRichText(JSON.parse(v.descriptionRich)) : null;
+  } catch {
+    rich = null;
+  }
+  if (rich && isRichTextEmpty(rich)) rich = null;
+  const plain = rich ? extractPlainText(rich).slice(0, LIMITS.bodyMax) : v.description || null;
+
   const supabase = await createClient();
   const created = await createRequest(supabase, ctx, {
     branchId: v.branchId,
     typeId: v.typeId,
     title: v.title,
-    description: v.description || null,
+    description: plain || null,
+    descriptionRich: rich,
     orderNumber: v.orderNumber || null,
     warehouse: v.warehouse || null,
   });

@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Ambra Zapytania",
+    "name": "Ambra Zgłoszenia",
     "tagline": "Requests to the parts department — repair orders, warehouse, organisational matters",
     "scaffold": "The request list arrives in the next step.",
     "signedInAs": "Signed in as {email}"
@@ -43,7 +43,15 @@
     },
     "noAccess": {
       "title": "No access to requests",
-      "body": "The account {email} has no access to Ambra Zapytania. Ask your manager for the “Doradca (portal)” role in your branch."
+      "body": "The account {email} has no access to Ambra Zgłoszenia. Ask your manager for the “Doradca (portal)” role in your branch."
+    },
+    "theme": {
+      "mode": "Theme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System",
+      "colors": "Colors",
+      "saveFailed": "Could not save the theme to your account."
     }
   },
   "requests": {
@@ -66,10 +74,11 @@
       "cancelled": "Withdrawn"
     },
     "search": "Search",
-    "searchPlaceholder": "Search: title, number, order no.",
+    "searchPlaceholder": "Search by title, HD or ZL…",
     "scope": {
       "mine": "Mine",
-      "branch": "Whole branch"
+      "branch": "Whole branch",
+      "label": "Whose requests"
     },
     "type": "Type",
     "allTypes": "All types",
@@ -78,14 +87,16 @@
       "yourTurn": "Your turn",
       "approval": "Awaiting approval",
       "answered": "Answered",
-      "closed": "Closed"
+      "closed": "Closed",
+      "label": "Status"
     },
     "empty": {
       "title": "No requests",
       "body": "There are no requests yet. Create one with “New request”.",
-      "search": "Nothing matches your search."
+      "filteredTitle": "Nothing matches",
+      "search": "No request matches the filters and search.",
+      "clear": "Clear filters"
     },
-    "pageOf": "Page {page} of {pages} · {total} requests",
     "prev": "Previous page",
     "next": "Next page",
     "new": {
@@ -96,7 +107,7 @@
       "type": "Request type",
       "typesAvailable": "{count} available",
       "noTypes": "No request types are configured for this branch.",
-      "acceptance": "approval",
+      "acceptance": "needs approval",
       "solvedBy": "Handled by:",
       "toQueue": "Goes to the branch parts department queue.",
       "order": "Order",
@@ -112,7 +123,7 @@
       "description": "Description",
       "descriptionPlaceholder": "What is needed and by when?",
       "photo": "Take a photo",
-      "file": "Add a file",
+      "file": "Add files",
       "removeFile": "Remove {name}",
       "sending": "Sending…",
       "submit": "Send request",
@@ -124,11 +135,15 @@
         "branchId": "Choose a branch.",
         "forbidden": "You cannot create requests in this branch.",
         "unknown_type": "This request type is no longer available.",
-        "generic": "Could not send the request. Try again."
-      }
+        "generic": "Could not send the request. Try again.",
+        "loadFailed": "Could not load the form. Close it and try again."
+      },
+      "subtitle": "New request form for the parts department",
+      "acceptedBy": "Approved by: {names}",
+      "branchWarehouses": "Branch warehouses:",
+      "attachments": "Attachments"
     },
-    "pickOne": "Pick a request from the list",
-    "back": "Requests",
+    "back": "Back",
     "someone": "Someone",
     "you": "You",
     "partsDept": "parts department",
@@ -137,21 +152,37 @@
       "closed": "{who} closed the request",
       "cancelled": "{who} withdrew the request",
       "taken": "{who} took the request",
-      "status": "{who} changed the status: {status}"
+      "status": "{who} changed the status: {status}",
+      "created": "{who} created the request"
     },
     "detail": {
       "type": "Type",
       "requester": "Requested by",
       "order": "Order",
       "orderParts": "no. {nr} · wh. {mag}",
-      "responders": "Handled by",
-      "queue": "parts department queue",
+      "responders": "Resolved by",
+      "queue": "Parts department queue",
       "acceptance": "Approval",
       "accepted": "approved {date}",
       "awaiting": "waiting for: {names}",
-      "noMessages": "No messages.",
+      "noMessages": "No comments yet. Write if you want to add something.",
       "attachments": "Attachments",
-      "closedNote": "This request is closed."
+      "closedNote": "This request is closed.",
+      "status": "Status",
+      "yours": "Your request",
+      "description": "Description",
+      "noDescription": "No description.",
+      "people": "People",
+      "info": "Information",
+      "number": "Number",
+      "branch": "Branch",
+      "created": "Created",
+      "updated": "Last change",
+      "closed": "Closed",
+      "orderNotFound": "not found in Ambra",
+      "awaitingShort": "awaiting approval",
+      "yourTurnTitle": "Waiting for your answer.",
+      "yourTurnBody": "The parts department needs information from you. Reply in a comment below."
     },
     "composer": {
       "removeFile": "Remove {name}",
@@ -175,7 +206,15 @@
       "cancel": "Withdraw",
       "confirmClose": "Close the request as resolved?",
       "confirmCancel": "Withdraw the request?",
-      "failed": "Could not change the status."
+      "failed": "Could not change the status. Try again.",
+      "closeShort": "Resolved",
+      "confirmCloseBody": "The parts department will see the matter is resolved. If something else comes up, create a new request.",
+      "confirmCancelBody": "The parts department will stop working on it. This cannot be undone.",
+      "closeConfirm": "Close request",
+      "cancelConfirm": "Withdraw request",
+      "keep": "Not now",
+      "closedToast": "Request closed.",
+      "cancelledToast": "Request withdrawn."
     },
     "newLabel": "New request",
     "thread": {
@@ -191,6 +230,40 @@
       "notSent": "Not sent",
       "retry": "Retry",
       "discard": "Discard"
+    },
+    "heading": "Requests",
+    "listLabel": "Request list",
+    "pagination": "List pages",
+    "rows": "Rows:",
+    "range": "{from}–{to} of {total}",
+    "queueShort": "Department queue",
+    "table": {
+      "request": "Request",
+      "status": "Status",
+      "type": "Type",
+      "order": "Repair order",
+      "responders": "Resolved by",
+      "comments": "Comments",
+      "updated": "Last change"
+    },
+    "backToList": "Back to requests",
+    "closePanel": "Close",
+    "openPage": "Open as a full page",
+    "tabs": {
+      "request": "Request",
+      "comments": "Comments",
+      "details": "Details",
+      "activity": "Activity"
+    },
+    "editor": {
+      "bold": "Bold",
+      "italic": "Italic",
+      "underline": "Underline",
+      "strikethrough": "Strikethrough",
+      "bulletList": "Bullet list",
+      "orderedList": "Numbered list",
+      "link": "Link",
+      "linkPrompt": "Link address"
     }
   },
   "components": {

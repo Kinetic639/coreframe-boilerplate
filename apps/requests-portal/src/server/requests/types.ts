@@ -77,6 +77,8 @@ export type RequestListItem = {
   branchId: string | null;
   requester: PersonRef | null;
   order: OrderRef | null;
+  /** People the request is assigned to (Help Desk responders). */
+  responders: PersonRef[];
   commentCount: number;
   createdAt: string;
   updatedAt: string;
@@ -87,7 +89,6 @@ export type RequestDetail = RequestListItem & {
   descriptionPlain: string | null;
   descriptionRich: unknown | null;
   status: TicketStatus;
-  responders: PersonRef[];
   acceptors: PersonRef[];
   acceptedAt: string | null;
   closedAt: string | null;
@@ -126,5 +127,12 @@ export type RequestEvent = {
   payload: Record<string, unknown>;
   createdAt: string;
 };
+
+/** One list page, the number of matches and of requests waiting for the user's answer. */
+export type RequestListPage = { items: RequestListItem[]; total: number; yourTurn: number };
+
+/** Rows per list page the user can pick; the first is the default. */
+export const PAGE_SIZES = [50, 20, 100] as const;
+export type PageSize = (typeof PAGE_SIZES)[number];
 
 export type ServiceResult<T> = { ok: true; data: T } | { ok: false; error: string };
