@@ -1,4 +1,4 @@
-import { REQUEST_FILTERS, type RequestFilter } from "./types";
+import { PAGE_SIZES, REQUEST_FILTERS, type PageSize, type RequestFilter } from "./types";
 import type { ListRequestsInput } from "./requests.service";
 
 /** Request header carrying the URL query to the persistent requests layout (set in proxy.ts). */
@@ -13,6 +13,7 @@ export function parseListParams(sp: ListSearchParams): ListRequestsInput {
   const filter = one(sp.f);
   const page = Number(one(sp.p));
   const type = one(sp.type);
+  const size = Number(one(sp.size));
   return {
     scope: one(sp.scope) === "branch" ? "branch" : "mine",
     filter: (REQUEST_FILTERS as readonly string[]).includes(filter ?? "")
@@ -22,6 +23,7 @@ export function parseListParams(sp: ListSearchParams): ListRequestsInput {
     search: one(sp.q)?.slice(0, 80) || null,
     sort: one(sp.sort) === "newest" ? "newest" : "activity",
     page: Number.isInteger(page) && page > 0 ? page : 1,
+    size: (PAGE_SIZES as readonly number[]).includes(size) ? (size as PageSize) : PAGE_SIZES[0],
   };
 }
 
@@ -38,6 +40,7 @@ export function toQuery(
   if (v.search) q.q = v.search;
   if (v.sort === "newest") q.sort = "newest";
   if (v.page > 1) q.p = String(v.page);
+  if (v.size !== PAGE_SIZES[0]) q.size = String(v.size);
   return q;
 }
 

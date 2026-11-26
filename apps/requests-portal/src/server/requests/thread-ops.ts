@@ -3,9 +3,8 @@ import { extractPlainText, normalizeRichText } from "@repo/rich-text/rich-text-u
 import { commentSchema, LIMITS } from "@/lib/validation/requests";
 import type { PortalContext } from "@/server/portal-context";
 import { createClient } from "@/utils/supabase/server";
-import { deleteOwnAttachment, listAttachments, uploadAttachment } from "./attachments.service";
-import { addComment, listComments, updateOwnComment } from "./comments.service";
-import type { RequestAttachment, RequestComment } from "./types";
+import { deleteOwnAttachment, uploadAttachment } from "./attachments.service";
+import { addComment, updateOwnComment } from "./comments.service";
 
 /**
  * Thread mutations behind the /api/requests route handlers. They are plain fetch endpoints
@@ -13,7 +12,6 @@ import type { RequestAttachment, RequestComment } from "./types";
  * refresh) makes Next re-render the whole route, which reset scroll and showed skeletons.
  */
 
-export type ThreadData = { comments: RequestComment[]; attachments: RequestAttachment[] };
 export type OpResult = { ok: true } | { ok: false; error: string };
 
 function filesFrom(formData: FormData): File[] {
@@ -30,16 +28,6 @@ function richFrom(raw: string | undefined) {
   } catch {
     return undefined;
   }
-}
-
-export async function loadThread(ctx: PortalContext, ticketId: string): Promise<ThreadData | null> {
-  const supabase = await createClient();
-  const [comments, attachments] = await Promise.all([
-    listComments(supabase, ctx, ticketId),
-    listAttachments(supabase, ctx, ticketId),
-  ]);
-  if (!comments.ok || !attachments.ok) return null;
-  return { comments: comments.data, attachments: attachments.data };
 }
 
 /** New public reply; files sent with it are tied to the comment (metadata.comment_id). */

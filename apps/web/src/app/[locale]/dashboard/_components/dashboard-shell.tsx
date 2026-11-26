@@ -52,6 +52,7 @@ import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import { getUserDisplayName } from "@/utils/user-helpers";
 import { DashboardStatusBar } from "@/components/Dashboard/DashboardStatusBar";
 import { DashboardHeaderV2 } from "@/components/v2/layout/dashboard-header";
+import type { AmbraWorkApp } from "@repo/app-urls";
 import { MessagesRoot } from "@/components/v2/messages/messages-root";
 import { SearchSourcesProvider } from "@/lib/global-search/sources-context";
 import type { SearchEntry } from "@/lib/global-search/types";
@@ -992,6 +993,8 @@ interface DashboardShellProps {
   searchEntries?: SearchEntry[];
   /** Data sources the user may search (scope chips) */
   searchSources?: SearchSourceId[];
+  /** Ambra apps this user may open (app switcher in the header); empty hides it */
+  ambraApps?: AmbraWorkApp[];
   isAdmin?: boolean;
   /** Server-computed accessible branches — passed through to the branch switcher */
   accessibleBranches: BranchDataV2[];
@@ -1006,6 +1009,7 @@ export function DashboardShell({
   sidebarModel,
   searchEntries,
   searchSources,
+  ambraApps = [],
   isAdmin,
   accessibleBranches,
   activeBranchId,
@@ -1032,7 +1036,11 @@ export function DashboardShell({
         {/* Messages: the right bar and chat windows sit next to the page (users with messages.use) */}
         <MessagesRoot>
           <SidebarInset className="flex h-svh min-h-0 flex-col overflow-hidden">
-            <DashboardHeaderV2 searchEntries={searchEntries} searchSources={searchSources} />
+            <DashboardHeaderV2
+              searchEntries={searchEntries}
+              searchSources={searchSources}
+              ambraApps={ambraApps}
+            />
             <main
               className={
                 flushContent

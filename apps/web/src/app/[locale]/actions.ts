@@ -257,7 +257,8 @@ export const signInAction = async (formData: FormData) => {
 
   // Return only after the action has committed the session cookies. The form
   // opens a fresh document so the anonymous router tree cannot survive sign-in.
-  return { redirectTo: getPathname({ href: "/dashboard/start", locale }) };
+  // The app chooser opens the only app the user has, or lets them pick one.
+  return { redirectTo: getPathname({ href: "/apps", locale }) };
 };
 
 export const forgotPasswordAction = async (formData: FormData) => {

@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { extractPlainText, isRichTextEmpty, normalizeRichText } from "@repo/rich-text";
 import { getLocale } from "next-intl/server";
-import { z } from "zod";
 import { redirect } from "@/i18n/navigation";
 import {
   createRequestSchema,
@@ -12,12 +12,7 @@ import {
 } from "@/lib/validation/requests";
 import { requirePortalContext } from "@/server/portal-context";
 import { uploadAttachment } from "@/server/requests/attachments.service";
-import {
-  closeOwnRequest,
-  createRequest,
-  lookupOrder,
-  type OrderLookup,
-} from "@/server/requests/requests.service";
+import { createRequest, lookupOrder, type OrderLookup } from "@/server/requests/requests.service";
 import { createClient } from "@/utils/supabase/server";
 
 export type ActionState = { error?: string; fieldErrors?: Record<string, string> } | null;
@@ -45,12 +40,23 @@ export async function createRequestAction(
     return { error: "forbidden" };
   }
 
+  // The editor's document wins over the plain text when it parses and is not empty.
+  let rich: ReturnType<typeof normalizeRichText> = null;
+  try {
+    rich = v.descriptionRich ? normalizeRichText(JSON.parse(v.descriptionRich)) : null;
+  } catch {
+    rich = null;
+  }
+  if (rich && isRichTextEmpty(rich)) rich = null;
+  const plain = rich ? extractPlainText(rich).slice(0, LIMITS.bodyMax) : v.description || null;
+
   const supabase = await createClient();
   const created = await createRequest(supabase, ctx, {
     branchId: v.branchId,
     typeId: v.typeId,
     title: v.title,
-    description: v.description || null,
+    description: plain || null,
+    descriptionRich: rich,
     orderNumber: v.orderNumber || null,
     warehouse: v.warehouse || null,
   });
@@ -75,17 +81,4 @@ export async function lookupOrderAction(nr: string, mag: string): Promise<OrderL
   if (!n.success || !m.success) return null;
   const ctx = await requirePortalContext();
   return lookupOrder(await createClient(), ctx, n.data, m.data);
-}
-
-export async function closeRequestAction(
-  ticketId: string,
-  outcome: "closed" | "cancelled"
-): Promise<ActionState> {
-  const id = z.string().uuid().safeParse(ticketId);
-  if (!id.success || (outcome !== "closed" && outcome !== "cancelled")) return { error: "invalid" };
-  const ctx = await requirePortalContext();
-  const res = await closeOwnRequest(await createClient(), ctx, id.data, outcome);
-  if (!res.ok) return { error: res.error };
-  revalidatePath("/", "layout");
-  return null;
 }

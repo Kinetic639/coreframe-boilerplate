@@ -33,7 +33,26 @@ export async function listAttachments(
     .order("created_at", { ascending: true });
   if (error) return { ok: false, error: error.message };
 
-  const rows = data ?? [];
+  return { ok: true, data: await toAttachments(supabase, ctx, data ?? []) };
+}
+
+export type AttachmentRow = {
+  id: string;
+  storage_path: string;
+  file_name: string;
+  content_type: string;
+  size_bytes: number | string;
+  metadata: unknown;
+  created_by: string | null;
+  created_at: string;
+};
+
+/** Rows as the portal shows them, with signed download links (one storage request). */
+export async function toAttachments(
+  supabase: PortalSupabase,
+  ctx: PortalContext,
+  rows: AttachmentRow[]
+): Promise<RequestAttachment[]> {
   const { data: signed } = rows.length
     ? await supabase.storage.from(ATTACHMENTS_BUCKET).createSignedUrls(
         rows.map((r) => r.storage_path),
@@ -42,22 +61,19 @@ export async function listAttachments(
     : { data: [] };
   const urlByPath = new Map((signed ?? []).map((s) => [s.path, s.signedUrl]));
 
-  return {
-    ok: true,
-    data: rows.map((r) => ({
-      id: r.id,
-      commentId:
-        typeof (r.metadata as Record<string, unknown> | null)?.comment_id === "string"
-          ? ((r.metadata as Record<string, unknown>).comment_id as string)
-          : null,
-      isMine: r.created_by === ctx.user.id,
-      fileName: r.file_name,
-      contentType: r.content_type,
-      sizeBytes: Number(r.size_bytes),
-      url: urlByPath.get(r.storage_path) ?? null,
-      createdAt: r.created_at,
-    })),
-  };
+  return rows.map((r) => ({
+    id: r.id,
+    commentId:
+      typeof (r.metadata as Record<string, unknown> | null)?.comment_id === "string"
+        ? ((r.metadata as Record<string, unknown>).comment_id as string)
+        : null,
+    isMine: r.created_by === ctx.user.id,
+    fileName: r.file_name,
+    contentType: r.content_type,
+    sizeBytes: Number(r.size_bytes),
+    url: urlByPath.get(r.storage_path) ?? null,
+    createdAt: r.created_at,
+  }));
 }
 
 function extensionOf(name: string): string {

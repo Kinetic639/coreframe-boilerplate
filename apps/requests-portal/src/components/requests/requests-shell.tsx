@@ -1,19 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Inbox, Loader2, Plus, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useParams, useSearchParams } from "next/navigation";
+import { ChevronLeft, ChevronRight, Inbox, Plus, SearchX } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { parseAsInteger, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
+import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import { listKey, parseListParams, toQuery } from "@/server/requests/list-params";
-import { REQUEST_FILTERS, type RequestListItem, type TicketTypeRef } from "@/server/requests/types";
-import { LIST_CHANGED_EVENT } from "./live-events";
+import { PAGE_SIZES, REQUEST_FILTERS, type TicketTypeRef } from "@/server/requests/types";
+import {
+  detailQuery,
+  listQuery,
+  requestKeys,
+  useRequestsScope,
+  type ListData,
+} from "@/lib/requests-query";
+import { NewRequestDialog, usePrefetchNewRequest } from "./new-request-dialog";
 import { RequestCard } from "./request-card";
-import { threadApi } from "./thread-api";
-
-const PAGE_SIZE = 25;
+import { RequestsTable } from "./requests-table";
+import { DesktopToolbar, MobileToolbar } from "./requests-toolbar";
 
 /** URL query of the list; shallow, so changing a filter never re-renders the server tree. */
 const listParsers = {
@@ -23,28 +31,35 @@ const listParsers = {
   q: parseAsString,
   sort: parseAsStringLiteral(["activity", "newest"] as const).withDefault("activity"),
   p: parseAsInteger.withDefault(1),
+  size: parseAsInteger.withDefault(PAGE_SIZES[0]),
 };
 
-export type ListData = { items: RequestListItem[]; total: number };
-
 /**
- * Persistent list + detail split. Lives in the (requests) layout, so opening another ticket
- * only re-renders the detail segment; filters live in the URL (nuqs, shallow) and refetch
- * just the list through a server action. The first render uses server data from the layout.
+ * The requests screen. Desktop: the list as a table in a card; an opened request shows in
+ * a panel beside it (the table keeps its key columns) or, with ?view=page, on a full page.
+ * Phone: cards, and an opened request replaces the list. Lives in the (requests) layout, so
+ * opening another request only renders the detail segment; filters live in the URL (nuqs,
+ * shallow) and each list page is a cache entry fetched over GET.
  */
 export function RequestsShell({
   initial,
   initialKey,
+  renderedAt,
   types,
+  canCreate,
   children,
 }: {
   initial: ListData;
   initialKey: string;
+  /** When the server loaded `initial`, so the cache knows how fresh it is. */
+  renderedAt: number;
   types: TicketTypeRef[];
+  canCreate: boolean;
   children: React.ReactNode;
 }) {
   const t = useTranslations("requests");
   const { ticketId } = useParams<{ ticketId?: string }>();
+  const fullPage = useSearchParams().get("view") === "page";
   const [qs, setQs] = useQueryStates(listParsers, { shallow: true, history: "replace" });
 
   const input = useMemo(
@@ -56,49 +71,34 @@ export function RequestsShell({
         q: qs.q ?? undefined,
         sort: qs.sort,
         p: String(qs.p),
+        size: String(qs.size),
       }),
     [qs]
   );
   const query = useMemo(() => toQuery(input), [input]);
   const key = listKey(query);
 
-  const [data, setData] = useState<ListData>(initial);
-  const [loadedKey, setLoadedKey] = useState(initialKey);
-  const [pending, startTransition] = useTransition();
-  const requestSeq = useRef(0);
+  const scope = useRequestsScope();
+  const qc = useQueryClient();
+  const {
+    data = initial,
+    isFetching,
+    isPlaceholderData,
+  } = useQuery({
+    ...listQuery(scope, key, query),
+    initialData: key === initialKey ? initial : undefined,
+    initialDataUpdatedAt: renderedAt,
+    placeholderData: keepPreviousData,
+  });
+  const pending = isPlaceholderData && isFetching;
 
-  // Server re-render (router.refresh / revalidatePath): adopt fresh data for the same query.
+  // A server re-render (branch switch, a new request) brings fresh data for its query.
   useEffect(() => {
-    if (initialKey === key) {
-      setData(initial);
-      setLoadedKey(initialKey);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initial, initialKey]);
+    qc.setQueryData(requestKeys.list(scope, initialKey), initial, { updatedAt: renderedAt });
+  }, [qc, scope, initialKey, initial, renderedAt]);
 
-  // Filters changed in the URL: fetch only the list.
-  useEffect(() => {
-    if (key === loadedKey) return;
-    const seq = ++requestSeq.current;
-    startTransition(async () => {
-      const next = await threadApi.list(query);
-      if (seq !== requestSeq.current || !next) return;
-      setData(next);
-      setLoadedKey(key);
-    });
-  }, [key, loadedKey, query]);
-
-  // Realtime: something in the list changed -- refetch the current page in the background.
-  useEffect(() => {
-    const onChange = async () => {
-      const seq = ++requestSeq.current;
-      const next = await threadApi.list(query);
-      if (seq !== requestSeq.current || !next) return;
-      setData(next);
-    };
-    window.addEventListener(LIST_CHANGED_EVENT, onChange);
-    return () => window.removeEventListener(LIST_CHANGED_EVENT, onChange);
-  }, [query]);
+  /** Opening a request starts loading it on hover, so the click shows it at once. */
+  const prefetch = (id: string) => void qc.prefetchQuery(detailQuery(scope, id));
 
   const [searchText, setSearchText] = useState(qs.q ?? "");
   useEffect(() => {
@@ -109,163 +109,214 @@ export function RequestsShell({
     return () => clearTimeout(id);
   }, [searchText, qs.q, setQs]);
 
-  const pages = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
+  const [creating, setCreating] = useState(false);
+  const prefetchForm = usePrefetchNewRequest(scope);
+  // Sending the form opens the new request: the dialog has done its job.
+  useEffect(() => setCreating(false), [ticketId]);
+
+  const panelOpen = !!ticketId && !fullPage;
+  const pages = Math.max(1, Math.ceil(data.total / input.size));
+  const from = data.total === 0 ? 0 : (input.page - 1) * input.size + 1;
+  const to = Math.min(data.total, input.page * input.size);
+  const filtered = !!(qs.q || qs.type || qs.f !== "open");
+
+  const toolbar = {
+    scope: input.scope,
+    filter: input.filter,
+    typeId: input.typeId ?? null,
+    search: searchText,
+    yourTurn: data.yourTurn ?? 0,
+    types,
+    pending,
+    compact: panelOpen,
+    onScope: (scope: "mine" | "branch") => void setQs({ scope, p: 1 }),
+    onFilter: (f: (typeof REQUEST_FILTERS)[number]) => void setQs({ f, p: 1 }),
+    onType: (type: string | null) => void setQs({ type, p: 1 }),
+    onSearch: setSearchText,
+  };
+
+  const empty = (
+    <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
+      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        {filtered ? <SearchX className="h-5 w-5" /> : <Inbox className="h-5 w-5" />}
+      </span>
+      <p className="text-sm font-medium">
+        {filtered ? t("empty.filteredTitle") : t("empty.title")}
+      </p>
+      <p className="max-w-xs text-sm text-muted-foreground">
+        {filtered ? t("empty.search") : t("empty.body")}
+      </p>
+      {filtered ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-2"
+          onClick={() => {
+            setSearchText("");
+            void setQs({ q: null, type: null, f: "open", p: 1 });
+          }}
+        >
+          {t("empty.clear")}
+        </Button>
+      ) : (
+        canCreate && (
+          <Button
+            size="sm"
+            className="mt-2 hidden lg:inline-flex"
+            onClick={() => setCreating(true)}
+          >
+            <Plus className="h-4 w-4" />
+            {t("newLabel")}
+          </Button>
+        )
+      )}
+    </div>
+  );
 
   return (
-    // Desktop: the list stays put and only the ticket detail scrolls (each pane scrolls itself).
-    <div className="flex flex-1 lg:grid lg:min-h-0 lg:grid-cols-[minmax(380px,480px)_1fr] lg:overflow-hidden">
+    <div
+      className={cn(
+        "flex flex-1 flex-col lg:min-h-0",
+        panelOpen && "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(460px,42%)]"
+      )}
+    >
       <section
+        aria-label={t("listLabel")}
         className={cn(
-          "min-w-0 flex-1 flex-col lg:flex lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:border-r lg:border-stone-200",
-          ticketId ? "hidden" : "flex"
+          "flex min-w-0 flex-1 flex-col lg:min-h-0 lg:p-6",
+          panelOpen && "lg:pr-0",
+          ticketId && "max-lg:hidden",
+          ticketId && fullPage && "lg:hidden"
         )}
       >
-        <div className="flex flex-col gap-2.5 border-b lg:sticky lg:top-0 lg:z-10 border-stone-200 bg-white px-4 pb-3 pt-1">
-          <label
-            className="flex h-10 items-center gap-2 rounded-[10px] bg-stone-100 px-3 text-stone-500"
-            role="search"
-          >
-            {pending ? (
-              <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-            ) : (
-              <Search className="h-4 w-4 shrink-0" />
-            )}
-            <span className="sr-only">{t("search")}</span>
-            <input
-              type="search"
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              placeholder={t("searchPlaceholder")}
-              className="min-w-0 flex-1 bg-transparent text-sm text-stone-900 outline-none placeholder:text-stone-500"
-            />
-          </label>
-          <div className="flex items-center gap-2">
-            <div
-              role="tablist"
-              className="grid flex-1 grid-cols-2 gap-0.5 rounded-[10px] bg-stone-100 p-[3px]"
-            >
-              {(["mine", "branch"] as const).map((scope) => (
-                <button
-                  key={scope}
-                  type="button"
-                  role="tab"
-                  aria-selected={qs.scope === scope}
-                  onClick={() => void setQs({ scope, p: 1 })}
-                  className={cn(
-                    "flex h-8 items-center justify-center rounded-lg text-[13px]",
-                    qs.scope === scope
-                      ? "bg-white font-semibold text-stone-900 shadow-[0_1px_2px_rgba(28,25,23,.08),0_0_0_1px_rgba(28,25,23,.04)]"
-                      : "font-medium text-stone-600"
-                  )}
-                >
-                  {t(`scope.${scope}`)}
-                </button>
-              ))}
-            </div>
-            {types.length > 0 && (
-              <select
-                value={qs.type ?? ""}
-                onChange={(e) => void setQs({ type: e.target.value || null, p: 1 })}
-                aria-label={t("type")}
-                className="h-[38px] max-w-[42%] rounded-[10px] border border-stone-200 bg-white px-2 text-[13px] text-stone-700"
+        <div className="flex flex-1 flex-col bg-card lg:min-h-0 lg:rounded-lg lg:border lg:shadow-sm">
+          <div className="hidden items-center gap-3 border-b px-6 py-4 lg:flex">
+            <h1 className="text-xl font-semibold tracking-tight">{t("heading")}</h1>
+            <span className="text-sm text-muted-foreground">{data.total}</span>
+            <span className="flex-1" />
+            {canCreate && (
+              <Button
+                onClick={() => setCreating(true)}
+                onPointerEnter={prefetchForm}
+                onFocus={prefetchForm}
               >
-                <option value="">{t("allTypes")}</option>
-                {types.map((type) => (
-                  <option key={type.id} value={type.id}>
-                    {type.name}
-                  </option>
-                ))}
-              </select>
+                <Plus className="h-4 w-4" />
+                {t("newLabel")}
+              </Button>
             )}
           </div>
-          <div className="-mr-4 flex gap-1.5 overflow-x-auto pr-4 [scrollbar-width:none]">
-            {REQUEST_FILTERS.map((f) => {
-              const active = qs.f === f;
-              return (
-                <button
-                  key={f}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => void setQs({ f, p: 1 })}
-                  className={cn(
-                    "flex h-[30px] shrink-0 items-center rounded-full border px-[11px] text-[12.5px] font-medium",
-                    active
-                      ? "border-stone-900 bg-stone-900 text-white"
-                      : f === "yourTurn"
-                        ? "border-[#F3C9B5] bg-[#FDF1EB] font-semibold text-[#A63A12]"
-                        : "border-stone-200 bg-white text-stone-700"
-                  )}
-                >
-                  {t(`filter.${f}`)}
-                </button>
-              );
-            })}
+          <div className="hidden lg:block">
+            <DesktopToolbar {...toolbar} />
           </div>
-        </div>
+          <div className="sticky top-14 z-10 lg:hidden">
+            <MobileToolbar {...toolbar} />
+          </div>
 
-        <div className={cn("transition-opacity", pending && "opacity-60")}>
-          {data.items.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 px-6 py-16 text-center text-stone-500">
-              <Inbox className="h-8 w-8 text-stone-400" />
-              <p className="text-sm font-medium text-stone-700">{t("empty.title")}</p>
-              <p className="max-w-xs text-[13px]">{qs.q ? t("empty.search") : t("empty.body")}</p>
-            </div>
-          ) : (
-            <ul className="flex flex-col gap-2 px-3 py-2.5">
-              {data.items.map((item) => (
-                <li key={item.id}>
-                  <RequestCard item={item} selected={item.id === ticketId} query={query} />
-                </li>
-              ))}
-            </ul>
+          <div
+            className={cn(
+              "flex-1 transition-opacity lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain",
+              pending && "opacity-60"
+            )}
+          >
+            {data.items.length === 0 ? (
+              empty
+            ) : (
+              <>
+                <div className="hidden lg:block">
+                  <RequestsTable
+                    items={data.items}
+                    selectedId={ticketId}
+                    compact={panelOpen}
+                    query={query}
+                    onPrefetch={prefetch}
+                  />
+                </div>
+                <ul className="flex flex-col gap-3 bg-muted/40 px-4 py-4 lg:hidden">
+                  {data.items.map((item) => (
+                    <li key={item.id}>
+                      <RequestCard item={item} query={query} onPrefetch={prefetch} />
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+
+          {data.total > 0 && (
+            <nav
+              aria-label={t("pagination")}
+              className="flex items-center justify-end gap-4 border-t px-4 pb-24 pt-3 text-sm text-muted-foreground lg:px-6 lg:pb-3"
+            >
+              <span className="mr-auto flex items-center gap-1 lg:mr-0">
+                <span className="mr-1">{t("rows")}</span>
+                {[...PAGE_SIZES]
+                  .sort((a, b) => a - b)
+                  .map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      aria-pressed={input.size === size}
+                      onClick={() => void setQs({ size, p: 1 })}
+                      className={cn(
+                        "h-7 rounded-md px-2 tabular-nums hover:bg-muted hover:text-foreground",
+                        input.size === size &&
+                          "bg-primary/10 font-medium text-primary hover:bg-primary/10"
+                      )}
+                    >
+                      {size}
+                    </button>
+                  ))}
+              </span>
+              <span className="tabular-nums">{t("range", { from, to, total: data.total })}</span>
+              <span className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  aria-label={t("prev")}
+                  disabled={input.page <= 1}
+                  onClick={() => void setQs({ p: input.page - 1 })}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  aria-label={t("next")}
+                  disabled={input.page >= pages}
+                  onClick={() => void setQs({ p: input.page + 1 })}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </span>
+            </nav>
           )}
         </div>
-
-        {pages > 1 && (
-          <nav className="flex items-center justify-between px-4 pb-24 pt-1 text-xs text-stone-500 lg:pb-4">
-            <span>{t("pageOf", { page: input.page, pages, total: data.total })}</span>
-            <span className="flex gap-1">
-              <button
-                type="button"
-                aria-label={t("prev")}
-                disabled={input.page <= 1}
-                onClick={() => void setQs({ p: input.page - 1 })}
-                className="flex h-8 w-8 items-center justify-center rounded-md border border-stone-200 bg-white text-stone-700 disabled:opacity-40"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                aria-label={t("next")}
-                disabled={input.page >= pages}
-                onClick={() => void setQs({ p: input.page + 1 })}
-                className="flex h-8 w-8 items-center justify-center rounded-md border border-stone-200 bg-white text-stone-700 disabled:opacity-40"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </span>
-          </nav>
-        )}
       </section>
 
-      <div
-        className={cn(
-          "min-w-0 flex-1 bg-stone-50 lg:flex lg:min-h-0 lg:flex-col lg:overflow-y-auto lg:overscroll-contain",
-          ticketId ? "flex flex-col" : "hidden"
-        )}
-      >
-        {children}
-      </div>
+      {ticketId && (
+        <div
+          className={cn(
+            "flex min-w-0 flex-1 flex-col bg-background lg:min-h-0",
+            panelOpen ? "lg:border-l lg:bg-card" : "lg:p-6"
+          )}
+        >
+          {children}
+        </div>
+      )}
 
-      {!ticketId && (
+      {!ticketId && canCreate && (
         <Link
           href="/new"
-          className="fixed bottom-6 right-4 z-30 flex h-[52px] items-center gap-2 rounded-2xl bg-primary pl-4 pr-5 text-[15px] font-semibold text-stone-900 shadow-[0_8px_24px_-6px_rgba(161,92,7,.45),0_2px_6px_rgba(28,25,23,.12)] lg:hidden"
+          className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-4 z-30 flex h-14 items-center gap-2 rounded-full bg-primary pl-5 pr-6 text-base font-semibold text-primary-foreground shadow-lg lg:hidden"
         >
-          <Plus className="h-[18px] w-[18px]" strokeWidth={2.4} />
+          <Plus className="h-5 w-5" />
           {t("newLabel")}
         </Link>
       )}
+
+      {canCreate && <NewRequestDialog scope={scope} open={creating} onOpenChange={setCreating} />}
     </div>
   );
 }

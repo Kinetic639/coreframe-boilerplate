@@ -6,6 +6,8 @@ import {
   HELPDESK_TICKETS_READ,
   HELPDESK_TICKET_TYPES_MANAGE,
 } from "@repo/contracts/permissions";
+import { AMBRA_WORK_APPS, type AmbraWorkApp, isAmbraWorkApp } from "@repo/app-urls";
+import { parseUiTheme, type UiTheme } from "@/lib/ui-theme";
 import { createClient } from "@/utils/supabase/server";
 
 /** Cookie holding the branch picked in the header switcher; absent = all branches. */
@@ -24,12 +26,16 @@ export type PortalContext = {
     avatarUrl: string | null;
   };
   org: { id: string; name: string };
+  /** Light/dark mode and color theme saved in Ambra. */
+  ui: UiTheme;
   /** Branches where the user may read requests, in creation order. */
   branches: PortalBranch[];
   /** Branch picked in the switcher, or null for "all my branches". */
   activeBranchId: string | null;
   /** Branch ids the current view covers (the active one, or all of `branches`). */
   scopeBranchIds: string[];
+  /** Ambra apps the user may open (header app switcher); empty if the rule could not run. */
+  apps: AmbraWorkApp[];
   /** Permission checks, org-wide grants included. */
   can: {
     create: (branchId: string) => boolean;
@@ -41,7 +47,7 @@ export type PortalContext = {
 export type PortalContextResult =
   | { status: "ok"; context: PortalContext }
   | { status: "signed-out" }
-  | { status: "no-access"; email: string };
+  | { status: "no-access"; email: string; ui: UiTheme };
 
 function initialsOf(first: string | null, last: string | null, email: string): string {
   const fromName = `${first?.[0] ?? ""}${last?.[0] ?? ""}`.toUpperCase();
@@ -63,14 +69,23 @@ export const loadPortalContext = cache(async (): Promise<PortalContextResult> =>
   if (!user) return { status: "signed-out" };
   const email = user.email ?? "";
 
-  const [{ data: uep }, { data: prefs }, { data: profile }] = await Promise.all([
+  // One round: organizations and branches come for every organization the user can see
+  // (RLS) and are narrowed below, instead of waiting for the organization first.
+  const [
+    { data: uep },
+    { data: prefs },
+    { data: profile },
+    { data: orgs },
+    { data: allBranches },
+    { data: appRows, error: appsError },
+  ] = await Promise.all([
     supabase
       .from("user_effective_permissions")
       .select("organization_id, branch_id, permission_slug_exact")
       .eq("user_id", user.id),
     supabase
       .from("user_preferences")
-      .select("organization_id")
+      .select("organization_id, dashboard_settings")
       .eq("user_id", user.id)
       .maybeSingle(),
     supabase
@@ -78,6 +93,14 @@ export const loadPortalContext = cache(async (): Promise<PortalContextResult> =>
       .select("first_name, last_name, avatar_url")
       .eq("id", user.id)
       .maybeSingle(),
+    supabase.from("organizations").select("id, name"),
+    supabase
+      .from("branches")
+      .select("id, name, organization_id")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true }),
+    // One rule for every Ambra app: the plan includes it and the user holds its permission.
+    supabase.rpc("get_my_ambra_apps"),
   ]);
 
   const rows = uep ?? [];
@@ -87,7 +110,17 @@ export const loadPortalContext = cache(async (): Promise<PortalContextResult> =>
     prefs?.organization_id && orgIds.includes(prefs.organization_id)
       ? prefs.organization_id
       : orgIds[0];
-  if (!orgId) return { status: "no-access", email };
+  const ui = parseUiTheme(prefs?.dashboard_settings);
+  if (!orgId) return { status: "no-access", email, ui };
+
+  // The organization's plan must include the portal too. If the rule could not run
+  // (e.g. the database is behind this code), the permission check above stands alone.
+  const myApps = new Set<AmbraWorkApp>();
+  for (const row of (appRows ?? []) as { organization_id: string; app: string }[]) {
+    if (row.organization_id === orgId && isAmbraWorkApp(row.app)) myApps.add(row.app);
+  }
+  if (!appsError && !myApps.has("requests")) return { status: "no-access", email, ui };
+  const apps = appsError ? [] : AMBRA_WORK_APPS.filter((app) => myApps.has(app));
 
   const orgPerms = new Set<string>();
   const branchPerms = new Map<string, Set<string>>();
@@ -104,18 +137,11 @@ export const loadPortalContext = cache(async (): Promise<PortalContextResult> =>
   const has = (slug: string, branchId: string) =>
     orgPerms.has(slug) || (branchPerms.get(branchId)?.has(slug) ?? false);
 
-  const [{ data: org }, { data: allBranches }] = await Promise.all([
-    supabase.from("organizations").select("id, name").eq("id", orgId).maybeSingle(),
-    supabase
-      .from("branches")
-      .select("id, name")
-      .eq("organization_id", orgId)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: true }),
-  ]);
-
-  const branches = (allBranches ?? []).filter((b) => has(HELPDESK_TICKETS_READ, b.id));
-  if (!org || branches.length === 0) return { status: "no-access", email };
+  const org = (orgs ?? []).find((o) => o.id === orgId);
+  const branches = (allBranches ?? [])
+    .filter((b) => b.organization_id === orgId && has(HELPDESK_TICKETS_READ, b.id))
+    .map((b) => ({ id: b.id, name: b.name }));
+  if (!org || branches.length === 0) return { status: "no-access", email, ui };
 
   const picked = (await cookies()).get(ACTIVE_BRANCH_COOKIE)?.value ?? null;
   const activeBranchId = branches.some((b) => b.id === picked) ? picked : null;
@@ -137,9 +163,11 @@ export const loadPortalContext = cache(async (): Promise<PortalContextResult> =>
         avatarUrl: profile?.avatar_url ?? null,
       },
       org: { id: org.id, name: org.name },
+      ui,
       branches,
       activeBranchId,
       scopeBranchIds: activeBranchId ? [activeBranchId] : branches.map((b) => b.id),
+      apps,
       can: {
         create: (branchId) => has(HELPDESK_TICKETS_CREATE, branchId),
         manage: (branchId) => has(HELPDESK_TICKETS_MANAGE, branchId),

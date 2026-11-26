@@ -2,7 +2,14 @@ import { compactRichInput } from "@repo/rich-text/rich-text-utils";
 import type { Json } from "@repo/supabase/database";
 import type { PortalSupabase } from "@/utils/supabase/server";
 import type { PortalContext } from "@/server/portal-context";
-import { plainToRichDoc, TICKET_TARGET, toPerson } from "./requests.service";
+import {
+  isMissingFunction,
+  plainToRichDoc,
+  portalRpc,
+  TICKET_TARGET,
+  toPerson,
+} from "./requests.service";
+import { rpcComment, type RpcComment } from "./view.service";
 import type { RequestComment, ServiceResult } from "./types";
 
 const USER_COLS = "id, first_name, last_name, email, avatar_url";
@@ -55,7 +62,19 @@ export async function addComment(
   ticketId: string,
   body: string,
   bodyRich?: unknown
-): Promise<ServiceResult<{ id: string }>> {
+): Promise<ServiceResult<{ id: string; comment: RequestComment | null }>> {
+  const rich = compactRichInput(bodyRich ?? plainToRichDoc(body)) as Json;
+  const { data: saved, error: rpcError } = await portalRpc<RpcComment>(
+    supabase,
+    "portal_add_comment",
+    { p_ticket_id: ticketId, p_body_plain: body, p_body_rich: rich }
+  );
+  if (saved) return { ok: true, data: { id: saved.id, comment: rpcComment(saved, ctx) } };
+  if (rpcError && !isMissingFunction(rpcError)) {
+    const known = ["not_found", "closed"].find((k) => rpcError.message.includes(k));
+    return { ok: false, error: known ?? rpcError.message };
+  }
+
   const { data: ticket } = await supabase
     .from("helpdesk_tickets")
     .select("id, status, created_by")
@@ -75,7 +94,7 @@ export async function addComment(
       target_type: TICKET_TARGET,
       target_id: ticketId,
       body_plain: body,
-      body_rich: compactRichInput(bodyRich ?? plainToRichDoc(body)) as Json,
+      body_rich: rich,
       visibility: "default",
       kind: "comment",
       created_by: ctx.user.id,
@@ -101,7 +120,7 @@ export async function addComment(
       : supabase.from("helpdesk_tickets").update({ updated_at: now }).eq("id", ticketId),
   ]);
 
-  return { ok: true, data: { id: data.id } };
+  return { ok: true, data: { id: data.id, comment: null } };
 }
 
 /** Author edits their own public comment (RLS: created_by = auth.uid()). */

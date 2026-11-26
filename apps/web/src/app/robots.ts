@@ -12,6 +12,7 @@ const NOINDEX_ROUTE_KEYS = [
   "/auth-code-error",
   "/registration-disabled",
   "/onboarding",
+  "/apps",
   "/invite/[token]",
   "/invite/resolve",
   "/qr/[token]",

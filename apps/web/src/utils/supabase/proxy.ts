@@ -1,4 +1,9 @@
-import { getAuthCookieOptions, resolveReturnUrl } from "@repo/app-urls";
+import {
+  getAuthCookieOptions,
+  getSharedCookieOptions,
+  LAST_APP_COOKIE,
+  resolveReturnUrl,
+} from "@repo/app-urls";
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { pathnameWithoutLocale, resolveAcceptLanguageLocale } from "@repo/i18n/middleware-utils";
@@ -31,6 +36,11 @@ function buildLocalizedUrl(request: NextRequest, pathnameKey: string, locale: Lo
   const slug = localized[locale];
   const path = locale === routing.defaultLocale ? slug : `/${locale}${slug}`;
   return new URL(path, request.url);
+}
+
+function isAppsPath(normalizedPathname: string): boolean {
+  const apps = resolveLocalizedPathnames("/apps");
+  return normalizedPathname === apps.en || normalizedPathname === apps.pl;
 }
 
 function isSignInPath(normalizedPathname: string): boolean {
@@ -83,14 +93,17 @@ export const updateSession = async (request: NextRequest) => {
     const isAuthenticated = !claimsError && Boolean(claimsData?.claims?.sub);
     const locale = detectLocale(request);
 
-    // dashboard routes require auth
-    if (normalizedPathname.startsWith("/dashboard") && !isAuthenticated) {
+    // dashboard routes and the app chooser require auth
+    if (
+      (normalizedPathname.startsWith("/dashboard") || isAppsPath(normalizedPathname)) &&
+      !isAuthenticated
+    ) {
       const signInUrl = buildLocalizedUrl(request, "/sign-in", locale);
       signInUrl.searchParams.set("returnUrl", request.nextUrl.pathname + request.nextUrl.search);
       return NextResponse.redirect(signInUrl);
     }
 
-    // A signed-in user sent here by another Ambra app (zapytania., vmi., the public
+    // A signed-in user sent here by another Ambra app (zgloszenia., vmi., the public
     // site) already shares this session: send them straight back.
     if (isAuthenticated && isSignInPath(normalizedPathname)) {
       const returnUrl = resolveReturnUrl(request.nextUrl.searchParams.get("returnUrl"));
@@ -98,9 +111,16 @@ export const updateSession = async (request: NextRequest) => {
     }
 
     // Signed-in users should never land on the sign-in page or the bare "/" —
-    // send them straight into the app instead.
+    // the app chooser opens their only app or lets them pick one.
     if (isAuthenticated && (normalizedPathname === "/" || isSignInPath(normalizedPathname))) {
-      return NextResponse.redirect(buildLocalizedUrl(request, "/dashboard/start", locale));
+      return NextResponse.redirect(buildLocalizedUrl(request, "/apps", locale));
+    }
+
+    // Remember the ERP as the last app opened (read by the chooser on every app's domain).
+    if (isAuthenticated && normalizedPathname.startsWith("/dashboard")) {
+      if (request.cookies.get(LAST_APP_COOKIE)?.value !== "erp") {
+        response.cookies.set(LAST_APP_COOKIE, "erp", getSharedCookieOptions());
+      }
     }
 
     // Root has no public page anymore (public pages live in apps/public-web) —

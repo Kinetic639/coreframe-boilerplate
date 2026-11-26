@@ -47,6 +47,12 @@ vi.mock("@/components/ui/sidebar", () => ({
 }));
 
 // Mock next-intl
+vi.mock("../header-app-switcher", () => ({
+  HeaderAppSwitcher: ({ apps }: { apps: string[] }) => (
+    <div data-testid="header-app-switcher">{apps.join(",")}</div>
+  ),
+}));
+
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
@@ -101,6 +107,18 @@ describe("DashboardHeaderV2", () => {
       render(<DashboardHeaderV2 />);
 
       expect(screen.getByTestId("header-notifications")).toBeInTheDocument();
+    });
+  });
+
+  describe("App switcher", () => {
+    it("shows the user's Ambra apps", () => {
+      render(<DashboardHeaderV2 ambraApps={["erp", "requests"]} />);
+      expect(screen.getByTestId("header-app-switcher")).toHaveTextContent("erp,requests");
+    });
+
+    it("is hidden when the apps are unknown", () => {
+      render(<DashboardHeaderV2 />);
+      expect(screen.queryByTestId("header-app-switcher")).not.toBeInTheDocument();
     });
   });
 
