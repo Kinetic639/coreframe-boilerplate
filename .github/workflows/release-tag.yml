@@ -1,0 +1,42 @@
+# "Oznacz wydanie" (tag the release): when a new Ambra version reaches `main`, tags it
+# vX.Y.Z and writes the GitHub Release from its CHANGELOG section (docs/versioning.md).
+name: Oznacz wydanie
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - packages/app-version/package.json
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-tag
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    name: Tag and GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Create the tag and the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./packages/app-version/package.json').version")
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "::notice title=Already released::v$VERSION is already tagged."
+            exit 0
+          fi
+          node packages/app-version/scripts/release.mjs notes "$VERSION" > release-notes.md
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "Ambra $VERSION" --notes-file release-notes.md

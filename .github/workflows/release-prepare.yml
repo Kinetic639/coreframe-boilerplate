@@ -1,0 +1,86 @@
+# "Przygotuj wydanie" (prepare a release), started by hand from the Actions tab.
+#
+# On `development` it uses up the pending changesets (docs/versioning.md): raises the
+# Ambra version, writes CHANGELOG.md, commits "chore(release): vX.Y.Z" and opens (or
+# updates) the release PR development -> main. Merging that PR deploys as before, and
+# release-tag.yml then tags the version and writes the GitHub Release.
+#
+# Needs: Settings -> Actions -> General -> Workflow permissions ->
+# "Allow GitHub Actions to create and approve pull requests". A PR opened with the
+# workflow's own token does not start other workflows, so CI runs again on the push to
+# main after the merge. Set a RELEASE_TOKEN secret (a fine-grained token with contents and
+# pull-requests write) if CI should also run on the release PR itself.
+name: Przygotuj wydanie
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-prepare
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  prepare:
+    name: Prepare the release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: development
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Raise the version and write the changelog
+        id: release
+        run: pnpm release:prepare
+
+      - name: Nothing to release
+        if: steps.release.outputs.released != 'true'
+        run: |
+          echo "::notice title=Nothing to release::No changesets with patch, minor or major since the last release. Version stays ${{ steps.release.outputs.version }}."
+
+      - name: Commit the release to development
+        if: steps.release.outputs.released == 'true'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A .changeset packages/app-version
+          git commit -m "chore(release): v$VERSION"
+          git push origin HEAD:development
+
+      - name: Open or update the release PR
+        if: steps.release.outputs.released == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          {
+            echo "Wydanie **Ambra $VERSION**. Po scaleniu Vercel wdroży \`main\`, a workflow \"Oznacz wydanie\" utworzy tag \`v$VERSION\` i GitHub Release."
+            echo
+            pnpm -s release:notes "$VERSION"
+          } > release-body.md
+          existing=$(gh pr list --base main --head development --state open --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --title "Wydanie v$VERSION" --body-file release-body.md
+            echo "::notice title=Release PR::Updated #$existing for v$VERSION"
+          else
+            gh pr create --base main --head development --title "Wydanie v$VERSION" --body-file release-body.md
+          fi

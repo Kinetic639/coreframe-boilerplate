@@ -39,6 +39,30 @@ env:
   NODE_VERSION: "22"
 
 jobs:
+  # Every PR into `development` describes its change for the changelog and says how it
+  # moves the Ambra version (docs/versioning.md). Release PRs into `main` are not checked.
+  changeset:
+    name: Changeset
+    if: github.event_name == 'pull_request' && github.event.action != 'closed' && github.base_ref == 'development'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require a .changeset/*.md file
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          added=$(git diff --name-only --diff-filter=A "$BASE_SHA"...HEAD -- '.changeset/*.md' | grep -v '^.changeset/README.md$' || true)
+          if [ -n "$added" ]; then
+            echo "Changeset found:"
+            echo "$added"
+            exit 0
+          fi
+          echo "::error title=Missing changeset::Add a changeset: 'pnpm changeset' (patch / minor / major + a sentence for users), or 'pnpm changeset --empty' for a change users do not see. See docs/versioning.md."
+          exit 1
+
   quality:
     name: Lint, types, unit tests
     if: github.event.action != 'closed'

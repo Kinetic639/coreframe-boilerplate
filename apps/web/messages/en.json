@@ -10507,5 +10507,24 @@
       "selectRow": "Select: {label}",
       "fileName": "list"
     }
+  },
+  "appVersion": {
+    "label": "Version {version}",
+    "whatsNew": "What's new",
+    "whatsNewTitle": "What's new in Ambra",
+    "whatsNewDescription": "Changes from recent releases. You are on version {version}.",
+    "current": "Your version",
+    "kinds": {
+      "major": "Changes that need attention",
+      "minor": "New features",
+      "patch": "Fixes",
+      "other": "Other changes"
+    },
+    "empty": "No changes described yet.",
+    "updateAvailable": "A new version of Ambra is available. Reload the page to use it.",
+    "updateAvailableVersion": "A new version of Ambra ({version}) is available. Reload the page to use it.",
+    "reload": "Reload",
+    "updated": "Ambra was updated to version {version}.",
+    "seeChanges": "See what's new"
   }
 }

@@ -81,6 +81,7 @@
     "@react-email/render": "^2.0.4",
     "@react-pdf/renderer": "^4.3.2",
     "@repo/app-urls": "workspace:*",
+    "@repo/app-version": "workspace:*",
     "@repo/auth": "workspace:*",
     "@repo/contracts": "workspace:*",
     "@repo/domain": "workspace:*",
