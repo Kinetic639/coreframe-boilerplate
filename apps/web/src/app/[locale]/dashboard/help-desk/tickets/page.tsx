@@ -71,12 +71,16 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
 
   const orgId = context.app.activeOrgId;
   const supabase = await createClient();
-  const [ticketsResult, typesResult, membersResult, settingsResult] = await Promise.all([
-    HelpdeskTicketsService.listForDataView(supabase, orgId, ticketListParams(state)),
-    HelpdeskTicketTypesService.list(supabase, orgId, false),
-    OrgMembersService.listMembers(supabase, orgId),
-    HelpdeskTicketTypesService.getSettings(supabase, orgId),
-  ]);
+  // A link with an open ticket (?selected=HD-…) brings its card in the same
+  // wave, so the panel renders complete in the first HTML.
+  const [ticketsResult, typesResult, membersResult, settingsResult, selectedResult] =
+    await Promise.all([
+      HelpdeskTicketsService.listForDataView(supabase, orgId, ticketListParams(state)),
+      HelpdeskTicketTypesService.list(supabase, orgId, false),
+      OrgMembersService.listMembers(supabase, orgId),
+      HelpdeskTicketTypesService.getSettings(supabase, orgId),
+      state.selected ? HelpdeskTicketsService.getDetail(supabase, orgId, state.selected) : null,
+    ]);
 
   const data = ticketsResult.success
     ? ticketsResult.data
@@ -91,6 +95,9 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
   const queryClient = new QueryClient();
   if (ticketsResult.success) {
     queryClient.setQueryData(ticketKeys.list(orgId, state), ticketsResult.data);
+  }
+  if (state.selected && selectedResult?.success && selectedResult.data) {
+    queryClient.setQueryData(ticketKeys.detail(orgId, state.selected), selectedResult.data);
   }
 
   const canCreate = checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_CREATE);
@@ -222,7 +229,6 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
           labels={labels}
           configs={{ status: statusConfigs, priority: priorityConfigs }}
           branchNames={branchNames}
-          canManage={canManage}
           currentUserId={userId}
           ticketPathTemplate={ticketPathTemplate}
         />

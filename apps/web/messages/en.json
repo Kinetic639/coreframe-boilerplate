@@ -4536,6 +4536,14 @@
         "addComment": "Add Comment",
         "commentAdded": "Comment added.",
         "closeTicket": "Close Ticket",
+        "qr": {
+          "title": "QR code",
+          "unlabelled": "Unlabelled",
+          "unlink": "Unlink",
+          "assign": "Assign QR code",
+          "none": "No QR code assigned.",
+          "unlinked": "QR code unlinked from ticket."
+        },
         "ticketClosed": "Ticket closed.",
         "viewFull": "View Ticket",
         "activityLabel": "Activity",

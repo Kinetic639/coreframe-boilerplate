@@ -172,6 +172,32 @@ async function enrichRows(
 }
 
 export class CommentsService {
+  /**
+   * Comments a caller already read (rows of app_comments, oldest first, one
+   * more than the page when there are more) as listForTarget returns them:
+   * with their authors and the cursor of the next page.
+   */
+  static async pageFromRows(
+    supabase: SupabaseClient,
+    orgId: string,
+    rawRows: unknown[],
+    pageSize: number,
+    totalCount: number
+  ): Promise<ServiceResult<PaginatedComments>> {
+    const all = rawRows as AppCommentRow[];
+    const rows = all.slice(0, pageSize);
+    const enriched = await enrichRows(supabase, orgId, rows, await getCurrentUserId());
+    if (!enriched.success) return enriched as { success: false; error: string };
+    return {
+      success: true,
+      data: {
+        rows: enriched.data,
+        totalCount: Math.max(totalCount, enriched.data.length),
+        nextCursor: all.length > pageSize ? encodeCursor(rows[rows.length - 1]) : null,
+      },
+    };
+  }
+
   static async listForTarget(
     supabase: SupabaseClient,
     orgId: string,

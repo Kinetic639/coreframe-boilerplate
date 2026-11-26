@@ -3,34 +3,88 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/utils/supabase/client";
-import { invalidateDataViewEntity } from "@/lib/data-view/query-keys";
-import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import { commentsKeys } from "@/hooks/queries/comments";
 import { attachmentsKeys } from "@/hooks/queries/attachments";
+import {
+  cachedTicketNumber,
+  patchTicket,
+  refreshTicket,
+  ticketKeys,
+  type TicketPatch,
+} from "@/lib/help-desk/ticket-queries";
+import { isOwnTicketSave } from "./own-saves";
 
 const TICKET_TARGET = "helpdesk.ticket";
+/** Changes arriving together (a save and its activity entry) refetch once. */
+const REFRESH_DELAY_MS = 800;
+
+/** The columns of a helpdesk_tickets change that the list and the card show. */
+export function ticketPatchFromChange(row: Record<string, unknown>): TicketPatch {
+  const patch: TicketPatch = {};
+  const keys = [
+    "title",
+    "status",
+    "priority",
+    "branch_id",
+    "assigned_to",
+    "closed_at",
+    "updated_at",
+    "requires_acceptance",
+    "accepted_by",
+    "accepted_at",
+    "ticket_type_id",
+  ] as const;
+  for (const key of keys) {
+    if (key in row) (patch as Record<string, unknown>)[key] = row[key];
+  }
+  return patch;
+}
 
 /**
- * Live Help Desk updates (tickets, activity, comments, attachments) for the organization.
- * Realtime delivers postgres_changes through RLS, so only rows the user may read arrive.
- * `openTicket` is the ticket shown in a detail view, refreshed when its rows change.
+ * Live Help Desk updates for the organization. Realtime delivers
+ * postgres_changes through RLS, so only rows the user may read arrive.
+ *
+ * A change to a ticket is written into the cached list pages and card at once
+ * from the event itself; one fetch of the list and of that ticket's card
+ * follows (names, counts, rows leaving a filter), shared by changes that
+ * arrive together. This browser's own saves are already in the cache, so
+ * their echoes fetch nothing.
  */
-export function useHelpdeskRealtime(
-  orgId: string,
-  openTicket?: { id: string; ticketNumber: string } | null
-) {
+export function useHelpdeskRealtime(orgId: string) {
   const queryClient = useQueryClient();
-  const openId = openTicket?.id ?? null;
-  const openNumber = openTicket?.ticketNumber ?? null;
 
   useEffect(() => {
     if (!orgId) return;
     const supabase = createClient();
-    const scope = dataViewScope.organization(orgId);
-    const refreshTicket = (ticketId: string | null | undefined, ticketNumber?: string | null) => {
-      const number = ticketNumber ?? (ticketId && ticketId === openId ? openNumber : null);
-      void invalidateDataViewEntity(queryClient, "helpdesk-tickets", scope, number ?? undefined);
+
+    // Pending refetch: the lists, and the cards by ticket id.
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let lists = false;
+    const tickets = new Set<string>();
+    const flush = () => {
+      timer = null;
+      if (lists) {
+        void queryClient.invalidateQueries({ queryKey: ticketKeys.lists(orgId) });
+      }
+      for (const id of tickets) {
+        const number = cachedTicketNumber(queryClient, orgId, id);
+        // A ticket in no cached card or page has nothing on screen to refresh.
+        if (number) void refreshTicket(queryClient, orgId, number, { lists: false });
+      }
+      lists = false;
+      tickets.clear();
     };
+    const schedule = (ticketId: string | null, withLists: boolean) => {
+      if (ticketId) tickets.add(ticketId);
+      lists ||= withLists;
+      if (!timer) timer = setTimeout(flush, REFRESH_DELAY_MS);
+    };
+    /** Counts on list rows go stale; they refresh when a page is next shown. */
+    const markListsStale = () =>
+      void queryClient.invalidateQueries({
+        queryKey: ticketKeys.lists(orgId),
+        refetchType: "none",
+      });
 
     const channel = supabase
       // Unique topic: supabase-js reuses a channel with the same topic, so the detail view
@@ -41,8 +95,13 @@ export function useHelpdeskRealtime(
         "postgres_changes",
         { event: "*", schema: "public", table: "helpdesk_tickets", filter: `org_id=eq.${orgId}` },
         (payload) => {
-          const row = (payload.new ?? payload.old) as { id?: string; ticket_number?: string };
-          refreshTicket(row.id, row.ticket_number);
+          const row = (payload.new ?? {}) as Record<string, unknown>;
+          const id = ((row.id ?? (payload.old as { id?: string } | null)?.id) as string) ?? null;
+          if (payload.eventType === "UPDATE" && id && !row.deleted_at) {
+            patchTicket(queryClient, orgId, id, ticketPatchFromChange(row));
+          }
+          if (isOwnTicketSave(id)) return;
+          schedule(id, true);
         }
       )
       .on(
@@ -53,7 +112,11 @@ export function useHelpdeskRealtime(
           table: "helpdesk_ticket_activity",
           filter: `org_id=eq.${orgId}`,
         },
-        (payload) => refreshTicket((payload.new as { ticket_id?: string }).ticket_id)
+        (payload) => {
+          const ticketId = (payload.new as { ticket_id?: string }).ticket_id ?? null;
+          // Activity shows on the card only; the ticket row change refreshes lists.
+          if (!isOwnTicketSave(ticketId)) schedule(ticketId, false);
+        }
       )
       .on(
         "postgres_changes",
@@ -64,7 +127,7 @@ export function useHelpdeskRealtime(
           void queryClient.invalidateQueries({
             queryKey: commentsKeys.target(TICKET_TARGET, row.target_id),
           });
-          refreshTicket(row.target_id);
+          markListsStale();
         }
       )
       .on(
@@ -76,6 +139,7 @@ export function useHelpdeskRealtime(
           void queryClient.invalidateQueries({
             queryKey: attachmentsKeys.target(TICKET_TARGET, row.target_id),
           });
+          markListsStale();
         }
       );
     // The browser client does not hand the session to Realtime by itself; without this the
@@ -90,7 +154,7 @@ export function useHelpdeskRealtime(
         if (joined) {
           void queryClient.invalidateQueries({ queryKey: commentsKeys.all });
           void queryClient.invalidateQueries({ queryKey: attachmentsKeys.all });
-          refreshTicket(openId, openNumber);
+          void queryClient.invalidateQueries({ queryKey: ticketKeys.all(orgId) });
         }
         joined = true;
       });
@@ -98,7 +162,8 @@ export function useHelpdeskRealtime(
 
     return () => {
       active = false;
+      if (timer) clearTimeout(timer);
       void supabase.removeChannel(channel);
     };
-  }, [orgId, openId, openNumber, queryClient]);
+  }, [orgId, queryClient]);
 }

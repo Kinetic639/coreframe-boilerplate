@@ -233,7 +233,7 @@ export async function createTicketAction(
 
 export async function closeTicketAction(
   input: CloseTicketInput
-): Promise<ActionResult<HelpdeskTicketListRow>> {
+): Promise<ActionResult<HelpdeskTicketListRow | null>> {
   try {
     const ctx = await getAuthedContext();
     if (!ctx) return { success: false, error: "Unauthorized" };
@@ -241,6 +241,13 @@ export async function closeTicketAction(
       return { success: false, error: "Insufficient permissions" };
     const parsed = closeTicketSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.message };
+
+    // One request: the creator or a handler of the ticket's branch may close it.
+    const saved = await HelpdeskTicketsService.saveViaRpc(ctx.supabase, "helpdesk_close_ticket", {
+      p_ticket_id: parsed.data.ticket_id,
+      p_resolution_note: parsed.data.resolution_note ?? null,
+    });
+    if (saved) return saved;
 
     // Only creator or manager can close
     const isManager = checkPermission(ctx.context.user.permissionSnapshot, HELPDESK_TICKETS_MANAGE);
@@ -256,7 +263,16 @@ export async function closeTicketAction(
         return { success: false, error: "Only the ticket creator or a manager can close tickets" };
     }
 
-    return HelpdeskTicketsService.closeTicket(ctx.supabase, ctx.orgId, ctx.userId, parsed.data);
+    const result = await HelpdeskTicketsService.closeTicket(
+      ctx.supabase,
+      ctx.orgId,
+      ctx.userId,
+      parsed.data
+    );
+    // The separate update returns a partial row: let the client fetch the ticket.
+    if (!result.success)
+      return { success: false, error: (result as { success: false; error: string }).error };
+    return { success: true, data: null };
   } catch {
     return { success: false, error: "Unexpected error" };
   }
@@ -289,21 +305,33 @@ async function canManageTicket(
 
 export async function setTicketStatusAction(
   input: SetTicketStatusInput
-): Promise<ActionResult<{ id: string; status: string }>> {
+): Promise<ActionResult<HelpdeskTicketListRow | null>> {
   try {
     const ctx = await getAuthedContext();
     if (!ctx) return { success: false, error: "Unauthorized" };
     const parsed = setTicketStatusSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.message };
+
+    // One request: the permission check, the save and its activity entry.
+    const saved = await HelpdeskTicketsService.saveViaRpc(
+      ctx.supabase,
+      "helpdesk_set_ticket_status",
+      { p_ticket_id: parsed.data.ticket_id, p_status: parsed.data.status }
+    );
+    if (saved) return saved;
+
     if (!(await canManageTicket(ctx, parsed.data.ticket_id)))
       return { success: false, error: "Insufficient permissions" };
-    return HelpdeskTicketsService.setStatus(
+    const result = await HelpdeskTicketsService.setStatus(
       ctx.supabase,
       ctx.orgId,
       ctx.userId,
       parsed.data.ticket_id,
       parsed.data.status
     );
+    if (!result.success)
+      return { success: false, error: (result as { success: false; error: string }).error };
+    return { success: true, data: null };
   } catch {
     return { success: false, error: "Unexpected error" };
   }
@@ -311,20 +339,29 @@ export async function setTicketStatusAction(
 
 export async function takeTicketAction(
   input: TakeTicketInput
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<HelpdeskTicketListRow | null>> {
   try {
     const ctx = await getAuthedContext();
     if (!ctx) return { success: false, error: "Unauthorized" };
     const parsed = takeTicketSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.message };
+
+    const saved = await HelpdeskTicketsService.saveViaRpc(ctx.supabase, "helpdesk_take_ticket", {
+      p_ticket_id: parsed.data.ticket_id,
+    });
+    if (saved) return saved;
+
     if (!(await canManageTicket(ctx, parsed.data.ticket_id)))
       return { success: false, error: "Insufficient permissions" };
-    return HelpdeskTicketsService.takeTicket(
+    const result = await HelpdeskTicketsService.takeTicket(
       ctx.supabase,
       ctx.orgId,
       ctx.userId,
       parsed.data.ticket_id
     );
+    if (!result.success)
+      return { success: false, error: (result as { success: false; error: string }).error };
+    return { success: true, data: null };
   } catch {
     return { success: false, error: "Unexpected error" };
   }

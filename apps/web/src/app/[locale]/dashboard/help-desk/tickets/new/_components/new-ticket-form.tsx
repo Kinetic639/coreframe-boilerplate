@@ -87,7 +87,7 @@ export function NewTicketForm({
   const { data: defaultResponders } = useTicketTypeDefaultRespondersQuery(ticketTypeId || null);
   const { data: defaultAcceptors } = useTicketTypeDefaultAcceptorsQuery(ticketTypeId || null);
   const appliedTypeIdRef = useRef<string>("");
-  const createTicketMutation = useCreateTicketMutation();
+  const createTicketMutation = useCreateTicketMutation(activeOrgId ?? undefined);
 
   // Apply default responders, acceptors, and priority when ticket type changes
   useEffect(() => {
