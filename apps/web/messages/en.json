@@ -10526,5 +10526,36 @@
     "reload": "Reload",
     "updated": "Ambra was updated to version {version}.",
     "seeChanges": "See what's new"
+  },
+  "ambraApps": {
+    "names": {
+      "erp": "Ambra ERP",
+      "requests": "Requests",
+      "vmi": "VMI"
+    },
+    "descriptions": {
+      "erp": "Warehouse, CRM, planning, workshop",
+      "requests": "Request portal for advisors",
+      "vmi": "Supplier portal"
+    },
+    "switcher": {
+      "trigger": "Ambra apps",
+      "title": "Ambra apps",
+      "current": "You are here",
+      "website": "Ambra website"
+    },
+    "chooser": {
+      "metaTitle": "Choose an app",
+      "heading": "Choose an app to get started",
+      "lastUsed": "Last used",
+      "lastUsedMobile": "Last used",
+      "openLast": "Next time, open my last app straight away",
+      "goodMorning": "Good morning,",
+      "goodEvening": "Good evening,",
+      "signOut": "Sign out",
+      "noAccessTitle": "No access to any app",
+      "noAccessBody": "Your account does not have access to any Ambra app yet. Ask your company's administrator to grant you permissions.",
+      "website": "Ambra website"
+    }
   }
 }

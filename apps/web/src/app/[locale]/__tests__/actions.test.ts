@@ -494,9 +494,9 @@ describe("T-EMIT-TYPED-FAILURE — typed result handling", () => {
       });
     });
 
-    it("returns the localized dashboard URL after successful authentication", async () => {
+    it("returns the localized app chooser URL after successful authentication", async () => {
       await expect(signInAction(credentials())).resolves.toEqual({
-        redirectTo: "/en/dashboard/start",
+        redirectTo: "/en/apps",
       });
     });
 
@@ -528,7 +528,7 @@ describe("T-EMIT-TYPED-FAILURE — typed result handling", () => {
       "rejects external return destinations: %s",
       async (returnUrl) => {
         await expect(signInAction(credentials(returnUrl))).resolves.toEqual({
-          redirectTo: "/en/dashboard/start",
+          redirectTo: "/en/apps",
         });
       }
     );

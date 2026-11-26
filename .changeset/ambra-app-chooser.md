@@ -1,0 +1,5 @@
+---
+"@repo/app-version": minor
+---
+
+Po zalogowaniu wybierasz aplikację: Ambra ERP, Zapytania lub VMI. Widać tylko te, które ma plan Twojej firmy i do których masz uprawnienia. Jeśli masz jedną aplikację, otwiera się od razu, a zaznaczenie „otwieraj od razu ostatnią aplikację” pomija ekran wyboru. W nagłówku ERP i Zapytań jest nowy przełącznik aplikacji.

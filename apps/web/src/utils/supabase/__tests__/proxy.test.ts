@@ -40,12 +40,40 @@ describe("updateSession (shared sign-in)", () => {
     expect(response.headers.get("location")).toBe("http://127.0.0.1:3004/42");
   });
 
-  it("ignores a return address outside Ambra and opens the dashboard", async () => {
+  it("ignores a return address outside Ambra and opens the app chooser", async () => {
     signedIn();
     const response = await updateSession(
       request("/logowanie?returnUrl=" + encodeURIComponent("https://evil.example/"))
     );
-    expect(response.headers.get("location")).toMatch(/^http:\/\/[^/]+:3001\/dashboard\/start$/);
+    expect(response.headers.get("location")).toMatch(/^http:\/\/[^/]+:3001\/aplikacje$/);
+  });
+
+  it("sends a signed-in user on the bare root to the app chooser", async () => {
+    signedIn();
+    const response = await updateSession(request("/en"));
+    expect(response.headers.get("location")).toMatch(/^http:\/\/[^/]+:3001\/en\/apps$/);
+  });
+
+  it("sends a signed-out user from the app chooser to sign-in and back", async () => {
+    signedOut();
+    const response = await updateSession(request("/aplikacje"));
+    const location = new URL(response.headers.get("location") ?? "");
+    expect(location.pathname).toBe("/logowanie");
+    expect(location.searchParams.get("returnUrl")).toBe("/aplikacje");
+  });
+
+  it("remembers the ERP as the last app opened", async () => {
+    signedIn();
+    const response = await updateSession(request("/dashboard/start"));
+    expect(response.cookies.get("ambra-last-app")?.value).toBe("erp");
+  });
+
+  it("does not rewrite the last-app cookie when it already says ERP", async () => {
+    signedIn();
+    const req = request("/dashboard/start");
+    req.cookies.set("ambra-last-app", "erp");
+    const response = await updateSession(req);
+    expect(response.cookies.get("ambra-last-app")).toBeUndefined();
   });
 
   it("keeps a signed-out user on the sign-in page", async () => {

@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { loadMyAmbraApps } from "@/server/ambra-apps/load-my-ambra-apps";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "@/i18n/navigation";
@@ -149,12 +150,19 @@ export default async function DashboardV2Layout({ children }: { children: React.
   // Independent loads run together: entitlements, pinned tools, admin
   // entitlements and the latest activity event do not depend on each other.
   // Entitlements are null-safe (fail-closed if the org has none).
-  const [entitlements, pinnedTools, isAdmin, latestActivityResult] = await Promise.all([
+  const [entitlements, pinnedTools, isAdmin, latestActivityResult, myApps] = await Promise.all([
     EntitlementsService.loadEntitlements(context.app.activeOrgId),
     fetchPinnedToolsForSidebar(userId),
     loadIsAdmin(userId),
     getLatestActivityAction(),
+    loadMyAmbraApps(context.app.activeOrgId),
   ]);
+
+  // A portal-only account (plan or permission without the ERP) goes to the app
+  // chooser. If the rule could not run, the ERP stays open as before.
+  if (myApps.ok && !myApps.apps.includes("erp")) {
+    return redirect({ href: "/apps", locale });
+  }
   void pinnedTools; // warms the per-request cache read by injectPinnedToolsIntoSidebar
 
   // Build sidebar model server-side (deterministic, permission-filtered)
@@ -192,6 +200,7 @@ export default async function DashboardV2Layout({ children }: { children: React.
           sidebarModel={sidebarModel}
           searchEntries={searchEntries}
           searchSources={searchSources}
+          ambraApps={myApps.apps}
           isAdmin={isAdmin}
           accessibleBranches={context.app.accessibleBranches}
           activeBranchId={context.app.activeBranchId}

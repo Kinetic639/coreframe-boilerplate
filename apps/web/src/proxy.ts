@@ -10,13 +10,16 @@ const intlMiddleware = createIntlMiddleware(routing);
 function needsSupabaseSession(pathname: string): boolean {
   const normalized = pathnameWithoutLocale(pathname, routing.locales);
   const signIn = resolveLocalizedPathnames("/sign-in");
+  const apps = resolveLocalizedPathnames("/apps");
   return (
     normalized === "/" ||
     normalized === signIn.en ||
     normalized === signIn.pl ||
     normalized.startsWith("/dashboard") ||
     normalized.startsWith("/admin") ||
-    normalized.startsWith("/onboarding")
+    normalized.startsWith("/onboarding") ||
+    normalized === apps.en ||
+    normalized === apps.pl
   );
 }
 

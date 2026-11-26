@@ -2,7 +2,13 @@ import createIntlMiddleware from "next-intl/middleware";
 import { NextRequest, NextResponse } from "next/server";
 import { pathnameWithoutLocale, resolveAcceptLanguageLocale } from "@repo/i18n/middleware-utils";
 import { authPathnames } from "@repo/i18n/auth-pathnames";
-import { appUrl, buildSignInUrl, resolveReturnUrl } from "@repo/app-urls";
+import {
+  appUrl,
+  buildSignInUrl,
+  getSharedCookieOptions,
+  LAST_APP_COOKIE,
+  resolveReturnUrl,
+} from "@repo/app-urls";
 import { routing } from "./i18n/routing";
 import { updateSession } from "./utils/supabase/proxy";
 import { LIST_QUERY_HEADER } from "./server/requests/list-params";
@@ -73,7 +79,12 @@ export async function proxy(request: NextRequest) {
     response = intlMiddleware(new NextRequest(request, { headers }));
     // Server Actions still need next-intl's rewrite ("/" -> "/pl") but not its locale
     // cookie: any cookie in an action response makes Next re-render the whole route.
-    if (request.headers.has("next-action")) response = withoutCookies(response);
+    if (request.headers.has("next-action")) {
+      response = withoutCookies(response);
+    } else if (request.cookies.get(LAST_APP_COOKIE)?.value !== "requests") {
+      // Remember this portal as the last app opened (read by the app chooser in the ERP).
+      response.cookies.set(LAST_APP_COOKIE, "requests", getSharedCookieOptions());
+    }
   }
 
   for (const { name, value, ...options } of sessionResponse.cookies.getAll()) {

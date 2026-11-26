@@ -466,6 +466,12 @@ export const routing = defineRouting({
       pl: "/onboarding",
     },
 
+    // === App chooser (after sign-in: ERP, Zapytania, VMI) ===
+    "/apps": {
+      en: "/apps",
+      pl: "/aplikacje",
+    },
+
     // === QR redirect system ===
     "/qr/[token]": {
       en: "/qr/[token]",
