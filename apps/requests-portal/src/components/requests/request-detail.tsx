@@ -7,7 +7,7 @@ import {
   AlignLeft,
   ArrowLeft,
   CircleAlert,
-  Maximize2,
+  ExternalLink,
   Paperclip,
   ShieldCheck,
   Wrench,
@@ -143,8 +143,7 @@ export function RequestDetailView({
     >
       <div
         className={cn(
-          "sticky top-14 z-10 bg-background px-4 pb-2 pt-3 lg:top-0 lg:px-6",
-          !fullPage && "lg:bg-card"
+          "sticky top-0 z-10 border-b bg-background/95 px-4 py-2 backdrop-blur sm:px-6"
         )}
       >
         <TabsList className="grid h-10 w-full auto-cols-fr grid-flow-col">
@@ -197,7 +196,7 @@ export function RequestDetailView({
           comments={comments}
           attachments={attachments}
           events={threadEvents}
-          composerClassName={cn(!fullPage && "lg:bg-card")}
+          composerClassName="bg-background"
         />
       </TabsContent>
 
@@ -236,31 +235,24 @@ export function RequestDetailView({
     <TooltipProvider delayDuration={300}>
       <article
         className={cn(
-          "flex min-h-full flex-1 flex-col bg-background lg:min-h-0",
-          fullPage
-            ? "lg:overflow-hidden lg:rounded-lg lg:border lg:bg-card lg:shadow-sm"
-            : "lg:bg-card"
+          "flex min-h-0 flex-1 flex-col bg-background",
+          fullPage && "md:overflow-hidden md:rounded-lg md:border"
         )}
       >
-        {/* Top bar: phone back arrow; desktop panel close / full page; full page back link. */}
-        <div className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-2 lg:static lg:bg-transparent lg:px-4">
-          <Button asChild variant="ghost" size="icon" className="lg:hidden">
-            <Link href={backHref} aria-label={t("back")}>
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-          </Button>
+        {/* The ERP ticket card's bar: close (or back to the list), number, the full page. */}
+        <div className="flex h-12 shrink-0 items-center gap-2 border-b px-3 sm:px-4">
           {fullPage ? (
-            <Button asChild variant="ghost" className="-ml-2 hidden gap-2 lg:inline-flex">
+            <Button asChild variant="ghost" size="sm" className="h-8 shrink-0 gap-1 px-2">
               <Link href={backHref}>
                 <ArrowLeft className="h-4 w-4" />
-                {t("backToList")}
+                <span className="hidden sm:inline">{t("backToList")}</span>
               </Link>
             </Button>
           ) : (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button asChild variant="ghost" size="icon" className="hidden lg:inline-flex">
-                  <Link href={backHref} aria-label={t("closePanel")}>
+                <Button asChild variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                  <Link href={backHref} aria-label={t("closePanel")} scroll={false}>
                     <X className="h-4 w-4" />
                   </Link>
                 </Button>
@@ -268,40 +260,49 @@ export function RequestDetailView({
               <TooltipContent>{t("closePanel")}</TooltipContent>
             </Tooltip>
           )}
-          <span className="font-mono text-sm text-muted-foreground">{r.number}</span>
-          <span className="flex-1" />
           {!fullPage && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  asChild
-                  variant="outline"
-                  size="icon"
-                  className="hidden h-9 w-9 lg:inline-flex"
+            <>
+              <span className="hidden text-sm text-muted-foreground sm:inline">
+                {t("list.title")}
+              </span>
+              <span aria-hidden className="hidden text-muted-foreground/50 sm:inline">
+                /
+              </span>
+            </>
+          )}
+          <span className="shrink-0 rounded px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+            {r.number}
+          </span>
+          {!fullPage && (
+            <div className="ml-auto flex min-w-0 items-center gap-2">
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="h-8 shrink-0 gap-1.5 px-2.5 text-xs"
+              >
+                <Link
+                  href={{
+                    pathname: "/[ticketId]",
+                    params: { ticketId: r.id },
+                    query: { ...listQuery, view: "page" },
+                  }}
+                  aria-label={t("list.viewFull")}
                 >
-                  <Link
-                    href={{
-                      pathname: "/[ticketId]",
-                      params: { ticketId: r.id },
-                      query: { ...listQuery, view: "page" },
-                    }}
-                    aria-label={t("openPage")}
-                  >
-                    <Maximize2 className="h-4 w-4" />
-                  </Link>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{t("openPage")}</TooltipContent>
-            </Tooltip>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{t("list.viewFull")}</span>
+                </Link>
+              </Button>
+            </div>
           )}
         </div>
 
         <div
           className={cn(
-            "flex flex-1 flex-col lg:min-h-0",
+            "flex min-h-0 flex-1 flex-col",
             fullPage
-              ? "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(420px,40%)]"
-              : "lg:overflow-y-auto lg:overscroll-contain"
+              ? "max-lg:overflow-y-auto lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(420px,40%)]"
+              : "overflow-y-auto overscroll-contain"
           )}
         >
           <div className={cn(fullPage && "lg:min-h-0 lg:overflow-y-auto lg:border-r")}>
@@ -339,10 +340,10 @@ function Header({
   const label = "text-xs text-muted-foreground";
   return (
     <header
-      className={cn("flex flex-col gap-4 px-4 pb-4 pt-4 lg:px-6", fullPage && "lg:px-8 lg:pt-6")}
+      className={cn("flex flex-col gap-4 px-4 pb-4 pt-4 sm:px-6", fullPage && "lg:px-8 lg:pt-6")}
     >
       <div className="flex flex-col gap-1">
-        <p className="text-[13px] text-muted-foreground">
+        <p className="truncate text-xs text-muted-foreground">
           {[
             r.isMine ? t("detail.yours") : r.requester?.name,
             formatDateTime(r.createdAt, locale),
@@ -353,8 +354,8 @@ function Header({
         </p>
         <h2
           className={cn(
-            "text-xl font-semibold leading-snug tracking-tight",
-            fullPage && "lg:text-2xl"
+            "text-lg font-semibold leading-snug tracking-tight",
+            fullPage && "lg:text-xl"
           )}
         >
           {r.title}
@@ -364,7 +365,7 @@ function Header({
         <div className={field}>
           <dt className={label}>{t("detail.status")}</dt>
           <dd>
-            <StatusBadge state={r.state} />
+            <StatusBadge state={r.state} variant="outline" />
           </dd>
         </div>
         <div className={field}>

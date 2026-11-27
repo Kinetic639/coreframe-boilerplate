@@ -1,9 +1,8 @@
 "use client";
 
-import { X } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Button } from "@/components/ui/button";
-import { useRouter } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import type { NewRequestOptions } from "@/server/requests/new-request-options";
 import { NewRequestForm } from "./new-request-form";
 
@@ -12,12 +11,17 @@ export function NewRequestPage({ options }: { options: NewRequestOptions }) {
   const router = useRouter();
   const leave = () => (window.history.length > 1 ? router.back() : router.push("/"));
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col bg-background md:my-6 md:rounded-lg md:border">
-      <div className="sticky top-0 z-10 flex items-center gap-2 border-b bg-background px-2 py-2">
-        <Button variant="ghost" size="icon" aria-label={t("cancel")} onClick={leave}>
-          <X className="h-5 w-5" />
-        </Button>
-        <h1 className="text-base font-semibold">{t("heading")}</h1>
+    <main className="flex w-full max-w-5xl flex-1 flex-col bg-background p-4 sm:p-6">
+      {/* As the ERP's new ticket page: back to the list, the title, the two columns. */}
+      <div className="flex flex-col gap-1 pb-4">
+        <Link
+          href="/"
+          className="-ml-1 inline-flex w-fit items-center gap-1 rounded-md px-1 py-0.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t("backToList")}
+        </Link>
+        <h1 className="text-xl font-semibold tracking-tight">{t("heading")}</h1>
       </div>
       {options.defaultBranchId ? (
         <NewRequestForm

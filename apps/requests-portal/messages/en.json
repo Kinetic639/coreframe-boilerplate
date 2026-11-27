@@ -142,7 +142,10 @@
       "subtitle": "New request form for the parts department",
       "acceptedBy": "Approved by: {names}",
       "branchWarehouses": "Branch warehouses:",
-      "attachments": "Attachments"
+      "attachments": "Attachments",
+      "responders": "Assignees",
+      "respondersPick": "Pick a type to see who will handle the request.",
+      "backToList": "Back to the list"
     },
     "back": "Back",
     "someone": "Someone",
@@ -265,6 +268,35 @@
       "orderedList": "Numbered list",
       "link": "Link",
       "linkPrompt": "Link address"
+    },
+    "list": {
+      "title": "Requests",
+      "ticket": "Request",
+      "type": "Type",
+      "status": "Status",
+      "branch": "Branch",
+      "order": "Order",
+      "acceptance": "Acceptance",
+      "requester": "Author",
+      "responders": "Assignees",
+      "createdAt": "Created",
+      "updatedAt": "Updated",
+      "accepted": "Accepted",
+      "acceptancePending": "Awaiting acceptance",
+      "queue": "Queue",
+      "viewFull": "View request",
+      "preview": "Preview",
+      "close": "Close details",
+      "search": "Search title, HD or ZL number…",
+      "empty": "No requests match the search and filters.",
+      "emptyAll": "You have no requests yet. Create the first one with “New request”.",
+      "loadError": "Could not load the data.",
+      "notFound": "The request does not exist or is not available.",
+      "retry": "Try again",
+      "loading": "Loading…",
+      "countSuffix": "requests",
+      "queues": "List view",
+      "comments": "Comments"
     }
   },
   "components": {
@@ -301,6 +333,62 @@
       "current": "You are here",
       "website": "Ambra website",
       "chooser": "App choice after sign-in"
+    }
+  },
+  "dataTable": {
+    "loading": "Loading…",
+    "pagination": {
+      "rowsPerPage": "Rows per page",
+      "rows": "Rows:",
+      "pages": "Pages",
+      "previous": "Previous page",
+      "next": "Next page",
+      "range": "{from}–{to} of {total}"
+    },
+    "columns": {
+      "menu": "Columns",
+      "heading": "Columns · drag to reorder",
+      "always": "always",
+      "reset": "Reset to default",
+      "move": "Move column {label}",
+      "width": "Width of column {label}",
+      "widthHint": "Drag to change the width (double-click: default)",
+      "instructions": "To move a column, press Space, move it with the arrow keys and press Space to drop it. Escape cancels.",
+      "dragStart": "Picked up column {label}.",
+      "dragOver": "Column {label} is over column {over}.",
+      "dragEndOver": "Column {label} dropped in place of column {over}.",
+      "dragEnd": "Column {label} dropped.",
+      "dragCancel": "Moving column {label} cancelled."
+    },
+    "filters": {
+      "menu": "Filters",
+      "menuSet": "Filters, set: {count}",
+      "heading": "Filter by",
+      "clearAll": "Clear all",
+      "fieldSet": "{label}, in the bar, values: {count}",
+      "remove": "Remove filter {label}",
+      "set": "Filters set",
+      "contains": "contains",
+      "is": "is",
+      "more": "{first} and {count} more",
+      "values": "Values: {label}",
+      "from": "From",
+      "to": "To",
+      "show": "Show",
+      "ownDates": "Custom date range"
+    },
+    "search": {
+      "hint": "Search (/)",
+      "clear": "Clear search"
+    },
+    "bulk": {
+      "actions": "Actions on selected",
+      "selected": "Selected",
+      "export": "Export CSV",
+      "clear": "Clear selection",
+      "selectAll": "Select all",
+      "selectRow": "Select: {label}",
+      "fileName": "list"
     }
   }
 }

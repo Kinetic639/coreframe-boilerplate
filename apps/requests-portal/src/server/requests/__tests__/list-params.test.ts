@@ -17,13 +17,20 @@ describe("list params", () => {
   it("accepts only the offered page sizes", () => {
     expect(parseListParams({ size: "20" }).size).toBe(20);
     expect(parseListParams({ size: "37" }).size).toBe(50);
-    expect(toQuery(parseListParams({ size: "100" }))).toEqual({ size: "100" });
+    expect(toQuery(parseListParams({ wierszy: "100" }))).toEqual({ wierszy: "100" });
   });
 
   it("keeps only non-default values in the address", () => {
-    const input = parseListParams({ scope: "branch", f: "closed", q: "ZL/51481", p: "2" });
-    expect(toQuery(input)).toEqual({ scope: "branch", f: "closed", q: "ZL/51481", p: "2" });
+    const input = parseListParams({ scope: "branch", f: "closed", q: "ZL/51481", strona: "2" });
+    expect(toQuery(input)).toEqual({ scope: "branch", f: "closed", q: "ZL/51481", strona: "2" });
     expect(toQuery(parseListParams({}))).toEqual({});
+  });
+
+  it("still reads the old page, size and type keys", () => {
+    const type = "0b6c1d2e-3f40-4a5b-8c6d-7e8f90a1b2c3";
+    const input = parseListParams({ p: "3", size: "20", type });
+    expect(input).toMatchObject({ page: 3, size: 20, typeId: type });
+    expect(toQuery(input)).toEqual({ strona: "3", wierszy: "20", typ: type });
   });
 
   it("gives the same key whatever the parameter order", () => {

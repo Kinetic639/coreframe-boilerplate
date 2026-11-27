@@ -27,8 +27,8 @@ export function usePrefetchNewRequest(scope: string) {
 }
 
 /**
- * New request on a desktop: a dialog over the list, as Ambra's Help Desk does. Sending
- * opens the new request in the side panel. Phones use the full-screen /new page.
+ * New request: the ERP's new ticket dialog (two columns; a full screen on a phone). Sending
+ * opens the new request beside the list. /new is the same form on its own page.
  */
 export function NewRequestDialog({
   scope,
@@ -45,7 +45,7 @@ export function NewRequestDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[min(860px,92dvh)] max-w-2xl flex-col gap-0 overflow-hidden p-0"
+        className="flex h-[100dvh] max-h-[100dvh] w-full max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-auto sm:max-h-[90dvh] sm:max-w-[920px] sm:rounded-lg sm:border"
         onOpenAutoFocus={(e) => {
           // Start at the first field rather than on the close button.
           e.preventDefault();
@@ -54,8 +54,8 @@ export function NewRequestDialog({
             ?.focus();
         }}
       >
-        <div className="border-b px-6 py-4 pr-14">
-          <DialogTitle className="text-lg">{t("heading")}</DialogTitle>
+        <div className="shrink-0 border-b px-4 py-3 pr-12 text-left sm:px-6">
+          <DialogTitle>{t("heading")}</DialogTitle>
           <DialogDescription className="sr-only">{t("subtitle")}</DialogDescription>
         </div>
         {data?.defaultBranchId ? (

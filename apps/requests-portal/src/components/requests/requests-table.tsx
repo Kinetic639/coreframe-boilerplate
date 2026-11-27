@@ -1,127 +1,204 @@
 "use client";
 
-import { MessageSquare } from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
-import { formatWhen } from "@/lib/format";
+import type { ReactNode } from "react";
+import { ExternalLink, Eye, MessageSquare } from "lucide-react";
+import { useLocale } from "next-intl";
+import type { ColumnLayout, ColumnSet, ColumnWidths } from "@/components/data-table/columns";
+import { ListPane, type ListSort } from "@/components/data-table/list-pane";
+import { RowActionLink, RowActions } from "@/components/data-table/row-actions";
 import { cn } from "@/lib/utils";
 import type { RequestListItem } from "@/server/requests/types";
-import { AvatarStack } from "./avatar";
-import { AttentionDot, StatusBadge } from "./status";
-import { TypeLabel } from "./type-label";
+import { Avatar, AvatarStack } from "./avatar";
+import { StatusBadge } from "./status";
+
+/** Page sizes in the order the pagination offers them. */
+const SIZES = [20, 50, 100] as const;
+
+const orderText = (item: RequestListItem) =>
+  item.order ? (item.order.zlNumber ?? `${item.order.orderNumber}/${item.order.warehouse}`) : null;
 
 /**
- * Desktop list. With the request panel open it keeps the essentials only (number and
- * title, status, comments, last change). The whole row opens the request.
+ * The requests list on the ERP data table: the same columns, look, narrow list beside an
+ * open request and phone cards as the Help Desk tickets list. The shell owns the address;
+ * every link here is one it builds.
  */
 export function RequestsTable({
-  items,
-  selectedId,
-  compact,
-  query,
+  rows,
+  totalCount,
+  page,
+  size,
+  selected,
+  set,
+  layout,
+  widths,
+  cookie,
+  labels,
+  branchNames,
+  empty,
+  loading,
+  refreshing,
+  error,
+  onRetry,
+  onLayoutChange,
+  rowHref,
+  fullHref,
+  pageHref,
+  sizeHref,
+  sortOf,
   onPrefetch,
 }: {
-  items: RequestListItem[];
-  selectedId: string | undefined;
-  compact: boolean;
-  query: Record<string, string>;
-  onPrefetch: (id: string) => void;
+  rows: RequestListItem[];
+  totalCount: number;
+  page: number;
+  size: number;
+  selected: string | null;
+  set: ColumnSet<string>;
+  layout: ColumnLayout;
+  widths: ColumnWidths;
+  cookie: string;
+  labels: Record<string, string>;
+  branchNames: Record<string, string>;
+  empty: string;
+  loading: boolean;
+  refreshing: boolean;
+  error: string | null;
+  onRetry: () => void;
+  onLayoutChange: (layout: ColumnLayout) => void;
+  rowHref: (row: RequestListItem) => string;
+  fullHref: (row: RequestListItem) => string;
+  pageHref: (page: number) => string;
+  sizeHref: (size: number) => string;
+  sortOf: (columnId: string) => ListSort | undefined;
+  onPrefetch: (id: string | null) => void;
 }) {
-  const t = useTranslations("requests");
   const locale = useLocale();
-  const when = (iso: string) =>
-    formatWhen(iso, locale, { today: t("today"), yesterday: t("yesterday") });
-  const th = "h-10 px-4 text-left align-middle text-xs font-medium text-muted-foreground";
+  const date = (iso: string) => (
+    <span className="text-xs text-muted-foreground">
+      {new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }).format(
+        new Date(iso)
+      )}
+    </span>
+  );
+
+  const value = (row: RequestListItem, id: string): ReactNode => {
+    switch (id) {
+      case "ticket_type":
+        return row.type ? (
+          <span className="inline-flex min-w-0 items-center gap-1.5">
+            <span
+              className="size-2 shrink-0 rounded-full"
+              style={{ backgroundColor: row.type.color || "#6366f1" }}
+            />
+            <span className="truncate">{row.type.name}</span>
+          </span>
+        ) : (
+          "—"
+        );
+      case "status":
+        return <StatusBadge state={row.state} variant="outline" />;
+      case "order":
+        return orderText(row) ? <span className="font-mono">{orderText(row)}</span> : "—";
+      case "branch":
+        return row.branchId ? (branchNames[row.branchId] ?? "—") : "—";
+      case "acceptance":
+        return row.state === "approval" ? (
+          <span className="inline-flex rounded bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-700 dark:text-amber-400">
+            {labels.acceptancePending}
+          </span>
+        ) : (
+          "—"
+        );
+      case "requester":
+        return row.requester ? <Avatar person={row.requester} size={24} /> : "—";
+      case "responders":
+        return row.responders.length ? (
+          <AvatarStack people={row.responders} size={24} />
+        ) : (
+          <span className="text-xs text-muted-foreground">{labels.queue}</span>
+        );
+      case "created_at":
+        return date(row.createdAt);
+      case "updated_at":
+        return date(row.updatedAt);
+      default:
+        return "—";
+    }
+  };
+  // The phone card is one link: people show as names there.
+  const plainValue = (row: RequestListItem, id: string): ReactNode => {
+    if (id === "requester") return row.requester?.name ?? "—";
+    if (id === "responders") {
+      return row.responders.length ? row.responders.map((p) => p.name).join(", ") : labels.queue;
+    }
+    return value(row, id);
+  };
+
+  const identity = (row: RequestListItem) => (
+    <span className="min-w-0">
+      <span className="block truncate text-[13px] font-medium" title={row.title}>
+        {row.title}
+      </span>
+      <span className="flex items-center gap-2 text-[11px] leading-4 font-normal text-muted-foreground">
+        <span className="truncate font-mono">{row.number}</span>
+        {row.commentCount ? (
+          <span
+            className="inline-flex shrink-0 items-center gap-0.5 tabular-nums"
+            title={labels.comments}
+          >
+            <MessageSquare className="size-3" aria-hidden />
+            <span className="sr-only">{labels.comments}:</span>
+            {row.commentCount}
+          </span>
+        ) : null}
+      </span>
+    </span>
+  );
+
+  const actions = (row: RequestListItem) => (
+    <RowActions label={row.number}>
+      <RowActionLink href={rowHref(row)} icon={<Eye className="size-4" />}>
+        {labels.preview}
+      </RowActionLink>
+      <RowActionLink href={fullHref(row)} icon={<ExternalLink className="size-4" />}>
+        {labels.viewFull}
+      </RowActionLink>
+    </RowActions>
+  );
 
   return (
-    <table className="w-full table-fixed border-collapse text-sm">
-      <thead className="sticky top-0 z-[1] bg-card">
-        <tr className="border-b">
-          <th className={cn(th, "pl-6")}>{t("table.request")}</th>
-          <th className={cn(th, "w-[170px]")}>{t("table.status")}</th>
-          {!compact && <th className={cn(th, "w-[190px]")}>{t("table.type")}</th>}
-          {!compact && <th className={cn(th, "w-[160px]")}>{t("table.order")}</th>}
-          {!compact && <th className={cn(th, "w-[130px]")}>{t("table.responders")}</th>}
-          <th className={cn(th, "w-[64px]")}>
-            <span className="sr-only">{t("table.comments")}</span>
-          </th>
-          <th className={cn(th, "w-[140px] pr-6")}>{t("table.updated")}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {items.map((item) => {
-          const selected = item.id === selectedId;
-          return (
-            <tr
-              key={item.id}
-              onPointerEnter={() => onPrefetch(item.id)}
-              className={cn(
-                "relative border-b transition-colors hover:bg-muted/60",
-                selected &&
-                  "bg-primary/10 shadow-[inset_3px_0_0_var(--primary)] hover:bg-primary/10"
-              )}
-            >
-              <td className="py-3 pl-6 pr-4">
-                <Link
-                  href={{ pathname: "/[ticketId]", params: { ticketId: item.id }, query }}
-                  aria-current={selected ? "page" : undefined}
-                  onFocus={() => onPrefetch(item.id)}
-                  className="flex min-w-0 flex-col gap-0.5 outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
-                >
-                  <span className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
-                    {item.number}
-                    {item.state === "yourTurn" && <AttentionDot />}
-                  </span>
-                  <span className="truncate font-medium" title={item.title}>
-                    {item.title}
-                  </span>
-                </Link>
-              </td>
-              <td className="px-4 py-3">
-                <StatusBadge state={item.state} />
-              </td>
-              {!compact && (
-                <td className="px-4 py-3">
-                  <TypeLabel type={item.type} />
-                </td>
-              )}
-              {!compact && (
-                <td className="truncate px-4 py-3 font-mono text-[13px]">
-                  {item.order ? (
-                    (item.order.zlNumber ?? `${item.order.orderNumber}/${item.order.warehouse}`)
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </td>
-              )}
-              {!compact && (
-                <td className="px-4 py-3">
-                  {item.responders.length ? (
-                    <AvatarStack people={item.responders} size={26} />
-                  ) : (
-                    <span className="text-[13px] text-muted-foreground">{t("queueShort")}</span>
-                  )}
-                </td>
-              )}
-              <td className="px-4 py-3">
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1.5 text-[13px] text-muted-foreground",
-                    item.commentCount === 0 && "opacity-60"
-                  )}
-                  aria-label={t("comments", { count: item.commentCount })}
-                >
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  {item.commentCount}
-                </span>
-              </td>
-              <td className="whitespace-nowrap py-3 pl-4 pr-6 text-[13px] text-muted-foreground">
-                {when(item.updatedAt)}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <ListPane
+      rows={rows}
+      totalCount={totalCount}
+      page={page}
+      size={size}
+      sizes={SIZES}
+      selected={selected}
+      rowKey={(row) => row.id}
+      rowHref={rowHref}
+      pageHref={pageHref}
+      sizeHref={sizeHref}
+      set={set}
+      layout={layout}
+      widths={widths}
+      cookie={cookie}
+      onLayoutChange={onLayoutChange}
+      sortOf={sortOf}
+      identity={identity}
+      value={value}
+      plainValue={plainValue}
+      badge={(row) => <StatusBadge state={row.state} variant="outline" />}
+      cardHidden={["status"]}
+      actions={actions}
+      cellClassName={(id) =>
+        cn((id === "branch" || id === "ticket_type") && "text-muted-foreground")
+      }
+      labels={labels}
+      empty={empty}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRetry={onRetry}
+      onPrefetch={onPrefetch}
+    />
   );
 }

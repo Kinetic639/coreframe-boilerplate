@@ -8,12 +8,16 @@ export type ListSearchParams = Record<string, string | string[] | undefined>;
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
-/** URL query <-> list input. Defaults: own requests, open, newest activity first. */
+/**
+ * URL query <-> list input. Defaults: own requests, open, newest activity first. The page,
+ * its size and the type use the ERP list's keys (`strona`, `wierszy`, `typ`); the old
+ * `p`, `size` and `type` are still read.
+ */
 export function parseListParams(sp: ListSearchParams): ListRequestsInput {
   const filter = one(sp.f);
-  const page = Number(one(sp.p));
-  const type = one(sp.type);
-  const size = Number(one(sp.size));
+  const page = Number(one(sp.strona) ?? one(sp.p));
+  const type = one(sp.typ) ?? one(sp.type);
+  const size = Number(one(sp.wierszy) ?? one(sp.size));
   return {
     scope: one(sp.scope) === "branch" ? "branch" : "mine",
     filter: (REQUEST_FILTERS as readonly string[]).includes(filter ?? "")
@@ -36,11 +40,11 @@ export function toQuery(
   const q: Record<string, string> = {};
   if (v.scope === "branch") q.scope = "branch";
   if (v.filter !== "open") q.f = v.filter;
-  if (v.typeId) q.type = v.typeId;
+  if (v.typeId) q.typ = v.typeId;
   if (v.search) q.q = v.search;
   if (v.sort === "newest") q.sort = "newest";
-  if (v.page > 1) q.p = String(v.page);
-  if (v.size !== PAGE_SIZES[0]) q.size = String(v.size);
+  if (v.page > 1) q.strona = String(v.page);
+  if (v.size !== PAGE_SIZES[0]) q.wierszy = String(v.size);
   return q;
 }
 
