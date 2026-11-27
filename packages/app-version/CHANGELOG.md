@@ -1,5 +1,11 @@
 # @repo/app-version
 
+## 1.3.2 (2026-11-27)
+
+### Poprawki
+
+- Aplikacja VMI nie ma już własnego, przykładowego ekranu logowania. Korzysta ze wspólnego logowania Ambry: po wejściu z ekranu wyboru aplikacji otwiera się od razu, a niezalogowany użytkownik trafia do logowania Ambry i wraca do VMI. Wylogowanie w VMI wylogowuje ze wszystkich aplikacji Ambry.
+
 ## 1.3.1 (2026-11-26)
 
 ### Poprawki
