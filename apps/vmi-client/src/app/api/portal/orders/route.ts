@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { hasDemoSession } from "@/lib/demo-session";
+import { checkVmiAccess } from "@/lib/vmi-session";
 import { VmiPortalRepository } from "@/lib/vmi-portal/repository";
 
 const createOrderSchema = z.object({
@@ -18,7 +18,7 @@ const createOrderSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  if (!(await hasDemoSession())) {
+  if ((await checkVmiAccess()) !== "ok") {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 

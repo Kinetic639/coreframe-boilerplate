@@ -1,10 +1,10 @@
 import { VmiAppShell } from "@/components/layout/vmi-app-shell";
 import { PortalVendorsExperience } from "@/components/vmi-portal/portal-vendors-experience";
-import { requireDemoSession } from "@/lib/demo-session";
+import { requireVmiAccess } from "@/lib/vmi-session";
 import { VmiPortalRepository } from "@/lib/vmi-portal/repository";
 
 export default async function PortalVendorsPage() {
-  await requireDemoSession();
+  await requireVmiAccess();
 
   const snapshot = await VmiPortalRepository.getSnapshot();
   if (!snapshot.success) throw new Error(snapshot.error);

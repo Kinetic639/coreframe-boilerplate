@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
-import { requireDemoSession } from "@/lib/demo-session";
+import { requireVmiAccess } from "@/lib/vmi-session";
 import { VmiPortalRepository } from "@/lib/vmi-portal/repository";
 import { resolveVendorByPortalSlug, vendorIdToPortalSlug } from "@/lib/vmi-portal/vendor-slugs";
 
@@ -12,7 +12,7 @@ interface PortalVendorRedirectPageProps {
 }
 
 export default async function PortalVendorRedirectPage({ params }: PortalVendorRedirectPageProps) {
-  await requireDemoSession();
+  await requireVmiAccess();
 
   const { vendorId } = await params;
   const vendors = await VmiPortalRepository.listVendors();

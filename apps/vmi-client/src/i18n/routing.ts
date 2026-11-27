@@ -5,7 +5,6 @@ export const routing = defineRouting({
   ...baseRoutingConfig,
   pathnames: {
     "/": "/",
-    "/sign-in": "/sign-in",
     "/portal": "/portal",
     "/portal/vendors": "/portal/vendors",
     "/portal/vendors/[vendorId]": "/portal/vendors/[vendorId]",
