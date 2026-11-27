@@ -11,6 +11,13 @@ vi.mock("@/server/services/email.service", () => ({
     sendEmail = vi.fn();
   },
 }));
+const runPush = vi.fn();
+vi.mock("@/server/notifications/push", () => ({
+  runPushDispatch: (...args: unknown[]) => runPush(...args),
+  vapidConfig: () =>
+    process.env.VAPID_PRIVATE_KEY ? { publicKey: "p", privateKey: "k", subject: "s" } : null,
+}));
+vi.mock("@/server/notifications/web-push-sender", () => ({ webPushSender: () => vi.fn() }));
 vi.mock("@/utils/supabase/service", () => ({ createServiceClient: () => ({}) }));
 
 import { POST } from "../route";
@@ -53,7 +60,17 @@ describe("POST /api/cron/notification-emails", () => {
     expect(await response.json()).toEqual({
       notifications: { claimed: 1, messages: 1, sent: 1, failed: 0 },
       chat: { claimed: 0, messages: 0, sent: 0, failed: 0 },
+      push: null,
     });
+    expect(runPush).not.toHaveBeenCalled();
+  });
+
+  it("also sends leftover push messages when push is configured", async () => {
+    vi.stubEnv("CRON_SECRET", SECRET);
+    vi.stubEnv("VAPID_PRIVATE_KEY", "key");
+    runPush.mockResolvedValue({ claimed: 2, sent: 2, failed: 0, removed: 0 });
+    const response = await call(`Bearer ${SECRET}`);
+    expect((await response.json()).push).toEqual({ claimed: 2, sent: 2, failed: 0, removed: 0 });
   });
 
   it("answers 500 when the run fails", async () => {

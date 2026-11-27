@@ -472,10 +472,10 @@ describe("NotificationsSection", () => {
     expect(screen.getByText("inAppNotifications")).toBeInTheDocument();
   });
 
-  it("renders push notifications with coming soon badge", () => {
+  it("renders the push notifications switch (no longer coming soon)", () => {
     render(<NotificationsSection preferences={mockPreferences} />);
-    expect(screen.getByText("pushNotifications")).toBeInTheDocument();
-    expect(screen.getByText("comingSoon")).toBeInTheDocument();
+    expect(screen.getByLabelText("pushNotifications")).toBeEnabled();
+    expect(screen.queryByText("comingSoon")).not.toBeInTheDocument();
   });
 
   it("renders quiet hours toggle", () => {

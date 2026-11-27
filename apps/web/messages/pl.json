@@ -423,11 +423,11 @@
     "emailNotifications": "Powiadomienia e-mail",
     "emailNotificationsDescription": "Otrzymuj powiadomienia przez e-mail",
     "pushNotifications": "Powiadomienia push",
-    "pushNotificationsDescription": "Otrzymuj powiadomienia push w przeglądarce",
+    "pushNotificationsDescription": "Powiadomienia systemowe na urządzeniach, na których je włączysz",
     "inAppNotifications": "Powiadomienia w aplikacji",
     "inAppNotificationsDescription": "Wyświetlaj powiadomienia w aplikacji",
     "quietHours": "Cisza nocna",
-    "quietHoursDescription": "Ustaw godziny wyciszenia powiadomień",
+    "quietHoursDescription": "Bez powiadomień push i e-maili w tych godzinach",
     "startTime": "Godzina rozpoczęcia",
     "endTime": "Godzina zakończenia",
     "enabled": "Włączone",
@@ -10385,8 +10385,10 @@
         "comment": "Komentarz w mojej sprawie",
         "mention": "Wzmianka o mnie (@) w rozmowie lub komentarzu",
         "task_due": "Termin mojego zadania mija dziś",
-        "chat_message": "Nieprzeczytana wiadomość na czacie (po 15 minutach)"
-      }
+        "chat_message": "Nieprzeczytana wiadomość na czacie (po 15 minutach)",
+        "chat_new": "Nowa wiadomość na czacie (od razu, gdy nie masz otwartej Ambry)"
+      },
+      "push": "Push"
     },
     "reminder": "Przypomnienie:",
     "email": {
@@ -10409,6 +10411,67 @@
       "chatSomeone": "Ktoś",
       "chatModule": "Wiadomości",
       "chatOpenAll": "Otwórz Wiadomości"
+    },
+    "push": {
+      "open": "Otwórz",
+      "markRead": "Oznacz jako przeczytane",
+      "someone": "Ktoś",
+      "gif": "GIF",
+      "attachments": "{count, plural, one {# załącznik} few {# załączniki} many {# załączników} other {# załącznika}}",
+      "group": "Rozmowa grupowa",
+      "prompt": {
+        "title": "Nie przegap wiadomości",
+        "body": "Włącz powiadomienia na tym urządzeniu. Zobaczysz je i licznik na ikonie, nawet gdy Ambra jest zamknięta.",
+        "enable": "Włącz powiadomienia",
+        "later": "Nie teraz",
+        "close": "Zamknij"
+      },
+      "result": {
+        "on": "Powiadomienia włączone na tym urządzeniu",
+        "off": "Powiadomienia wyłączone na tym urządzeniu",
+        "denied": "Powiadomienia są zablokowane w przeglądarce. Odblokuj je w ustawieniach strony i spróbuj ponownie.",
+        "failed": "Nie udało się włączyć powiadomień. Spróbuj ponownie.",
+        "unsupported": "Ta przeglądarka nie obsługuje powiadomień push.",
+        "unconfigured": "Powiadomienia push nie są jeszcze skonfigurowane na serwerze.",
+        "removed": "Urządzenie usunięte",
+        "removeFailed": "Nie udało się usunąć urządzenia. Spróbuj ponownie."
+      },
+      "ios": {
+        "title": "Dodaj Ambrę do ekranu początkowego",
+        "description": "Na iPhonie i iPadzie powiadomienia działają tylko w aplikacji z ekranu początkowego.",
+        "step1": "Stuknij <icon></icon> <b>Udostępnij</b> na dole Safari",
+        "step2": "Wybierz <icon></icon> <b>Do ekranu początkowego</b>",
+        "step3": "Otwórz Ambrę z nowej ikony i włącz powiadomienia",
+        "close": "Rozumiem"
+      },
+      "install": "Zainstaluj aplikację",
+      "devices": {
+        "title": "Powiadomienia na urządzeniach",
+        "description": "Powiadomienia systemowe i licznik na ikonie Ambry, także gdy aplikacja jest zamknięta.",
+        "thisDevice": "To urządzenie: {name}",
+        "thisDeviceUnknown": "To urządzenie",
+        "state": {
+          "on": "Powiadomienia push są włączone na tym urządzeniu.",
+          "off": "Powiadomienia push są wyłączone na tym urządzeniu.",
+          "denied": "Powiadomienia są zablokowane w przeglądarce. Odblokuj je w ustawieniach strony (ikona kłódki obok adresu).",
+          "unsupported": "Ta przeglądarka nie obsługuje powiadomień push.",
+          "iosInstall": "Na iPhonie i iPadzie dodaj najpierw Ambrę do ekranu początkowego.",
+          "unconfigured": "Powiadomienia push nie są jeszcze skonfigurowane na serwerze.",
+          "loading": "Sprawdzam…"
+        },
+        "enable": "Włącz na tym urządzeniu",
+        "disable": "Wyłącz na tym urządzeniu",
+        "iosHow": "Jak to zrobić?",
+        "installHint": "Zainstaluj Ambrę jako aplikację, żeby mieć ją na pasku zadań z licznikiem nieprzeczytanych.",
+        "listTitle": "Urządzenia z włączonymi powiadomieniami",
+        "empty": "Na żadnym urządzeniu nie ma jeszcze włączonych powiadomień.",
+        "lastUsed": "Ostatnio używane {date}",
+        "app": "aplikacja",
+        "current": "to urządzenie",
+        "remove": "Usuń urządzenie {name}",
+        "unknown": "Nieznane urządzenie",
+        "name": "{browser} na {os}"
+      }
     }
   },
   "avatarCrop": {

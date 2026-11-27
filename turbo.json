@@ -9,6 +9,9 @@
     "RESEND_FROM_NAME",
     "RESEND_API_KEY",
     "CRON_SECRET",
+    "VAPID_PRIVATE_KEY",
+    "VAPID_SUBJECT",
+    "NEXT_PUBLIC_VAPID_PUBLIC_KEY",
     "KLIPY_API_KEY",
     "SUPABASE_ACCESS_TOKEN",
     "SUPABASE_SERVICE_ROLE_KEY",
@@ -33,7 +36,10 @@
         "RESEND_API_KEY",
         "SUPABASE_ACCESS_TOKEN",
         "SUPABASE_SERVICE_ROLE_KEY",
-        "CRON_SECRET"
+        "CRON_SECRET",
+        "VAPID_PRIVATE_KEY",
+        "VAPID_SUBJECT",
+        "NEXT_PUBLIC_VAPID_PUBLIC_KEY"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },

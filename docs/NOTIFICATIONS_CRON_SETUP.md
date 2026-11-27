@@ -100,3 +100,20 @@ SELECT cron.unschedule('notifications-cleanup');
 ```
 
 Zmiana sekretu: nowa wartość w Vercel (`CRON_SECRET`) i w Vault (`SELECT vault.update_secret(id, '<<NOWY>>') FROM vault.secrets WHERE name = 'notifications_cron_secret';`).
+
+## Powiadomienia push (Web Push)
+
+Push korzysta z tych samych sekretów w Vault co e-maile (`notifications_app_url`, `notifications_cron_secret`) i z migracji `20261201090000_web_push` (tabele `push_subscriptions`, `push_activity`, `push_queue`, rozszerzenie `pg_net`).
+
+1. Wygeneruj klucze VAPID (raz): `npx web-push generate-vapid-keys`.
+2. W Vercel (projekt aplikacji web, Production) dodaj:
+   - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` — klucz publiczny,
+   - `VAPID_PRIVATE_KEY` — klucz prywatny,
+   - opcjonalnie `VAPID_SUBJECT` — `mailto:…` lub adres strony (domyślnie adres aplikacji),
+   - `CRON_SECRET`, jeśli jeszcze go nie ma (krok 1 wyżej).
+     Potem redeploy. Bez kluczy przycisk „Włącz na tym urządzeniu” pokazuje, że push nie jest skonfigurowany.
+3. Sekrety w Vault (krok 2 wyżej, dwa pierwsze `vault.create_secret`) — bez nich baza nie woła aplikacji i kolejka czeka na cron e-maili.
+
+Jak to działa: nowe powiadomienie z dzwonka albo nowa wiadomość na czacie trafia do `push_queue` (tylko gdy odbiorca ma choć jedno urządzenie z włączonym push). Trigger od razu woła `POST /api/push/dispatch` przez `pg_net`. Aplikacja pobiera kolejkę (`push_claim`), pomija osoby, które mają Ambrę otwartą na ekranie (`push_activity`, aktualizowane co minutę przez otwartą aplikację), osoby w godzinach ciszy i zdarzenia wyłączone w ustawieniach, wysyła powiadomienie na każde urządzenie i usuwa urządzenia, które się wypisały (`push_report`). Endpoint e-maili (`/api/cron/notification-emails`) przy okazji też opróżnia kolejkę push.
+
+Klucza VAPID nie zmieniaj po starcie: wszystkie zapisane urządzenia przestałyby dostawać powiadomienia, aż użytkownik włączy je ponownie.

@@ -55,4 +55,21 @@ describe("NotificationEventsSection", () => {
       screen.queryByRole("checkbox", { name: "events.chat_message|inApp" })
     ).not.toBeInTheDocument();
   });
+
+  it("a new chat message exists only as a push event, on by default", () => {
+    render(<NotificationEventsSection preferences={preferences({})} />);
+    expect(screen.getByRole("checkbox", { name: "events.chat_new|push" })).toBeChecked();
+    expect(
+      screen.queryByRole("checkbox", { name: "events.chat_new|email" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: "events.chat_message|push" })
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "events.ticket_status|push" })).not.toBeChecked();
+  });
+
+  it("the push column is disabled while push is switched off", () => {
+    render(<NotificationEventsSection preferences={preferences({ push: { enabled: false } })} />);
+    expect(screen.getByRole("checkbox", { name: "events.mention|push" })).toBeDisabled();
+  });
 });

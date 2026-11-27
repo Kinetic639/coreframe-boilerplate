@@ -1,6 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { runChatEmails, runNotificationEmails } from "@/server/notifications/email-digest";
+import { runPushDispatch, vapidConfig } from "@/server/notifications/push";
+import { webPushSender } from "@/server/notifications/web-push-sender";
 import { EmailService } from "@/server/services/email.service";
 import { createServiceClient } from "@/utils/supabase/service";
 
@@ -33,7 +35,10 @@ export async function POST(request: Request) {
     const notifications = await runNotificationEmails(supabase, send);
     // Unread chat messages: a separate queue, the same schedule
     const chat = await runChatEmails(supabase, send);
-    return NextResponse.json({ notifications, chat });
+    // Push normally goes out at once (database trigger); this catches leftovers
+    const vapid = vapidConfig();
+    const push = vapid ? await runPushDispatch(supabase, webPushSender(vapid)) : null;
+    return NextResponse.json({ notifications, chat, push });
   } catch (error) {
     console.error("[cron/notification-emails]", error);
     return NextResponse.json({ error: "Failed" }, { status: 500 });

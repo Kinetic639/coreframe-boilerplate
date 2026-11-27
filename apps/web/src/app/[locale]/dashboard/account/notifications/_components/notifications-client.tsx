@@ -4,6 +4,7 @@ import { usePreferencesQuery } from "@/hooks/queries/user-preferences";
 import { LoadingSkeleton } from "@/components/v2/feedback/loading-skeleton";
 import { NotificationsSection } from "../../preferences/_components/notifications-section";
 import { NotificationEventsSection } from "./notification-events-section";
+import { PushDevicesSection } from "./push-devices-section";
 
 interface NotificationsClientProps {
   translations: {
@@ -22,6 +23,7 @@ export function NotificationsClient({ translations }: NotificationsClientProps) 
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">{translations.description}</p>
       <div className="grid gap-6 max-w-2xl">
+        <PushDevicesSection />
         <NotificationsSection preferences={preferences ?? null} />
         <NotificationEventsSection preferences={preferences ?? null} />
       </div>
