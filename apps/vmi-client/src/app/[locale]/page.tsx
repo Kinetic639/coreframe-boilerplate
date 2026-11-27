@@ -3,5 +3,5 @@ import { redirect } from "@/i18n/navigation";
 
 export default async function HomePage() {
   const locale = await getLocale();
-  redirect({ href: "/sign-in", locale });
+  redirect({ href: "/portal", locale });
 }

@@ -1,5 +1,5 @@
 import { Database, LogOut, Plus } from "lucide-react";
-import { signOutDemoClientAction } from "@/app/[locale]/sign-in/actions";
+import { signOutAction } from "@/app/actions/auth";
 import { Link } from "@/i18n/navigation";
 import {
   vmiDesktopNavRoutes,
@@ -80,7 +80,7 @@ export function VmiAppShell({ activeHref, children }: VmiAppShellProps) {
             <Plus className="h-4 w-4" />
             Inwentaryzacja VMI
           </Link>
-          <form action={signOutDemoClientAction} className="mt-2">
+          <form action={signOutAction} className="mt-2">
             <button
               type="submit"
               className="flex w-full items-center justify-center gap-2 rounded-md px-3 py-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
