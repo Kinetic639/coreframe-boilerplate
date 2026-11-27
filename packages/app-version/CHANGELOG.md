@@ -1,5 +1,15 @@
 # @repo/app-version
 
+## 1.4.0 (2026-11-27)
+
+### Nowe funkcje
+
+- Zgłoszenia: lista zgłoszeń wygląda i działa jak widok zgłoszeń w ERP (ta sama tabela z kolumnami do przesuwania i ukrywania, zakładki statusów, filtry, podgląd zgłoszenia obok listy, karty na telefonie), a nowe zgłoszenie zakłada się w takim samym oknie jak w ERP.
+
+### Poprawki
+
+- W przełączniku aplikacji w nagłówku przy każdej aplikacji jest gwiazdka: zaznaczona aplikacja otwiera się od razu po zalogowaniu, a ponowne kliknięcie to wyłącza i przywraca ekran wyboru. Zniknęła pozycja „Wybór aplikacji po zalogowaniu”. „Strona Ambra” wygląda jak pozostałe pozycje i otwiera się w nowej karcie.
+
 ## 1.3.2 (2026-11-27)
 
 ### Poprawki
