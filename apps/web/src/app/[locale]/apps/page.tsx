@@ -5,6 +5,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import {
   appHomeUrl,
   decideLanding,
+  DEFAULT_APP_COOKIE,
   LAST_APP_COOKIE,
   OPEN_LAST_APP_COOKIE,
   SHOW_APP_CHOOSER_PARAM,
@@ -57,6 +58,7 @@ export default async function AppsPage({
   const decision = decideLanding(myApps.apps, {
     lastApp: lastAppCookie,
     openLast: openLast && !forceChooser,
+    defaultApp: forceChooser ? null : (cookieStore.get(DEFAULT_APP_COOKIE)?.value ?? null),
   });
 
   if (decision.kind === "none") return <NoAppAccess email={user.email ?? ""} />;

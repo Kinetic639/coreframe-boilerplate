@@ -332,7 +332,9 @@
       "title": "Aplikacje Ambra",
       "current": "Tutaj jesteś",
       "website": "Strona Ambra",
-      "chooser": "Wybór aplikacji po zalogowaniu"
+      "makeDefault": "Otwieraj {app} od razu po zalogowaniu",
+      "removeDefault": "Nie otwieraj {app} od razu po zalogowaniu",
+      "isDefault": "Otwiera się po zalogowaniu"
     }
   },
   "dataTable": {

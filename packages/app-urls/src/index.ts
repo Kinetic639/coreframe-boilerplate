@@ -174,6 +174,22 @@ export function isAmbraWorkApp(value: unknown): value is AmbraWorkApp {
 export const LAST_APP_COOKIE = "ambra-last-app";
 /** Cookie set when the user wants the last app opened straight after sign-in. */
 export const OPEN_LAST_APP_COOKIE = "ambra-open-last-app";
+/** Cookie holding the app the user marked as default in the app switcher (opened after sign-in). */
+export const DEFAULT_APP_COOKIE = "ambra-default-app";
+
+/**
+ * The app opened straight after sign-in, as the app switcher shows it: the one marked
+ * as default, or else the last app when "open the last app" is on.
+ */
+export function effectiveDefaultApp(options: {
+  defaultApp?: string | null;
+  lastApp?: string | null;
+  openLast?: boolean;
+}): AmbraWorkApp | null {
+  if (isAmbraWorkApp(options.defaultApp)) return options.defaultApp;
+  if (options.openLast && isAmbraWorkApp(options.lastApp)) return options.lastApp;
+  return null;
+}
 
 /** Options for the shared preference cookies above (readable by every app, a year long). */
 export function getSharedCookieOptions(): {
@@ -227,11 +243,14 @@ export type LandingDecision =
  */
 export function decideLanding(
   apps: readonly AmbraWorkApp[],
-  options: { lastApp?: string | null; openLast?: boolean } = {}
+  options: { lastApp?: string | null; openLast?: boolean; defaultApp?: string | null } = {}
 ): LandingDecision {
   if (apps.length === 0) return { kind: "none" };
   const [onlyApp] = apps;
   if (apps.length === 1 && onlyApp) return { kind: "open", app: onlyApp };
+  if (isAmbraWorkApp(options.defaultApp) && apps.includes(options.defaultApp)) {
+    return { kind: "open", app: options.defaultApp };
+  }
   const lastApp =
     isAmbraWorkApp(options.lastApp) && apps.includes(options.lastApp) ? options.lastApp : null;
   if (lastApp && options.openLast) return { kind: "open", app: lastApp };
