@@ -110,7 +110,7 @@ describe("runPushDispatch", () => {
         ? { data: rpc.mock.calls.length === 1 ? rows : [], error: null }
         : { data: null, error: null }
     );
-    const send = vi.fn(async (target: { endpoint: string }) =>
+    const send = vi.fn(async (target: { endpoint: string }, _payload: string) =>
       target.endpoint.endsWith("dead") ? ("gone" as const) : ("ok" as const)
     );
 
@@ -118,7 +118,7 @@ describe("runPushDispatch", () => {
 
     expect(result).toEqual({ claimed: 1, sent: 1, failed: 0, removed: 1 });
     expect(send).toHaveBeenCalledTimes(2);
-    expect(JSON.parse(send.mock.calls[0][1] as unknown as string).badge).toBe(3);
+    expect(JSON.parse(send.mock.calls[0][1]).badge).toBe(3);
     expect(rpc).toHaveBeenCalledWith("push_report", {
       p_ok: [subscription.endpoint],
       p_gone: [dead.endpoint],
