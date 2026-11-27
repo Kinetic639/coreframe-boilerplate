@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_EMAIL_TYPES, isEventOn, toggleEvent } from "../settings";
+import { DEFAULT_EMAIL_TYPES, DEFAULT_PUSH_TYPES, isEventOn, toggleEvent } from "../settings";
 
 describe("notification settings per event", () => {
   it("defaults: everything in the app, e-mail for assignments and mentions", () => {
@@ -35,6 +35,26 @@ describe("notification settings per event", () => {
     expect(toggleEvent(settings, "email", "mention", false)).toEqual({
       email: { enabled: true, types: [] },
     });
+  });
+
+  it("push: defaults match the database and changes store the full list", () => {
+    // _push_default_types() in 20261201090000_web_push.sql
+    expect(DEFAULT_PUSH_TYPES).toEqual([
+      "ticket.new",
+      "ticket.assigned",
+      "task.assigned",
+      "task.due",
+      "comment",
+      "mention",
+      "chat.new",
+    ]);
+    expect(isEventOn(null, "push", "chat.new")).toBe(true);
+    expect(isEventOn(null, "push", "ticket.status")).toBe(false);
+    expect(toggleEvent({ push: { enabled: false } }, "push", "chat.new", false)).toEqual({
+      push: { enabled: false, types: DEFAULT_PUSH_TYPES.filter((type) => type !== "chat.new") },
+    });
+    // Push choices never touch the e-mail list
+    expect(toggleEvent({}, "push", "ticket.status", true)).not.toHaveProperty("email");
   });
 
   it("ignores malformed stored values", () => {

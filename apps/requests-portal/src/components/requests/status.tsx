@@ -41,9 +41,45 @@ const STATE_CLASS: Record<RequestState, { badge: string; dot: string }> = {
   },
 };
 
-export function StatusBadge({ state, className }: { state: RequestState; className?: string }) {
+/** Status text color of the outlined badge (the ERP tickets list's look). */
+const STATE_TEXT: Record<RequestState, string> = {
+  yourTurn: "text-orange-700 dark:text-orange-300",
+  vendor: "text-slate-700 dark:text-slate-300",
+  approval: "text-violet-700 dark:text-violet-300",
+  progress: "text-yellow-800 dark:text-yellow-300",
+  new: "text-blue-800 dark:text-blue-300",
+  answered: "text-green-800 dark:text-green-300",
+  closed: "text-muted-foreground",
+  cancelled: "text-red-700 dark:text-red-400",
+};
+
+export function StatusBadge({
+  state,
+  variant = "pill",
+  className,
+}: {
+  state: RequestState;
+  /** outline: transparent with a colored text, as in the ERP tickets list. */
+  variant?: "pill" | "outline";
+  className?: string;
+}) {
   const t = useTranslations("requests.state");
   const s = STATE_CLASS[state];
+  if (variant === "outline") {
+    return (
+      <span
+        title={t(state)}
+        className={cn(
+          "inline-flex h-[22px] min-w-20 max-w-36 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-transparent px-2 text-xs font-medium",
+          STATE_TEXT[state],
+          className
+        )}
+      >
+        <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-80" />
+        <span className="min-w-0 truncate">{t(state)}</span>
+      </span>
+    );
+  }
   return (
     <span
       className={cn(

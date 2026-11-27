@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
-import { requireDemoSession } from "@/lib/demo-session";
+import { requireVmiAccess } from "@/lib/vmi-session";
 import { VmiPortalRepository } from "@/lib/vmi-portal/repository";
 import {
   isPartnerPanelTab,
@@ -19,7 +19,7 @@ interface PortalVendorTabPageProps {
 }
 
 export default async function PortalVendorTabPage({ params }: PortalVendorTabPageProps) {
-  await requireDemoSession();
+  await requireVmiAccess();
 
   const { vendorId, tab } = await params;
   const vendors = await VmiPortalRepository.listVendors();

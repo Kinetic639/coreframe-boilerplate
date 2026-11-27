@@ -2,18 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test.use({ viewport: { width: 393, height: 852 } });
 
-test.beforeEach(async ({ context }) => {
-  await context.addCookies([
-    {
-      name: "vmi_demo_session",
-      value: "client-demo",
-      domain: "127.0.0.1",
-      path: "/",
-      httpOnly: true,
-      sameSite: "Lax",
-    },
-  ]);
-});
+// VMI has no sign-in of its own: it uses the shared Ambra session from the ERP sign-in.
+// Point VMI_E2E_STORAGE_STATE at a Playwright storage state of a signed-in user whose
+// organization has VMI (e.g. saved by apps/web's auth.setup.ts against the same Supabase).
+const storageState = process.env.VMI_E2E_STORAGE_STATE;
+test.skip(!storageState, "VMI_E2E_STORAGE_STATE (signed-in Ambra session) is not set");
+test.use({ storageState });
 
 test("mobile portal bottom navigation matches prototype tabs", async ({ page }) => {
   await page.goto("/portal");
@@ -51,7 +45,10 @@ test("partner panel supports catalog ordering on mobile", async ({ page }) => {
   await page.goto("/portal/vendors/autoparts/overview");
   await expect(page.getByText("Panel partnera VMI")).toBeVisible();
 
-  await page.getByRole("button", { name: /Szczegóły/i }).first().click();
+  await page
+    .getByRole("button", { name: /Szczegóły/i })
+    .first()
+    .click();
   await expect(page.getByText("Tablica Ogłoszeń")).toBeVisible();
   await page.getByRole("button", { name: /Zamknij tablicę/i }).click();
 

@@ -142,7 +142,10 @@
       "subtitle": "Formularz nowego zgłoszenia do działu części",
       "acceptedBy": "Akceptuje: {names}",
       "branchWarehouses": "Magazyny oddziału:",
-      "attachments": "Załączniki"
+      "attachments": "Załączniki",
+      "responders": "Przypisani",
+      "respondersPick": "Wybierz typ, a zobaczysz, kto zajmie się zgłoszeniem.",
+      "backToList": "Wróć do listy"
     },
     "back": "Wróć",
     "someone": "Ktoś",
@@ -265,6 +268,35 @@
       "orderedList": "Lista numerowana",
       "link": "Link",
       "linkPrompt": "Adres linku"
+    },
+    "list": {
+      "title": "Zgłoszenia",
+      "ticket": "Zgłoszenie",
+      "type": "Typ",
+      "status": "Status",
+      "branch": "Oddział",
+      "order": "Zlecenie",
+      "acceptance": "Akceptacja",
+      "requester": "Autor",
+      "responders": "Przypisani",
+      "createdAt": "Utworzone",
+      "updatedAt": "Zaktualizowane",
+      "accepted": "Zaakceptowane",
+      "acceptancePending": "Oczekuje na akceptację",
+      "queue": "Kolejka",
+      "viewFull": "Zobacz zgłoszenie",
+      "preview": "Podgląd",
+      "close": "Zamknij szczegóły",
+      "search": "Szukaj tytułu, numeru HD lub ZL…",
+      "empty": "Brak zgłoszeń pasujących do wyszukiwania i filtrów.",
+      "emptyAll": "Nie masz jeszcze zgłoszeń. Załóż pierwsze przyciskiem „Nowe zgłoszenie”.",
+      "loadError": "Nie udało się wczytać danych.",
+      "notFound": "Zgłoszenie nie istnieje lub nie jest dostępne.",
+      "retry": "Spróbuj ponownie",
+      "loading": "Wczytywanie…",
+      "countSuffix": "zgłoszeń",
+      "queues": "Widok listy",
+      "comments": "Komentarze"
     }
   },
   "components": {
@@ -300,7 +332,65 @@
       "title": "Aplikacje Ambra",
       "current": "Tutaj jesteś",
       "website": "Strona Ambra",
-      "chooser": "Wybór aplikacji po zalogowaniu"
+      "makeDefault": "Otwieraj {app} od razu po zalogowaniu",
+      "removeDefault": "Nie otwieraj {app} od razu po zalogowaniu",
+      "isDefault": "Otwiera się po zalogowaniu"
+    }
+  },
+  "dataTable": {
+    "loading": "Ładowanie…",
+    "pagination": {
+      "rowsPerPage": "Wierszy na stronie",
+      "rows": "Wierszy:",
+      "pages": "Strony",
+      "previous": "Poprzednia strona",
+      "next": "Następna strona",
+      "range": "{from}–{to} z {total}"
+    },
+    "columns": {
+      "menu": "Kolumny",
+      "heading": "Kolumny · przeciągnij, by zmienić kolejność",
+      "always": "zawsze",
+      "reset": "Przywróć domyślne",
+      "move": "Przenieś kolumnę {label}",
+      "width": "Szerokość kolumny {label}",
+      "widthHint": "Przeciągnij, aby zmienić szerokość (dwuklik: domyślna)",
+      "instructions": "Aby przenieść kolumnę, naciśnij spację, przesuń ją strzałkami i naciśnij spację, by ją odłożyć. Escape anuluje.",
+      "dragStart": "Podniesiono kolumnę {label}.",
+      "dragOver": "Kolumna {label} nad kolumną {over}.",
+      "dragEndOver": "Kolumna {label} odłożona w miejsce kolumny {over}.",
+      "dragEnd": "Kolumna {label} odłożona.",
+      "dragCancel": "Anulowano przenoszenie kolumny {label}."
+    },
+    "filters": {
+      "menu": "Filtry",
+      "menuSet": "Filtry, ustawione: {count}",
+      "heading": "Filtruj według",
+      "clearAll": "Wyczyść wszystkie",
+      "fieldSet": "{label}, w pasku, wartości: {count}",
+      "remove": "Usuń filtr {label}",
+      "set": "Ustawione filtry",
+      "contains": "zawiera",
+      "is": "jest",
+      "more": "{first} i {count} inne",
+      "values": "Wartości: {label}",
+      "from": "Od",
+      "to": "Do",
+      "show": "Pokaż",
+      "ownDates": "Własny zakres dat"
+    },
+    "search": {
+      "hint": "Szukaj (/)",
+      "clear": "Wyczyść wyszukiwanie"
+    },
+    "bulk": {
+      "actions": "Akcje na zaznaczonych",
+      "selected": "Zaznaczono",
+      "export": "Eksport CSV",
+      "clear": "Odznacz",
+      "selectAll": "Zaznacz wszystkie",
+      "selectRow": "Zaznacz: {label}",
+      "fileName": "lista"
     }
   }
 }

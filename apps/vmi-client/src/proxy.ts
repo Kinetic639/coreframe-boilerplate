@@ -1,12 +1,45 @@
 import createIntlMiddleware from "next-intl/middleware";
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { pathnameWithoutLocale } from "@repo/i18n/middleware-utils";
+import { appUrl, buildSignInUrl, getSharedCookieOptions, LAST_APP_COOKIE } from "@repo/app-urls";
 import { routing } from "./i18n/routing";
+import { updateSession } from "./utils/supabase/proxy";
 
 const intlMiddleware = createIntlMiddleware(routing);
 
-export function proxy(request: NextRequest) {
-  const response = intlMiddleware(request);
-  response.headers.set("x-pathname", request.nextUrl.pathname);
+/** The old demo sign-in of this app; signing in now happens on the ERP for every Ambra app. */
+const LEGACY_SIGN_IN = "/sign-in";
+
+// Every page needs a signed-in Ambra user; without one the user signs in on the ERP and
+// comes back. Whether VMI is open to them is checked by the pages (requireVmiAccess).
+export async function proxy(request: NextRequest) {
+  const { response: sessionResponse, user } = await updateSession(request);
+  const locale = request.nextUrl.pathname.split("/")[1] === "en" ? "en" : "pl";
+  const pathname = pathnameWithoutLocale(request.nextUrl.pathname, routing.locales);
+  const home = locale === "en" ? "/en/portal" : "/portal";
+
+  let response: NextResponse;
+  if (!user) {
+    const target =
+      pathname === LEGACY_SIGN_IN ? home : request.nextUrl.pathname + request.nextUrl.search;
+    response = NextResponse.redirect(buildSignInUrl(appUrl("vmi", target), locale));
+  } else if (pathname === LEGACY_SIGN_IN) {
+    response = NextResponse.redirect(new URL(home, request.url));
+  } else {
+    response = intlMiddleware(request);
+    response.headers.set("x-pathname", request.nextUrl.pathname);
+    if (
+      !request.headers.has("next-action") &&
+      request.cookies.get(LAST_APP_COOKIE)?.value !== "vmi"
+    ) {
+      // Remember VMI as the last app opened (read by the app chooser in the ERP).
+      response.cookies.set(LAST_APP_COOKIE, "vmi", getSharedCookieOptions());
+    }
+  }
+
+  for (const { name, value, ...options } of sessionResponse.cookies.getAll()) {
+    response.cookies.set(name, value, options);
+  }
   return response;
 }
 

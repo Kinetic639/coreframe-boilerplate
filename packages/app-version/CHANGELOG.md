@@ -1,5 +1,27 @@
 # @repo/app-version
 
+## 1.5.0 (2026-11-27)
+
+### Nowe funkcje
+
+- Powiadomienia push i licznik na ikonie aplikacji. W Konto → Powiadomienia można włączyć powiadomienia systemowe na każdym urządzeniu (komputer, Android, iPhone z Ambrą dodaną do ekranu początkowego) i zobaczyć listę takich urządzeń. Nowa wiadomość na czacie i wybrane zdarzenia (np. przypisanie zgłoszenia lub zadania, wzmianka) przychodzą jako powiadomienie systemowe, gdy Ambra nie jest otwarta, a na ikonie zainstalowanej aplikacji widać liczbę nieprzeczytanych rozmów i powiadomień. W dzwonku pojawia się jednorazowa zachęta do włączenia powiadomień, a w nagłówku przycisk „Zainstaluj aplikację”. Pasek okna zainstalowanej aplikacji ma teraz kolor zgodny z wybranym motywem (jasnym lub ciemnym i kolorystycznym) zamiast zielonego.
+
+## 1.4.0 (2026-11-27)
+
+### Nowe funkcje
+
+- Zgłoszenia: lista zgłoszeń wygląda i działa jak widok zgłoszeń w ERP (ta sama tabela z kolumnami do przesuwania i ukrywania, zakładki statusów, filtry, podgląd zgłoszenia obok listy, karty na telefonie), a nowe zgłoszenie zakłada się w takim samym oknie jak w ERP.
+
+### Poprawki
+
+- W przełączniku aplikacji w nagłówku przy każdej aplikacji jest gwiazdka: zaznaczona aplikacja otwiera się od razu po zalogowaniu, a ponowne kliknięcie to wyłącza i przywraca ekran wyboru. Zniknęła pozycja „Wybór aplikacji po zalogowaniu”. „Strona Ambra” wygląda jak pozostałe pozycje i otwiera się w nowej karcie.
+
+## 1.3.2 (2026-11-27)
+
+### Poprawki
+
+- Aplikacja VMI nie ma już własnego, przykładowego ekranu logowania. Korzysta ze wspólnego logowania Ambry: po wejściu z ekranu wyboru aplikacji otwiera się od razu, a niezalogowany użytkownik trafia do logowania Ambry i wraca do VMI. Wylogowanie w VMI wylogowuje ze wszystkich aplikacji Ambry.
+
 ## 1.3.1 (2026-11-26)
 
 ### Poprawki

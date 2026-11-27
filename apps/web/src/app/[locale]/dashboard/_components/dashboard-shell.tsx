@@ -54,6 +54,7 @@ import { DashboardStatusBar } from "@/components/Dashboard/DashboardStatusBar";
 import { DashboardHeaderV2 } from "@/components/v2/layout/dashboard-header";
 import type { AmbraWorkApp } from "@repo/app-urls";
 import { MessagesRoot } from "@/components/v2/messages/messages-root";
+import { PwaRuntime } from "@/components/pwa/pwa-runtime";
 import { SearchSourcesProvider } from "@/lib/global-search/sources-context";
 import type { SearchEntry } from "@/lib/global-search/types";
 import type { SearchSourceId } from "@/lib/global-search/sources";
@@ -1056,6 +1057,8 @@ export function DashboardShell({
       </SearchSourcesProvider>
       {/* Version: "What's new" window and the reload prompt after a deployment */}
       <AppVersionHost />
+      {/* Installed app: push subscription, presence and the number on the icon */}
+      <PwaRuntime />
     </SidebarProvider>
   );
 }

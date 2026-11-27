@@ -291,11 +291,15 @@ describe("NotificationsSection", () => {
     expect(screen.getByText("inAppNotifications")).toBeInTheDocument();
   });
 
-  it("renders push notifications as coming soon (disabled)", () => {
+  it("switches push notifications off for every device", () => {
     render(<NotificationsSection preferences={mockPreferences} />);
 
-    expect(screen.getByText("pushNotifications")).toBeInTheDocument();
-    expect(screen.getByText("comingSoon")).toBeInTheDocument();
+    expect(screen.queryByText("comingSoon")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("pushNotifications"));
+
+    expect(mockNotifMutate).toHaveBeenCalledWith({
+      push: { enabled: false },
+    });
   });
 
   it("renders quiet hours section", () => {

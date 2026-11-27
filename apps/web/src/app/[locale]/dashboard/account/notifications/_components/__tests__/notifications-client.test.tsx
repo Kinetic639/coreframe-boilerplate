@@ -17,6 +17,10 @@ vi.mock("@/app/[locale]/dashboard/account/preferences/_components/notifications-
   ),
 }));
 
+vi.mock("../push-devices-section", () => ({
+  PushDevicesSection: () => <div data-testid="push-devices-section" />,
+}));
+
 vi.mock("../notification-events-section", () => ({
   NotificationEventsSection: () => <div data-testid="notification-events-section" />,
 }));

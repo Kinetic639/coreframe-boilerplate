@@ -14,12 +14,12 @@ import {
 } from "@/lib/notifications/settings";
 import type { UserPreferences } from "@/lib/types/user-preferences";
 
-const CHANNELS: NotificationChannel[] = ["inApp", "email"];
+const CHANNELS: NotificationChannel[] = ["inApp", "push", "email"];
 const GROUPS = ["helpdesk", "planning", "conversations"] as const;
 
 /**
- * Event × channel matrix: which notifications reach the bell and which are
- * sent by e-mail. A column is disabled while its channel switch (above) is off.
+ * Event × channel matrix: which notifications reach the bell, which are
+ * pushed to the user's devices and which are sent by e-mail. A column is disabled while its channel switch (above) is off.
  */
 export function NotificationEventsSection({
   preferences,
@@ -31,6 +31,7 @@ export function NotificationEventsSection({
   const settings = preferences?.notificationSettings ?? {};
   const channelOn: Record<NotificationChannel, boolean> = {
     inApp: settings.inApp?.enabled ?? true,
+    push: settings.push?.enabled ?? true,
     email: settings.email?.enabled ?? true,
   };
 
@@ -51,7 +52,7 @@ export function NotificationEventsSection({
               {CHANNELS.map((channel) => (
                 <th
                   key={channel}
-                  className="w-24 py-1.5 text-center font-medium"
+                  className="w-20 py-1.5 text-center font-medium sm:w-24"
                   title={channelOn[channel] ? undefined : t("channelOff")}
                 >
                   {t(channel)}
@@ -64,7 +65,7 @@ export function NotificationEventsSection({
               <Fragment key={group}>
                 <tr>
                   <th
-                    colSpan={3}
+                    colSpan={CHANNELS.length + 1}
                     scope="colgroup"
                     className="pb-1 pt-3 text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
                   >

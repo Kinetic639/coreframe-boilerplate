@@ -1,10 +1,10 @@
 import { VmiAppShell } from "@/components/layout/vmi-app-shell";
 import { MessagesExperience } from "@/components/vmi-portal/messages-experience";
-import { requireDemoSession } from "@/lib/demo-session";
+import { requireVmiAccess } from "@/lib/vmi-session";
 import { VmiPortalRepository } from "@/lib/vmi-portal/repository";
 
 export default async function MessagesPage() {
-  await requireDemoSession();
+  await requireVmiAccess();
 
   const snapshot = await VmiPortalRepository.getSnapshot();
   if (!snapshot.success) throw new Error(snapshot.error);
