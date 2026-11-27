@@ -48,6 +48,10 @@ describe("HeaderAppSwitcher (ERP header)", () => {
       name: "Nie otwieraj Zgłoszenia od razu po zalogowaniu",
     });
     expect(requestsStar).toHaveAttribute("aria-checked", "true");
+    await userEvent.hover(requestsStar);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "Nie otwieraj Zgłoszenia od razu po zalogowaniu"
+    );
     expect(screen.getByRole("menuitem", { name: /Zgłoszenia/ })).toHaveTextContent(
       "Otwiera się po zalogowaniu"
     );

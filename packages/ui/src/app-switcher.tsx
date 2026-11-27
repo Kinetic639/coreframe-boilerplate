@@ -10,6 +10,7 @@ import {
   Store,
   Warehouse,
 } from "lucide-react";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import type { LucideIcon } from "lucide-react";
 import {
   DropdownMenu,
@@ -105,72 +106,86 @@ export function AppSwitcher({
         <DropdownMenuLabel className="px-2.5 pb-1.5 pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {labels.title}
         </DropdownMenuLabel>
-        {items.map((item) => {
-          const look = AMBRA_APP_LOOK[item.id];
-          const Icon = look.icon;
-          const isCurrent = item.id === currentApp;
-          const isDefault = item.id === defaultApp;
-          const starLabel = isDefault
-            ? labels.removeDefault?.(item.name)
-            : labels.makeDefault?.(item.name);
-          return (
-            <div
-              key={item.id}
-              className={cn(
-                "flex items-center gap-1 rounded-lg pr-1",
-                isCurrent && "bg-amber-50 dark:bg-amber-500/10"
-              )}
-            >
-              <DropdownMenuItem asChild className="min-w-0 flex-1 gap-3 rounded-lg p-2.5">
-                <a href={item.href} aria-current={isCurrent ? "page" : undefined}>
-                  <span
-                    className={cn(
-                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-                      look.tile
-                    )}
-                  >
-                    <Icon className="h-5 w-5" />
-                  </span>
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="text-sm font-semibold">{item.name}</span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {isCurrent
-                        ? labels.current
-                        : isDefault && labels.isDefault
-                          ? labels.isDefault
-                          : item.description}
+        <TooltipPrimitive.Provider delayDuration={300}>
+          {items.map((item) => {
+            const look = AMBRA_APP_LOOK[item.id];
+            const Icon = look.icon;
+            const isCurrent = item.id === currentApp;
+            const isDefault = item.id === defaultApp;
+            const starLabel = isDefault
+              ? labels.removeDefault?.(item.name)
+              : labels.makeDefault?.(item.name);
+            return (
+              <div
+                key={item.id}
+                className={cn(
+                  "flex items-center gap-1 rounded-lg pr-1",
+                  isCurrent && "bg-amber-50 dark:bg-amber-500/10"
+                )}
+              >
+                <DropdownMenuItem asChild className="min-w-0 flex-1 gap-3 rounded-lg p-2.5">
+                  <a href={item.href} aria-current={isCurrent ? "page" : undefined}>
+                    <span
+                      className={cn(
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                        look.tile
+                      )}
+                    >
+                      <Icon className="h-5 w-5" />
                     </span>
-                  </span>
-                  {isCurrent ? (
-                    <Check className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-                  ) : null}
-                </a>
-              </DropdownMenuItem>
-              {onDefaultAppChange ? (
-                <DropdownMenuItem
-                  role="menuitemcheckbox"
-                  aria-checked={isDefault}
-                  aria-label={starLabel}
-                  title={starLabel}
-                  onSelect={(event) => {
-                    // Keep the menu open so the new default is visible.
-                    event.preventDefault();
-                    onDefaultAppChange(isDefault ? null : item.id);
-                  }}
-                  className="h-8 w-8 shrink-0 justify-center rounded-md p-0 text-muted-foreground"
-                >
-                  <Star
-                    className={cn(
-                      "h-4 w-4",
-                      isDefault &&
-                        "fill-amber-400 text-amber-500 dark:fill-amber-400 dark:text-amber-400"
-                    )}
-                  />
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="text-sm font-semibold">{item.name}</span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {isCurrent
+                          ? labels.current
+                          : isDefault && labels.isDefault
+                            ? labels.isDefault
+                            : item.description}
+                      </span>
+                    </span>
+                    {isCurrent ? (
+                      <Check className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+                    ) : null}
+                  </a>
                 </DropdownMenuItem>
-              ) : null}
-            </div>
-          );
-        })}
+                {onDefaultAppChange ? (
+                  <TooltipPrimitive.Root>
+                    <TooltipPrimitive.Trigger asChild>
+                      <DropdownMenuItem
+                        role="menuitemcheckbox"
+                        aria-checked={isDefault}
+                        aria-label={starLabel}
+                        onSelect={(event) => {
+                          // Keep the menu open so the new default is visible.
+                          event.preventDefault();
+                          onDefaultAppChange(isDefault ? null : item.id);
+                        }}
+                        className="h-8 w-8 shrink-0 justify-center rounded-md p-0 text-muted-foreground"
+                      >
+                        <Star
+                          className={cn(
+                            "h-4 w-4",
+                            isDefault &&
+                              "fill-amber-400 text-amber-500 dark:fill-amber-400 dark:text-amber-400"
+                          )}
+                        />
+                      </DropdownMenuItem>
+                    </TooltipPrimitive.Trigger>
+                    <TooltipPrimitive.Portal>
+                      <TooltipPrimitive.Content
+                        side="left"
+                        sideOffset={6}
+                        className="z-[60] max-w-56 rounded-md bg-foreground px-2.5 py-1.5 text-xs font-medium text-background shadow-md"
+                      >
+                        {starLabel}
+                      </TooltipPrimitive.Content>
+                    </TooltipPrimitive.Portal>
+                  </TooltipPrimitive.Root>
+                ) : null}
+              </div>
+            );
+          })}
+        </TooltipPrimitive.Provider>
         <DropdownMenuSeparator className="my-1.5" />
         <DropdownMenuItem asChild className="gap-3 rounded-lg p-2.5">
           <a href={websiteHref} target="_blank" rel="noopener noreferrer">
