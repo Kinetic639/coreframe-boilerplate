@@ -1,6 +1,7 @@
 "use client";
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { InstallAppButton } from "@/components/pwa/install-app-button";
 import { Separator } from "@/components/ui/separator";
 import { GlobalSearchDialog } from "@/components/v2/global-search/global-search-dialog";
 import {
@@ -72,6 +73,7 @@ export function DashboardHeaderV2({
           <GlobalSearchTrigger variant="icon" />
         </div>
 
+        <InstallAppButton />
         <HeaderQuickAdd />
         <HeaderContacts />
         {/* Below lg the messages bar is hidden: the icon opens the Messages page */}

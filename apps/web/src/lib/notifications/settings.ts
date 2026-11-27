@@ -6,36 +6,65 @@ import type { NotificationType } from "./types";
  * `user_preferences.notification_settings`:
  *   inApp.disabledTypes — types switched off in the bell (read by `_notify()` in the database)
  *   email.types         — types sent by e-mail; absent = the defaults below
- * The channel switches (`inApp.enabled`, `email.enabled`) stay above the matrix.
+ *   push.types          — types pushed to the user's devices; absent = the defaults below
+ *                         (read by `push_claim()` in the database)
+ * The channel switches (`inApp.enabled`, `push.enabled`, `email.enabled`) stay above the matrix.
  */
 
-export type NotificationChannel = "inApp" | "email";
+export type NotificationChannel = "inApp" | "push" | "email";
+
+/** Channels that keep a list of switched-on types (in-app keeps the switched-off ones) */
+type ListedChannel = Exclude<NotificationChannel, "inApp">;
 
 export interface NotificationEventDefinition {
-  /** A bell notification type, or "chat.message" (unread chat messages: e-mail only) */
-  type: NotificationType | "chat.message";
-  /** Channels the event exists on; both when omitted */
+  /**
+   * A bell notification type, "chat.new" (a new chat message: push only) or
+   * "chat.message" (chat messages still unread after 15 minutes: e-mail only)
+   */
+  type: NotificationType | "chat.new" | "chat.message";
+  /** Channels the event exists on; all when omitted */
   channels?: NotificationChannel[];
   group: "helpdesk" | "planning" | "conversations";
   /** Sent by e-mail unless the user changes it */
   emailByDefault: boolean;
+  /** Pushed to the user's devices unless the user changes it */
+  pushByDefault: boolean;
 }
 
 export const NOTIFICATION_EVENTS: NotificationEventDefinition[] = [
-  { type: "ticket.new", group: "helpdesk", emailByDefault: true },
-  { type: "ticket.assigned", group: "helpdesk", emailByDefault: true },
-  { type: "ticket.status", group: "helpdesk", emailByDefault: false },
-  { type: "task.assigned", group: "planning", emailByDefault: true },
-  { type: "task.status", group: "planning", emailByDefault: false },
-  { type: "task.due", group: "planning", emailByDefault: false },
-  { type: "comment", group: "conversations", emailByDefault: false },
-  { type: "mention", group: "conversations", emailByDefault: true },
-  // Chat messages never go to the bell; an unread one can be e-mailed
-  { type: "chat.message", group: "conversations", emailByDefault: true, channels: ["email"] },
+  { type: "ticket.new", group: "helpdesk", emailByDefault: true, pushByDefault: true },
+  { type: "ticket.assigned", group: "helpdesk", emailByDefault: true, pushByDefault: true },
+  { type: "ticket.status", group: "helpdesk", emailByDefault: false, pushByDefault: false },
+  { type: "task.assigned", group: "planning", emailByDefault: true, pushByDefault: true },
+  { type: "task.status", group: "planning", emailByDefault: false, pushByDefault: false },
+  { type: "task.due", group: "planning", emailByDefault: false, pushByDefault: true },
+  { type: "comment", group: "conversations", emailByDefault: false, pushByDefault: true },
+  { type: "mention", group: "conversations", emailByDefault: true, pushByDefault: true },
+  // Chat messages never go to the bell: a new one is pushed at once (when
+  // Ambra is not open), one still unread after 15 minutes can be e-mailed
+  {
+    type: "chat.new",
+    group: "conversations",
+    emailByDefault: false,
+    pushByDefault: true,
+    channels: ["push"],
+  },
+  {
+    type: "chat.message",
+    group: "conversations",
+    emailByDefault: true,
+    pushByDefault: false,
+    channels: ["email"],
+  },
 ];
 
 export const DEFAULT_EMAIL_TYPES: string[] = NOTIFICATION_EVENTS.filter(
   (event) => event.emailByDefault
+).map((event) => event.type);
+
+/** Must match `_push_default_types()` in the database */
+export const DEFAULT_PUSH_TYPES: string[] = NOTIFICATION_EVENTS.filter(
+  (event) => event.pushByDefault
 ).map((event) => event.type);
 
 function strings(value: unknown): string[] | null {
@@ -52,6 +81,17 @@ export function emailTypes(settings: NotificationSettings | null | undefined): s
   return strings(settings?.email?.types) ?? DEFAULT_EMAIL_TYPES;
 }
 
+export function pushTypes(settings: NotificationSettings | null | undefined): string[] {
+  return strings(settings?.push?.types) ?? DEFAULT_PUSH_TYPES;
+}
+
+function listedTypes(
+  settings: NotificationSettings | null | undefined,
+  channel: ListedChannel
+): string[] {
+  return channel === "push" ? pushTypes(settings) : emailTypes(settings);
+}
+
 export function isEventOn(
   settings: NotificationSettings | null | undefined,
   channel: NotificationChannel,
@@ -59,7 +99,7 @@ export function isEventOn(
 ): boolean {
   return channel === "inApp"
     ? !inAppDisabledTypes(settings).includes(type)
-    : emailTypes(settings).includes(type);
+    : listedTypes(settings, channel).includes(type);
 }
 
 /**
@@ -82,11 +122,11 @@ export function toggleEvent(
       },
     };
   }
-  const rest = emailTypes(settings).filter((item) => item !== type);
+  const rest = listedTypes(settings, channel).filter((item) => item !== type);
   return {
-    email: {
-      ...settings?.email,
-      enabled: settings?.email?.enabled ?? true,
+    [channel]: {
+      ...settings?.[channel],
+      enabled: settings?.[channel]?.enabled ?? true,
       types: on ? [...rest, type] : rest,
     },
   };

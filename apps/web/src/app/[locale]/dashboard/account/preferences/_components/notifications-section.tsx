@@ -7,7 +7,6 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import { Bell } from "lucide-react";
 import { useUpdateNotificationSettingsMutation } from "@/hooks/queries/user-preferences";
 import type { UserPreferences } from "@/lib/types/user-preferences";
@@ -25,6 +24,7 @@ export function NotificationsSection({ preferences }: NotificationsSectionProps)
 
   const [emailEnabled, setEmailEnabled] = useState(notifSettings.email?.enabled ?? true);
   const [inAppEnabled, setInAppEnabled] = useState(notifSettings.inApp?.enabled ?? true);
+  const [pushEnabled, setPushEnabled] = useState(notifSettings.push?.enabled ?? true);
   const [quietHoursEnabled, setQuietHoursEnabled] = useState(
     notifSettings.quietHours?.enabled ?? false
   );
@@ -39,6 +39,10 @@ export function NotificationsSection({ preferences }: NotificationsSectionProps)
   useEffect(() => {
     setInAppEnabled(notifSettings.inApp?.enabled ?? true);
   }, [notifSettings.inApp?.enabled]);
+
+  useEffect(() => {
+    setPushEnabled(notifSettings.push?.enabled ?? true);
+  }, [notifSettings.push?.enabled]);
 
   useEffect(() => {
     setQuietHoursEnabled(notifSettings.quietHours?.enabled ?? false);
@@ -98,6 +102,13 @@ export function NotificationsSection({ preferences }: NotificationsSectionProps)
     });
   };
 
+  const handlePushToggle = (checked: boolean) => {
+    setPushEnabled(checked);
+    updateNotifications.mutate({
+      push: { ...notifSettings.push, enabled: checked },
+    });
+  };
+
   const handleQuietHoursToggle = (checked: boolean) => {
     setQuietHoursEnabled(checked);
     updateNotifications.mutate({
@@ -143,18 +154,13 @@ export function NotificationsSection({ preferences }: NotificationsSectionProps)
 
         <Separator />
 
-        {/* Push - Coming Soon */}
-        <div className="flex items-center justify-between gap-4 opacity-60">
+        {/* Push: system notifications on the devices from the card above */}
+        <div className="flex items-center justify-between gap-4">
           <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
-              <Label>{t("pushNotifications")}</Label>
-              <Badge variant="secondary" className="text-xs">
-                {t("comingSoon")}
-              </Badge>
-            </div>
+            <Label htmlFor="push-notif">{t("pushNotifications")}</Label>
             <p className="text-xs text-muted-foreground">{t("pushNotificationsDescription")}</p>
           </div>
-          <Switch disabled checked={false} />
+          <Switch id="push-notif" checked={pushEnabled} onCheckedChange={handlePushToggle} />
         </div>
 
         <Separator />

@@ -8,7 +8,8 @@ import { getTranslations, setRequestLocale, getMessages } from "next-intl/server
 import { notFound } from "next/navigation";
 import { ToastContainerThemed } from "@/components/toast-container-themed";
 import { ToastListener } from "@/components/toast-listener";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { ThemeColorSync } from "@/components/pwa/theme-color-sync";
 import { DisplayTimeZoneSync } from "@/lib/date-time/display-time-zone-sync";
 
 type Props = {
@@ -29,8 +30,20 @@ export async function generateMetadata(props: Omit<Props, "children">): Promise<
   return {
     title: t("title"),
     metadataBase: new URL(appUrl),
+    icons: { apple: "/pwa/apple-touch-icon.png" },
+    // iPhone: opened from the home screen it runs as an app (needed for push)
+    appleWebApp: { capable: true, title: "Ambra", statusBarStyle: "default" },
   };
 }
+
+// Before the client syncs it to the chosen colour theme: the header colour of
+// the default theme, light or dark like the system (installed app title bar)
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f9fafb" },
+    { media: "(prefers-color-scheme: dark)", color: "#1f1f1f" },
+  ],
+};
 
 export default async function RootLayout({ children, params }: Props) {
   // Ensure that the incoming `locale` is valid
@@ -57,6 +70,7 @@ export default async function RootLayout({ children, params }: Props) {
               enableSystem
               disableTransitionOnChange
             >
+              <ThemeColorSync />
               <ToastContainerThemed />
               <Suspense fallback={null}>
                 <ToastListener />

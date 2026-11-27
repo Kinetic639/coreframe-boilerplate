@@ -31,6 +31,7 @@ import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { NotificationList } from "@/components/v2/notifications/notification-list";
 import { describeNotification } from "@/components/v2/notifications/notification-text";
+import { PushPrompt } from "@/components/pwa/push-prompt";
 
 const FILTERS = NOTIFICATION_FILTERS;
 
@@ -184,6 +185,8 @@ export function HeaderNotifications() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto" data-testid="notifications-drawer-list">
+          {/* Turn on push on this device: once, until closed */}
+          <PushPrompt />
           <NotificationList
             orgId={orgId}
             filter={filter}

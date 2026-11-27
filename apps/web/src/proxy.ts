@@ -122,6 +122,6 @@ export const config = {
   // reasoning behind the `pl(?:/|$)` exclusion (keep it in sync if
   // routing.defaultLocale ever changes from "pl" in any of the three apps).
   matcher: [
-    "/((?!api|auth|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|pl(?:/|$)|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api|auth|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|sw.js|pl(?:/|$)|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

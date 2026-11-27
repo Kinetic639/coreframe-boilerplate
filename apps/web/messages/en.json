@@ -423,11 +423,11 @@
     "emailNotifications": "Email Notifications",
     "emailNotificationsDescription": "Receive notifications via email",
     "pushNotifications": "Push Notifications",
-    "pushNotificationsDescription": "Receive push notifications in browser",
+    "pushNotificationsDescription": "System notifications on the devices where you turn them on",
     "inAppNotifications": "In-App Notifications",
     "inAppNotificationsDescription": "Show notifications within the application",
     "quietHours": "Quiet Hours",
-    "quietHoursDescription": "Set times when notifications are silenced",
+    "quietHoursDescription": "No push notifications or e-mails during these hours",
     "startTime": "Start Time",
     "endTime": "End Time",
     "enabled": "Enabled",
@@ -10302,8 +10302,10 @@
         "comment": "A comment on my case",
         "mention": "A mention of me (@) in a conversation or a comment",
         "task_due": "My task is due today",
-        "chat_message": "An unread chat message (after 15 minutes)"
-      }
+        "chat_message": "An unread chat message (after 15 minutes)",
+        "chat_new": "New chat message (right away, when Ambra isn't open)"
+      },
+      "push": "Push"
     },
     "reminder": "Reminder:",
     "email": {
@@ -10326,6 +10328,67 @@
       "chatSomeone": "Someone",
       "chatModule": "Messages",
       "chatOpenAll": "Open Messages"
+    },
+    "push": {
+      "open": "Open",
+      "markRead": "Mark as read",
+      "someone": "Someone",
+      "gif": "GIF",
+      "attachments": "{count, plural, one {# attachment} other {# attachments}}",
+      "group": "Group conversation",
+      "prompt": {
+        "title": "Never miss a message",
+        "body": "Turn on notifications on this device. You will see them and a count on the app icon even when Ambra is closed.",
+        "enable": "Turn on notifications",
+        "later": "Not now",
+        "close": "Close"
+      },
+      "result": {
+        "on": "Notifications are on for this device",
+        "off": "Notifications are off for this device",
+        "denied": "Notifications are blocked in the browser. Unblock them in the site settings and try again.",
+        "failed": "Couldn't turn on notifications. Try again.",
+        "unsupported": "This browser doesn't support push notifications.",
+        "unconfigured": "Push notifications aren't set up on the server yet.",
+        "removed": "Device removed",
+        "removeFailed": "Couldn't remove the device. Try again."
+      },
+      "ios": {
+        "title": "Add Ambra to your Home Screen",
+        "description": "On iPhone and iPad, notifications work only in the app opened from the Home Screen.",
+        "step1": "Tap <icon></icon> <b>Share</b> at the bottom of Safari",
+        "step2": "Choose <icon></icon> <b>Add to Home Screen</b>",
+        "step3": "Open Ambra from the new icon and turn on notifications",
+        "close": "Got it"
+      },
+      "install": "Install app",
+      "devices": {
+        "title": "Notifications on devices",
+        "description": "System notifications and a count on the Ambra icon, even when the app is closed.",
+        "thisDevice": "This device: {name}",
+        "thisDeviceUnknown": "This device",
+        "state": {
+          "on": "Push notifications are on for this device.",
+          "off": "Push notifications are off for this device.",
+          "denied": "Notifications are blocked in the browser. Unblock them in the site settings (the lock icon next to the address).",
+          "unsupported": "This browser doesn't support push notifications.",
+          "iosInstall": "On iPhone and iPad, add Ambra to the Home Screen first.",
+          "unconfigured": "Push notifications aren't set up on the server yet.",
+          "loading": "Checking…"
+        },
+        "enable": "Turn on for this device",
+        "disable": "Turn off for this device",
+        "iosHow": "How?",
+        "installHint": "Install Ambra as an app to keep it in your taskbar with an unread count.",
+        "listTitle": "Devices with notifications on",
+        "empty": "Notifications are not on for any device yet.",
+        "lastUsed": "Last used {date}",
+        "app": "app",
+        "current": "this device",
+        "remove": "Remove device {name}",
+        "unknown": "Unknown device",
+        "name": "{browser} on {os}"
+      }
     }
   },
   "avatarCrop": {
