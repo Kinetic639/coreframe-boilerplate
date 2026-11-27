@@ -300,7 +300,9 @@
       "title": "Ambra apps",
       "current": "You are here",
       "website": "Ambra website",
-      "chooser": "App choice after sign-in"
+      "makeDefault": "Open {app} straight after sign-in",
+      "removeDefault": "Stop opening {app} straight after sign-in",
+      "isDefault": "Opens after sign-in"
     }
   }
 }

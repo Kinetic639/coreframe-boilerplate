@@ -98,6 +98,12 @@ describe("app chooser page", () => {
     await expect(AppsPage()).rejects.toThrow(/redirect-url:.*\/dashboard\/start$/);
   });
 
+  it("opens the app marked as default in the switcher", async () => {
+    mocks.loadMyAmbraApps.mockResolvedValue({ ok: true, apps: ["erp", "requests"] });
+    mocks.cookies.set("ambra-default-app", "requests");
+    await expect(AppsPage()).rejects.toThrow(/^redirect-url:.*\/$/);
+  });
+
   it("shows the chooser with the setting ticked when asked from the switcher", async () => {
     mocks.loadMyAmbraApps.mockResolvedValue({ ok: true, apps: ["erp", "requests"] });
     mocks.cookies.set("ambra-last-app", "erp");

@@ -1,6 +1,15 @@
 "use client";
 
-import { Check, Globe, LayoutGrid, MessageSquareText, Store, Warehouse } from "lucide-react";
+import {
+  Check,
+  ExternalLink,
+  Globe,
+  LayoutGrid,
+  MessageSquareText,
+  Star,
+  Store,
+  Warehouse,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
   DropdownMenu,
@@ -40,23 +49,45 @@ export const AMBRA_APP_LOOK: Record<AppSwitcherAppId, { icon: LucideIcon; tile: 
 export type AppSwitcherProps = {
   items: AppSwitcherItem[];
   currentApp: AppSwitcherAppId;
-  labels: { trigger: string; title: string; current: string; website: string; chooser?: string };
+  labels: {
+    trigger: string;
+    title: string;
+    current: string;
+    website: string;
+    /** Star button: "open <app> straight after sign-in" and its opposite. */
+    makeDefault?: (appName: string) => string;
+    removeDefault?: (appName: string) => string;
+    /** Under the default app's name. */
+    isDefault?: string;
+  };
   websiteHref: string;
-  /** The app chooser, where the user can also stop opening the last app by default. */
-  chooserHref?: string;
+  /** App opened straight after sign-in, marked with a filled star. */
+  defaultApp?: AppSwitcherAppId | null;
+  /** Shows the star on each app; called with the new default, or null to clear it. */
+  onDefaultAppChange?: (app: AppSwitcherAppId | null) => void;
   className?: string;
 };
 
+function hostOf(href: string): string {
+  try {
+    return new URL(href).host.replace(/^www\./, "");
+  } catch {
+    return href;
+  }
+}
+
 /**
  * The grid button in every Ambra app's header: the apps this user may open
- * (one rule, `get_my_ambra_apps`), the current one marked, plus the public site.
+ * (one rule, `get_my_ambra_apps`), the current one marked, a star to pick the app
+ * opened after sign-in, plus the public site (new tab).
  */
 export function AppSwitcher({
   items,
   currentApp,
   labels,
   websiteHref,
-  chooserHref,
+  defaultApp = null,
+  onDefaultAppChange,
   className,
 }: AppSwitcherProps) {
   return (
@@ -78,50 +109,79 @@ export function AppSwitcher({
           const look = AMBRA_APP_LOOK[item.id];
           const Icon = look.icon;
           const isCurrent = item.id === currentApp;
+          const isDefault = item.id === defaultApp;
+          const starLabel = isDefault
+            ? labels.removeDefault?.(item.name)
+            : labels.makeDefault?.(item.name);
           return (
-            <DropdownMenuItem
+            <div
               key={item.id}
-              asChild
               className={cn(
-                "gap-3 rounded-lg p-2.5",
+                "flex items-center gap-1 rounded-lg pr-1",
                 isCurrent && "bg-amber-50 dark:bg-amber-500/10"
               )}
             >
-              <a href={item.href} aria-current={isCurrent ? "page" : undefined}>
-                <span
-                  className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-                    look.tile
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                </span>
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="text-sm font-semibold">{item.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {isCurrent ? labels.current : item.description}
+              <DropdownMenuItem asChild className="min-w-0 flex-1 gap-3 rounded-lg p-2.5">
+                <a href={item.href} aria-current={isCurrent ? "page" : undefined}>
+                  <span
+                    className={cn(
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                      look.tile
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
                   </span>
-                </span>
-                {isCurrent ? (
-                  <Check className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-                ) : null}
-              </a>
-            </DropdownMenuItem>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="text-sm font-semibold">{item.name}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {isCurrent
+                        ? labels.current
+                        : isDefault && labels.isDefault
+                          ? labels.isDefault
+                          : item.description}
+                    </span>
+                  </span>
+                  {isCurrent ? (
+                    <Check className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+                  ) : null}
+                </a>
+              </DropdownMenuItem>
+              {onDefaultAppChange ? (
+                <DropdownMenuItem
+                  role="menuitemcheckbox"
+                  aria-checked={isDefault}
+                  aria-label={starLabel}
+                  title={starLabel}
+                  onSelect={(event) => {
+                    // Keep the menu open so the new default is visible.
+                    event.preventDefault();
+                    onDefaultAppChange(isDefault ? null : item.id);
+                  }}
+                  className="h-8 w-8 shrink-0 justify-center rounded-md p-0 text-muted-foreground"
+                >
+                  <Star
+                    className={cn(
+                      "h-4 w-4",
+                      isDefault &&
+                        "fill-amber-400 text-amber-500 dark:fill-amber-400 dark:text-amber-400"
+                    )}
+                  />
+                </DropdownMenuItem>
+              ) : null}
+            </div>
           );
         })}
         <DropdownMenuSeparator className="my-1.5" />
-        {chooserHref && labels.chooser ? (
-          <DropdownMenuItem asChild className="gap-2.5 rounded-md px-2.5 py-2">
-            <a href={chooserHref}>
-              <LayoutGrid className="h-4 w-4" />
-              {labels.chooser}
-            </a>
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuItem asChild className="gap-2.5 rounded-md px-2.5 py-2">
-          <a href={websiteHref}>
-            <Globe className="h-4 w-4" />
-            {labels.website}
+        <DropdownMenuItem asChild className="gap-3 rounded-lg p-2.5">
+          <a href={websiteHref} target="_blank" rel="noopener noreferrer">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground/70">
+              <Globe className="h-5 w-5" />
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="text-sm font-semibold">{labels.website}</span>
+              <span className="truncate text-xs text-muted-foreground">{hostOf(websiteHref)}</span>
+            </span>
+            <ExternalLink className="h-4 w-4 text-muted-foreground" />
           </a>
         </DropdownMenuItem>
       </DropdownMenuContent>

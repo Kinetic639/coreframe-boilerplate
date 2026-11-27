@@ -4,6 +4,7 @@ import {
   appHomeUrl,
   buildAppChooserUrl,
   decideLanding,
+  effectiveDefaultApp,
   appUrl,
   buildSignInUrl,
   buildSignUpUrl,
@@ -167,6 +168,28 @@ describe("decideLanding", () => {
       kind: "choose",
       lastApp: null,
     });
+  });
+});
+
+describe("default app", () => {
+  it("opens the app marked as default, before the last one", () => {
+    expect(
+      decideLanding(["erp", "requests"], { defaultApp: "erp", lastApp: "requests", openLast: true })
+    ).toEqual({ kind: "open", app: "erp" });
+  });
+
+  it("ignores a default the user can no longer open", () => {
+    expect(decideLanding(["erp", "requests"], { defaultApp: "vmi" })).toEqual({
+      kind: "choose",
+      lastApp: null,
+    });
+  });
+
+  it("shows the default, or the last app when it opens by itself", () => {
+    expect(effectiveDefaultApp({ defaultApp: "vmi", lastApp: "erp", openLast: true })).toBe("vmi");
+    expect(effectiveDefaultApp({ lastApp: "erp", openLast: true })).toBe("erp");
+    expect(effectiveDefaultApp({ lastApp: "erp" })).toBeNull();
+    expect(effectiveDefaultApp({ defaultApp: "site" })).toBeNull();
   });
 });
 
