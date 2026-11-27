@@ -9,7 +9,7 @@ import { RowActionLink, RowActions } from "@/components/data-table/row-actions";
 import { cn } from "@/lib/utils";
 import type { RequestListItem } from "@/server/requests/types";
 import { Avatar, AvatarStack } from "./avatar";
-import { AttentionDot, StatusBadge } from "./status";
+import { StatusBadge } from "./status";
 
 /** Page sizes in the order the pagination offers them. */
 const SIZES = [20, 50, 100] as const;
@@ -135,11 +135,8 @@ export function RequestsTable({
 
   const identity = (row: RequestListItem) => (
     <span className="min-w-0">
-      <span className="flex items-center gap-1.5">
-        {row.state === "yourTurn" ? <AttentionDot /> : null}
-        <span className="block truncate text-[13px] font-medium" title={row.title}>
-          {row.title}
-        </span>
+      <span className="block truncate text-[13px] font-medium" title={row.title}>
+        {row.title}
       </span>
       <span className="flex items-center gap-2 text-[11px] leading-4 font-normal text-muted-foreground">
         <span className="truncate font-mono">{row.number}</span>
