@@ -22,7 +22,7 @@ import type { ContactDirectoryRow } from "@/lib/contacts/types";
 import { ChatAvatar } from "@/components/v2/messages/chat-avatar";
 import { AvatarCropDialog } from "@/components/v2/media/avatar-crop-dialog";
 import { useOptionalChat } from "@/components/v2/messages/chat-provider";
-import { useStartDirectChat } from "@/components/v2/messages/use-start-direct-chat";
+import { useCanMessage, useStartDirectChat } from "@/components/v2/messages/use-start-direct-chat";
 import { memberInitials } from "@/lib/messages/display";
 import type { CrmContactVisibility } from "@/lib/validations/crm";
 
@@ -45,6 +45,7 @@ export function MemberContactPanel({ member }: { member: MemberContactDetail }) 
   const t = useTranslations("modules.crm");
   const chat = useOptionalChat();
   const startChat = useStartDirectChat();
+  const canMessage = useCanMessage();
   const isMe = !!member.user_id && member.user_id === chat?.meId;
   const online = !!member.user_id && !!chat?.onlineIds.has(member.user_id);
   const phone = member.phone || member.mobile;
@@ -100,7 +101,7 @@ export function MemberContactPanel({ member }: { member: MemberContactDetail }) 
         </div>
       </div>
 
-      {startChat && member.user_id && !isMe ? (
+      {startChat && member.user_id && !isMe && canMessage(member.user_id) ? (
         <Button
           type="button"
           size="sm"

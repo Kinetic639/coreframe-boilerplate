@@ -56,6 +56,7 @@ export function ConversationRow({
               "min-w-0 flex-1 truncate text-xs",
               hasUnread ? "font-semibold" : "font-medium"
             )}
+            title={conversationTitle(conversation, meId)}
           >
             {conversationTitle(conversation, meId)}
           </span>

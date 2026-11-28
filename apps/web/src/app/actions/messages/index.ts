@@ -395,13 +395,23 @@ export async function muteConversationAction(rawInput: unknown): Promise<ActionR
 /** Colleagues of the active organization (the caller excluded), for new conversations */
 export async function listChatPeopleAction(): Promise<ActionResult<ChatPerson[]>> {
   return run(z.object({}).optional(), undefined, "listPeople", async (ctx) => {
-    const result = await OrgMembersService.listMembers(ctx.supabase, ctx.orgId);
+    const [result, reachable] = await Promise.all([
+      OrgMembersService.listMembers(ctx.supabase, ctx.orgId),
+      ChatService.listPeopleIds(ctx.supabase, ctx.orgId),
+    ]);
     if (!result.success) {
       console.error("[messages.listPeople]", (result as { error: string }).error);
       return { success: false, error: "failed" };
     }
+    if (!reachable.success)
+      return { success: false, error: (reachable as { error: string }).error };
+    // Only colleagues who can open the messenger (ERP + messages.use)
+    const canMessage = reachable.data;
     const active = result.data.filter(
-      (member) => member.user_id !== ctx.userId && member.status === "active"
+      (member) =>
+        member.user_id !== ctx.userId &&
+        member.status === "active" &&
+        (!canMessage || canMessage.has(member.user_id))
     );
     // Uploaded avatars are private storage objects: sign them (one call for the list)
     const avatars = await OrgMemberPublicProfileService.avatarUrls(

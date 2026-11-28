@@ -25,7 +25,7 @@ import { memberInitials } from "@/lib/messages/display";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { ChatAvatar } from "@/components/v2/messages/chat-avatar";
 import { useOptionalChat } from "@/components/v2/messages/chat-provider";
-import { useStartDirectChat } from "@/components/v2/messages/use-start-direct-chat";
+import { useCanMessage, useStartDirectChat } from "@/components/v2/messages/use-start-direct-chat";
 
 const SEARCH_DEBOUNCE_MS = 200;
 const PAGE_SIZE = 100;
@@ -42,6 +42,7 @@ export function HeaderContacts() {
   const { can } = usePermissions();
   const chat = useOptionalChat();
   const startChat = useStartDirectChat();
+  const canMessage = useCanMessage();
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<ContactDirectoryFilter>("all");
   const [query, setQuery] = useState("");
@@ -158,7 +159,7 @@ export function HeaderContacts() {
                   online={!!row.user_id && !!chat?.onlineIds.has(row.user_id)}
                   isMe={!!row.user_id && row.user_id === chat?.meId}
                   onMessage={
-                    startChat && row.kind === "member" && row.user_id
+                    startChat && row.kind === "member" && row.user_id && canMessage(row.user_id)
                       ? () => {
                           setOpen(false);
                           void startChat(row.user_id as string);

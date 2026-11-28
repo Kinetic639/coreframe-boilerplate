@@ -260,7 +260,10 @@ function ConversationPane({
           )}
           {canManage ? avatarEditor.elements : null}
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[13px] font-semibold">
+            <div
+              className="truncate text-[13px] font-semibold"
+              title={source ? conversationTitle(source, chat.meId) : undefined}
+            >
               {source ? conversationTitle(source, chat.meId) : ""}
             </div>
             <div className="flex min-w-0 text-[11px] text-muted-foreground">

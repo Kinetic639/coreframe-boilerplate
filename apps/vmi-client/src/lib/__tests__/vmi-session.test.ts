@@ -17,7 +17,7 @@ vi.mock("@/utils/supabase/server", () => ({
   }),
 }));
 
-import { checkVmiAccess, requireVmiAccess } from "../vmi-session";
+import { checkVmiAccess, getSwitcherApps, requireVmiAccess } from "../vmi-session";
 
 describe("VMI access", () => {
   beforeEach(() => {
@@ -34,7 +34,9 @@ describe("VMI access", () => {
   it("sends a signed-out user to the shared sign-in, back to VMI afterwards", async () => {
     mocks.user = null;
     expect(await checkVmiAccess()).toBe("signed-out");
-    await expect(requireVmiAccess()).rejects.toThrow(/^redirect:.*\/logowanie\?returnUrl=.*%2Fportal$/);
+    await expect(requireVmiAccess()).rejects.toThrow(
+      /^redirect:.*\/logowanie\?returnUrl=.*%2Fportal$/
+    );
   });
 
   it("sends a user without VMI to the app chooser", async () => {
@@ -46,5 +48,23 @@ describe("VMI access", () => {
   it("lets a signed-in user in when the rule cannot run", async () => {
     mocks.apps = { data: null, error: { message: "function does not exist" } };
     expect(await checkVmiAccess()).toBe("ok");
+  });
+
+  it("lists the user's apps for the switcher, in the usual order", async () => {
+    mocks.apps = {
+      data: [
+        { organization_id: "o1", app: "vmi" },
+        { organization_id: "o2", app: "erp" },
+        { organization_id: "o1", app: "erp" },
+        { organization_id: "o1", app: "unknown" },
+      ],
+      error: null,
+    };
+    expect(await getSwitcherApps()).toEqual(["erp", "vmi"]);
+  });
+
+  it("always offers VMI in the switcher, even when the rule cannot run", async () => {
+    mocks.apps = { data: null, error: { message: "function does not exist" } };
+    expect(await getSwitcherApps()).toEqual(["vmi"]);
   });
 });

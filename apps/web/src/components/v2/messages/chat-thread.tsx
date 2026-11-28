@@ -243,14 +243,19 @@ export function ChatThread({
                 ) : (
                   <div className={cn("flex flex-col gap-0.5", mine ? "items-end" : "items-start")}>
                     {!grouped ? (
-                      <span className="px-0.5 text-[10px] text-muted-foreground">
+                      <span className="flex max-w-full min-w-0 px-0.5 text-[10px] text-muted-foreground">
                         {!mine ? (
-                          <span className="font-semibold text-foreground/80">
+                          <span
+                            className="min-w-0 truncate font-semibold text-foreground/80"
+                            title={author ? memberName(author) : undefined}
+                          >
                             {author ? memberName(author) : t("system.someone")}
                           </span>
                         ) : null}
-                        {!mine ? " · " : null}
-                        {formatChatTime(message.created_at, locale)}
+                        {!mine ? <span className="shrink-0 whitespace-pre"> · </span> : null}
+                        <span className="shrink-0">
+                          {formatChatTime(message.created_at, locale)}
+                        </span>
                       </span>
                     ) : null}
                     {message.deleted_at ? (

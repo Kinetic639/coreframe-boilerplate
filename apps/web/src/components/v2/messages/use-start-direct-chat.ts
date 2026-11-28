@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import { useRouter } from "@/i18n/navigation";
 import { openDirectConversationAction } from "@/app/actions/messages";
-import { messagesKeys } from "@/hooks/queries/messages";
+import { messagesKeys, useChatPeople } from "@/hooks/queries/messages";
 import type { ChatErrorCode } from "@/lib/messages/types";
 import { useChatWindowsStore } from "@/lib/stores/v2/chat-windows-store";
 import { useOptionalChat } from "./chat-provider";
@@ -43,4 +43,19 @@ export function useStartDirectChat(): ((userId: string) => Promise<void>) | null
   );
 
   return chat ? start : null;
+}
+
+/**
+ * Whether a colleague can be messaged: only people who can open the messenger
+ * (ERP + messages.use) are offered, so a portal-only account (e.g. an advisor
+ * in Zgłoszenia) gets no "Message" button. False until the list is loaded.
+ */
+export function useCanMessage(): (userId: string) => boolean {
+  const chat = useOptionalChat();
+  const people = useChatPeople(chat?.orgId);
+  const ids = useMemo(
+    () => new Set((people.data ?? []).map((person) => person.userId)),
+    [people.data]
+  );
+  return useCallback((userId: string) => ids.has(userId), [ids]);
 }

@@ -132,6 +132,7 @@ export function ChatWindow({ state }: { state: ChatWindowState }) {
             type="button"
             onClick={() => toggleCollapsed(conversationId)}
             className="truncate text-left text-xs font-semibold"
+            title={title}
             aria-expanded={!collapsed}
           >
             {title}

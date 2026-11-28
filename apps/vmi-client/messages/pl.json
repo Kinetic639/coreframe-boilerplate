@@ -5,5 +5,26 @@
   "LocaleSwitcher": {
     "label": "Zmien jezyk",
     "locale": "{locale, select, pl {Polski} en {English} other {#}}"
+  },
+  "ambraApps": {
+    "names": {
+      "erp": "Ambra ERP",
+      "requests": "Zgłoszenia",
+      "vmi": "VMI"
+    },
+    "descriptions": {
+      "erp": "Magazyn, CRM, planowanie, warsztat",
+      "requests": "Portal zgłoszeń dla doradców",
+      "vmi": "Portal dostawców"
+    },
+    "switcher": {
+      "trigger": "Aplikacje Ambra",
+      "title": "Aplikacje Ambra",
+      "current": "Tutaj jesteś",
+      "website": "Strona Ambra",
+      "makeDefault": "Otwieraj {app} od razu po zalogowaniu",
+      "removeDefault": "Nie otwieraj {app} od razu po zalogowaniu",
+      "isDefault": "Otwiera się po zalogowaniu"
+    }
   }
 }

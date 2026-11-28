@@ -5,5 +5,26 @@
   "LocaleSwitcher": {
     "label": "Change language",
     "locale": "{locale, select, pl {Polish} en {English} other {#}}"
+  },
+  "ambraApps": {
+    "names": {
+      "erp": "Ambra ERP",
+      "requests": "Requests",
+      "vmi": "VMI"
+    },
+    "descriptions": {
+      "erp": "Warehouse, CRM, planning, workshop",
+      "requests": "Request portal for advisors",
+      "vmi": "Supplier portal"
+    },
+    "switcher": {
+      "trigger": "Ambra apps",
+      "title": "Ambra apps",
+      "current": "You are here",
+      "website": "Ambra website",
+      "makeDefault": "Open {app} straight after sign-in",
+      "removeDefault": "Stop opening {app} straight after sign-in",
+      "isDefault": "Opens after sign-in"
+    }
   }
 }
