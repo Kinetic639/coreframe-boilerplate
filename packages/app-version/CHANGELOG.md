@@ -1,5 +1,15 @@
 # @repo/app-version
 
+## 1.5.1 (2026-11-28)
+
+### Poprawki
+
+- Komunikator: w „Nowej wiadomości” i w kontaktach nie pojawiają się już osoby bez dostępu do ERP (np. doradca, który ma tylko aplikację Zgłoszenia), więc nie da się do nich napisać.
+
+- Profil: imię może mieć najwyżej 20 znaków, a nazwisko 30 (wcześniej 30 i 50). Długie imiona i nazwiska na czacie, w zadaniach i w Help Desku skracają się teraz z wielokropkiem, a pełne imię widać po najechaniu kursorem.
+
+- VMI ma teraz przełącznik aplikacji Ambra (kafelki) w panelu bocznym i w nagłówku na telefonie, tak jak ERP i Zgłoszenia. Można z niego przejść do innych aplikacji, na stronę Ambra i ustawić aplikację otwieraną po zalogowaniu.
+
 ## 1.5.0 (2026-11-27)
 
 ### Nowe funkcje

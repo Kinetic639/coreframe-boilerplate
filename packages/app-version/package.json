@@ -1,6 +1,6 @@
 {
   "name": "@repo/app-version",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "private": true,
   "type": "module",
   "description": "The one version of the Ambra system (ERP, website, requests portal, VMI), its changelog and the release script.",
