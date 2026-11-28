@@ -722,7 +722,7 @@ function ActivityList({ activity }: { activity: HelpdeskTicketActivity[] }) {
           <li key={entry.id} className="flex gap-2.5 text-sm">
             <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
             <div className="min-w-0">
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground [overflow-wrap:anywhere]">
                 <span className="font-medium text-foreground">
                   {entry.actor_name ?? t("card.system")}
                 </span>{" "}

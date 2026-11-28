@@ -8,8 +8,8 @@ import { isValidTimeZone } from "@/lib/date-time/time-zone";
  * enforces the same limits (check constraints on `users` and `user_preferences`),
  * so a longer value can't reach the app from any client.
  */
-export const PROFILE_FIRST_NAME_MAX_LENGTH = 30;
-export const PROFILE_NAME_MAX_LENGTH = 50;
+export const PROFILE_FIRST_NAME_MAX_LENGTH = 20;
+export const PROFILE_NAME_MAX_LENGTH = 30;
 export const PROFILE_DISPLAY_NAME_MAX_LENGTH = 32;
 export const PROFILE_PHONE_MAX_LENGTH = 20;
 

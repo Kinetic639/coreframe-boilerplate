@@ -34,6 +34,7 @@ function FormField({
   placeholder,
   disabled,
   scheme,
+  maxLength,
 }: {
   label: string;
   value: string;
@@ -41,6 +42,7 @@ function FormField({
   placeholder?: string;
   disabled: boolean;
   scheme: ColorScheme;
+  maxLength: number;
 }) {
   const c = Colors[scheme];
   return (
@@ -57,12 +59,18 @@ function FormField({
         placeholder={placeholder}
         placeholderTextColor={c.textMuted}
         editable={!disabled}
+        maxLength={maxLength}
         autoCapitalize="words"
         autoCorrect={false}
       />
     </View>
   );
 }
+
+// Same limits as the database check constraints on users / user_preferences.
+const FIRST_NAME_MAX_LENGTH = 20;
+const LAST_NAME_MAX_LENGTH = 30;
+const DISPLAY_NAME_MAX_LENGTH = 32;
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -191,6 +199,7 @@ export default function EditAccountScreen() {
                 value={firstName}
                 onChangeText={setFirstName}
                 placeholder="Twoje imię"
+                maxLength={FIRST_NAME_MAX_LENGTH}
                 disabled={isPending}
                 scheme={colorScheme}
               />
@@ -199,6 +208,7 @@ export default function EditAccountScreen() {
                 value={lastName}
                 onChangeText={setLastName}
                 placeholder="Twoje nazwisko"
+                maxLength={LAST_NAME_MAX_LENGTH}
                 disabled={isPending}
                 scheme={colorScheme}
               />
@@ -207,6 +217,7 @@ export default function EditAccountScreen() {
                 value={displayName}
                 onChangeText={setDisplayName}
                 placeholder="np. Jan K."
+                maxLength={DISPLAY_NAME_MAX_LENGTH}
                 disabled={isPending}
                 scheme={colorScheme}
               />

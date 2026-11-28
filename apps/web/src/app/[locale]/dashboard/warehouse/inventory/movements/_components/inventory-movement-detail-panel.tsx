@@ -354,7 +354,9 @@ export function InventoryMovementDetailPanel({
                   </Badge>
                 </div>
                 {detail.sender_name && (
-                  <h4 className="text-sm font-bold text-foreground">{detail.sender_name}</h4>
+                  <h4 className="text-sm font-bold text-foreground [overflow-wrap:anywhere]">
+                    {detail.sender_name}
+                  </h4>
                 )}
                 {detail.sender_details && (
                   <div className="text-xs text-muted-foreground font-mono space-y-0.5 mt-2">
@@ -392,7 +394,7 @@ export function InventoryMovementDetailPanel({
                     <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       {td("recipient")}
                     </span>
-                    <h4 className="mt-1 text-sm font-bold text-foreground">
+                    <h4 className="mt-1 text-sm font-bold text-foreground [overflow-wrap:anywhere]">
                       {detail.recipient_name}
                     </h4>
                     {detail.recipient_details && (

@@ -33,8 +33,8 @@ describe("updateProfileSchema name limits", () => {
   });
 
   it("keeps the limits used by the database constraints", () => {
-    expect(PROFILE_FIRST_NAME_MAX_LENGTH).toBe(30);
-    expect(PROFILE_NAME_MAX_LENGTH).toBe(50);
+    expect(PROFILE_FIRST_NAME_MAX_LENGTH).toBe(20);
+    expect(PROFILE_NAME_MAX_LENGTH).toBe(30);
     expect(PROFILE_DISPLAY_NAME_MAX_LENGTH).toBe(32);
   });
 });

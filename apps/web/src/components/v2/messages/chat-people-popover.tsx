@@ -138,7 +138,7 @@ export function ChatPeoplePopover({
                     ringClassName="ring-popover"
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-medium">
+                    <span className="block truncate text-xs font-medium" title={memberName(person)}>
                       {person.user_id === meId
                         ? `${memberName(person)} (${t("window.you")})`
                         : memberName(person)}
