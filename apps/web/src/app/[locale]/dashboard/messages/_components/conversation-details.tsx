@@ -235,7 +235,7 @@ export function ConversationDetails({
                 ringClassName="ring-background"
               />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-medium">
+                <span className="block truncate text-xs font-medium" title={memberName(member)}>
                   {member.user_id === meId
                     ? `${memberName(member)} (${t("window.you")})`
                     : memberName(member)}
@@ -278,7 +278,10 @@ export function ConversationDetails({
                 ringClassName="ring-background"
               />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-medium text-foreground/70">
+                <span
+                  className="block truncate text-xs font-medium text-foreground/70"
+                  title={memberName(person)}
+                >
                   {memberName(person)}
                 </span>
                 <span className="block text-[11px] text-muted-foreground">{t("page.invited")}</span>

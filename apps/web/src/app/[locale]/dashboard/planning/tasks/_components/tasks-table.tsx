@@ -182,7 +182,9 @@ export function TasksTable({
               popoverSide="top"
               popoverAlign="start"
             />
-            <span className="truncate">{row.assignee_name ?? row.assignee_email}</span>
+            <span className="truncate" title={row.assignee_name ?? row.assignee_email ?? undefined}>
+              {row.assignee_name ?? row.assignee_email}
+            </span>
           </span>
         ) : (
           <span className="text-muted-foreground">{labels.unassigned}</span>
@@ -232,7 +234,9 @@ export function TasksTable({
               email={row.creator_email}
               className="size-6"
             />
-            <span className="truncate">{row.creator_name ?? row.creator_email}</span>
+            <span className="truncate" title={row.creator_name ?? row.creator_email ?? undefined}>
+              {row.creator_name ?? row.creator_email}
+            </span>
           </span>
         ) : (
           "—"

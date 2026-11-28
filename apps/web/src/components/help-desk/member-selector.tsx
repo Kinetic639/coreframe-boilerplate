@@ -111,7 +111,9 @@ export function MemberSelector({
                         disabledPopover
                       />
                       <div className="flex min-w-0 flex-col">
-                        <span className="truncate text-sm">{displayLabel}</span>
+                        <span className="truncate text-sm" title={displayLabel}>
+                          {displayLabel}
+                        </span>
                         {member.name && member.email && (
                           <span className="text-muted-foreground truncate text-xs">
                             {member.email}
@@ -148,7 +150,10 @@ export function MemberSelector({
                 src={member.avatar_url}
                 disabledPopover
               />
-              <span className="max-w-[120px] truncate">
+              <span
+                className="max-w-[120px] truncate"
+                title={member.name || member.email || undefined}
+              >
                 {member.name || member.email || member.user_id}
               </span>
               <button

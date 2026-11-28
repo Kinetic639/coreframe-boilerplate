@@ -193,12 +193,20 @@ export function TicketTypeDetailClient({
           ) : (
             <div className="rounded-lg border divide-y">
               {type.default_acceptors.map((a) => (
-                <div key={a.user_id} className="flex items-center justify-between px-4 py-2.5">
-                  <span className="font-medium text-sm">
+                <div
+                  key={a.user_id}
+                  className="flex items-center justify-between gap-3 px-4 py-2.5"
+                >
+                  <span
+                    className="min-w-0 truncate font-medium text-sm"
+                    title={a.user_name ?? a.user_email ?? undefined}
+                  >
                     {a.user_name ?? a.user_email ?? a.user_id}
                   </span>
                   {a.user_email && a.user_name && (
-                    <span className="text-muted-foreground text-xs">{a.user_email}</span>
+                    <span className="text-muted-foreground min-w-0 shrink truncate text-xs">
+                      {a.user_email}
+                    </span>
                   )}
                 </div>
               ))}

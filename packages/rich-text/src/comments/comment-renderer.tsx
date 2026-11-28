@@ -34,6 +34,7 @@ export function CommentRenderer({
                     "block max-w-full truncate text-sm font-semibold leading-none",
                     isOwn && "text-primary"
                   )}
+                  title={author.name}
                 >
                   {author.name}
                 </span>

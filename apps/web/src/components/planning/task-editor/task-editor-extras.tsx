@@ -1091,14 +1091,16 @@ function ChecklistRow({
         {!item.linked_task_id && (item.assigned_to || item.due_at) ? (
           <div className="mt-0.5 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
             {item.assigned_to ? (
-              <span className="inline-flex items-center gap-1">
+              <span className="inline-flex min-w-0 max-w-full items-center gap-1">
                 <MemberAvatar
                   userId={item.assigned_to}
                   name={item.assignee_name}
-                  className="h-4 w-4"
+                  className="h-4 w-4 shrink-0"
                   fallbackClassName="text-[8px]"
                 />
-                {item.assignee_name ?? "—"}
+                <span className="min-w-0 truncate" title={item.assignee_name ?? undefined}>
+                  {item.assignee_name ?? "—"}
+                </span>
               </span>
             ) : null}
             {item.due_at ? (
