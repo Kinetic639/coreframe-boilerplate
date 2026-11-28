@@ -1,5 +1,6 @@
 import { Database, LogOut, Plus } from "lucide-react";
 import { signOutAction } from "@/app/actions/auth";
+import { HeaderAppSwitcher } from "@/components/layout/header-app-switcher";
 import { Link } from "@/i18n/navigation";
 import {
   vmiDesktopNavRoutes,
@@ -7,6 +8,7 @@ import {
   vmiRoutes,
   type VmiRouteHref,
 } from "@/lib/navigation";
+import { getSwitcherApps } from "@/lib/vmi-session";
 import { cn } from "@/utils/cn";
 
 interface VmiAppShellProps {
@@ -14,13 +16,14 @@ interface VmiAppShellProps {
   children: React.ReactNode;
 }
 
-export function VmiAppShell({ activeHref, children }: VmiAppShellProps) {
+export async function VmiAppShell({ activeHref, children }: VmiAppShellProps) {
   const activeRoute = vmiRoutes.find((route) => route.href === activeHref) ?? vmiRoutes[0];
+  const apps = await getSwitcherApps();
 
   return (
     <div className="min-h-screen bg-muted text-foreground md:flex">
       <aside className="hidden w-64 shrink-0 border-r border-border bg-background md:flex md:flex-col">
-        <div className="p-5">
+        <div className="flex items-center justify-between gap-2 p-5">
           <a
             href="https://www.ambra-system.com"
             className="flex items-center gap-3 rounded-md transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -35,6 +38,7 @@ export function VmiAppShell({ activeHref, children }: VmiAppShellProps) {
               </p>
             </div>
           </a>
+          <HeaderAppSwitcher apps={apps} />
         </div>
 
         <div className="mx-3 rounded-md bg-accent/40 p-3">
@@ -104,8 +108,11 @@ export function VmiAppShell({ activeHref, children }: VmiAppShellProps) {
                 {activeRoute.label}
               </p>
             </a>
-            <div className="rounded-md bg-accent px-2 py-1 text-[10px] font-bold text-accent-foreground">
-              Do konfiguracji
+            <div className="flex items-center gap-2">
+              <div className="rounded-md bg-accent px-2 py-1 text-[10px] font-bold text-accent-foreground">
+                Do konfiguracji
+              </div>
+              <HeaderAppSwitcher apps={apps} />
             </div>
           </div>
         </header>
