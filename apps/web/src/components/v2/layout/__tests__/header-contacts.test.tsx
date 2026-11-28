@@ -6,6 +6,8 @@ import { HeaderContacts } from "../header-contacts";
 
 const listMock = vi.fn();
 const startChat = vi.fn();
+/** Colleagues who can open the messenger (ERP + messages.use) */
+let messageable = new Set(["u-anna"]);
 const permissions = vi.hoisted(() => ({ crm: true }));
 
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
@@ -30,6 +32,7 @@ vi.mock("@/components/v2/messages/chat-provider", () => ({
 }));
 vi.mock("@/components/v2/messages/use-start-direct-chat", () => ({
   useStartDirectChat: () => startChat,
+  useCanMessage: () => (userId: string) => messageable.has(userId),
 }));
 
 const row = (overrides: Partial<ContactDirectoryRow>): ContactDirectoryRow => ({
@@ -96,6 +99,7 @@ describe("HeaderContacts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     permissions.crm = true;
+    messageable = new Set(["u-anna"]);
     listMock.mockResolvedValue({ success: true, data: page });
   });
 
@@ -134,6 +138,14 @@ describe("HeaderContacts", () => {
 
     fireEvent.click(message[0]!);
     expect(startChat).toHaveBeenCalledWith("u-anna");
+  });
+
+  it("offers no message to an employee without the messenger (portal-only account)", async () => {
+    messageable = new Set();
+    openDrawer();
+    await screen.findByText("Anna Zielińska");
+
+    expect(screen.queryByRole("button", { name: "message" })).not.toBeInTheDocument();
   });
 
   it("filters by kind and searches on the server", async () => {

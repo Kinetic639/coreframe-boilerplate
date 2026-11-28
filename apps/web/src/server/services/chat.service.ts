@@ -30,6 +30,8 @@ const LEGACY_MESSAGE_COLUMNS =
 const MESSAGE_COLUMNS = `${LEGACY_MESSAGE_COLUMNS}, reactions, media`;
 /** Postgres "undefined column": the reactions migration is not applied yet */
 const UNDEFINED_COLUMN = "42703";
+/** Postgres "undefined function": a newer chat migration is not applied yet */
+const UNDEFINED_FUNCTION = "42883";
 
 /** Postgres error → stable error code for the client (no internal messages leak) */
 export function chatErrorCode(error: { code?: string } | null | undefined): ChatErrorCode {
@@ -272,6 +274,21 @@ export class ChatService {
     });
     if (error) return fail(error, "openDirect");
     return { success: true, data: data as string };
+  }
+
+  /**
+   * Ids of colleagues the caller can message: active members with the ERP and
+   * `messages.use` (migration 20261202090000_chat_people_erp_only.sql). Null
+   * while that migration is not applied yet, so callers keep every member.
+   */
+  static async listPeopleIds(
+    supabase: SupabaseClient,
+    orgId: string
+  ): Promise<ServiceResult<Set<string> | null>> {
+    const { data, error } = await supabase.rpc("chat_list_people", { p_org: orgId });
+    if (error?.code === UNDEFINED_FUNCTION) return { success: true, data: null };
+    if (error) return fail(error, "listPeopleIds");
+    return { success: true, data: new Set((data ?? []) as string[]) };
   }
 
   static async createGroup(
