@@ -24,7 +24,9 @@
       "website": "Strona Ambra",
       "makeDefault": "Otwieraj {app} od razu po zalogowaniu",
       "removeDefault": "Nie otwieraj {app} od razu po zalogowaniu",
-      "isDefault": "Otwiera się po zalogowaniu"
+      "isDefault": "Otwiera się po zalogowaniu",
+      "opening": "Otwieramy {app}…",
+      "openingHint": "To może potrwać kilka sekund."
     }
   }
 }

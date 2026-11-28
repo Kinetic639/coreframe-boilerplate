@@ -86,4 +86,43 @@ describe("AppChooser", () => {
     fireEvent.click(checkbox);
     await waitFor(() => expect(checkbox).not.toBeChecked());
   });
+
+  it("shows at once that the chosen app is opening and ignores repeat clicks", () => {
+    const assign = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...original, assign },
+    });
+    try {
+      renderChooser();
+      const requests = screen.getByRole("link", { name: /Zgłoszenia/ });
+      fireEvent.click(requests);
+      expect(assign).toHaveBeenCalledWith("https://zapytania.example/");
+      expect(screen.getByRole("status")).toHaveTextContent("Otwieramy Zgłoszenia…");
+      expect(requests).toHaveAttribute("aria-busy", "true");
+
+      fireEvent.click(screen.getByRole("link", { name: /Ambra ERP/ }));
+      expect(assign).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: original });
+    }
+  });
+
+  it("leaves ctrl-click to the browser (new tab)", () => {
+    const assign = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...original, assign },
+    });
+    try {
+      renderChooser();
+      fireEvent.click(screen.getByRole("link", { name: /Zgłoszenia/ }), { ctrlKey: true });
+      expect(assign).not.toHaveBeenCalled();
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: original });
+    }
+  });
 });

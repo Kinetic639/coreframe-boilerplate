@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { AmbraWorkApp } from "@repo/app-urls";
 import { AMBRA_APP_LOOK } from "@repo/ui/app-switcher";
+import {
+  AppTransitionScreen,
+  isPlainLeftClick,
+  usePendingNavigation,
+} from "@repo/ui/app-transition";
 import { BrandLogoMarkHover } from "@repo/ui/branding";
 import { signOutAction } from "@/app/[locale]/actions";
 import { cn } from "@/lib/utils";
@@ -56,6 +61,10 @@ export function AppChooser({
   const t = useTranslations("ambraApps");
   const [openLastChecked, setOpenLastChecked] = useState(openLast);
   const [, startTransition] = useTransition();
+  // Each app lives on its own subdomain: a full page load that can take a few
+  // seconds. Mark the chosen app and cover the page at once, so nobody clicks again.
+  const { pending: pendingApp, start: openApp } = usePendingNavigation<AmbraWorkApp>();
+  const pendingLook = pendingApp ? AMBRA_APP_LOOK[pendingApp] : null;
 
   const onOpenLastChange = (checked: boolean) => {
     setOpenLastChecked(checked);
@@ -122,10 +131,19 @@ export function AppChooser({
               const look = AMBRA_APP_LOOK[app.id];
               const Icon = look.icon;
               const isLast = app.id === lastApp;
+              const isPending = app.id === pendingApp;
               return (
                 <li key={app.id} className="border-b border-border last:border-b-0">
                   <a
                     href={app.href}
+                    aria-disabled={pendingApp ? true : undefined}
+                    aria-busy={isPending || undefined}
+                    onClick={(event) => {
+                      if (!isPlainLeftClick(event)) return;
+                      event.preventDefault();
+                      if (pendingApp) return;
+                      openApp(app.id, app.href);
+                    }}
                     className={cn(
                       "flex min-h-[68px] items-center gap-3.5 px-4 text-foreground no-underline transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-500 lg:min-h-0 lg:py-3.5",
                       isLast &&
@@ -163,7 +181,14 @@ export function AppChooser({
                         {t(`descriptions.${app.id}`)}
                       </span>
                     </span>
-                    <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground lg:h-[18px] lg:w-[18px]" />
+                    {isPending ? (
+                      <Loader2
+                        aria-hidden="true"
+                        className="h-5 w-5 shrink-0 animate-spin text-amber-600 dark:text-amber-400 lg:h-[18px] lg:w-[18px]"
+                      />
+                    ) : (
+                      <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground lg:h-[18px] lg:w-[18px]" />
+                    )}
                   </a>
                 </li>
               );
@@ -180,6 +205,14 @@ export function AppChooser({
           </label>
         </section>
       </div>
+      {pendingApp && pendingLook ? (
+        <AppTransitionScreen
+          title={t("switcher.opening", { app: t(`names.${pendingApp}`) })}
+          hint={t("switcher.openingHint")}
+          icon={pendingLook.icon}
+          tileClassName={pendingLook.tile}
+        />
+      ) : null}
     </div>
   );
 }

@@ -64,6 +64,8 @@ export function HeaderAppSwitcher({ apps }: { apps: AmbraWorkApp[] }) {
         makeDefault: (app) => t("switcher.makeDefault", { app }),
         removeDefault: (app) => t("switcher.removeDefault", { app }),
         isDefault: t("switcher.isDefault"),
+        opening: (app) => t("switcher.opening", { app }),
+        openingHint: t("switcher.openingHint"),
       }}
       websiteHref={appUrl("site", locale === "en" ? "/en" : "/")}
       defaultApp={defaultApp}

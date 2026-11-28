@@ -507,7 +507,9 @@
       "passwordPlaceholder": "Your password",
       "forgotPassword": "Forgot password?",
       "submit": "Sign in",
-      "pending": "Signing in..."
+      "pending": "Signing in...",
+      "redirecting": "Signed in. Opening Ambra…",
+      "redirectingHint": "This can take a few seconds."
     },
     "SignUpForm": {
       "title": "Sign up",
@@ -10608,7 +10610,9 @@
       "website": "Ambra website",
       "makeDefault": "Open {app} straight after sign-in",
       "removeDefault": "Stop opening {app} straight after sign-in",
-      "isDefault": "Opens after sign-in"
+      "isDefault": "Opens after sign-in",
+      "opening": "Opening {app}…",
+      "openingHint": "This can take a few seconds."
     },
     "chooser": {
       "metaTitle": "Choose an app",
