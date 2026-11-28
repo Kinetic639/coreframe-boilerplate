@@ -24,7 +24,9 @@
       "website": "Ambra website",
       "makeDefault": "Open {app} straight after sign-in",
       "removeDefault": "Stop opening {app} straight after sign-in",
-      "isDefault": "Opens after sign-in"
+      "isDefault": "Opens after sign-in",
+      "opening": "Opening {app}…",
+      "openingHint": "This can take a few seconds."
     }
   }
 }

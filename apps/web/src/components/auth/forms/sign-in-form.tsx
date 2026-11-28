@@ -9,7 +9,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { AppTransitionScreen } from "@repo/ui/app-transition";
 import { z } from "zod";
 import { AuthCard } from "../AuthCard";
 
@@ -29,6 +30,15 @@ export function SignInForm({ message, returnUrl }: SignInFormProps) {
   const t = useTranslations("authForms.SignInForm");
   const [isNavigating, setIsNavigating] = useState(false);
 
+  // Back from the next page via the back/forward cache: the form is usable again.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setIsNavigating(false);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
+
   const {
     register,
     formState: { errors, isSubmitting },
@@ -38,6 +48,15 @@ export function SignInForm({ message, returnUrl }: SignInFormProps) {
 
   return (
     <AuthCard showImage={true} variant="signin">
+      {/*
+        Signed in: the session cookie is set and the header already shows the
+        user, while the next page (chooser or default app, often on another
+        subdomain) loads. Cover the page from now until it unloads, so the
+        emptied form is never seen and nobody signs in twice.
+      */}
+      {isNavigating ? (
+        <AppTransitionScreen title={t("redirecting")} hint={t("redirectingHint")} />
+      ) : null}
       <form
         action={async (formData) => {
           const { redirectTo } = await signInAction(formData);

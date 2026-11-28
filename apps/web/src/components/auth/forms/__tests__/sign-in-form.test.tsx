@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SignInForm } from "../sign-in-form";
 
@@ -18,9 +18,8 @@ vi.mock("@/i18n/navigation", () => ({
   ),
 }));
 
-vi.mock("@/app/[locale]/actions", () => ({
-  signInAction: vi.fn(),
-}));
+const { signInAction } = vi.hoisted(() => ({ signInAction: vi.fn() }));
+vi.mock("@/app/[locale]/actions", () => ({ signInAction }));
 
 vi.mock("../AuthCard", () => ({
   AuthCard: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -52,5 +51,24 @@ describe("SignInForm", () => {
       "/forgot-password"
     );
     expect(screen.getByText("Signed out")).toBeInTheDocument();
+  });
+
+  it("covers the page with a redirecting screen once signed in, instead of an empty form", async () => {
+    const replace = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...original, replace },
+    });
+    signInAction.mockResolvedValue({ redirectTo: "https://app.example/apps" });
+    try {
+      const { container } = render(<SignInForm />);
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      fireEvent.submit(container.querySelector("form")!);
+      await waitFor(() => expect(replace).toHaveBeenCalledWith("https://app.example/apps"));
+      expect(screen.getByRole("status")).toHaveTextContent("redirecting");
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: original });
+    }
   });
 });
